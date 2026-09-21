@@ -1,6 +1,6 @@
 # Organizer staging integration — retained revisions
 
-Local app reads/writes `wss://relay-staging.bitcoinwalk.org` (public NIP-11 verified organizer mode 0.3.0 on 19 September 2026). The user installed the retained-history upgrade; protected backup: `/var/backups/bitcoinwalk-approved-revisions.rr06ol`. The matching web changes are activated locally. DNS, chat, legacy services and existing signed records were not changed. Staging proposals are publicly readable.
+Local app reads/writes `wss://relay-staging.bitcoinwalk.org` (organizer mode 0.3.0 was verified on 19 September 2026; the relay advertised 0.6.0 on 21 September). The user installed the retained-history upgrade; protected backup: `/var/backups/bitcoinwalk-approved-revisions.rr06ol`. The matching web changes are activated locally. DNS, chat, legacy services and existing signed records were not changed. Staging proposals are publicly readable.
 
 ## Implemented
 
@@ -24,9 +24,9 @@ Local app reads/writes `wss://relay-staging.bitcoinwalk.org` (public NIP-11 veri
 
 Approve revision A; use `/organizer` to submit edit B; verify A remains public. Reject B; verify A remains public. Approve edit C; verify C appears. These actions require human signatures; `/start` creates a new city, not an edit. Do not claim this test has passed on the VPS yet. See `organizer-editor.md` for the full test sequence. The editor and expanded review are locally active; 51 tests, TypeScript and changed-code lint pass.
 
-## Explicitly not complete
+## Still to verify
 
-- Editor-management UI and retained-history human acceptance. Organizer content editing is now available at `/organizer`. Previously overwritten pre-upgrade records cannot be recovered automatically.
-- Revocation action UI (resolution is fixed, action remains absent), city-name uniqueness enforcement, pagination beyond the initial 500 records, and stronger read-failure reporting.
-- NIP-52 publication remains blocked by relay policy; no automatic calendar publication added.
-- Browser-signing acceptance has not been automated or claimed. Chat troubleshooting remains paused; paid provisioning and production migration unchanged.
+- Human editor grant/removal and retained-history acceptance. Organizer content editing is available at `/organizer`, and editor management is implemented locally. Previously overwritten pre-upgrade records cannot be recovered automatically.
+- City-name uniqueness, pagination beyond the initial 500 records, and stronger read-failure reporting remain separate work.
+- The relay now advertises 0.6.0 with organizer occurrence policy markers. Organizer web publication is still awaiting release and signed acceptance; no automatic calendar publication was added.
+- Browser-signing acceptance has not been automated or claimed. Paid provisioning and production migration remain separate work. See [the current backlog](project-backlog.md) for later moderation and chat status.

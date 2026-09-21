@@ -3,7 +3,7 @@
 Last reviewed: 21 September 2026  
 Tracking rule: keep this file current whenever an item changes status, scope, dependency, or verification result. The file is the maintained source; a separate Plan task is not automatically synchronized.
 
-Latest acceptance: a read-only audit on 21 September found staging app 0.3.6 active and healthy through loopback and public HTTPS; this does not establish human acceptance of its newer workflows. The user confirmed the 0.3.2 standard map pin/zoom fix on walk creation, submitted a Warsaw Paid-tier request, and received an encrypted approval DM from the deployed BitcoinWalk Guide. Guide's public profile was subsequently published; Armada display-name refresh remains to be confirmed. Paid payment/entitlement/provisioning remains separate and Warsaw correctly still uses the shared staging URL.
+Latest acceptance: a read-only audit on 21 September found staging app 0.3.6 active and healthy through loopback and public HTTPS. The staging relay now advertises `bitcoinwalk-organizers-0.6.0`; its active executable contains `occurrence-v1` and current-approval/editor validation markers. These checks do not prove a signed organizer publication or human acceptance of the newer workflows. The user confirmed the 0.3.2 standard map pin/zoom fix on walk creation, submitted a Warsaw Paid-tier request, and received an encrypted approval DM from the deployed BitcoinWalk Guide. Guide's public profile was subsequently published; Armada display-name refresh remains to be confirmed. Paid payment/entitlement/provisioning remains separate and Warsaw correctly still uses the shared staging URL.
 
 ## Status key
 
@@ -24,7 +24,7 @@ Latest acceptance: a read-only audit on 21 September found staging app 0.3.6 act
 | 4. Create + approve walks | 🟢 Done | Submit, relay authentication, super-admin approval, and private preview are working. Free and Paid-request submissions have both passed human testing; Paid selection is not entitlement. |
 | 5. Organizer editing + permissions | 🟠 In progress | Organizer editing, retained revision handling, and local super-admin editor management are implemented. Real add/remove, cross-account, and edit/reject/reapprove acceptance remain. |
 | 6. Discovery | 🟠 In progress | Homepage search, list/map, city links, and featured-card support are implemented against staging. Human map/search acceptance and confirmed featured entitlements remain. |
-| 7. Nostr interoperability | 🟠 In progress | Approval-bound admin NIP-52 publication, deletion, and local `nevent` resolution are implemented on staging. Organizer batch-sign/publish and occurrence routes are prepared locally, but relay authorization, deployment, signed acceptance, external discovery and propagation remain. Free uses the shared relay; paid uses its provisioned city relay. |
+| 7. Nostr interoperability | 🟠 In progress | Approval-bound admin NIP-52 publication and deletion are implemented on staging. Relay 0.6.0 contains organizer occurrence policy markers; organizer batch-sign/publish, occurrence routes and `nevent` resolution are prepared locally. Web deployment, signed acceptance, external discovery and propagation remain. Free uses the shared relay; paid uses its provisioned city relay. |
 | 8. Media + sharing | 🟠 In progress | Hero-image URL works. VPS upload, image generation, sponsor support, transparent BitcoinWalk logo, and OG image generation remain. |
 | 9. Paid city bundle | 🟠 In progress | Free/Paid plan selection and signed tier requests are live on staging. Rustress payment, entitlement verification, NIP-05, LNURL 79/21 split, paid subdomain, and dedicated-relay provisioning remain. |
 | 10. Security + launch | 🟠 In progress | Khatru staging, protected relay backup, global chat staging, and an isolated Austin dedicated-relay pilot exist. Production migration, security controls, monitoring, and full pilot acceptance remain. |
@@ -37,17 +37,19 @@ The table above defines the full BitcoinWalk scope. The backlog below breaks tho
 
 | ID | Stage | Item | Status | Dependencies / acceptance |
 |---|---:|---|---|---|
-| BW-37 | 7 | Organizer NIP-52 occurrence publishing | 🟠 In progress | Versioned occurrence contract documented. Local signer-owned selected-occurrence batch publishing, exact read-back and same-signature retries are implemented; 148 web tests pass. Relay authorization, deployment and human signed acceptance remain; no new publishing capability is confirmed live. |
+| BW-37 | 7 | Organizer NIP-52 occurrence publishing | 🟠 In progress | Versioned occurrence contract documented. Local signer-owned selected-occurrence batch publishing, exact read-back and same-signature retries are implemented; 150 web tests pass. Live relay advertises 0.6.0 and its executable contains occurrence/current-approval/editor validation markers. Deploy the matching web changes and complete human signed publication/read-back; read-only checks do not prove writes succeed. |
 | BW-38 | 7 | Recurring walk schedules | 🟠 In progress | Release 0.3.3 restored `/organizer/events`. Saturday default (editable), eight rolling browser-local drafts, one-off/weekly/fortnightly preview, skip/pause/resume, automatic city timezone/DST handling, and event-specific map are deployed. Route/health installer checks passed; human approved-city load and draft-control acceptance remain. Publication depends on BW-37. |
 | BW-39 | 7, 10 | Event moderation and publishing suspension | 🟠 In progress | Local address-scoped event routing/moderation checks and tests added. Relay enforcement, signed hide/unhide, city/author publishing suspension, replay and human acceptance remain. Existing city creator cannot be removed from grants; suspension must cover this case. |
 | BW-40 | 3, 7 | Next/upcoming/past city events and organizer deep links | 🟠 In progress | Local city/occurrence routes and current-or-next/upcoming/past selection added. Needs organizer-author provenance/moderation enforcement, deployment and human/external discovery and cancellation acceptance. Depends on BW-37/BW-39. |
 
-NIP-52 update (19 September): organizer relay 0.4.0 calendar policy prepared with
-exact approval/revision binding, canonical-field validation and stale/revoked read
-filtering. Local relay race/vet checks and 75 staged web tests pass. Awaiting user
-installation; publication controls, nevent pages, human-signed acceptance and
-external app discovery remain unfinished. No real calendar events published.
-Cancellation propagation and multi-occurrence scheduling remain explicit follow-up work.
+NIP-52 status (21 September): the earlier 0.4.0 admin calendar policy and 0.5.0
+moderation release have been superseded by live relay 0.6.0. Public NIP-11 and
+the active service were checked read-only; the executable contains occurrence-v1,
+current-approval and editor-validation markers. This corroborates the deployed
+policy version but does not establish signed organizer write/read-back, moderation,
+or external-client behavior. The web's organizer publication and occurrence pages
+remain local until a coordinated release and acceptance. Cancellation propagation
+and multi-occurrence scheduling remain follow-up work.
 
 Homepage update (19 September): approved city directory implemented with search,
 list/map, city links and featured paid-city/sponsor card support. Browser displays
@@ -79,7 +81,7 @@ Public staging reads work; the older Zooid/public-read-blocked stage notes do
 not describe the current local/staging environment. Production migration remains
 outstanding. See `organizer-staging.md`.
 
-Organizer integration update: local `/start` and `/admin` now target verified Khatru `relay-staging.bitcoinwalk.org`; creator registration precedes first approval, existing grants are preserved, and latest-decision/tag-bound resolution is implemented. 35 tests/build pass; local page rendering confirms staging. Human signer acceptance is pending. Editing UI and approved-snapshot/history design remain outstanding; no legacy record migration. See `organizer-staging.md`.
+Earlier organizer integration update: local `/start` and `/admin` target verified Khatru `relay-staging.bitcoinwalk.org`; creator registration precedes first approval, existing grants are preserved, and latest-decision/tag-bound resolution is implemented. Editing UI and approved-snapshot/history were subsequently implemented. Human retained-history acceptance and any legacy record migration remain outstanding. See `organizer-staging.md`.
 
 Chat integration update (18 September): the separate Khatru staging chat and external Armada cross-client delivery have passed human testing; hosted Armada and signer transport were retired with a recoverable archive. This does not yet migrate the web app's city-record relay or the legacy production chat.
 
@@ -94,7 +96,7 @@ Chat integration update (18 September): the separate Khatru staging chat and ext
 | BW-07 | 3 | City-page content | 🟢 Done | BW-06 | Hero image, walk details, map location, and copyable meeting coordinates are shown. |
 | BW-08 | 2, 3 | Anonymous public relay reads | 🟠 In progress | Production migration | Approved city proposals are publicly readable on Khatru staging and public rendering selects the approved revision. Production relay migration and retained-history browser acceptance remain. |
 | BW-09 | 6 | Public city directory | 🟠 In progress | BW-08 | Local homepage list/search/map and featured sponsor cards implemented; four approved staging cards verified. Human map/search acceptance and confirmed featured-city configuration remain. |
-| BW-10 | 7 | Publish NIP-52 dated events | 🟠 In progress | BW-04, BW-05 | Approval-bound policy 0.4.0 installed on staging; explicit super-admin publication controls active at `/admin/calendar`. 80 web tests and production build pass. Human signed publication/read-back and external-app discovery acceptance remain. No automatic publication or external fanout. |
+| BW-10 | 7 | Publish NIP-52 dated events | 🟠 In progress | BW-04, BW-05 | The admin calendar policy introduced in relay 0.4.0 remains part of the now-advertised 0.6.0 relay; explicit super-admin controls are at `/admin/calendar`. Human signed publication/read-back and external-app discovery acceptance remain. No automatic publication or external fanout. |
 | BW-11 | 0, 5 | Organizer editing and editor allow-list | 🟠 In progress | BW-05 | Organizer editing reported working by user. `/admin/editors` add/remove UI implemented; 58 tests pass. Human editor grant/removal and cross-account UI acceptance remain. |
 | BW-12 | 3, 7 | Public URL and Nostr deep-link resolution | 🟠 In progress | BW-08, BW-10 | Local `/nevent1…` resolution and copyable links implemented with verified current approval, configured relays only and explicit unavailable states. Human signed-event acceptance remains. Paid subdomain routing is Stage 9 work. |
 | BW-22 | 3 | City-page external Armada chat integration | 🟢 Done | Verified staging chat | One shared button for public/authenticated city pages; operator-controlled global/dedicated routing, pending state, automatic chat link on submission. All 28 tests and production build pass; lint has two existing image warnings. Browser verified `/austin` has one official Armada link and staging label. Real paid provisioning and production migration remain BW-23/BW-24. See chat-integration.md. |
@@ -138,7 +140,7 @@ Chat integration update (18 September): the separate Khatru staging chat and ext
 | ID | Stage | Item | Status | Dependencies / acceptance |
 |---|---:|---|---|---|
 | BW-25 | 5, 10 | Unified moderation: reject, approve/disapprove, restore and free-city archive | 🟠 In progress | Local `/admin` implemented with exact signed decisions, stale-state checks, confirmations and relay read-back. Human acceptance pending. Archive is reversible retained revocation; no infrastructure deletion. |
-| BW-26 | 7, 10 | Delete published calendar event | 🟠 In progress | User installed relay 0.5.0; public NIP-11 version and health independently verified. Protected backup: `/var/backups/bitcoinwalk-moderation.rCrsSB`. Calendar publish/delete was reported smooth; broader restore, republishing and external propagation acceptance remain. Exact-ID deletion tombstones stop serving/replay while preserving history. |
+| BW-26 | 7, 10 | Delete published calendar event | 🟠 In progress | User installed relay 0.5.0 for this policy; live relay now advertises 0.6.0. Protected backup: `/var/backups/bitcoinwalk-moderation.rCrsSB`. Calendar publish/delete was reported smooth; broader restore, republishing and external propagation acceptance remain. Exact-ID deletion tombstones stop serving/replay while preserving history. |
 | BW-27 | 4, 5 | Personal organizer invitations | 🟠 In progress | NIP-17 preview, signed inbox discovery, extension encryption/signing, recipient and sender copies implemented. Public registration URL and compatible signer/inbox setup needed; human delivery acceptance pending. Registration remains open and ordinary approval required. |
 | BW-28 | 9, 10 | Paid-tier entire-relay deletion | ⚪ Planned | BW-20/BW-23 verified infrastructure inventory, backup/recovery plan, typed target confirmation, signed explicit warning and validated server execution. Disabled in local admin. Never inferred from absence in the paid registry. |
 | BW-29 | 9, 10 | Transfer paid relay to owner node | ⚪ Planned | Verified export/import, secure relay-identity transfer, synchronization/cutover and rollback; package relay plus city dashboard for Umbrel/Start9. No source teardown until destination verification. |
@@ -148,7 +150,7 @@ Chat integration update (18 September): the separate Khatru staging chat and ext
 | BW-36 | 5 | Persistent admin city-walk link | 🟢 Done | BW-05, BW-07. Release 0.3.1 adds Open BitcoinWalk [city] beside approved managed cities, with a separate-tab link and unavailable explanation for non-public cities. User confirmed it works. Tests, TypeScript, build and lint passed. |
 | BW-34 | 0, 4 | Optional profile rebranding and mobile onboarding | ○ Future | Separate current-profile lookup, field-preserving preview and explicit signature to rename a chosen identity; warn changes affect the account across Nostr. Mobile/remote signer connection needs its own supported flow. Never generate/store nsecs in BitcoinWalk. Depends on BW-33 acceptance. |
 | BW-31 | 4 | Restore city autocomplete with a suitable provider | ○ Future | User approved temporary explicit Search city. Public Nominatim prohibits autocomplete. Select a compatible hosted or self-hosted provider with appropriate limits before restoring type-ahead; keep single City field and map selection. |
-| BW-32 | 10 | Public staging app deployment | 🟢 Done | Read-only audit on 21 September found release 0.3.6 active, Caddy proxy valid, and prior release 0.3.5 retained; see `app-staging-runbook.md`. Local standalone packaging is now a separate CI-checked command and performs no deployment. This is health/configuration verification, not human workflow acceptance. Release 0.3.2 had a user-confirmed map fix; 0.3.3 restored `/organizer/events`. Historical backups include `/var/backups/bitcoinwalk-events-route.xE5KPJ` and `/var/backups/bitcoinwalk-map-recovery.Hk4l8v`; their contents were not audited. Production/legacy cutover remains separate. |
+| BW-32 | 10 | Public staging app deployment | 🟢 Done | Read-only audit on 21 September found release 0.3.6 active, Caddy proxy valid, and prior release 0.3.5 retained; see `app-staging-runbook.md`. CI now packages and smoke-tests the standalone archive but does not deploy it. This is health/configuration verification, not human workflow acceptance. Release 0.3.2 had a user-confirmed map fix; 0.3.3 restored `/organizer/events`. Historical backups include `/var/backups/bitcoinwalk-events-route.xE5KPJ` and `/var/backups/bitcoinwalk-map-recovery.Hk4l8v`; their contents were not audited. Production/legacy cutover remains separate. |
 
 Calendar publish/delete acceptance: user reported the workflow completed smoothly. Broader restore/republication and external-client propagation checks remain separately tracked.
 

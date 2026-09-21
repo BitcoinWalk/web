@@ -1,6 +1,6 @@
 # Calendar publication staging acceptance — 19 September 2026
 
-Relay policy 0.4.0 is installed on relay-staging.bitcoinwalk.org. User-reported protected backup: `/var/backups/bitcoinwalk-calendar.jWh5AU`. Local web publication controls are active at http://localhost:3000/admin/calendar. No real calendar event was signed or published by the agent.
+At this 19 September acceptance snapshot, relay policy 0.4.0 was installed on relay-staging.bitcoinwalk.org. The relay advertised 0.6.0 in a read-only check on 21 September; see [the current backlog](project-backlog.md) for the organizer occurrence release boundary. User-reported protected backup: `/var/backups/bitcoinwalk-calendar.jWh5AU`. Local web publication controls are active at http://localhost:3000/admin/calendar. No real calendar event was signed or published by the agent.
 
 ## Human acceptance
 

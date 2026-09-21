@@ -19,8 +19,11 @@ The city timezone is derived automatically from the approved map coordinates; de
 - UTC day-tag helper covers the full interval, with exclusive end handling.
 - No signature request, publication, permission change, database change or deployment.
 
-The deployed organizer relay remains 0.5.0 and rejects organizer calendar writes.
-The preview says this plainly. Do not wire publication through the legacy admin path.
+The deployed organizer relay now advertises 0.6.0. A read-only audit found
+`occurrence-v1` and approval/editor validation markers in its active executable;
+no signed organizer publication has been tested. The local publishing flow is
+separate from the legacy admin calendar path. Do not claim the web publishing
+flow is live until the matching web release and signed acceptance pass.
 
 ## Increment 2 — relay contract and moderation (required before publication)
 
