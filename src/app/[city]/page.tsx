@@ -28,16 +28,21 @@ export default async function CityOrEventPage({params}:{params:Promise<{city:str
   const migrated=paidCityForSlug(city,directoryConfig.paidCities);
   if(migrated)redirect(`https://${migrated.slug}.bitcoinwalk.org`);
   if(paidHost)notFound();
+  let outcome: {state:"unavailable"}|{state:"missing"}|{state:"ready";cityName:string;eventHref?:string};
   try{
     const walks=await loadCalendarWalks(relayConfig.readRelays);
     const walk=walks.find(item=>item.revision.city.slug===city);
-    if(!walk)notFound();
-    const events=await queryCalendarEvents(relayConfig.readRelays,{cityId:walk.revision.city.cityId});
-    const event=currentOrNextEvent(walk,events);
-    if(event)redirect(`/${encodeURIComponent(city)}/${calendarNevent(event,relayConfig.readRelays)}`);
-    return <main><h1>BitcoinWalk {walk.revision.city.cityName}</h1><p>No upcoming walk has been scheduled.</p><p><Link href="/">Browse BitcoinWalks</Link></p></main>;
-  }catch(error){
-    if(error&&typeof error==="object"&&"digest" in error)throw error;
-    return <main><h1>Walk temporarily unavailable</h1><p>The relay could not be read. Please try again later.</p></main>;
+    if(!walk)outcome={state:"missing"};
+    else{
+      const events=await queryCalendarEvents(relayConfig.readRelays,{cityId:walk.revision.city.cityId});
+      const event=currentOrNextEvent(walk,events);
+      outcome={state:"ready",cityName:walk.revision.city.cityName,eventHref:event?`/${encodeURIComponent(city)}/${calendarNevent(event,relayConfig.readRelays)}`:undefined};
+    }
+  }catch{
+    outcome={state:"unavailable"};
   }
+  if(outcome.state==="unavailable")return <main><h1>Walk temporarily unavailable</h1><p>The relay could not be read. Please try again later.</p></main>;
+  if(outcome.state==="missing")notFound();
+  if(outcome.eventHref)redirect(outcome.eventHref);
+  return <main><h1>BitcoinWalk {outcome.cityName}</h1><p>No upcoming walk has been scheduled.</p><p><Link href="/">Browse BitcoinWalks</Link></p></main>;
 }

@@ -1,9 +1,11 @@
 # BitcoinWalk Guide — notification-only staging pilot
 
-Status: implemented and tested locally; NOT deployed or sending. The read-only
-dry run on 20 September 2026 succeeded against the organizer staging relay and
-the existing super-admin's advertised inbox list. Live Armada delivery remains
-an acceptance test. No bot private key has been generated during development.
+Status: the [backlog](project-backlog.md) reports that the notification worker is
+installed on staging, its VPS bot key was generated, a real encrypted approval DM
+arrived in Armada, and the public bot profile was published. Display-name refresh,
+exact review-link behavior, restart deduplication and mobile push remain acceptance
+items. The initial dry run on 20 September 2026 succeeded against the organizer
+staging relay and the super-admin's advertised inbox list.
 
 ## Identity and scope
 
@@ -48,9 +50,10 @@ configuration review. NIP-42 transport authentication uses only the bot key.
 For the configured super-admin, the discovery result advertised:
 `wss://auth.nostr1.com/`, `wss://relay.keychat.io/`, `wss://relay.ditto.pub/`.
 Discovery relays are `wss://relay.damus.io/` and `wss://nos.lol/`.
-These results confirm routing configuration, not successful delivery or push.
+That initial discovery confirmed routing configuration; the later Armada DM
+confirmed one delivery, while mobile push remains unverified.
 
-## Package installation (only after transfer)
+## Package installation (historical procedure; review before reuse)
 
 The package requires the already-installed app-private Node runtime at
 `/opt/bitcoinwalk-app-staging/runtime/bin/node`. It opens no listening port and
@@ -98,10 +101,10 @@ The bot may initially appear under message requests. Enable device/app notificat
 as desired; BitcoinWalk cannot guarantee push popups. Check the sender's npub
 against the public identity printed by the installer.
 
-Click Review, connect the super-admin signer, and load submissions. Local web code
-now scrolls to the exact matching revision using `#submission-<id>`; that small web
-change needs deployment separately. Until then the link opens the existing admin
-page and the message includes the full City ID and revision for manual matching.
+Click Review, connect the super-admin signer, and load submissions. Web code
+scrolls to the matching revision using `#submission-<id>`; verify the deployed
+version before relying on that behavior. The message includes the full City ID
+and revision for manual matching.
 No signature is requested by opening a link. A completed request can be absent
 from the pending list; the link itself never grants approval authority.
 

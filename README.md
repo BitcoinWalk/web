@@ -12,21 +12,40 @@ server-side caching exists only for resilient discovery, page rendering, and lin
 - Signed organizer submission route, with explicit relay configuration required
 - Tests for route-tier and Nostr calendar-event essentials
 
-The visual interface is intentionally minimal. Product UI/UX will be implemented separately from protocol
-and application logic.
-
 See [the protocol decisions](docs/protocol-design.md) before changing the event model.
 
-## Local relay configuration
+## Local development
 
-Create `.env.local` when the BitcoinWalk Khatru relay is available:
+Use Node.js 20.9 or newer (the staging deployment uses Node 24). Install the locked dependencies and start the app:
 
-```text
-NEXT_PUBLIC_READ_RELAYS=wss://relay.bitcoinwalk.org
-NEXT_PUBLIC_WRITE_RELAYS=wss://relay.bitcoinwalk.org
+```sh
+npm ci
+npm run dev
 ```
 
-The app does not default to public relays; submissions stay local until a BitcoinWalk relay is deliberately configured.
-If the relay requires NIP-42 authentication, the organizer's browser extension receives a separate signing request.
-The admin queue also uses the super-admin browser signer when a relay restricts reads with NIP-42.
-While a relay is private, use `/preview/<city>` to load an approved city page through a browser signer.
+Open `http://localhost:3000`. Useful routes are `/` (directory), `/start` (new walk), `/organizer` (edit a walk), `/organizer/events` (recurrence drafts), and `/admin` (moderation). The API health check is `/api/healthz`. Organizer and admin actions need a compatible Nostr browser-extension signer and the right account; local development does not provision an identity or grant permissions.
+
+Run `npm test`, `npm run lint`, and `npx tsc --noEmit --incremental false` for local checks. `npm run build` runs TypeScript and the Next.js production build, writing `.next/`. `npm run start` serves that build. Guide is a separate server-only worker: `npm run guide:build` creates `guide-build/`; see [Guide operations](docs/bitcoinwalk-guide.md) before running it.
+
+The GitHub Actions workflow runs those checks after `npm ci` on pull requests and pushes to `main` on the GitHub mirror. ngit remains the primary `origin` remote; commits pushed only to ngit do not trigger GitHub Actions until they are mirrored to GitHub.
+
+## Relay and service configuration
+
+Create `.env.local` in the repository root when you have an appropriate BitcoinWalk relay:
+
+```text
+NEXT_PUBLIC_READ_RELAYS=wss://relay-staging.bitcoinwalk.org
+NEXT_PUBLIC_WRITE_RELAYS=wss://relay-staging.bitcoinwalk.org
+```
+
+Both values are comma-separated `wss://` relay lists. They have no default; relay-backed pages and submissions need explicit configuration. `NEXT_PUBLIC_` values are exposed to the browser and baked into production builds. Restart the dev server after changing `.env.local`.
+
+| Optional variable | Purpose |
+|---|---|
+| `NEXT_PUBLIC_PROFILE_RELAYS` | Public profile lookups; defaults to `wss://relay.damus.io,wss://nos.lol`. |
+| `NEXT_PUBLIC_ORGANIZER_INVITE_URL` | Registration URL shown in organizer invitations. |
+| `GEOCODE_SEARCH_URL` | Server-side city-search provider; defaults to the Nominatim search endpoint. |
+
+The Guide worker reads `GUIDE_CONFIG` and systemd credential/state directories separately; its [operator guide](docs/bitcoinwalk-guide.md) describes them. Do not put private keys in `.env.local`. If a relay requires NIP-42 authentication, the browser extension receives a separate signing request. Use `/preview/<city>` for authenticated preview when public relay reads are unavailable.
+
+See the [delivery backlog](docs/project-backlog.md) for staged features and acceptance still pending. Staging deployment notes are historical context, not a local installation command.
