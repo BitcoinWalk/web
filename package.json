@@ -8,6 +8,7 @@
     "dev": "next dev",
     "build": "next typegen && tsc --noEmit && next build",
     "release:package": "node scripts/package-staging.mjs",
+    "release:smoke": "node scripts/smoke-staging-package.mjs",
     "typecheck": "next typegen && tsc --noEmit --incremental false",
     "start": "next start",
     "lint": "eslint .",
