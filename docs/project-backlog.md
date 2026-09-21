@@ -3,7 +3,7 @@
 Last reviewed: 21 September 2026  
 Tracking rule: keep this file current whenever an item changes status, scope, dependency, or verification result. The file is the maintained source; a separate Plan task is not automatically synchronized.
 
-Latest acceptance: staging app 0.3.3 is installed. The user confirmed the 0.3.2 standard map pin/zoom fix on walk creation, submitted a Warsaw Paid-tier request, and received an encrypted approval DM from the deployed BitcoinWalk Guide. Guide's public profile was subsequently published; Armada display-name refresh remains to be confirmed. Paid payment/entitlement/provisioning remains separate and Warsaw correctly still uses the shared staging URL.
+Latest acceptance: a read-only audit on 21 September found staging app 0.3.6 active and healthy through loopback and public HTTPS; this does not establish human acceptance of its newer workflows. The user confirmed the 0.3.2 standard map pin/zoom fix on walk creation, submitted a Warsaw Paid-tier request, and received an encrypted approval DM from the deployed BitcoinWalk Guide. Guide's public profile was subsequently published; Armada display-name refresh remains to be confirmed. Paid payment/entitlement/provisioning remains separate and Warsaw correctly still uses the shared staging URL.
 
 ## Status key
 
@@ -148,7 +148,7 @@ Chat integration update (18 September): the separate Khatru staging chat and ext
 | BW-36 | 5 | Persistent admin city-walk link | 🟢 Done | BW-05, BW-07. Release 0.3.1 adds Open BitcoinWalk [city] beside approved managed cities, with a separate-tab link and unavailable explanation for non-public cities. User confirmed it works. Tests, TypeScript, build and lint passed. |
 | BW-34 | 0, 4 | Optional profile rebranding and mobile onboarding | ○ Future | Separate current-profile lookup, field-preserving preview and explicit signature to rename a chosen identity; warn changes affect the account across Nostr. Mobile/remote signer connection needs its own supported flow. Never generate/store nsecs in BitcoinWalk. Depends on BW-33 acceptance. |
 | BW-31 | 4 | Restore city autocomplete with a suitable provider | ○ Future | User approved temporary explicit Search city. Public Nominatim prohibits autocomplete. Select a compatible hosted or self-hosted provider with appropriate limits before restoring type-ahead; keep single City field and map selection. |
-| BW-32 | 10 | Public staging app deployment | 🟢 Done | HTTPS/proxy are stable. Release 0.3.2 deployed and user-confirmed the walk-creation map fix; release 0.3.3 restored `/organizer/events`. Latest app backup `/var/backups/bitcoinwalk-events-route.xE5KPJ`; map recovery backup `/var/backups/bitcoinwalk-map-recovery.Hk4l8v`. Guide, Caddy, relays and legacy site were unchanged by both releases. Production/legacy cutover remains separate. |
+| BW-32 | 10 | Public staging app deployment | 🟢 Done | Read-only audit on 21 September found release 0.3.6 active, Caddy proxy valid, and prior release 0.3.5 retained; see `app-staging-runbook.md`. This is health/configuration verification, not human workflow acceptance. Release 0.3.2 had a user-confirmed map fix; 0.3.3 restored `/organizer/events`. Historical backups include `/var/backups/bitcoinwalk-events-route.xE5KPJ` and `/var/backups/bitcoinwalk-map-recovery.Hk4l8v`; their contents were not audited. Production/legacy cutover remains separate. |
 
 Calendar publish/delete acceptance: user reported the workflow completed smoothly. Broader restore/republication and external-client propagation checks remain separately tracked.
 

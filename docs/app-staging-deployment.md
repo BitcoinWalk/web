@@ -1,6 +1,6 @@
 # BitcoinWalk web staging deployment notes
 
-This records the initial 0.1.0 staging installation. The current backlog reports later staging releases; this file is not a current redeployment runbook. The app installer scripts named below are not in this repository checkout. Do not run these steps as a release procedure until a reviewed installer or replacement runbook is supplied. See [the backlog](project-backlog.md) for current deployment and acceptance status.
+This records the initial 0.1.0 staging installation. For the audited current layout and operator release/rollback procedure, see [the staging runbook](app-staging-runbook.md). The app installer scripts named below are not in this repository checkout. Do not run these historical steps as a release procedure.
 
 Target: app-staging.bitcoinwalk.org, 213.232.235.138 only. App listens on loopback 3338 with a dedicated dynamic service identity and app-private pinned Node 24.21.0. Public build settings use relay-staging.bitcoinwalk.org and https://app-staging.bitcoinwalk.org/start for invitation previews. No private keys, .env files or databases belong in this package.
 

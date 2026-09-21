@@ -46,6 +46,6 @@ Both values are comma-separated `wss://` relay lists. They have no default; rela
 | `NEXT_PUBLIC_ORGANIZER_INVITE_URL` | Registration URL shown in organizer invitations. |
 | `GEOCODE_SEARCH_URL` | Server-side city-search provider; defaults to the Nominatim search endpoint. |
 
-The Guide worker reads `GUIDE_CONFIG` and systemd credential/state directories separately; its [operator guide](docs/bitcoinwalk-guide.md) describes them. Do not put private keys in `.env.local`. If a relay requires NIP-42 authentication, the browser extension receives a separate signing request. Use `/preview/<city>` for authenticated preview when public relay reads are unavailable.
+The Guide worker reads `GUIDE_CONFIG` and systemd credential/state directories separately; its [operator guide](docs/bitcoinwalk-guide.md) describes them. Do not put private keys in `.env.local`. If a relay requires NIP-42 authentication, the browser extension receives a separate signing request. Use `/preview/<city>` locally for authenticated preview when public relay reads are unavailable; the public staging proxy blocks `/preview/*`.
 
-See the [delivery backlog](docs/project-backlog.md) for staged features and acceptance still pending. Staging deployment notes are historical context, not a local installation command.
+See the [delivery backlog](docs/project-backlog.md) for staged features and acceptance still pending. The [staging runbook](docs/app-staging-runbook.md) records the audited service layout and operator release/rollback procedure; the [original installation notes](docs/app-staging-deployment.md) are historical.
