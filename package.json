@@ -7,6 +7,7 @@
     "guide:dry-run": "node guide-build/guide.cjs --dry-run",
     "dev": "next dev",
     "build": "next typegen && tsc --noEmit && next build",
+    "release:package": "node scripts/package-staging.mjs",
     "typecheck": "next typegen && tsc --noEmit --incremental false",
     "start": "next start",
     "lint": "eslint .",

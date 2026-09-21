@@ -4,6 +4,7 @@ node_modules/
 !.env.example
 coverage/
 guide-build/
+release-build/
 *.tsbuildinfo
 next-env.d.ts
 *.sqlite
