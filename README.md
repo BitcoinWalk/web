@@ -25,7 +25,7 @@ npm run dev
 
 Open `http://localhost:3000`. Useful routes are `/` (directory), `/start` (new walk), `/organizer` (edit a walk), `/organizer/events` (recurrence drafts), and `/admin` (moderation). The API health check is `/api/healthz`. Organizer and admin actions need a compatible Nostr browser-extension signer and the right account; local development does not provision an identity or grant permissions.
 
-Run `npm test`, `npm run lint`, and `npx tsc --noEmit --incremental false` for local checks. `npm run build` runs TypeScript and the Next.js production build, writing `.next/`. `npm run start` serves that build. Guide is a separate server-only worker: `npm run guide:build` creates `guide-build/`; see [Guide operations](docs/bitcoinwalk-guide.md) before running it.
+Run `npm test`, `npm run lint`, and `npm run typecheck` for local checks. Typecheck first generates the ignored Next.js declarations required for image and route imports. `npm run build` also generates those declarations before TypeScript and the Next.js production build, writing `.next/`. `npm run start` serves that build. Guide is a separate server-only worker: `npm run guide:build` creates `guide-build/`; see [Guide operations](docs/bitcoinwalk-guide.md) before running it.
 
 The GitHub Actions workflow runs those checks after `npm ci` on pull requests and pushes to `main` on the GitHub mirror. ngit remains the primary `origin` remote; commits pushed only to ngit do not trigger GitHub Actions until they are mirrored to GitHub.
 

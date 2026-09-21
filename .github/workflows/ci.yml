@@ -22,5 +22,5 @@ jobs:
       - run: npm ci
       - run: npm test
       - run: npm run lint
-      - run: npx tsc --noEmit --incremental false
+      - run: npm run typecheck
       - run: npm run build
