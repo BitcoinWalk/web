@@ -20,10 +20,13 @@ The city timezone is derived automatically from the approved map coordinates; de
 - No signature request, publication, permission change, database change or deployment.
 
 The deployed organizer relay now advertises 0.6.0. A read-only audit found
-`occurrence-v1` and approval/editor validation markers in its active executable;
-no signed organizer publication has been tested. The local publishing flow is
-separate from the legacy admin calendar path. Do not claim the web publishing
-flow is live until the matching web release and signed acceptance pass.
+`occurrence-v1` and approval/editor validation markers in its active executable.
+On 21 September, the user signed one Memphis occurrence through the local web app:
+event `a6fca16af9c0ab285b1d5e9fd862072cbc2c75d785b82f55a8b0096e68eb6758`.
+The UI reported publication/read-back; an independent relay query verified its
+signature, and the local event page rendered HTTP 200. The local publishing flow
+is separate from the legacy admin calendar path. Address-scoped moderation and
+publishing suspension remain open; do not claim the web publishing flow is live.
 
 ## Increment 2 — relay contract and moderation (required before publication)
 

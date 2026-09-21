@@ -3,7 +3,7 @@
 Last reviewed: 21 September 2026  
 Tracking rule: keep this file current whenever an item changes status, scope, dependency, or verification result. The file is the maintained source; a separate Plan task is not automatically synchronized.
 
-Latest acceptance: a read-only audit on 21 September found staging app 0.3.6 active and healthy through loopback and public HTTPS. The staging relay now advertises `bitcoinwalk-organizers-0.6.0`; its active executable contains `occurrence-v1` and current-approval/editor validation markers. These checks do not prove a signed organizer publication or human acceptance of the newer workflows. The user confirmed the 0.3.2 standard map pin/zoom fix on walk creation, submitted a Warsaw Paid-tier request, and received an encrypted approval DM from the deployed BitcoinWalk Guide. Guide's public profile was subsequently published; Armada display-name refresh remains to be confirmed. Paid payment/entitlement/provisioning remains separate and Warsaw correctly still uses the shared staging URL.
+Latest acceptance: on 21 September, the user signed and published one organizer-owned Memphis occurrence through the local web app. The page reported "Published and verified"; an independent relay query found event `a6fca16af9c0ab285b1d5e9fd862072cbc2c75d785b82f55a8b0096e68eb6758` with a valid signature and `occurrence-v1` marker, and its local `/memphis/nevent1…` page rendered HTTP 200. A read-only audit also found staging app 0.3.6 active and healthy through loopback and public HTTPS. The staging relay advertises `bitcoinwalk-organizers-0.6.0`. Organizer web publication is not yet deployed, and moderation/external-client acceptance remain. The user confirmed the 0.3.2 standard map pin/zoom fix on walk creation, submitted a Warsaw Paid-tier request, and received an encrypted approval DM from the deployed BitcoinWalk Guide. Guide's public profile was subsequently published; Armada display-name refresh remains to be confirmed. Paid payment/entitlement/provisioning remains separate and Warsaw correctly still uses the shared staging URL.
 
 ## Status key
 
@@ -37,7 +37,7 @@ The table above defines the full BitcoinWalk scope. The backlog below breaks tho
 
 | ID | Stage | Item | Status | Dependencies / acceptance |
 |---|---:|---|---|---|
-| BW-37 | 7 | Organizer NIP-52 occurrence publishing | 🟠 In progress | Versioned occurrence contract documented. Local signer-owned selected-occurrence batch publishing, exact read-back and same-signature retries are implemented; 150 web tests pass. Live relay advertises 0.6.0 and its executable contains occurrence/current-approval/editor validation markers. Deploy the matching web changes and complete human signed publication/read-back; read-only checks do not prove writes succeed. |
+| BW-37 | 7 | Organizer NIP-52 occurrence publishing | 🟠 In progress | Versioned occurrence contract documented. Local signer-owned selected-occurrence batch publishing, exact read-back and same-signature retries are implemented; 150 web tests pass. Live relay advertises 0.6.0. On 21 September, the user signed one Memphis occurrence locally; the UI reported publication/read-back, independent relay query verified its signature, and the local event page rendered. Address-scoped moderation and publishing suspension (BW-39), public web release, and external-client acceptance remain. |
 | BW-38 | 7 | Recurring walk schedules | 🟠 In progress | Release 0.3.3 restored `/organizer/events`. Saturday default (editable), eight rolling browser-local drafts, one-off/weekly/fortnightly preview, skip/pause/resume, automatic city timezone/DST handling, and event-specific map are deployed. Route/health installer checks passed; human approved-city load and draft-control acceptance remain. Publication depends on BW-37. |
 | BW-39 | 7, 10 | Event moderation and publishing suspension | 🟠 In progress | Local address-scoped event routing/moderation checks and tests added. Relay enforcement, signed hide/unhide, city/author publishing suspension, replay and human acceptance remain. Existing city creator cannot be removed from grants; suspension must cover this case. |
 | BW-40 | 3, 7 | Next/upcoming/past city events and organizer deep links | 🟠 In progress | Local city/occurrence routes and current-or-next/upcoming/past selection added. Needs organizer-author provenance/moderation enforcement, deployment and human/external discovery and cancellation acceptance. Depends on BW-37/BW-39. |
@@ -46,9 +46,10 @@ NIP-52 status (21 September): the earlier 0.4.0 admin calendar policy and 0.5.0
 moderation release have been superseded by live relay 0.6.0. Public NIP-11 and
 the active service were checked read-only; the executable contains occurrence-v1,
 current-approval and editor-validation markers. This corroborates the deployed
-policy version but does not establish signed organizer write/read-back, moderation,
-or external-client behavior. The web's organizer publication and occurrence pages
-remain local until a coordinated release and acceptance. Cancellation propagation
+policy version; a subsequent user-signed Memphis publication and independent
+read-back established one successful organizer write. The web's organizer
+publication and occurrence pages remain local pending BW-39 controls and a
+coordinated release. External-client behavior and cancellation propagation
 and multi-occurrence scheduling remain follow-up work.
 
 Homepage update (19 September): approved city directory implemented with search,
