@@ -16,16 +16,19 @@ import { publishVerifiedEvent } from "../../../nostr/relay";
 import { relayConfig } from "../../../lib/relay-config";
 import { cityTimeZone } from "../../../domain/city-time";
 import { readRecurringPlan, saveRecurringPlan, upcomingDrafts, type RecurringPlan } from "../../../domain/rolling-drafts";
-import { eventPageHref } from "../../../domain/event-routing";
+import { eventPageHref, managedCalendarEvents } from "../../../domain/event-routing";
 import { directoryConfig } from "../../../lib/directory-config";
 
 const LocationPicker = dynamic(() => import("../../../components/location-picker"), { ssr: false });
 
 export default function OrganizerEventsPage() {
   const [walks, setWalks] = useState<CalendarWalk[]>([]);
+  const [publishedByCity, setPublishedByCity] = useState<Record<string, Event[]>>({});
   const [cityId, setCityId] = useState("");
+  const [showForm, setShowForm] = useState(false);
+  const [pastCities, setPastCities] = useState<Set<string>>(new Set());
   const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState("Connect your organizer identity to select an approved city.");
+  const [message, setMessage] = useState("Connect your organizer identity to see your scheduled walks.");
   const [preview, setPreview] = useState<LocatedOccurrence[]>([]);
   const [meetingPoint, setMeetingPoint] = useState<LocationValue | null>(null);
   const [frequency, setFrequency] = useState<WalkSchedule["frequency"]>("weekly");
@@ -44,7 +47,7 @@ export default function OrganizerEventsPage() {
 
   async function load() {
     if (lock.current) return;
-    lock.current = true; setBusy(true); setWalks([]); setCityId(""); setPreview([]); setMeetingPoint(null); setOwner(""); setPlans({}); setReviewing(false); setSelected(new Set()); setResults({}); signedRetries.current={};
+    lock.current = true; setBusy(true); setWalks([]); setPublishedByCity({}); setCityId(""); setShowForm(false); setPastCities(new Set()); setPreview([]); setMeetingPoint(null); setOwner(""); setPlans({}); setReviewing(false); setSelected(new Set()); setResults({}); signedRetries.current={};
     try {
       const key = await getBrowserExtensionPubkey();
       const [approved, grants] = await Promise.all([loadCalendarWalks(relayConfig.readRelays), queryAuthorizations(relayConfig.readRelays)]);
@@ -53,7 +56,14 @@ export default function OrganizerEventsPage() {
         const latest = grants.find(record => record.grant.cityId === walk.revision.city.cityId);
         return latest && canEditCity(key, latest.grant);
       });
+      const published: Record<string, Event[]> = {};
+      for (const walk of available) {
+        const id=walk.revision.city.cityId;
+        published[id]=await queryCalendarEvents(relayConfig.readRelays,{cityId:id});
+      }
+      if (await getBrowserExtensionPubkey() !== key) throw new Error("Signer changed. Connect again.");
       setWalks(available);
+      setPublishedByCity(published);
       setOwner(key);
       const saved: Record<string, RecurringPlan> = {};
       const problems: string[] = [];
@@ -64,7 +74,7 @@ export default function OrganizerEventsPage() {
         } catch { problems.push(walk.revision.city.cityName); }
       }
       setPlans(saved);
-      setMessage((available.length ? "Choose a city, review the dated occurrences, then select the ones you want to sign and publish." : "No approved city with organizer permission was returned. Check your signer identity.") + (problems.length ? ` Saved drafts need attention for: ${problems.join(", ")}. They were not overwritten.` : ""));
+      setMessage((available.length ? "Scheduled walks loaded from the relay. Choose + Add a walk when you want to create another." : "No approved city with organizer permission was returned. Check your signer identity.") + (problems.length ? ` Saved drafts need attention for: ${problems.join(", ")}. They were not overwritten.` : ""));
     } catch (error) { setMessage(error instanceof Error ? error.message : "Could not load cities."); }
     finally { lock.current = false; setBusy(false); }
   }
@@ -72,6 +82,7 @@ export default function OrganizerEventsPage() {
   function review(plan: RecurringPlan) {
     try {
       const drafts = upcomingDrafts(plan);
+      setShowForm(true);
       setCityId(plan.cityId); setMeetingPoint({ ...plan.meetingPoint }); setFrequency(plan.frequency);
       setWeekday(plan.weekday); setFirstDate(plan.firstDate); setLocalTime(plan.localTime); seriesId.current = plan.seriesId;
       setPreview(drafts); setSelected(new Set(drafts.map(d=>d.id))); setResults({}); setReviewing(true);
@@ -158,24 +169,45 @@ export default function OrganizerEventsPage() {
           throw new Error(`${completed} walk(s) verified. Publication stopped at ${occurrence.localDate}: ${detail}`);
         }
       }
+      try {
+        const updated=await queryCalendarEvents(relayConfig.readRelays,{cityId});
+        setPublishedByCity(previous=>({...previous,[cityId]:updated}));
+      } catch {
+        setMessage(`${completed} walk(s) verified. The scheduled list could not be refreshed; reconnect to load it from the relay.`);
+        return;
+      }
       setMessage(`${completed} selected walk(s) signed, accepted and read back from the staging relay.`);
     }catch(error){setMessage(error instanceof Error?error.message:"Could not publish selected walks.");}
     finally{lock.current=false;setBusy(false);}
   }
 
-  function publishedHref(event:Event){
-    const city=walks.find(w=>w.revision.city.cityId===cityId)?.revision.city;
-    return city?eventPageHref(city.cityId,city.slug,calendarNevent(event,relayConfig.readRelays),directoryConfig.paidCities):"#";
+  function publishedHref(walk:CalendarWalk,event:Event){
+    const city=walk.revision.city;
+    return eventPageHref(city.cityId,city.slug,calendarNevent(event,relayConfig.readRelays),directoryConfig.paidCities);
+  }
+
+  function draftPublishedHref(event:Event){
+    const walk=walks.find(item=>item.revision.city.cityId===cityId);
+    return walk?publishedHref(walk,event):"#";
+  }
+
+  function openForm(){
+    setShowForm(true);
+    if(walks.length===1&&!cityId){
+      const city=walks[0].revision.city;
+      setCityId(city.cityId);setMeetingPoint({...city.meetingPoint});
+    }
   }
 
   return <main>
-    <p>BitcoinWalk / organizer / events</p><h1>Plan your walk events</h1>
+    <p>BitcoinWalk / organizer / events</p><h1>Scheduled walks</h1>
     <p><Link href="/organizer">City profile and permissions</Link></p>
-    <p><strong>Organizer-owned NIP-52 publishing.</strong> Each checked occurrence is signed by your connected identity and verified independently on the shared staging relay. BitcoinWalk never receives your private key.</p>
-    <button disabled={busy} onClick={load}>Connect and load approved cities</button>
+    <button disabled={busy} onClick={load}>{owner ? "Refresh scheduled walks" : "Connect and load your walks"}</button>
     <p role="status">{message}</p>
+    {!!owner && <button disabled={busy || !walks.length} onClick={openForm}>+ Add a walk</button>}
+    {showForm && <section><h2>Add a walk</h2><button disabled={busy} onClick={()=>setShowForm(false)}>Close form</button>
+    <p><strong>Organizer-owned NIP-52 publishing.</strong> Each checked occurrence is signed by your connected identity and verified independently on the shared staging relay. BitcoinWalk never receives your private key.</p>
     <p>Recurring plans are saved in this browser only, separately for each organizer and city. They are not synced or backed up. Reconnecting recalculates eight future drafts, including after missed weeks. Nothing is published automatically: every occurrence requires an explicit signer approval.</p>
-    {!!Object.keys(plans).length && <section><h2>Saved recurring plans</h2>{Object.values(plans).map(plan => <p key={plan.cityId}>{walks.find(w => w.revision.city.cityId === plan.cityId)?.revision.city.cityName} — {plan.paused ? "Paused" : "Draft review available"} <button disabled={busy} onClick={() => review(plan)}>Review plan</button></p>)}</section>}
     <label>City <select disabled={busy} value={cityId} onChange={e => {
       const selected = walks.find(w => w.revision.city.cityId === e.target.value)?.revision.city;
       const saved = plans[e.target.value];
@@ -200,6 +232,26 @@ export default function OrganizerEventsPage() {
       </fieldset>
     </form>}
     {cityId && plans[cityId] && <section><h2>Saved plan controls</h2><button disabled={busy} onClick={() => review(plans[cityId])}>Refresh / review saved drafts</button> <button disabled={busy} onClick={() => updateSaved({ paused: !plans[cityId].paused })}>{plans[cityId].paused ? "Resume" : "Pause"} recurring drafts</button><p>These controls use the saved plan, not unsaved form edits. Pausing does not cancel published walks.</p></section>}
-    {!!preview.length && <section><h2>Review {preview.length} walk drafts</h2><p>Checked walks will each produce a separate signer request and NIP-52 event. A failure stops the batch; retrying reuses any already-signed event that was not verified.</p><ol>{preview.map(o => {const result=results[o.id];return <li key={o.id}><label><input type="checkbox" disabled={busy||result?.status==="published"} checked={selected.has(o.id)} onChange={e=>setSelected(previous=>{const next=new Set(previous);if(e.target.checked)next.add(o.id);else next.delete(o.id);return next;})}/> {new Intl.DateTimeFormat("en-GB", { timeZone: o.timeZone, dateStyle: "full", timeStyle: "short" }).format(new Date(o.start * 1000))}</label><br />{o.meetingPoint.description}<br /><small>Meeting pin: {o.meetingPoint.latitude.toFixed(6)}, {o.meetingPoint.longitude.toFixed(6)}</small>{result&&<p><strong>{result.status==="published"?"Published and verified":result.status==="publishing"?"Publishing…":"Failed"}</strong>{result.detail&&<> — {result.detail}</>}{result.event&&<> — <a href={publishedHref(result.event)}>Open walk event</a></>}</p>}{reviewing && plans[cityId] && !result && <p><button disabled={busy} onClick={() => updateSaved({ skippedDates: [...new Set([...plans[cityId].skippedDates, o.localDate])] })}>Skip this draft</button></p>}</li>})}</ol><button disabled={busy||!preview.some(o=>selected.has(o.id)&&results[o.id]?.status!=="published")} onClick={publishSelected}>Sign and publish selected walks</button></section>}
+    {!!preview.length && <section><h2>Review {preview.length} walk drafts</h2><p>Checked walks will each produce a separate signer request and NIP-52 event. A failure stops the batch; retrying reuses any already-signed event that was not verified.</p><ol>{preview.map(o => {const result=results[o.id];return <li key={o.id}><label><input type="checkbox" disabled={busy||result?.status==="published"} checked={selected.has(o.id)} onChange={e=>setSelected(previous=>{const next=new Set(previous);if(e.target.checked)next.add(o.id);else next.delete(o.id);return next;})}/> {new Intl.DateTimeFormat("en-GB", { timeZone: o.timeZone, dateStyle: "full", timeStyle: "short" }).format(new Date(o.start * 1000))}</label><br />{o.meetingPoint.description}<br /><small>Meeting pin: {o.meetingPoint.latitude.toFixed(6)}, {o.meetingPoint.longitude.toFixed(6)}</small>{result&&<p><strong>{result.status==="published"?"Published and verified":result.status==="publishing"?"Publishing…":"Failed"}</strong>{result.detail&&<> — {result.detail}</>}{result.event&&<>{" — "}<a href={draftPublishedHref(result.event)}>Open walk event</a></>}</p>}{reviewing && plans[cityId] && !result && <p><button disabled={busy} onClick={() => updateSaved({ skippedDates: [...new Set([...plans[cityId].skippedDates, o.localDate])] })}>Skip this draft</button></p>}</li>})}</ol><button disabled={busy||!preview.some(o=>selected.has(o.id)&&results[o.id]?.status!=="published")} onClick={publishSelected}>Sign and publish selected walks</button></section>}
+    </section>}
+    {!!owner && <>
+      {walks.map(walk => {
+        const city=walk.revision.city;
+        const items=managedCalendarEvents(walk,publishedByCity[city.cityId]??[]);
+        const current=items.filter(item=>item.status!=="past");
+        const past=items.filter(item=>item.status==="past");
+        const showPast=pastCities.has(city.cityId);
+        const rows=(events:typeof items)=><ol>{events.map(item=><li key={item.event.id}>
+          <strong>{item.status==="active"?"Happening now":item.status==="grace"?"Late-arrival window":item.status==="upcoming"?"Upcoming":"Past"}</strong> — {new Intl.DateTimeFormat("en-GB",{dateStyle:"full",timeStyle:"short",...(item.timeZone?{timeZone:item.timeZone}:{})}).format(new Date(item.start*1000))}<br/>
+          {item.meetingPoint.description}<br/><a href={publishedHref(walk,item.event)} target="_blank" rel="noreferrer">Open walk event ↗</a>
+        </li>)}</ol>;
+        return <section key={city.cityId}><h2>{city.cityName}</h2>
+          <p>{current.length} current or upcoming walk{current.length===1?"":"s"}</p>
+          {current.length?rows(current):<p>No upcoming walks scheduled for this city.</p>}
+          {!!past.length&&<><button disabled={busy} onClick={()=>setPastCities(previous=>{const next=new Set(previous);if(showPast)next.delete(city.cityId);else next.add(city.cityId);return next;})}>{showPast?"Hide":`Show ${past.length}`} past walk{past.length===1?"":"s"}</button>{showPast&&rows(past)}</>}
+        </section>;
+      })}
+      {!!Object.keys(plans).length && <section><h2>Saved recurring plans</h2>{Object.values(plans).map(plan => <p key={plan.cityId}>{walks.find(w => w.revision.city.cityId === plan.cityId)?.revision.city.cityName} — {plan.paused ? "Paused" : "Draft review available"} <button disabled={busy} onClick={() => review(plan)}>Review plan</button></p>)}</section>}
+    </>}
   </main>;
 }
