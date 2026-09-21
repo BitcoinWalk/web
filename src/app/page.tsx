@@ -4,6 +4,7 @@ import CityDirectory from "../components/city-directory";
 import {currentOrNextEvent,paidCityForHost} from "../domain/event-routing";
 import {directoryConfig} from "../lib/directory-config";
 import {relayConfig} from "../lib/relay-config";
+import {serverReadRelays} from "../lib/server-relay-config";
 import {calendarNevent,loadCalendarWalks} from "../nostr/calendar-records";
 import {queryCalendarEvents} from "../nostr/city-records";
 
@@ -14,11 +15,11 @@ export default async function HomePage(){
   if(!paid)return <CityDirectory/>;
   let outcome: {state:"unavailable"}|{state:"missing"}|{state:"ready";cityName:string;eventHref?:string};
   try{
-    const walks=await loadCalendarWalks(relayConfig.readRelays);
+    const walks=await loadCalendarWalks(serverReadRelays());
     const walk=walks.find(item=>item.revision.city.slug===paid.slug);
     if(!walk)outcome={state:"missing"};
     else{
-      const events=await queryCalendarEvents(relayConfig.readRelays,{cityId:walk.revision.city.cityId});
+      const events=await queryCalendarEvents(serverReadRelays(),{cityId:walk.revision.city.cityId});
       const event=currentOrNextEvent(walk,events);
       outcome={state:"ready",cityName:walk.revision.city.cityName,eventHref:event?`/${calendarNevent(event,relayConfig.readRelays)}`:undefined};
     }
