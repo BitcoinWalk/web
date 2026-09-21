@@ -1,0 +1,8 @@
+{
+  "enabled": false,
+  "sourceRelay": "wss://relay-staging.bitcoinwalk.org/",
+  "discoveryRelays": ["wss://relay.damus.io/", "wss://nos.lol/"],
+  "allowedInboxRelays": ["wss://auth.nostr1.com/", "wss://relay.keychat.io/", "wss://relay.ditto.pub/"],
+  "recipients": ["90cf043861e5b5a9972cb7b529a5ba71b215d6d1e314c749d5526ec133f1db73"],
+  "adminURL": "https://app-staging.bitcoinwalk.org/admin"
+}

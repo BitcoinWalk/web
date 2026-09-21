@@ -1,0 +1,38 @@
+{
+  "name": "bitcoinwalk-web",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "guide:build": "tsc -p tsconfig.guide.json && esbuild src/guide/service.ts --bundle --platform=node --target=node24 --format=cjs --outfile=guide-build/guide.cjs && esbuild src/guide/init-key.ts --bundle --platform=node --target=node24 --format=cjs --outfile=guide-build/guide-key.cjs",
+    "guide:dry-run": "node guide-build/guide.cjs --dry-run",
+    "dev": "next dev",
+    "build": "tsc --noEmit && next build",
+    "start": "next start",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@photostructure/tz-lookup": "11.7.0",
+    "leaflet": "latest",
+    "next": "latest",
+    "nostr-tools": "latest",
+    "react": "latest",
+    "react-dom": "latest",
+    "react-leaflet": "latest",
+    "zod": "latest"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.0.0",
+    "@types/leaflet": "latest",
+    "@types/node": "latest",
+    "@types/react": "latest",
+    "@types/react-dom": "latest",
+    "esbuild": "0.28.2",
+    "eslint": "^9.0.0",
+    "eslint-config-next": "latest",
+    "typescript": "^5.7.0",
+    "typescript-eslint": "latest",
+    "vitest": "latest"
+  }
+}
