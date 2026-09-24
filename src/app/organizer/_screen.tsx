@@ -58,7 +58,8 @@ export default function OrganizerPage() {
     lock.current=true;setBusy(true);
     try {
       if (!relayConfig.writeRelays.length) throw new Error("No write relay configured.");
-      const candidate=editedCity(base.city,{startAt:base.city.startAt,description:String(form.get("description")),meetingPoint:{...pin,description:String(form.get("meetingDescription"))},heroImageUrl:String(form.get("heroImageUrl"))});
+      const heroImageUrl=String(form.get("heroImageUrl")).trim()||undefined;
+      const candidate=editedCity(base.city,{startAt:base.city.startAt,description:String(form.get("description")),meetingPoint:{...pin,description:String(form.get("meetingDescription"))},heroImageUrl});
       const key=await getBrowserExtensionPubkey();
       if(key!==identity) throw new Error("Signer account changed. Connect and load your walks again before editing.");
       setMessage("Checking current permission and revision…");
@@ -100,7 +101,7 @@ export default function OrganizerPage() {
           <LocationPicker cityName={base.city.cityName} onCityNameChange={()=>{}} cityLocked value={pin} onChange={value=>{if(!lock.current&&!submitted)setPin(value);}} />
           <label>Walk description <textarea name="description" defaultValue={base.city.description} maxLength={5000} required /></label>
           <label>Meeting-point description <input name="meetingDescription" defaultValue={base.city.meetingPoint.description} maxLength={500} required /></label>
-          <label>Hero image URL <input name="heroImageUrl" type="url" defaultValue={base.city.heroImageUrl} required /></label>
+          <label>Fallback landscape image URL <input name="heroImageUrl" type="url" defaultValue={base.city.heroImageUrl??""} /></label>
           <p>The city URL, chat configuration and sponsor are preserved. This form does not change editor permissions.</p>
           <button type="submit">Submit edit for approval</button>
         </fieldset>

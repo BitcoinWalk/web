@@ -16,19 +16,19 @@ export const PLAN_BENEFITS = [
 export function registrationDocument(input: {
   cityId: string; cityName: string; startAt: string; description: string;
   location: { latitude: number; longitude: number; description: string } | null;
-  meetingDescription: string; heroImageUrl: string; requestedTier: RequestedTier; chatUrl?: string;
+  meetingDescription: string; requestedTier: RequestedTier; chatUrl?: string;
 }) {
   const date = new Date(input.startAt);
-  if (!input.location || Number.isNaN(date.getTime()) || !input.heroImageUrl.trim()) {
-    throw new Error("Choose a map pin, a valid date and time, and a hero image before continuing.");
+  if (!input.location || Number.isNaN(date.getTime())) {
+    throw new Error("Choose a map pin and a valid date and time before continuing.");
   }
   const result = cityDocumentSchema.safeParse({
     cityId: input.cityId, cityName: input.cityName.trim(), slug: registrationSlug(input.cityName),
     startAt: date.toISOString(), description: input.description.trim(),
     meetingPoint: { ...input.location, description: input.meetingDescription.trim() || input.location.description },
-    heroImageUrl: input.heroImageUrl.trim(), requestedTier: input.requestedTier, chatUrl: input.chatUrl,
+    requestedTier: input.requestedTier, chatUrl: input.chatUrl,
   });
-  if (!result.success) throw new Error("Please complete valid city, description, meeting-point and image details before continuing.");
+  if (!result.success) throw new Error("Please complete valid city, description and meeting-point details before continuing.");
   return result.data;
 }
 

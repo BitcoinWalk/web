@@ -116,8 +116,8 @@ Chat integration update (18 September): the separate Khatru staging chat and ext
 
 | ID | Stage | Item | Status | Depends on | Notes |
 |---|---:|---|---|---|---|
-| BW-13 | 8 | VPS media upload | ○ Future | VPS access | Upload and retain hero images; replace the temporary URL-only path. |
-| BW-14 | 8 | Image discovery/generation | ○ Future | BW-13 | Let organizers find or generate an appropriate hero image. |
+| BW-13 | 8 | VPS media upload | ○ Future | VPS access | Actual binary upload and retention remain future work. New organizers are not asked for a photo. Super-admin chooses the initial HTTPS landscape during approval; an approved organizer can later propose a replacement from Walk photo, subject to super-admin approval. |
+| BW-14 | 8 | Image discovery/generation | 🟠 In progress | BW-13 | Pilot forecast imagery exists for Memphis, Warszawa and Funchal. Initial fallback selection happens during city approval; broader discovery/generation remains future work. |
 | BW-15 | 8 | Open Graph image generation | ○ Future | BW-13, transparent BitcoinWalk logo | Use the hero image with the transparent BitcoinWalk logo overlay. **User action needed later:** provide the transparent PNG logo. |
 | BW-16 | 8 | Sponsorship presentation | ○ Future | BW-11, BW-15 | Add sponsor data and approved display rules. |
 | BW-17 | 9 | Paid city bundle: 21,000 sats | ⚪ Planned | Payment integration, BW-18/BW-19/BW-20/BW-23 | One-time lifetime price confirmed. Purchase/activation flow must provision city subdomain, dedicated relay/community, paid-only NIP-05 and city LNURL. Plan choice alone never grants entitlement. |

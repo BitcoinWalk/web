@@ -2,9 +2,9 @@ import {describe,it,expect} from "vitest";
 import {dashboardNavigation,dashboardAccess,legacyDashboardHref} from "./dashboard";
 describe("dashboard navigation boundaries",()=>{
  it("shows only overview before connection",()=>{expect(dashboardNavigation("disconnected").map(i=>i.href)).toEqual(["/admin"]);});
- it("shows hosted walks to members without city permissions",()=>{expect(dashboardAccess("/admin/walks","member")).toBe(true);expect(dashboardAccess("/admin/cities","member")).toBe(false);});
- it("restricts consolidated city controls from organizers",()=>{for(const route of ["/admin/cities","/admin/invitations"])expect(dashboardAccess(route,"organizer")).toBe(false);expect(dashboardAccess("/admin/walks","organizer")).toBe(true);});
- it("lets the super-admin navigate all remaining sections",()=>{expect(dashboardNavigation("super-admin")).toHaveLength(4);});
+ it("shows hosted walks to members without city or photo permissions",()=>{expect(dashboardAccess("/admin/walks","member")).toBe(true);expect(dashboardAccess("/admin/cities","member")).toBe(false);expect(dashboardAccess("/admin/appearance","member")).toBe(false);});
+ it("lets organizers change a photo without exposing city administration",()=>{for(const route of ["/admin/cities","/admin/invitations"])expect(dashboardAccess(route,"organizer")).toBe(false);expect(dashboardAccess("/admin/walks","organizer")).toBe(true);expect(dashboardAccess("/admin/appearance","organizer")).toBe(true);});
+ it("lets the super-admin navigate all remaining sections",()=>{expect(dashboardNavigation("super-admin")).toHaveLength(5);});
  it("preserves invite parameters and sends legacy organizer pages to Walks",()=>{expect(legacyDashboardHref("/organizer/invitations","?invite=abc","#details")).toBe("/admin/accept-invitation?invite=abc#details");expect(legacyDashboardHref("/organizer")).toBe("/admin/walks");expect(legacyDashboardHref("/admin/calendar")).toBe("/admin/walks");expect(()=>legacyDashboardHref("https://evil.example")).toThrow();});
  it("routes old city tools and approval anchors into the unified Cities section",()=>{
   const id="a".repeat(64);

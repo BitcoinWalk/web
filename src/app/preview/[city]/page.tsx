@@ -17,7 +17,7 @@ type Preview = {
   meetingPoint: string;
   latitude: number;
   longitude: number;
-  heroImageUrl: string;
+  heroImageUrl?: string;
 } | null;
 
 export default function AuthenticatedCityPreviewPage() {
@@ -68,7 +68,7 @@ export default function AuthenticatedCityPreviewPage() {
       {preview && (
         <article>
           <h2>BitcoinWalk {preview.cityName}</h2>
-          <img className="hero-image" src={preview.heroImageUrl} alt={`BitcoinWalk ${preview.cityName}`} />
+          {preview.heroImageUrl&&<img className="hero-image" src={preview.heroImageUrl} alt={`BitcoinWalk ${preview.cityName}`} />}
           <p>{new Date(preview.startAt).toLocaleString()}</p>
           <p>Meeting point: {preview.meetingPoint}</p>
           <CoordinatesCopy latitude={preview.latitude} longitude={preview.longitude} />

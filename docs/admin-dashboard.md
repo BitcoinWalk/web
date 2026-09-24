@@ -40,7 +40,7 @@ DM delivery remains a separate open issue. This release does not change the Guid
 
 ## App 0.3.26 — Cities visibility
 
-Only the super-admin sees or can open `/admin/cities` through the dashboard. Organizers use `/admin/walks`; legacy `/organizer` now redirects there. The overview city-count link also points organizers to Walks. This is an interface restriction, not a relay policy change: authorized organizer keys may still sign city revisions through other clients. The Cities form uniquely offers city-profile editing (description, hero image, default meeting point, and default date/time), which is no longer available in the organizer dashboard. A separate Walks-based editor would be needed if those actions should return later.
+Only the super-admin sees or can open `/admin/cities` through the dashboard. Organizers use `/admin/walks`; legacy `/organizer` now redirects there. The overview city-count link also points organizers to Walks. This is an interface restriction, not a relay policy change: authorized organizer keys may still sign city revisions through other clients. Organizers have a narrowly scoped `/admin/appearance` page for proposing a replacement fallback landscape image; it does not expose city moderation or permission controls, and the replacement remains pending until super-admin approval.
 
 ## App 0.3.27 — permission-test city selectors
 

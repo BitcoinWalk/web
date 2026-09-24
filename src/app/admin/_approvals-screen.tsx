@@ -20,6 +20,7 @@ type State = { message: string; tone: "info" | "error" | "success"; approvedWalk
 
 export default function SubmissionApprovals() {
   const [submissions, setSubmissions] = useState<Submission[]>([]);
+  const [heroImages,setHeroImages]=useState<Record<string,string>>({});
   const [busy, setBusy] = useState(false);
   const [state, setState] = useState<State>({ message: "Connect the BitcoinWalk super-admin signer to load submissions.", tone: "info" });
   useEffect(() => {
@@ -71,6 +72,9 @@ export default function SubmissionApprovals() {
     try {
       const pubkey = await getBrowserExtensionPubkey();
       if (!isSuperAdmin(pubkey)) throw new Error("This Nostr identity is not the BitcoinWalk super-admin.");
+      const initialHero=heroImages[submission.eventId]?.trim();
+      if(status==="approved"&&!submission.previous&&!initialHero)throw new Error("Choose the initial landscape image before approving this city.");
+      if(initialHero){try{new URL(initialHero);}catch{throw new Error("Enter a valid HTTPS image URL before approving.");}if(!initialHero.startsWith("https://"))throw new Error("The initial image must use HTTPS.");}
       if (status === "approved") {
         const existing = (await queryAuthorizations(relayConfig.readRelays)).find(r => r.grant.cityId === submission.cityId);
         if (!existing && !submission.initialEventId) throw new Error("This new-city submission has no signed first walk. Reject it and ask the organizer to submit again.");
@@ -88,6 +92,7 @@ export default function SubmissionApprovals() {
         cityId: submission.cityId,
         cityRevisionId: submission.eventId,
         ...(submission.initialEventId ? { initialEventId: submission.initialEventId } : {}),
+        ...(initialHero?{heroImageUrl:initialHero}:{}),
         status,
       }));
       if (signed.pubkey !== pubkey) throw new Error("Signer identity changed; decision cancelled.");
@@ -129,7 +134,8 @@ export default function SubmissionApprovals() {
           <p>{new Date(submission.startAt).toLocaleString()} · {submission.meetingPoint}</p>
           <p style={{whiteSpace:"pre-wrap"}}>{submission.city.description}</p>
           <p>Meeting pin: {submission.city.meetingPoint.latitude}, {submission.city.meetingPoint.longitude}</p>
-          <p>Hero image: {submission.city.heroImageUrl}</p>
+          <p>Organizer image: {submission.city.heroImageUrl??"None — expected for a new submission"}</p>
+          {!submission.previous&&<label>Initial landscape image URL <input type="url" required={false} placeholder="https://…" value={heroImages[submission.eventId]??""} onChange={event=>setHeroImages(images=>({...images,[submission.eventId]:event.target.value}))}/></label>}
           <p>Requested tier: {submission.city.requestedTier === "paid" ? "Paid — 21,000 sats once, lifetime access (preference only; payment and activation not verified)" : submission.city.requestedTier === "free" ? "Free" : "Not specified (older submission)"}. Approval does not activate paid benefits.</p>
           <p><a href={`/${encodeURIComponent(submission.slug)}`} target="_blank" rel="noreferrer">Open current approved page</a> (if published)</p>
           <button disabled={busy || (!submission.previous && !submission.initialEventId)} type="button" onClick={() => decide(submission, "approved")}>{submission.initialEventId ? "Approve and publish first walk" : "Approve revision"}</button>{" "}

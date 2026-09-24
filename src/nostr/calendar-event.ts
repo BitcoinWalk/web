@@ -22,13 +22,14 @@ export function createCalendarEvent(
     ["d", occurrence.id],
     ["title", `BitcoinWalk ${city.cityName}`],
     ["summary", `BitcoinWalk in ${city.cityName}`],
-    ["image", city.heroImageUrl],
     ["start", String(occurrence.startUnixSeconds)],
     ["D", String(Math.floor(occurrence.startUnixSeconds / 86_400))],
     ["location", city.meetingPoint.description],
     ["location", `${city.meetingPoint.latitude},${city.meetingPoint.longitude}`],
     ["t", "bitcoinwalk"],
   ];
+
+  if (city.heroImageUrl) tags.push(["image", city.heroImageUrl]);
 
   if (city.chatUrl) tags.push(["r", city.chatUrl]);
 

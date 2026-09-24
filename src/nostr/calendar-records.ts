@@ -34,7 +34,7 @@ export function matchesOrganizerCalendar(event:Event,walk:CalendarWalk):boolean 
   if(event.kind!==31923||isSuperAdmin(event.pubkey)||!verifyEvent(event))return false;
   const city=walk.revision.city;
   if(one(event,"bitcoinwalk")!=="occurrence-v1"||one(event,"i")!==city.cityId||source(event,"city-revision")!==walk.revision.event.id||source(event,"city-approval")!==walk.approval.event.id)return false;
-  if(one(event,"title")!==`BitcoinWalk ${city.cityName}`||one(event,"summary")!==`BitcoinWalk in ${city.cityName}`||one(event,"image")!==city.heroImageUrl||one(event,"t")!=="bitcoinwalk"||event.content!==city.description)return false;
+  if(one(event,"title")!==`BitcoinWalk ${city.cityName}`||one(event,"summary")!==`BitcoinWalk in ${city.cityName}`||one(event,"image")!==(city.heroImageUrl??null)||one(event,"t")!=="bitcoinwalk"||event.content!==city.description)return false;
   const start=Number(one(event,"start")),end=Number(one(event,"end"));
   if(!Number.isSafeInteger(start)||!Number.isSafeInteger(end)||end-start<900||end-start>43200||one(event,"D")!==String(Math.floor(start/86400)))return false;
   const zone=one(event,"start_tzid");if(!zone||one(event,"end_tzid")!==zone)return false;
@@ -46,7 +46,7 @@ export function matchesOrganizerCalendar(event:Event,walk:CalendarWalk):boolean 
 export function matchesInitialCalendar(event:Event,walk:CalendarWalk):boolean {
   const city=walk.revision.city;
   if(event.kind!==31923||!verifyEvent(event)||event.pubkey!==walk.revision.event.pubkey||walk.approval.approval.initialEventId!==event.id)return false;
-  if(one(event,"bitcoinwalk")!=="initial-proposal-v1"||one(event,"i")!==city.cityId||one(event,"title")!==`BitcoinWalk ${city.cityName}`||one(event,"summary")!==`BitcoinWalk in ${city.cityName}`||one(event,"image")!==city.heroImageUrl||one(event,"t")!=="bitcoinwalk"||event.content!==city.description)return false;
+  if(one(event,"bitcoinwalk")!=="initial-proposal-v1"||one(event,"i")!==city.cityId||one(event,"title")!==`BitcoinWalk ${city.cityName}`||one(event,"summary")!==`BitcoinWalk in ${city.cityName}`||one(event,"image")!==(city.heroImageUrl??null)||one(event,"t")!=="bitcoinwalk"||event.content!==city.description)return false;
   const start=Number(one(event,"start")),end=Number(one(event,"end"));if(!Number.isSafeInteger(start)||!Number.isSafeInteger(end)||end-start!==3600||new Date(city.startAt).getTime()/1000!==start||one(event,"D")!==String(Math.floor(start/86400)))return false;
   const zone=one(event,"start_tzid");if(!zone||one(event,"end_tzid")!==zone)return false;
   const locations=event.tags.filter(t=>t[0]==="location"&&t.length===2);if(locations.length!==2||locations[0][1]!==city.meetingPoint.description||locations[1][1]!==`${city.meetingPoint.latitude},${city.meetingPoint.longitude}`)return false;

@@ -4,7 +4,6 @@ import dynamic from "next/dynamic";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import OrganizerIdentity from "../../components/organizer-identity";
 import RegistrationPlans from "../../components/registration-plans";
-import HeroImagePicker from "../../components/hero-image-picker";
 import type { LocationValue } from "../../components/location-picker";
 import { registrationDocument, registrationSlug, type RequestedTier } from "../../domain/registration";
 import { createCityUpdateEvent } from "../../nostr/city-event";
@@ -28,7 +27,6 @@ export default function StartWalkPage() {
   const [description, setDescription] = useState(DEFAULT_DESCRIPTION);
   const [location, setLocation] = useState<LocationValue | null>(null);
   const [meetingDescription, setMeetingDescription] = useState("");
-  const [heroImageUrl, setHeroImageUrl] = useState("");
   const [organizerKey, setOrganizerKey] = useState<string | null>(null);
   const [requestedTier, setRequestedTier] = useState<RequestedTier>("free");
   const cityId = useRef("");
@@ -41,7 +39,7 @@ export default function StartWalkPage() {
   function draft() {
     if (!cityId.current) cityId.current = crypto.randomUUID();
     return registrationDocument({ cityId: cityId.current, cityName, startAt, description, location,
-      meetingDescription, heroImageUrl, requestedTier,
+      meetingDescription, requestedTier,
       // Preference never grants paid routing: only verified operator configuration can do that.
       chatUrl: resolveCityChat(undefined, registrationSlug(cityName), chatConfig).url ?? undefined });
   }
@@ -96,7 +94,6 @@ export default function StartWalkPage() {
           <label>Walk date and time <input name="startAt" type="datetime-local" value={startAt} onChange={e => setStartAt(e.target.value)} required /></label>
           <label>Walk description <textarea name="description" value={description} onChange={e => setDescription(e.target.value)} required maxLength={5000} /></label>
           <label>Meeting-point description <input name="meetingDescription" value={meetingDescription} onChange={e => setMeetingDescription(e.target.value)} placeholder="e.g. In front of the coffee shop" maxLength={500} /></label>
-          <HeroImagePicker cityName={cityName} onUrlChange={setHeroImageUrl} />
           <button type="submit">Continue to account &amp; plan</button>
         </fieldset>
       </form>

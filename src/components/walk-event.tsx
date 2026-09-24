@@ -14,7 +14,7 @@ export default async function WalkEvent({event,walk}:{event:Event;walk:CalendarW
   const startSeconds=occurrence?.start??Math.floor(new Date(city.startAt).getTime()/1000),endSeconds=occurrence?.end??startSeconds+3600,start=startSeconds*1000;
   const chat=cityChatDetails({cityId:city.cityId,slug:city.slug});
   const weather=await getWalkWeather({latitude:point.latitude,longitude:point.longitude,start:startSeconds,end:endSeconds});
-  const forecastHero=pilotWeatherHero(city.slug,weather),hero=forecastHero??city.heroImageUrl;
+  const forecastHero=pilotWeatherHero(city.slug,weather),hero=forecastHero??city.heroImageUrl??walk.approval.approval.heroImageUrl;
   // nostr-tools caches verification on a symbol property. Explicitly copy the
   // signed wire fields before crossing the Server-to-Client boundary.
   const publicEvent:Event={kind:event.kind,id:event.id,pubkey:event.pubkey,created_at:event.created_at,tags:event.tags.map(tag=>[...tag]),content:event.content,sig:event.sig};

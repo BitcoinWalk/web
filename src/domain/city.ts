@@ -29,7 +29,9 @@ export const cityDocumentSchema = z.object({
     longitude: z.number().min(-180).max(180),
   }),
   chatUrl: z.url().optional(),
-  heroImageUrl: z.url(),
+  // Optional on registration. The super-admin may provide the first fallback
+  // image in the approval; organizers can propose a replacement later.
+  heroImageUrl: z.url().optional(),
   sponsor: z
     .object({ name: z.string().min(1).max(100), logoUrl: z.url(), offer: z.string().max(300).optional() })
     .optional(),
@@ -53,6 +55,7 @@ export const cityApprovalSchema = z.object({
   /** The organizer-signed first walk released by this approval. Older
    * decisions omit it and retain their existing behaviour. */
   initialEventId: z.string().regex(/^[0-9a-f]{64}$/).optional(),
+  heroImageUrl: z.url().optional(),
   status: z.enum(["approved", "rejected", "revoked"]),
   note: z.string().max(500).optional(),
 });
