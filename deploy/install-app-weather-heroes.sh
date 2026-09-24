@@ -9,7 +9,7 @@ fi
 cd "$(dirname "$0")"
 archive=app-staging-0.3.36.tar.gz
 unit=/etc/systemd/system/bitcoinwalk-app-staging.service
-release=/opt/bitcoinwalk-app-staging/releases/0.3.36
+release=/opt/bitcoinwalk-app-staging/releases/0.3.36-1
 previous=/opt/bitcoinwalk-app-staging/releases/0.3.35
 
 sha256sum -c "$archive.sha256"
@@ -45,7 +45,7 @@ done
 test ! -e "$release/.next/cache"
 ln -s /var/cache/bitcoinwalk-app-staging "$release/.next/cache"
 
-sed "s@^WorkingDirectory=$previous$@WorkingDirectory=$release@" "$unit" >"$backup/service.candidate"
+sed 's@^WorkingDirectory=/opt/bitcoinwalk-app-staging/releases/0.3.35$@WorkingDirectory=/opt/bitcoinwalk-app-staging/releases/0.3.36-1@' "$unit" >"$backup/service.candidate"
 grep -qx "WorkingDirectory=$release" "$backup/service.candidate"
 install -m 0644 "$backup/service.candidate" "$unit"
 systemctl daemon-reload
