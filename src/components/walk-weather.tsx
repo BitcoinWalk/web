@@ -1,8 +1,7 @@
-import {getWalkWeather} from "../domain/walk-weather";
+import type {WalkWeatherState} from "../domain/walk-weather";
 
-export default async function WalkWeather({latitude,longitude,start,end,timeZone,chatUrl}:{latitude:number;longitude:number;start:number;end:number;timeZone:string|null;chatUrl?:string|null}) {
+export default function WalkWeather({result,timeZone,chatUrl}:{result:WalkWeatherState;timeZone:string|null;chatUrl?:string|null}) {
   const community=chatUrl?<a className="weather-chat" href={chatUrl} target="_blank" rel="noopener noreferrer">💬 Join community ↗</a>:null;
-  const result=await getWalkWeather({latitude,longitude,start,end});
   if(result.kind==="past")return null;
   if(result.kind==="later")return <p className="walk-weather" aria-label="Walk weather"><span aria-hidden="true">🌦️</span> Forecast available from {new Intl.DateTimeFormat(undefined,{dateStyle:"medium",...(timeZone?{timeZone}:{})}).format(new Date(result.availableAt*1000))}. {community}</p>;
   if(result.kind==="unavailable")return <p className="walk-weather" aria-label="Walk weather"><span aria-hidden="true">🌦️</span> Forecast temporarily unavailable. {community}</p>;

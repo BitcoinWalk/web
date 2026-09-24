@@ -1,9 +1,9 @@
 # BitcoinWalk delivery backlog
 
-Last reviewed: 23 September 2026
+Last reviewed: 24 September 2026
 Tracking rule: keep this file current whenever an item changes status, scope, dependency, or verification result. The file is the maintained source; a separate Plan task is not automatically synchronized.
 
-Latest acceptance: the user published Memphis organizer occurrences and confirmed the city redirect, exact event page, scheduled-walk list, form layout, and publication-aware recurrence preview. On 22 September, the user also confirmed individual-walk cancellation and one-walk delegation with encrypted invitation, nominee acceptance, restricted host permissions, and revocation. External-client discovery and propagation, broad moderation acceptance, and paid payment/entitlement/provisioning remain separate.
+Latest acceptance: the user published Memphis organizer occurrences and confirmed the city redirect, exact event page, scheduled-walk list, form layout, and publication-aware recurrence preview. Individual-walk cancellation and one-walk delegation were accepted on 22 September. On 23 September, production Khatru global chat and its verified Armada group passed DNS, health, WSS, admin and regular-user joining checks; the walk-event community link was visually accepted on Memphis. External-client event discovery/propagation, old Zooid retirement, broad moderation acceptance, and paid payment/entitlement/provisioning remain separate.
 
 ## Status key
 
@@ -25,9 +25,9 @@ Latest acceptance: the user published Memphis organizer occurrences and confirme
 | 5. Organizer editing + permissions | 🟠 In progress | Organizer editing, retained revision handling, and local super-admin editor management are implemented. Real add/remove, cross-account, and edit/reject/reapprove acceptance remain. |
 | 6. Discovery | 🟠 In progress | Homepage search, list/map, city links, and featured-card support are implemented against staging. Human map/search acceptance and confirmed featured entitlements remain. |
 | 7. Nostr interoperability | 🟠 In progress | Organizer-owned NIP-52 occurrences are published and human-confirmed on staging, with exact `nevent` pages, individual cancellation and one-walk host delegation accepted. External-app discovery/propagation, address-scoped moderation and production migration remain. Free uses the shared relay; paid uses its provisioned city relay. |
-| 8. Media + sharing | 🟠 In progress | Hero-image URL works. VPS upload, image generation, sponsor support, transparent BitcoinWalk logo, and OG image generation remain. |
+| 8. Media + sharing | 🟠 In progress | Hero-image URL works. Event-page meeting-pin weather is live on staging and forecast-inspired city heroes are prepared for visual acceptance. VPS upload, general image generation, sponsor support, transparent BitcoinWalk logo, and OG image generation remain. |
 | 9. Paid city bundle | 🟠 In progress | Free/Paid plan selection and signed tier requests are live on staging. Rustress payment, entitlement verification, NIP-05, LNURL 79/21 split, paid subdomain, and dedicated-relay provisioning remain. |
-| 10. Security + launch | 🟠 In progress | Khatru staging, protected relay backup, global chat staging, and an isolated Austin dedicated-relay pilot exist. Production migration, security controls, monitoring, and full pilot acceptance remain. |
+| 10. Security + launch | 🟠 In progress | Khatru staging and the production Khatru global-chat relay are verified; protected backups and the isolated Austin dedicated-relay pilot exist. Old Zooid retirement, wider production migration, security controls, monitoring, and full pilot acceptance remain. |
 
 The table above defines the full BitcoinWalk scope. The backlog below breaks those stages into trackable work without narrowing the project to only the unpaid-walk flow.
 
@@ -42,6 +42,7 @@ The table above defines the full BitcoinWalk scope. The backlog below breaks tho
 | BW-39 | 7, 10 | Event moderation and publishing suspension | 🟠 In progress | Local address-scoped event routing/moderation checks and tests added. Relay enforcement, signed hide/unhide, city/author publishing suspension, replay and human acceptance remain. Existing city creator cannot be removed from grants; suspension must cover this case. |
 | BW-40 | 3, 7 | Next/upcoming/past city events and organizer deep links | 🟠 In progress | City and occurrence routes, current-or-next redirect with late-arrival grace, and organizer scheduled-walk list are deployed and human-tested. App 0.3.25 prepares one chronological list per city with Past, Draft, Upcoming and Canceled filters; only Upcoming and Draft are active initially. Contextual controls and hosted walks remain; staging acceptance remains. Existing tombstones lack the original event date, so historical cancellations are placed by cancellation date with a clear notice. External discovery, cancellation propagation and full historical-revision acceptance remain. Depends on BW-37/BW-39. |
 | BW-46 | 7 | Edit a walk in the “In review” draft list | 🟠 In progress | App 0.3.23 adds **Edit walk** per unsigned draft for date, local start time, description and map pin. A saved recurring plan retains per-draft edits in this browser; an unsaved one-off preview retains them for the current review. The draft keeps its original occurrence address, checks future/horizon and city-date conflicts, and never alters published walks. Tests/build passed; staging installation and human acceptance remain. Depends on BW-37/BW-38. |
+| BW-49 | 3, 8 | Meeting-pin weather on walk pages | 🟠 In progress | App 0.3.35 is live with cached server-side Open-Meteo forecasts for the signed event meeting pin and start time, provider-null handling, compact weather/community strip, and required CC BY attribution. App 0.3.36 adds optimized forecast-inspired heroes for Memphis, Warszawa and Funchal, explicitly labelled as not a live camera. Non-pilot cities and unavailable/out-of-range forecasts retain the signed organizer hero. Automated tests, local Memphis/Warszawa rendering and production build pass; staging visual acceptance of the new heroes remains. |
 
 NIP-52 status (21 September): live relay 0.6.0 and the staging web app support
 organizer-owned occurrence publishing and public event pages. Eight Memphis
@@ -125,7 +126,6 @@ Chat integration update (18 September): the separate Khatru staging chat and ext
 | BW-20 | 2, 9 | Dedicated relay provisioning with Khatru | ○ Future | BW-17, VPS deployment | Spin up and manage paid-city relays. |
 | BW-21 | 10 | Security and launch operations | ○ Future | BW-08 through BW-20 as applicable | Rate limits, abuse controls, backups, monitoring, deployment, and pilot-city launch. |
 | BW-48 | 3, 10 | Simplify global community join aliases | ○ Future | BW-22, production-domain cutover | Make `https://bitcoinwalk.org/join` and `https://join.bitcoinwalk.org` stable aliases for the global Armada community, while retaining `https://chat.bitcoinwalk.org/join` and older links for compatibility. Acceptance: all aliases redirect to the same verified production group over HTTPS, walk pages use the preferred canonical URL, and automated checks prevent redirect loops or broken legacy links. |
-| BW-49 | 3 | Meeting-pin weather on walk pages | 🟠 In progress | BW-10, public event pages | App 0.3.34 introduced cached server-side Open-Meteo forecasts for the signed event meeting pin and start time, without storing changing weather in Nostr or exposing visitor identity. App 0.3.35 accepts provider-null values outside the selected event hour after the Warszawa page exposed this valid-response edge case. The compact top strip includes a privacy-safe community action; required CC BY attribution is in the footer. Automated tests, local Memphis/Warszawa rendering and build pass; staging 0.3.35 installation and Warszawa acceptance remain. |
 
 ## Adding a backlog item
 
