@@ -8,11 +8,13 @@ import HeroImagePicker from "../../components/hero-image-picker";
 import type { LocationValue } from "../../components/location-picker";
 import { registrationDocument, registrationSlug, type RequestedTier } from "../../domain/registration";
 import { createCityUpdateEvent } from "../../nostr/city-event";
+import { createInitialCalendarProposal } from "../../nostr/calendar-event";
 import { publishVerifiedEvent } from "../../nostr/relay";
 import { signForOrganizer } from "../../nostr/organizer-identity";
 import { relayConfig } from "../../lib/relay-config";
 import { chatConfig } from "../../lib/chat-config";
 import { resolveCityChat } from "../../domain/chat";
+import type { Event } from "nostr-tools";
 
 const LocationPicker = dynamic(() => import("../../components/location-picker"), { ssr: false });
 const DEFAULT_DESCRIPTION = "Join us for a friendly local BitcoinWalk: a relaxed way to meet fellow Bitcoiners, share ideas, and explore the city together. Everyone is welcome, whether you are new to Bitcoin or have been following it for years. Bring your questions, good shoes, and curiosity. We often continue the conversation over coffee or food after the walk.";
@@ -31,6 +33,7 @@ export default function StartWalkPage() {
   const [requestedTier, setRequestedTier] = useState<RequestedTier>("free");
   const cityId = useRef("");
   const submitting = useRef(false);
+  const pendingSubmission = useRef<{ walk: Event; revision: Event; city: string } | null>(null);
   const stepHeading = useRef<HTMLHeadingElement>(null);
   const locked = state.kind === "working" || state.kind === "success";
   useEffect(() => { stepHeading.current?.focus(); }, [step]);
@@ -57,10 +60,23 @@ export default function StartWalkPage() {
     try {
       const candidate = draft();
       if (!relayConfig.writeRelays.length) throw new Error("City submissions are not connected yet.");
-      setState({ kind: "working", message: "Waiting for your Nostr extension…" });
-      const signed = await signForOrganizer(createCityUpdateEvent(candidate), organizerKey);
-      const publication = await publishVerifiedEvent(signed, relayConfig.writeRelays, 1, template => signForOrganizer(template, organizerKey));
-      setState({ kind: "success", message: `Submitted to ${publication.accepted.length} relay(s). It is awaiting approval.${requestedTier === "paid" ? " Your Paid preference was recorded. No payment has been taken and paid benefits are not activated." : " Your requested plan is Free."}` });
+      if (pendingSubmission.current && (pendingSubmission.current.city !== JSON.stringify(candidate) || pendingSubmission.current.revision.pubkey !== organizerKey)) {
+        pendingSubmission.current = null;
+        throw new Error("Your walk details or signer changed after signing. Submit again to sign the updated request.");
+      }
+      if (!pendingSubmission.current) {
+        setState({ kind: "working", message: "Please sign your first walk, followed by the city submission…" });
+        const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+        const walk = await signForOrganizer(createInitialCalendarProposal(candidate, timeZone), organizerKey);
+        const revision = await signForOrganizer(createCityUpdateEvent(candidate, undefined, walk.id), organizerKey);
+        if (walk.pubkey !== organizerKey || revision.pubkey !== organizerKey) throw new Error("Signer identity changed. Reconnect and submit again.");
+        pendingSubmission.current = { walk, revision, city: JSON.stringify(candidate) };
+      }
+      setState({ kind: "working", message: "Sending your signed first walk and city submission…" });
+      await publishVerifiedEvent(pendingSubmission.current.walk, relayConfig.writeRelays, 1, template => signForOrganizer(template, organizerKey));
+      const publication = await publishVerifiedEvent(pendingSubmission.current.revision, relayConfig.writeRelays, 1, template => signForOrganizer(template, organizerKey));
+      pendingSubmission.current = null;
+      setState({ kind: "success", message: `Thanks! Your BitcoinWalk in ${candidate.cityName} has been submitted for review. Reviews usually take several hours. BitcoinWalk Guide will send you a Nostr DM with your walk link once it is live. You can also check your dashboard for its status.${requestedTier === "paid" ? " Your Paid preference was recorded; no payment has been taken and paid benefits are not active yet." : " Your requested plan is Free."} Submitted to ${publication.accepted.length} relay(s).` });
     } catch (error) { setState({ kind: "error", message: error instanceof Error ? error.message : "City submission failed." }); }
     finally { submitting.current = false; }
   }
@@ -91,8 +107,8 @@ export default function StartWalkPage() {
       <OrganizerIdentity disabled={locked || step !== 2} onIdentityChange={setOrganizerKey} />
       <form onSubmit={submit}>
         <RegistrationPlans value={requestedTier} onChange={setRequestedTier} disabled={locked || step !== 2} />
-        <p>Submission relay: {relayConfig.writeRelays.join(", ")}. Your walk proposal and requested tier are public. Do not include private details. Use a distinct test city name for staging.</p>
-        <p>Your Nostr extension signs the submission. BitcoinWalk never receives your private key. Both plans require review and approval.</p>
+        <p>Submission relay: {relayConfig.writeRelays.join(", ")}. Your city proposal and requested tier are visible for review; the signed first walk stays out of public event feeds until approval. Do not include private details. Use a distinct test city name for staging.</p>
+        <p>Your Nostr extension signs the first walk and city submission. BitcoinWalk never receives your private key. Neither becomes public until the city is approved.</p>
         <button type="submit" disabled={!organizerKey || locked || step !== 2}>{state.kind === "working" ? "Submitting…" : requestedTier === "paid" ? "Submit Paid request for approval — no payment now" : "Submit Free walk for approval"}</button>
       </form>
     </div>

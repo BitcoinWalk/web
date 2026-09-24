@@ -50,6 +50,9 @@ export type CityAuthorization = z.infer<typeof cityAuthorizationSchema>;
 export const cityApprovalSchema = z.object({
   cityId: z.string().uuid(),
   cityRevisionId: z.string().regex(/^[0-9a-f]{64}$/),
+  /** The organizer-signed first walk released by this approval. Older
+   * decisions omit it and retain their existing behaviour. */
+  initialEventId: z.string().regex(/^[0-9a-f]{64}$/).optional(),
   status: z.enum(["approved", "rejected", "revoked"]),
   note: z.string().max(500).optional(),
 });

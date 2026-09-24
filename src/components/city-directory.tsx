@@ -49,7 +49,7 @@ export default function CityDirectory() {
   },[attempt]);
   const filtered=filterDirectory(rows,query),featured=rows.filter(row=>row.featured);
   return <main className={styles.home}>
-    <nav className={styles.nav}><Link href="/">BitcoinWalk</Link><div><Link href="/organizer">Organizers</Link><Link href="/start">Start a walk</Link></div></nav>
+    <nav className={styles.nav}><Link href="/">BitcoinWalk</Link><div><Link href="/admin">Dashboard</Link><Link href="/start">Start a walk</Link></div></nav>
     <header className={styles.hero}><p className={styles.eyebrow}>Step outside. Meet your local Bitcoin community.</p><h1>Good company.<br/>One walk at a time.</h1><p>Find a BitcoinWalk near you. Bring your curiosity, meet fellow Bitcoiners, and take the conversation outside.</p><a className={styles.link} href="#find-walk">Find your city ↓</a></header>
     <p className={styles.muted}>Staging preview · Approved cities from the staging relay. This is not the legacy production directory.</p>
     <section aria-labelledby="featured-title"><h2 id="featured-title">Featured city walks</h2><p>Local communities with dedicated relays, supported by their partners.</p>

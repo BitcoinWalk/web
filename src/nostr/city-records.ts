@@ -35,12 +35,22 @@ export async function queryCalendarEvents(relays:string[], filter:{ids?:string[]
   return queryRelayEvents(relays,[31923],undefined,{...(filter.authors?{authors:filter.authors}:{}),...(filter.ids?{ids:filter.ids}:{}),...(filter.cityId?{"#i":[filter.cityId]}:{})});
 }
 
-export async function queryCalendarDeletion(relays:string[], id:string):Promise<Event[]> {
-  return (await queryRelayEvents(relays,[5],undefined,{authors:[SUPER_ADMIN_PUBKEY],"#e":[id]})).filter(e=>verifyEvent(e)&&isSuperAdmin(e.pubkey)&&e.tags.some(t=>t[0]==="k"&&t[1]==="31923"));
+export async function queryCalendarDeletion(relays:string[], id:string,author=SUPER_ADMIN_PUBKEY):Promise<Event[]> {
+  return (await queryRelayEvents(relays,[5],undefined,{authors:[author],"#e":[id]})).filter(e=>verifyEvent(e)&&e.pubkey===author&&e.tags.some(t=>t[0]==="k"&&t[1]==="31923"));
+}
+
+/** Public NIP-09 records remain readable after their calendar targets are hidden. */
+export async function queryCityCalendarCancellations(relays:string[],cityId:string):Promise<Event[]> {
+  const events=await queryRelayEvents(relays,[5],undefined,{"#i":[cityId]});
+  if(events.length>=500)throw new Error("Cancellation history reached the relay read limit. The walk list may be incomplete.");
+  const valid=events.filter(event=>event.kind===5&&verifyEvent(event)&&event.tags.length===3&&event.tags.filter(tag=>tag[0]==="i"&&tag[1]===cityId&&tag.length===2).length===1&&event.tags.filter(tag=>tag[0]==="k"&&tag[1]==="31923"&&tag.length===2).length===1&&event.tags.filter(tag=>tag[0]==="e"&&/^[0-9a-f]{64}$/.test(tag[1]??"")&&tag.length===2).length===1).sort(compareEvents);
+  const seen=new Set<string>();
+  return valid.filter(event=>{const target=event.tags.find(tag=>tag[0]==="e")![1];if(seen.has(target))return false;seen.add(target);return true;});
 }
 
 export async function queryAuthorizations(relays: string[]): Promise<AuthorizationRecord[]> {
   const events = await queryRelayEvents(relays, [CITY_AUTHORIZATION_KIND], undefined, {authors:[SUPER_ADMIN_PUBKEY]});
+  if(events.length>=500)throw new Error("City permission discovery reached its read limit. A complete list cannot be confirmed.");
   const records=events.map(parseAuthorizationRecord).filter((r): r is AuthorizationRecord=>r!==null);
   if(events.length && !records.length) throw new Error("The relay returned city lists, but none passed signature/schema verification. No permissions were changed.");
   return records.sort((a,b)=>compareEvents(a.event,b.event));
@@ -71,7 +81,11 @@ export function parseApprovalRecord(event: Event): ApprovalRecord | null {
     const parsed = cityApprovalSchema.safeParse(JSON.parse(event.content));
     if (!parsed.success) return null;
     const data = parsed.data;
-    return workflowAddress(event, data.cityId) && (uniqueTag(event, "d", data.cityId) || uniqueTag(event, "i", data.cityId)) && uniqueTag(event, "status", data.status) && event.tags.filter(t => t[0] === "e" && t[1] === data.cityRevisionId && t[3] === "city-revision").length === 1 ? { event, approval: data } : null;
+    const initialTags = event.tags.filter(t => t[0] === "e" && t[3] === "initial-walk");
+    return workflowAddress(event, data.cityId) && (uniqueTag(event, "d", data.cityId) || uniqueTag(event, "i", data.cityId)) && uniqueTag(event, "status", data.status)
+      && event.tags.filter(t => t[0] === "e" && t[1] === data.cityRevisionId && t[3] === "city-revision").length === 1
+      && (data.initialEventId ? initialTags.length === 1 && initialTags[0][1] === data.initialEventId : initialTags.length === 0)
+      ? { event, approval: data } : null;
   } catch {
     return null;
   }
@@ -81,7 +95,7 @@ let readPool: SimplePool | undefined;
 let activeReads=0;
 let idleClose: ReturnType<typeof setTimeout> | undefined;
 
-async function queryRelayEvents(relays: string[], kinds: number[], onAuthentication?: RelayReadAuthentication, filter: Partial<Filter> = {}): Promise<Event[]> {
+export async function queryRelayEvents(relays: string[], kinds: number[], onAuthentication?: RelayReadAuthentication, filter: Partial<Filter> = {}): Promise<Event[]> {
   if (relays.length === 0) throw new Error("No read relay configured.");
   if(idleClose) clearTimeout(idleClose);
   const pool=readPool ?? (readPool=new SimplePool());

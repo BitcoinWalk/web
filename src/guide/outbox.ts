@@ -1,9 +1,10 @@
 import { DatabaseSync } from "node:sqlite";
-import type { CityRevision } from "../nostr/city-records";
+import type { ApprovalRecord, CityRevision } from "../nostr/city-records";
 import type { Event } from "nostr-tools";
-import { approvalAlert, wrapAlert } from "./core";
+import { approvalAlert, liveAlert, wrapAlert } from "./core";
 
-export type Delivery = { submission: string; recipient: string; wrapped: string; attempts: number; next_attempt: number; state: string };
+export type Delivery = { submission: string; recipient: string; wrapped: string; attempts: number; next_attempt: number; state: string; purpose: "review" | "live" };
+export type LivePublication = { revision: CityRevision; approval: ApprovalRecord; event: Event };
 export class Outbox {
   readonly db: DatabaseSync;
   constructor(path: string) {
@@ -13,7 +14,29 @@ export class Outbox {
       CREATE TABLE IF NOT EXISTS seen (id TEXT PRIMARY KEY);
       CREATE TABLE IF NOT EXISTS delivery (submission TEXT NOT NULL, recipient TEXT NOT NULL, wrapped TEXT NOT NULL,
         sender_copy TEXT NOT NULL, attempts INTEGER NOT NULL DEFAULT 0, next_attempt INTEGER NOT NULL DEFAULT 0,
-        state TEXT NOT NULL DEFAULT 'pending', PRIMARY KEY(submission, recipient));`);
+        state TEXT NOT NULL DEFAULT 'pending', purpose TEXT NOT NULL DEFAULT 'review', PRIMARY KEY(submission, recipient));`);
+    const columns = this.db.prepare("PRAGMA table_info(delivery)").all() as Array<{name:string}>;
+    if (!columns.some(column => column.name === "purpose")) this.db.exec("ALTER TABLE delivery ADD COLUMN purpose TEXT NOT NULL DEFAULT 'review'");
+    this.db.exec("CREATE TABLE IF NOT EXISTS live_seen (id TEXT PRIMARY KEY)");
+  }
+  ingestLive(publications: LivePublication[], secret: Uint8Array, adminURL: string, relay: string): number {
+    this.db.exec("BEGIN IMMEDIATE");
+    try {
+      const initialized = !!this.db.prepare("SELECT value FROM meta WHERE key='live-initialized'").get();
+      let queued = 0;
+      if (initialized) for (const publication of publications) {
+        const approvalID = publication.approval.event.id;
+        if (this.db.prepare("SELECT id FROM live_seen WHERE id=?").get(approvalID)) continue;
+        const recipient = publication.revision.event.pubkey;
+        const wraps = wrapAlert(liveAlert(publication.revision, publication.event, adminURL, relay), recipient, secret);
+        this.db.prepare("INSERT OR IGNORE INTO delivery (submission,recipient,wrapped,sender_copy,purpose) VALUES (?,?,?,?, 'live')")
+          .run(`live:${approvalID}`, recipient, JSON.stringify(wraps.recipient), JSON.stringify(wraps.sender));
+        queued++;
+      }
+      for (const publication of publications) this.db.prepare("INSERT OR IGNORE INTO live_seen VALUES (?)").run(publication.approval.event.id);
+      this.db.prepare("INSERT OR IGNORE INTO meta VALUES ('live-initialized','1')").run();
+      this.db.exec("COMMIT"); return queued;
+    } catch (error) { this.db.exec("ROLLBACK"); throw error; }
   }
   bind(bot: string, source: string) {
     const identity = JSON.stringify([bot, source]);

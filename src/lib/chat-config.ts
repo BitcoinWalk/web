@@ -1,12 +1,12 @@
 import type { ChatConfig } from "../domain/chat";
 
 // Public routing data, edited by the operator after relay/group provisioning.
-// Do not switch to the legacy production chat relay before migration is verified.
+// Production global community verified on 23 September 2026.
 export const chatConfig: ChatConfig = {
-  environment: "staging",
+  environment: "production",
   global: {
-    relay: "wss://chat-staging.bitcoinwalk.org",
-    groupId: "b7082b86a614153e",
+    relay: "wss://chat.bitcoinwalk.org",
+    groupId: "13bc3a423b4f2954",
   },
   paidCities: {},
 };

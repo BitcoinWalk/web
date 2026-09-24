@@ -1,6 +1,6 @@
 import type { Event } from "nostr-tools";
 import type { CalendarWalk } from "../nostr/calendar-records";
-import { calendarOccurrence, matchesCalendar, matchesOrganizerCalendar } from "../nostr/calendar-records";
+import { calendarOccurrence, matchesCalendar, matchesInitialCalendar, matchesOrganizerCalendar } from "../nostr/calendar-records";
 import type { PaidDirectoryCity } from "./directory";
 
 export const WALK_REDIRECT_GRACE_SECONDS=60*60;
@@ -37,7 +37,7 @@ function routableOccurrence(walk:CalendarWalk,event:Event){
 export function currentOrNextEvent(walk:CalendarWalk,events:Event[],now=Math.floor(Date.now()/1000)):Event|null {
   if(!Number.isSafeInteger(now)||now<0)return null;
   const candidates=events.flatMap(event=>{
-    if(!matchesCalendar(event,walk)&&!matchesOrganizerCalendar(event,walk))return [];
+    if(!matchesCalendar(event,walk)&&!matchesOrganizerCalendar(event,walk)&&!matchesInitialCalendar(event,walk))return [];
     const occurrence=routableOccurrence(walk,event);
     if(!occurrence)return [];
     return [{event,start:occurrence.start,end:occurrence.end}];
@@ -51,7 +51,7 @@ export function managedCalendarEvents(walk:CalendarWalk,events:Event[],now=Math.
   if(!Number.isSafeInteger(now)||now<0)return [];
   const rank={active:0,grace:1,upcoming:2,past:3};
   return events.flatMap(event=>{
-    if(!matchesCalendar(event,walk)&&!matchesOrganizerCalendar(event,walk))return [];
+    if(!matchesCalendar(event,walk)&&!matchesOrganizerCalendar(event,walk)&&!matchesInitialCalendar(event,walk))return [];
     const occurrence=routableOccurrence(walk,event);if(!occurrence)return [];
     const status=occurrence.start>now?"upcoming":occurrence.end>now?"active":occurrence.end+WALK_REDIRECT_GRACE_SECONDS>now?"grace":"past";
     return [{event,...occurrence,status} satisfies ManagedCalendarEvent];

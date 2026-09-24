@@ -10,7 +10,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: Readonly<{ children: ReactNode }>) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body>{children}<footer className="site-footer"><small>Weather data: <a href="https://open-meteo.com/" rel="noreferrer">Open-Meteo</a>, licensed under <a href="https://creativecommons.org/licenses/by/4.0/" rel="noreferrer">CC BY 4.0</a>. Values are selected and rounded by BitcoinWalk.</small></footer></body>
     </html>
   );
 }

@@ -33,6 +33,12 @@ not DM old pending submissions. Submit a fresh test revision after startup for
 acceptance. Existing pending work stays visible in `/admin`.
 
 Each subsequent undecided revision is queued once per configured recipient.
+For the new-city workflow, an approval that releases a verified organizer-signed
+first walk also queues one encrypted live-link message to that organizer. The
+worker only calls the walk live after the exact approval-bound NIP-52 event is
+readable from the managed relay. Review and live messages have separate durable
+deduplication/retry state; revocation or loss of public eligibility suppresses a
+queued live notification.
 SQLite commits the queue and seen IDs together. Gift-wrap events are encrypted
 before storage; a separately encrypted sender copy is retained locally, not
 published to an invented bot inbox. Failed deliveries retry with exponential
@@ -110,7 +116,9 @@ from the pending list; the link itself never grants approval authority.
 
 Acceptance: one alert per recipient; decryptable DM; accurate city/tier; correct
 review link; no duplicates after a worker restart; decision stops queued retries;
-regular recipient cannot approve; inbox failures do not block submission.
+regular recipient cannot approve; inbox failures do not block submission. For a
+fresh new city, approval must publish its exact organizer-signed first walk, and
+Guide must send the organizer that walk's memorable URL once publication is verified.
 
 ## Operations and rollback
 

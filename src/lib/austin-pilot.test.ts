@@ -11,7 +11,7 @@ describe("isolated Austin paid-city pilot", () => {
     });
   });
   it("keeps ordinary Austin on global chat", () => {
-    expect(resolveCityChat(undefined, "austin", chatConfig).url).toBe("https://armada.buzz/s/chat-staging.bitcoinwalk.org/b7082b86a614153e");
+    expect(resolveCityChat(undefined, "austin", chatConfig).url).toBe("https://armada.buzz/s/chat.bitcoinwalk.org/13bc3a423b4f2954");
     expect(Object.hasOwn(chatConfig.paidCities, austinPilot.cityId)).toBe(false);
   });
   it("does not route other cities into the paid pilot", () => {

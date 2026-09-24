@@ -3,7 +3,6 @@ import {createWrap} from "nostr-tools/nip59";
 import {profileRelays} from "./profiles";
 import {getBrowserExtensionPubkey,signWithBrowserExtension} from "./signer";
 import {isSuperAdmin} from "./authority";
-import {assertExactSigned} from "./moderation";
 
 export function inviteRecipient(value:string):string{
  const decoded=nip19.decode(value.trim());if(decoded.type!=="npub")throw new Error("Enter a valid npub, not an nsec or event link.");return decoded.data;
@@ -27,13 +26,18 @@ export async function discoverInbox(key:string):Promise<string[]>{
 }
 export async function prepareInvitation(recipient:string,content:string):Promise<{recipient:Event;sender:Event;author:string}>{
  const author=await getBrowserExtensionPubkey();if(!isSuperAdmin(author))throw new Error("Select the BitcoinWalk super-admin.");
+ return preparePrivateInvitation(recipient,content,author);
+}
+export async function preparePrivateInvitation(recipient:string,content:string,author:string):Promise<{recipient:Event;sender:Event;author:string}>{
+ if(await getBrowserExtensionPubkey()!==author)throw new Error("Signer identity changed. No message sent.");
  const extension=window.nostr;if(!extension?.nip44)throw new Error("This extension needs NIP-44 encryption support to send private invitations. No insecure fallback is used.");
  const unsigned={pubkey:author,kind:14,created_at:Math.floor(Date.now()/1000),tags:[["p",recipient]],content};const rumor={...unsigned,id:getEventHash(unsigned)};
  async function wrap(key:string){
   const ciphertext=await extension!.nip44!.encrypt(key,JSON.stringify(rumor));
   const offset=crypto.getRandomValues(new Uint32Array(1))[0]%172800;
   const template={kind:13,created_at:Math.floor(Date.now()/1000)-offset,tags:[],content:ciphertext};
-  const seal=await signWithBrowserExtension(template);assertExactSigned(seal,template);
+  const seal=await signWithBrowserExtension(template);
+  if(!verifyEvent(seal)||seal.pubkey!==author||seal.kind!==template.kind||seal.created_at!==template.created_at||seal.content!==template.content||JSON.stringify(seal.tags)!==JSON.stringify(template.tags))throw new Error("Signer returned a different account or message. Nothing sent.");
   if(await getBrowserExtensionPubkey()!==author)throw new Error("Signer identity changed. No invitation published.");
   return createWrap(seal,key);
  }

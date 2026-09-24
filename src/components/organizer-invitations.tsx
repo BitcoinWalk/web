@@ -8,7 +8,7 @@ import type {EventTemplate} from "nostr-tools";
 
 type Preview={recipient:string;npub:string;url:string;text:string;to:string[];self:string[];author:string};
 export default function OrganizerInvitations(){
- const lock=useRef(false);const [busy,setBusy]=useState(false),[npub,setNpub]=useState(""),[url,setURL]=useState(process.env.NEXT_PUBLIC_ORGANIZER_INVITE_URL??""),[preview,setPreview]=useState<Preview|null>(null),[message,setMessage]=useState("Invitations are private messages, not approval or editor grants. A public registration deployment is required."),[sent,setSent]=useState(false);
+ const lock=useRef(false);const [busy,setBusy]=useState(false),[npub,setNpub]=useState(""),[url,setURL]=useState(process.env.NEXT_PUBLIC_ORGANIZER_INVITE_URL?.trim()||"https://app-staging.bitcoinwalk.org/start"),[preview,setPreview]=useState<Preview|null>(null),[message,setMessage]=useState("Invitations are private messages, not approval or editor grants. A public registration deployment is required."),[sent,setSent]=useState(false);
  const pending=useRef<Awaited<ReturnType<typeof prepareInvitation>>|null>(null);const recipientAck=useRef(false),senderAck=useRef(false);
  function reset(){setPreview(null);setSent(false);pending.current=null;recipientAck.current=false;senderAck.current=false;}
  async function run(fn:()=>Promise<void>){if(lock.current)return;lock.current=true;setBusy(true);try{await fn();}catch(e){setMessage(`${e instanceof Error?e.message:"Invitation failed."}${recipientAck.current?" Recipient relay already acknowledged the invitation; retry only completes the saved sender copy.":" Delivery is not confirmed. Retry reuses any already signed envelopes."}`);}finally{lock.current=false;setBusy(false);}}

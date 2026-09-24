@@ -43,6 +43,16 @@ export function matchesOrganizerCalendar(event:Event,walk:CalendarWalk):boolean 
   const links=event.tags.filter(t=>t[0]==="r"&&t.length===2).map(t=>t[1]);if(city.chatUrl?(links.length!==1||links[0]!==city.chatUrl):links.length!==0)return false;
   return true;
 }
+export function matchesInitialCalendar(event:Event,walk:CalendarWalk):boolean {
+  const city=walk.revision.city;
+  if(event.kind!==31923||!verifyEvent(event)||event.pubkey!==walk.revision.event.pubkey||walk.approval.approval.initialEventId!==event.id)return false;
+  if(one(event,"bitcoinwalk")!=="initial-proposal-v1"||one(event,"i")!==city.cityId||one(event,"title")!==`BitcoinWalk ${city.cityName}`||one(event,"summary")!==`BitcoinWalk in ${city.cityName}`||one(event,"image")!==city.heroImageUrl||one(event,"t")!=="bitcoinwalk"||event.content!==city.description)return false;
+  const start=Number(one(event,"start")),end=Number(one(event,"end"));if(!Number.isSafeInteger(start)||!Number.isSafeInteger(end)||end-start!==3600||new Date(city.startAt).getTime()/1000!==start||one(event,"D")!==String(Math.floor(start/86400)))return false;
+  const zone=one(event,"start_tzid");if(!zone||one(event,"end_tzid")!==zone)return false;
+  const locations=event.tags.filter(t=>t[0]==="location"&&t.length===2);if(locations.length!==2||locations[0][1]!==city.meetingPoint.description||locations[1][1]!==`${city.meetingPoint.latitude},${city.meetingPoint.longitude}`)return false;
+  const links=event.tags.filter(t=>t[0]==="r"&&t.length===2).map(t=>t[1]);if(city.chatUrl?(links.length!==1||links[0]!==city.chatUrl):links.length!==0)return false;
+  return event.tags.filter(t=>t[0]==="e").length===0;
+}
 export function calendarOccurrence(event:Event){
   const start=Number(one(event,"start")),end=Number(one(event,"end")),locations=event.tags.filter(t=>t[0]==="location"&&t.length===2),coords=locations[1]?.[1]?.split(",").map(Number);
   if(!Number.isSafeInteger(start)||!Number.isSafeInteger(end)||locations.length!==2||coords?.length!==2)return null;
@@ -61,7 +71,7 @@ export async function resolveCalendarLink(value:string,relays:string[]):Promise<
   const events=await queryCalendarEvents(relays,{ids:[id]});
   const event=events.find(e=>e.id===id);if(!event)return null;
   const walks=await loadCalendarWalks(relays);
-  let walk=walks.find(w=>matchesCalendar(event,w)||matchesOrganizerCalendar(event,w));
+  let walk=walks.find(w=>matchesCalendar(event,w)||matchesOrganizerCalendar(event,w)||matchesInitialCalendar(event,w));
   if(!walk){
     const revisionId=source(event,"city-revision"),approvalId=source(event,"city-approval"),cityId=one(event,"i");
     const current=cityId&&walks.some(w=>w.revision.city.cityId===cityId);

@@ -19,15 +19,17 @@ export function armadaChatUrl(destination: ChatDestination): string | null {
 }
 
 /** Only operator configuration determines tier/routing, never organizer-supplied chatUrl. */
-export function resolveCityChat(cityId: string | undefined, slug: string, config: ChatConfig) {
-  const paid = cityId && Object.hasOwn(config.paidCities, cityId) ? config.paidCities[cityId] : undefined;
+export function resolveCityChat(cityId: string | undefined, slug: string, config: ChatConfig, paidEntitled?: boolean) {
+  const configuredPaid = cityId && Object.hasOwn(config.paidCities, cityId) ? config.paidCities[cityId] : undefined;
+  const paid = paidEntitled === false ? undefined : configuredPaid;
+  const paidScope = paidEntitled === true || !!paid;
   let destination = config.global;
-  if (paid) {
-    destination = paid.slug === slug && paid.destination?.relay === `wss://${slug}.bitcoinwalk.org`
+  if (paidScope) {
+    destination = paid?.slug === slug && paid.destination?.relay === `wss://${slug}.bitcoinwalk.org`
       ? paid.destination : null;
   }
   return {
-    scope: paid ? "city" as const : "global" as const,
+    scope: paidScope ? "city" as const : "global" as const,
     environment: config.environment,
     url: destination ? armadaChatUrl(destination) : null,
   };

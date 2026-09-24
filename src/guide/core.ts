@@ -51,6 +51,13 @@ export function approvalAlert(revision: CityRevision, adminURL: string): string 
   return `New BitcoinWalk submission awaiting review\nCity: ${city}\nOrganizer: ${nip19.npubEncode(revision.event.pubkey)}\nRequested plan: ${tier}\nCity ID: ${revision.city.cityId}\nSubmission: ${revision.event.id}\n\nReview: ${adminURL}#submission-${revision.event.id}\n\nConnect your super-admin signer and load submissions. Status may have changed since this alert. Approve only in BitcoinWalk, never by replying here. BitcoinWalk Guide is automated; replies are not monitored.`;
 }
 
+export function liveAlert(revision: CityRevision, event: Event, adminURL: string, relay: string): string {
+  const city = revision.city.cityName.replace(/[\p{C}\p{Z}]+/gu, " ").trim();
+  const nevent = nip19.neventEncode({ id: event.id, author: event.pubkey, kind: 31923, relays: [relay] });
+  const origin = new URL(adminURL).origin;
+  return `Your BitcoinWalk in ${city} is live!\n\nOpen your walk: ${origin}/${encodeURIComponent(revision.city.slug)}/${nevent}\nManage this city and add future walks: ${origin}/admin/walks\n\nBitcoinWalk Guide is automated; replies are not monitored. Never share your private key.`;
+}
+
 export function selectInbox(events: Event[], recipient: string, allowed: string[], now = Math.floor(Date.now()/1000)): string[] {
   const latest = events.filter(e => e.kind === 10050 && e.pubkey === recipient && e.created_at <= now + 60 && verifyEvent(e)).sort(compareEvents)[0];
   if (!latest) throw new Error("Recipient has no verified NIP-17 inbox list.");

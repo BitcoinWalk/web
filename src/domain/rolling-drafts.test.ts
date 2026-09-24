@@ -48,6 +48,33 @@ describe("rolling eight-walk drafts", () => {
     expect(drafts[1].meetingPoint.description).toBe("Square");
     expect(plan.meetingPoint.description).toBe("Square");
   });
+  it("edits only one saved draft and keeps its original occurrence address",()=>{
+    const original=upcomingDrafts(plan,now);
+    const target=original[0];
+    const edited={...plan,draftEdits:{[target.id]:{localDate:"2026-10-04",localTime:"11:30",meetingPoint:{description:"Library steps",latitude:35.2,longitude:-90.1}}}};
+    const values=new Map<string,string>();
+    const storage={getItem:(key:string)=>values.get(key)??null,setItem:(key:string,value:string)=>{values.set(key,value);}};
+    saveRecurringPlan(storage,edited);
+    const loaded=readRecurringPlan(storage,plan.owner,plan.cityId);
+    expect(loaded).not.toBeNull();
+    const drafts=upcomingDrafts(loaded!,now);
+    expect(drafts[0].id).toBe(target.id);
+    expect(drafts[0]).toMatchObject({localDate:"2026-10-04",localTime:"11:30",meetingPoint:{description:"Library steps",latitude:35.2,longitude:-90.1}});
+    expect(drafts[0].start).toBeGreaterThan(target.start);
+    expect(drafts.slice(1)).toEqual(original.slice(1));
+  });
+  it("rejects an edit that collides with another draft date",()=>{
+    const target=upcomingDrafts(plan,now)[0];
+    expect(()=>upcomingDrafts({...plan,draftEdits:{[target.id]:{localDate:"2026-10-10",localTime:"11:30",meetingPoint:plan.meetingPoint}}},now)).toThrow("share a date");
+  });
+  it("replenishes the review window when an edited date has passed",()=>{
+    const target=upcomingDrafts(plan,now)[0];
+    const moved={...plan,draftEdits:{[target.id]:{localDate:"2026-10-04",localTime:"11:30",meetingPoint:plan.meetingPoint}}};
+    const later=upcomingDrafts(moved,Date.parse("2026-10-05T00:00:00Z"));
+    expect(later).toHaveLength(8);
+    expect(later.some(draft=>draft.id===target.id)).toBe(false);
+    expect(later[0].localDate).toBe("2026-10-10");
+  });
   it("persists a plan and isolates identities and cities", () => {
     const values = new Map<string, string>();
     const storage = { getItem: (key: string) => values.get(key) ?? null, setItem: (key: string, value: string) => { values.set(key, value); } };

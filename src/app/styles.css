@@ -15,3 +15,8 @@ textarea { min-height: 8rem; }
 .chat-button { display: inline-block; padding: 0.8rem 1.1rem; background: #171717; color: white; border-radius: 0.4rem; text-decoration: none; }
 .chat-button:hover { background: #383838; }
 .chat-button:focus-visible { outline: 3px solid #b85c00; outline-offset: 3px; }
+.walk-weather { display: flex; align-items: center; flex-wrap: wrap; gap: 0.35rem 0.7rem; width: fit-content; margin: -0.5rem 0 1rem; padding: 0.45rem 0.75rem; border-radius: 999px; background: #fff4e5; font-size: 0.92rem; }
+.walk-weather strong { font-size: 1rem; }
+.weather-detail { white-space: nowrap; }
+.weather-chat { color: inherit; padding-left: 0.65rem; border-left: 1px solid #d9ad76; font-weight: 700; white-space: nowrap; }
+.site-footer { max-width: 42rem; margin: 2rem auto; padding: 1rem 1.5rem; color: #666; }

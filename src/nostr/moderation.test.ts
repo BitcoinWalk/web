@@ -1,6 +1,6 @@
 import {describe,it,expect} from "vitest";
 import {finalizeEvent,type Event} from "nostr-tools";
-import {managedCities,visibleManagedCities,ARCHIVE_NOTE,createCalendarDeletion,type ManagedCity} from "./moderation";
+import {managedCities,visibleManagedCities,ARCHIVE_NOTE,createCalendarDeletion,createOrganizerCancellation,type ManagedCity} from "./moderation";
 import type {ApprovalRecord} from "./city-records";
 const city={cityId:"66f137cb-2ac1-4eef-8358-7dd66b45922f",slug:"radom",cityName:"Radom",description:"Walk",startAt:"2026-10-02T15:00:00Z",meetingPoint:{description:"Square",latitude:1,longitude:2},heroImageUrl:"https://example.com/i"};
 const event=(id:string,created_at:number):Event=>({id:id.repeat(64),created_at,kind:30304,pubkey:"a".repeat(64),sig:"",content:"",tags:[]});
@@ -36,5 +36,10 @@ describe("city lifecycle",()=>{
   const deletion=createCalendarDeletion(target,city.cityId);
   expect(deletion.tags).toEqual([["e",target.id],["k","31923"],["i",city.cityId]]);
   expect(()=>createCalendarDeletion(target,"another-city")).toThrow("Invalid calendar deletion target");
+  const cancellation=createOrganizerCancellation(target,city.cityId,target.pubkey);
+  expect(cancellation.tags).toEqual(deletion.tags);
+  expect(cancellation.content).toContain("CANCEL WALK EVENT");
+  expect(()=>createOrganizerCancellation(target,city.cityId,"f".repeat(64))).toThrow("Only the signer");
+  expect(()=>createOrganizerCancellation(target,"another-city",target.pubkey)).toThrow("Invalid calendar deletion target");
  });
 });

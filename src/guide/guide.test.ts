@@ -4,7 +4,8 @@ import { unwrapEvent } from "nostr-tools/nip59";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { configSchema, selectInbox, wrapAlert, approvalAlert, assertBotKey, guideProfile, signTransportAuth } from "./core";
+import { configSchema, selectInbox, wrapAlert, approvalAlert, liveAlert, assertBotKey, guideProfile, signTransportAuth } from "./core";
+import { createInitialCalendarProposal } from "../nostr/calendar-event";
 import { Outbox } from "./outbox";
 import { type CityRevision, parseCityRevision, pendingCityRevisions } from "../nostr/city-records";
 
@@ -54,6 +55,20 @@ describe("BitcoinWalk Guide", () => {
     expect(content).toContain(`#submission-${item.event.id}`);
     expect(content).toContain("payment not verified");
     expect(content).not.toContain(city.heroImageUrl);
+  });
+  it("queues a verified-live message to the organizer separately from admin review alerts", () => {
+    const item=revision(), event=finalizeEvent(createInitialCalendarProposal(city,"America/Chicago"),organizer);
+    const approvalEvent=finalizeEvent({kind:30304,created_at:101,content:"",tags:[]},admin);
+    const publication={revision:item,event,approval:{event:approvalEvent,approval:{cityId:city.cityId,cityRevisionId:item.event.id,initialEventId:event.id,status:"approved" as const}}};
+    expect(liveAlert(item,event,"https://bitcoinwalk.org/admin","wss://relay.bitcoinwalk.org")).toContain("/memphis/nevent1");
+    const box=new Outbox(":memory:");
+    try {
+      expect(box.ingestLive([],bot,"https://bitcoinwalk.org/admin","wss://relay.bitcoinwalk.org")).toBe(0);
+      expect(box.ingestLive([publication],bot,"https://bitcoinwalk.org/admin","wss://relay.bitcoinwalk.org")).toBe(1);
+      const row=box.due(0)[0];expect(row.purpose).toBe("live");expect(row.recipient).toBe(item.event.pubkey);
+      expect(unwrapEvent(JSON.parse(row.wrapped),organizer).content).toContain("is live!");
+      expect(box.ingestLive([publication],bot,"https://bitcoinwalk.org/admin","wss://relay.bitcoinwalk.org")).toBe(0);
+    } finally {box.close();}
   });
   it("rejects arbitrary review-link hosts and insecure relay configuration", () => {
     const config = {sourceRelay:"wss://relay.bitcoinwalk.org",discoveryRelays:["wss://relay.example.com"],allowedInboxRelays:["wss://relay.example.com"],recipients:[recipient],adminURL:"https://app-staging.bitcoinwalk.org/admin"};

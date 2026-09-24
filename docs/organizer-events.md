@@ -1,5 +1,28 @@
 # Organizer events — staged implementation
 
+Current staging state (21 September 2026): organizer NIP-52 batch publishing,
+read-back, exact event links, city redirects, the scheduled-walk list, and
+publication-aware recurrence preview are deployed. The user confirmed the
+scheduled-versus-missing count in app 0.3.11. The historical increment plan
+below records the original safety gates; it is not a statement that those
+features remain local. The preview counts distinct upcoming city dates, omits
+already-published dates, flags multiple walks and changed times, and rechecks
+the relay before signing. It still requires explicit organizer signatures and
+does not promise unattended renewal or server-backed recurrence.
+
+App 0.3.23 prepares an **Edit walk** action beside each unsigned draft in the review list. It changes only that occurrence's date, local time and meeting point while retaining its original series/date address. Recurring-plan edits are saved with that plan in the current browser; one-off previews remain in the current review only. Already published events cannot be edited through this control. Staging installation and signer-based acceptance remain pending.
+
+App 0.3.25 combines saved and currently reviewed drafts, published upcoming/past events, delegated hosting assignments and retained cancellation markers into one chronological list per city. Upcoming and Draft filters are active by default; Past and Canceled can be enabled independently. Drafts have edit/review/skip/sign controls; upcoming organizer-owned walks have event, cancellation and delegation controls; hosted walks show their event without owner controls; past walks link to their event; canceled rows expose the original event ID for copying. The relay suppresses deleted event details, so older canceled rows use the cancellation timestamp and explicitly say that the original walk date is unavailable. Staging acceptance remains pending.
+
+Individual walk cancellation is deployed on staging in relay 0.6.1/app 0.3.12: the
+original event signer can publish a signed NIP-09 tombstone for their own walk;
+the super-admin retains the existing moderation action. Another city editor
+cannot cancel a different author's event. The relay hides the exact event ID
+and retains the tombstone/history; other dates and city approval remain.
+External copies may remain. A browser-local recurring plan may propose the
+cancelled date again, but nothing republishes automatically. Public health and
+route checks passed; signed human acceptance is still required.
+
 ## Agreed behaviour
 
 City approval and occurrence publication are separate. Authorized organizers of an

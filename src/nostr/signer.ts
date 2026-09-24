@@ -20,9 +20,16 @@ export class SignerUnavailableError extends Error {
 }
 
 /** Signs only in the user's extension; no private key is handled by BitcoinWalk. */
+let dashboardIdentity:string|null=null;
+let identityGeneration=0;
+export function setDashboardSigningIdentity(pubkey:string|null){dashboardIdentity=pubkey;identityGeneration++;}
 export async function signWithBrowserExtension(template: EventTemplate): Promise<Event> {
   if (typeof window === "undefined" || !window.nostr) throw new SignerUnavailableError();
-  return window.nostr.signEvent(template);
+  const expected=dashboardIdentity,generation=identityGeneration;
+  if(expected&&await window.nostr.getPublicKey()!==expected)throw new Error("Signer identity changed. Reconnect the dashboard before signing.");
+  const signed=await window.nostr.signEvent(template);
+  if(expected&&(identityGeneration!==generation||signed.pubkey!==expected||await window.nostr.getPublicKey()!==expected))throw new Error("Dashboard identity changed while signing. Nothing should be published; reconnect and retry.");
+  return signed;
 }
 
 /** Signs a NIP-42 relay authentication challenge inside the user's extension. */

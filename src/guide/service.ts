@@ -7,6 +7,7 @@ import { Outbox } from "./outbox";
 import { history, readComplete } from "./transport";
 import { SUPER_ADMIN_PUBKEY } from "../nostr/authority";
 import { parseCityRevision, parseApprovalRecord, pendingCityRevisions, type CityRevision, type ApprovalRecord } from "../nostr/city-records";
+import { matchesInitialCalendar } from "../nostr/calendar-records";
 
 async function main() {
   process.umask(0o077);
@@ -48,9 +49,18 @@ async function main() {
         // Re-read retained history: event timestamps are author-controlled, not an ingestion cursor.
         const revisionEvents = await history(pool, config.sourceRelay, 30303);
         const decisionEvents = await history(pool, config.sourceRelay, 30304, SUPER_ADMIN_PUBKEY);
+        const calendarEvents = await history(pool, config.sourceRelay, 31923);
         const revisions = revisionEvents.map(parseCityRevision).filter((r): r is CityRevision => r !== null);
         const decisions = decisionEvents.map(parseApprovalRecord).filter((r): r is ApprovalRecord => r !== null);
         const pending = pendingCityRevisions(revisions, decisions);
+        const live = decisions.flatMap(approval => {
+          const initialID = approval.approval.initialEventId;
+          if (approval.approval.status !== "approved" || !initialID) return [];
+          const revision = revisions.find(item => item.event.id === approval.approval.cityRevisionId && item.city.cityId === approval.approval.cityId);
+          const event = calendarEvents.find(item => item.id === initialID);
+          if (!revision || !event || !matchesInitialCalendar(event, {revision, approval})) return [];
+          return [{revision, approval, event}];
+        });
         if (dryRun) {
           for (const recipient of config.recipients) {
             const lists = await readComplete(pool, config.discoveryRelays, { kinds: [10050], authors: [recipient], limit: 10 });
@@ -59,17 +69,21 @@ async function main() {
           console.log(`Dry run passed: ${pending.length} pending revisions; all recipient inboxes verified. No key loaded, messages sent or baseline written.`);
           return;
         }
-        const queued = outbox!.ingest(revisionEvents, pending, config.recipients, secret!, config.adminURL);
+        const queued = outbox!.ingest(revisionEvents, pending, config.recipients, secret!, config.adminURL)
+          + outbox!.ingestLive(live, secret!, config.adminURL, config.sourceRelay);
         console.log(`Scan complete; ${queued} new recipient notification(s) queued.`);
         const pendingIDs = new Set(pending.map(r => r.event.id));
+        const liveIDs = new Set(live.map(item => `live:${item.approval.event.id}`));
         for (const row of outbox!.due(Math.floor(Date.now()/1000))) {
           if (stopping) break;
-          if (!config.recipients.includes(row.recipient)) { outbox!.state(row, "removed-recipient"); continue; }
-          if (!pendingIDs.has(row.submission)) { outbox!.state(row, "obsolete"); continue; }
+          if (row.purpose === "review" && !config.recipients.includes(row.recipient)) { outbox!.state(row, "removed-recipient"); continue; }
+          if (row.purpose === "review" ? !pendingIDs.has(row.submission) : !liveIDs.has(row.submission)) { outbox!.state(row, "obsolete"); continue; }
           try {
             // Recheck decisions immediately before sending delayed work.
-            const fresh = (await history(pool, config.sourceRelay, 30304, SUPER_ADMIN_PUBKEY)).map(parseApprovalRecord).filter((r): r is ApprovalRecord => r !== null);
-            if (!pendingCityRevisions(revisions, fresh).some(r => r.event.id === row.submission)) { outbox!.state(row, "obsolete"); continue; }
+            if (row.purpose === "review") {
+              const fresh = (await history(pool, config.sourceRelay, 30304, SUPER_ADMIN_PUBKEY)).map(parseApprovalRecord).filter((r): r is ApprovalRecord => r !== null);
+              if (!pendingCityRevisions(revisions, fresh).some(r => r.event.id === row.submission)) { outbox!.state(row, "obsolete"); continue; }
+            }
             const lists = await readComplete(pool, config.discoveryRelays, { kinds: [10050], authors: [row.recipient], limit: 10 });
             const relays = selectInbox(lists, row.recipient, config.allowedInboxRelays);
             const wrapped: Event = JSON.parse(row.wrapped);

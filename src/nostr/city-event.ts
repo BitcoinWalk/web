@@ -10,7 +10,7 @@ export function createAuthorizationEvent(grant: CityAuthorization): EventTemplat
 }
 
 /** Each signed revision has its own address, retaining all approved snapshots. */
-export function createCityUpdateEvent(city: CityDocument, previousRevision?: string): EventTemplate {
+export function createCityUpdateEvent(city: CityDocument, previousRevision?: string, initialEventId?: string): EventTemplate {
   const tags = [
     ["d", `${city.cityId}:${crypto.randomUUID()}`],
     ["i", city.cityId],
@@ -18,6 +18,10 @@ export function createCityUpdateEvent(city: CityDocument, previousRevision?: str
     ["client", "bitcoinwalk.org"],
   ];
   if (previousRevision) tags.push(["e", previousRevision, "", "previous"]);
+  if (initialEventId) {
+    if (!/^[0-9a-f]{64}$/.test(initialEventId)) throw new Error("A valid initial walk event ID is required.");
+    tags.push(["e", initialEventId, "", "initial-walk"]);
+  }
 
   return {
     kind: CITY_UPDATE_KIND,
@@ -37,6 +41,7 @@ export function createApprovalEvent(approval: CityApproval): EventTemplate {
       ["d", `${validated.cityId}:${crypto.randomUUID()}`],
       ["i", validated.cityId],
       ["e", validated.cityRevisionId, "", "city-revision"],
+      ...(validated.initialEventId ? [["e", validated.initialEventId, "", "initial-walk"]] : []),
       ["status", validated.status],
       ["client", "bitcoinwalk.org"],
     ],

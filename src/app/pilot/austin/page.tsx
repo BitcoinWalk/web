@@ -14,7 +14,7 @@ export default function AustinPilotPage() {
       <h1>BitcoinWalk Austin</h1>
       <p>Test fixture — not a live walk or a paid purchase. No payment has been taken.</p>
       <p>This page tests a dedicated city relay, separate from the global BitcoinWalk chat. Event details will come from an approved city record in the full app.</p>
-      <CityChat cityId={austinPilot.cityId} slug={austinPilot.slug} config={austinPilotChat} />
+      <CityChat cityId={austinPilot.cityId} slug={austinPilot.slug} config={austinPilotChat} paid />
       <hr />
       <h2>Test this journey</h2>
       <ol>

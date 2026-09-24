@@ -33,3 +33,8 @@ export function createCalendarDeletion(event:Event,cityId:string):EventTemplate{
  if(event.kind!==31923||!verifyEvent(event)||event.tags.filter(t=>t[0]==="i").length!==1||!event.tags.some(t=>t[0]==="i"&&t[1]===cityId))throw new Error("Invalid calendar deletion target.");
  return {kind:5,created_at:Math.floor(Date.now()/1000),tags:[["e",event.id],["k","31923"],["i",cityId]],content:`DELETE PUBLISHED WALK EVENT ${event.id} for city ${cityId}. Remove this event from public relay reads. Keep the city and its approval. External copies may remain.`};
 }
+export function createOrganizerCancellation(event:Event,cityId:string,author:string):EventTemplate{
+ if(event.pubkey!==author)throw new Error("Only the signer of this walk can cancel it. A super-admin can moderate it from /admin.");
+ const deletion=createCalendarDeletion(event,cityId);
+ return {...deletion,content:`CANCEL WALK EVENT ${event.id} for city ${cityId}. Remove this occurrence from BitcoinWalk. The city and other dates remain. External copies may remain.`};
+}

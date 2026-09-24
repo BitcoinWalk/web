@@ -43,6 +43,23 @@ export function createCalendarEvent(
   };
 }
 
+/** The organizer signs this before the city exists. It is stored but hidden by
+ * the managed relay until an admin approval binds the exact event and revision. */
+export function createInitialCalendarProposal(city: CityDocument, timeZone: string): UnsignedNostrEvent {
+  const start = Math.floor(new Date(city.startAt).getTime() / 1000);
+  if (!Number.isSafeInteger(start) || start <= 0) throw new Error("Choose a valid first-walk date and time.");
+  if (!timeZone || timeZone.length > 100) throw new Error("Your device did not provide a valid local timezone.");
+  const localDate = new Intl.DateTimeFormat("en-CA", { timeZone, year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(start * 1000));
+  const event = createCalendarEvent(city, { id: `${city.cityId}:${localDate}`, startUnixSeconds: start, endUnixSeconds: start + 3600 });
+  event.tags.push(
+    ["start_tzid", timeZone],
+    ["end_tzid", timeZone],
+    ["i", city.cityId],
+    ["bitcoinwalk", "initial-proposal-v1"],
+  );
+  return event;
+}
+
 /** A city currently stores one scheduled occurrence. Keep its calendar address
  * stable across edits/rescheduling; a future multi-occurrence UI must allocate
  * distinct occurrence IDs rather than reuse this current-walk slot forever.

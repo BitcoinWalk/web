@@ -20,6 +20,10 @@ describe("operator-controlled chat routing", () => {
   });
   it("does not fabricate a link or fall back to global for pending paid cities", () => {
     expect(resolveCityChat("pending", "radom", config)).toMatchObject({ scope: "city", url: null });
+    expect(resolveCityChat("missing", "radom", config, true)).toMatchObject({ scope: "city", url: null });
+  });
+  it("uses global chat when an unentitled city happens to match paid configuration", () => {
+    expect(resolveCityChat("paid", "austin", config, false)).toMatchObject({ scope: "global", url: "https://armada.buzz/s/chat-staging.bitcoinwalk.org/global-test" });
   });
   it("does not reuse a city's destination for a different slug", () => {
     expect(resolveCityChat("paid", "london", config).url).toBeNull();

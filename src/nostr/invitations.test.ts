@@ -2,7 +2,7 @@ import {describe,it,expect,vi,afterEach} from "vitest";
 import {finalizeEvent,getPublicKey,nip19,nip44,type EventTemplate} from "nostr-tools";
 import {unwrapEvent} from "nostr-tools/nip59";
 vi.mock("./authority",()=>({isSuperAdmin:(key:string)=>key===getPublicKey(new Uint8Array(32).fill(1))}));
-import {inviteRecipient,publicInviteURL,invitationText,inboxRelays,prepareInvitation} from "./invitations";
+import {inviteRecipient,publicInviteURL,invitationText,inboxRelays,prepareInvitation,preparePrivateInvitation} from "./invitations";
 const key=new Uint8Array(32).fill(2),pubkey=getPublicKey(key);
 afterEach(()=>vi.unstubAllGlobals());
 describe("organizer invitations",()=>{
@@ -38,5 +38,14 @@ describe("organizer invitations",()=>{
  it("refuses a signer without private-message encryption",async()=>{
   vi.stubGlobal("window",{nostr:{getPublicKey:async()=>getPublicKey(new Uint8Array(32).fill(1))}});
   await expect(prepareInvitation(pubkey,"test")).rejects.toThrow("NIP-44");
+ });
+ it("supports an organizer-signed private invitation without relaxing the existing admin-only entry point",async()=>{
+  const senderKey=new Uint8Array(32).fill(3),sender=getPublicKey(senderKey);
+  vi.stubGlobal("window",{nostr:{getPublicKey:async()=>sender,signEvent:async(t:EventTemplate)=>finalizeEvent(t,senderKey),nip44:{encrypt:async(to:string,text:string)=>nip44.v2.encrypt(text,nip44.v2.utils.getConversationKey(senderKey,to))}}});
+  await expect(prepareInvitation(pubkey,"test")).rejects.toThrow("super-admin");
+  const result=await preparePrivateInvitation(pubkey,"Co-organizer invitation",sender);
+  expect(unwrapEvent(result.recipient,key)).toEqual(unwrapEvent(result.sender,senderKey));
+  expect(unwrapEvent(result.recipient,key).pubkey).toBe(sender);
+  await expect(preparePrivateInvitation(pubkey,"test",pubkey)).rejects.toThrow("Signer identity changed");
  });
 });
