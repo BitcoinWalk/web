@@ -67,11 +67,19 @@ No user `nsec` is stored in either option.
 
 ## Payment and identity provisioning
 
-After a Rustress invoice settles, the provisioning worker:
+The payment plane runs on a separate hardened VPS with its own Lightning node,
+Alby Hub and least-privilege NWC connection. The web, Guide and relay VPS never
+receive those credentials. Rustress may orchestrate invoices, but only the
+isolated payment verifier may commit settlement evidence and request a signed
+production entitlement.
+
+After a verified invoice settles, the provisioning worker:
 
 1. creates/activates the NIP-05 name mapping;
 2. configures the LNURL endpoint and 79/21 split;
 3. provisions the paid hostname and relay;
 4. publishes the payment identity and relay hints to the city metadata.
 
-Payment processing is idempotent and separately auditable from Nostr content editing.
+Payment processing is idempotent and separately auditable from Nostr content
+editing. The relay consumes only the signed entitlement and evidence commitment,
+never an invoice, preimage, node credential or NWC secret.
