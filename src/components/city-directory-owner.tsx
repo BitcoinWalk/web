@@ -1,6 +1,6 @@
 "use client";
 
-import {nip19,type Event} from "nostr-tools";
+import {nip19} from "nostr-tools";
 import {useRef,useState,type FormEvent} from "react";
 import {relayConfig} from "../lib/relay-config";
 import {latestDashboardGrants} from "../nostr/dashboard-data";
@@ -8,6 +8,7 @@ import {queryAuthorizations} from "../nostr/city-records";
 import {createCityDirectoryRoot,discoverExistingCityDirectoryRoot,normalizeDirectoryRelays,publishAndConfirmCityDirectoryRoot,verifySignedCityDirectoryTemplate} from "../nostr/city-directory";
 import {publishVerifiedEvent} from "../nostr/relay";
 import {authenticateWithBrowserExtension,getBrowserExtensionPubkey,signWithBrowserExtension} from "../nostr/signer";
+import {directoryRootResultHeading,planDirectoryRootSubmission,type DirectoryRootResult} from "./city-directory-owner-state";
 import {useDashboard,useDashboardAutoLoad} from "./dashboard-context";
 
 type OwnedCity={id:string;name:string};
@@ -21,9 +22,9 @@ function lines(value:FormDataEntryValue|null){return String(value??"").split(/[,
 
 export default function CityDirectoryOwner(){
   const dashboard=useDashboard(),lock=useRef(false);
-  const [busy,setBusy]=useState(false),[cities,setCities]=useState<OwnedCity[]>([]),[cityId,setCityId]=useState(""),[message,setMessage]=useState("Load cities owned by the connected signer."),[published,setPublished]=useState<Event|null>(null);
+  const [busy,setBusy]=useState(false),[cities,setCities]=useState<OwnedCity[]>([]),[cityId,setCityId]=useState(""),[message,setMessage]=useState("Load cities owned by the connected signer."),[result,setResult]=useState<DirectoryRootResult|null>(null);
   async function load(){
-    if(lock.current)return;lock.current=true;setBusy(true);setPublished(null);
+    if(lock.current)return;lock.current=true;setBusy(true);setResult(null);
     try{
       if(!relayConfig.readRelays.length)throw new Error("No city permission read relay is configured.");
       const identity=await getBrowserExtensionPubkey(),grants=latestDashboardGrants(await queryAuthorizations(relayConfig.readRelays));
@@ -37,7 +38,7 @@ export default function CityDirectoryOwner(){
   }
   useDashboardAutoLoad(load);
   async function submit(formEvent:FormEvent<HTMLFormElement>){
-    formEvent.preventDefault();if(lock.current||!cityId||published)return;
+    formEvent.preventDefault();if(lock.current||!cityId||result)return;
     lock.current=true;setBusy(true);const form=new FormData(formEvent.currentTarget);
     try{
       const discovery=normalizeDirectoryRelays(relayConfig.directoryRelays);
@@ -47,15 +48,16 @@ export default function CityDirectoryOwner(){
       if(!current||current.grant.creatorPubkey!==identity)throw new Error("Current relay records do not confirm this signer as the original city owner. Nothing was signed.");
       setMessage("Checking each discovery relay for an existing root…");
       const existing=await discoverExistingCityDirectoryRoot(discovery,cityId,identity);
-      const existingRoot=existing.root;
-      if(existingRoot){
-        if(existing.unavailableRelays.length){
-          setPublished(existingRoot);setMessage(`Existing directory root ${existingRoot.id} was verified through ${existing.reachableRelays.length} transport${existing.reachableRelays.length===1?"":"s"}. ${existing.unavailableRelays.length} configured transport${existing.unavailableRelays.length===1?" is":"s are"} unavailable, so no replacement was created and no repair publication was attempted.`);
-          return;
-        }
+      const plan=planDirectoryRootSubmission(existing);
+      if(plan.kind==="verify-existing"){
+        setResult({event:plan.event,outcome:"verified"});setMessage(`Existing directory root ${plan.event.id} was verified through ${existing.reachableRelays.length} transport${existing.reachableRelays.length===1?"":"s"}. ${existing.unavailableRelays.length} configured transport${existing.unavailableRelays.length===1?" is":"s are"} unavailable, so no replacement was created and no repair publication was attempted.`);
+        return;
+      }
+      if(plan.kind==="recover-existing"){
+        const existingRoot=plan.event;
         setMessage(`Recovering partial publication of exact root ${existingRoot.id}; no new event or signature will be created…`);
         await publishAndConfirmCityDirectoryRoot(existingRoot,discovery,(event,relays,required)=>publishVerifiedEvent(event,relays,required,authenticateWithBrowserExtension));
-        setPublished(existingRoot);setMessage(`Existing directory root ${existingRoot.id} was recovered and read back from all ${discovery.length} discovery relays. Record this event ID as the city trust anchor.`);
+        setResult({event:existingRoot,outcome:"recovered"});setMessage(`Existing directory root ${existingRoot.id} was recovered and read back from all ${discovery.length} discovery relays. Record this event ID as the city trust anchor.`);
         return;
       }
       const template=createCityDirectoryRoot({cityId,ownerPubkey:identity,operatorPubkeys:lines(form.get("operators")).map(value=>pubkey(value,"Each operator")),recoveryPubkey:pubkey(String(form.get("recovery")),"Recovery key"),primaryRelay:String(form.get("primary")),mirrorRelays:lines(form.get("mirrors"))});
@@ -65,9 +67,9 @@ export default function CityDirectoryOwner(){
       if(await getBrowserExtensionPubkey()!==identity)throw new Error("Signer identity changed after signing. The event was not published.");
       setMessage(`Publishing ${signed.id} and independently reading it back from every discovery relay…`);
       await publishAndConfirmCityDirectoryRoot(signed,discovery,(event,relays,required)=>publishVerifiedEvent(event,relays,required,authenticateWithBrowserExtension));
-      setPublished(signed);setMessage(`Directory root ${signed.id} is present on all ${discovery.length} configured discovery relays. Record this event ID as the city trust anchor.`);
+      setResult({event:signed,outcome:"created"});setMessage(`Directory root ${signed.id} is present on all ${discovery.length} configured discovery relays. Record this event ID as the city trust anchor.`);
     }catch(error){setMessage(error instanceof Error?error.message:"Directory root publication failed.");}
     finally{lock.current=false;setBusy(false);}
   }
-  return <main><h1>Relay directory</h1><p>Publish a portable, owner-controlled directory for a paid city relay. Signing happens only in your connected NIP-07-compatible browser signer; BitcoinWalk never receives the private key.</p><p>This establishes technical owner control, not BitcoinWalk recognition or payment entitlement. Root publication is permanent; later changes require audited update, rotation or recovery events.</p><button type="button" disabled={busy} onClick={load}>{busy?"Working…":"Refresh owned cities"}</button><p role="status" aria-live="polite">{message}</p>{cities.length>0&&<form onSubmit={submit}><fieldset disabled={busy||!!published}><legend>Permanent directory root</legend><label>Owned city <select value={cityId} onChange={event=>setCityId(event.target.value)}>{cities.map(city=><option key={city.id} value={city.id}>{city.name} — {city.id}</option>)}</select></label><label>Primary public city relay <input name="primary" type="url" required placeholder="wss://city.example/"/></label><label>Public mirror relays <textarea name="mirrors" placeholder="wss://mirror.example/&#10;One root WSS URL per line"/></label><p>These are city-data endpoints. They are different from the two or more directory discovery relays configured by BitcoinWalk.</p><label>Offline recovery npub <input name="recovery" required placeholder="npub1…" autoComplete="off" spellCheck={false}/></label><p>Use a separate key stored offline. It must not be this owner key or an operator key.</p><label>Optional operator npubs <textarea name="operators" placeholder="One npub per line" autoComplete="off" spellCheck={false}/></label><p>Operators can update endpoints only. They cannot change the owner, operators or recovery key.</p><button type="submit">Review and sign directory root</button></fieldset></form>}{published&&<section><h2>Trust anchor created</h2><p>Event ID: <code>{published.id}</code></p><p>Owner: <code>{published.pubkey}</code></p></section>}</main>;
+  return <main><h1>Relay directory</h1><p>Publish a portable, owner-controlled directory for a paid city relay. Signing happens only in your connected NIP-07-compatible browser signer; BitcoinWalk never receives the private key.</p><p>This establishes technical owner control, not BitcoinWalk recognition or payment entitlement. Root publication is permanent; later changes require audited update, rotation or recovery events.</p><button type="button" disabled={busy} onClick={load}>{busy?"Working…":"Refresh owned cities"}</button><p role="status" aria-live="polite">{message}</p>{cities.length>0&&<form onSubmit={submit}><fieldset disabled={busy||!!result}><legend>Permanent directory root</legend><label>Owned city <select value={cityId} onChange={event=>setCityId(event.target.value)}>{cities.map(city=><option key={city.id} value={city.id}>{city.name} — {city.id}</option>)}</select></label><label>Primary public city relay <input name="primary" type="url" required placeholder="wss://city.example/"/></label><label>Public mirror relays <textarea name="mirrors" placeholder="wss://mirror.example/&#10;One root WSS URL per line"/></label><p>These are city-data endpoints. They are different from the two or more directory discovery relays configured by BitcoinWalk.</p><label>Offline recovery npub <input name="recovery" required placeholder="npub1…" autoComplete="off" spellCheck={false}/></label><p>Use a separate key stored offline. It must not be this owner key or an operator key.</p><label>Optional operator npubs <textarea name="operators" placeholder="One npub per line" autoComplete="off" spellCheck={false}/></label><p>Operators can update endpoints only. They cannot change the owner, operators or recovery key.</p><button type="submit">Review and sign directory root</button></fieldset></form>}{result&&<section><h2>{directoryRootResultHeading(result.outcome)}</h2><p>Event ID: <code>{result.event.id}</code></p><p>Owner: <code>{result.event.pubkey}</code></p></section>}</main>;
 }

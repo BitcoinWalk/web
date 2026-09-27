@@ -89,3 +89,25 @@ describe("corrected reproducible staging release",()=>{
     ])expect(installer).toContain(required);
   });
 });
+
+describe("directory outcome copy staging release",()=>{
+  it("upgrades only the app from accepted 0.3.73 and can restore it",async()=>{
+    const installer=await readFile("deploy/install-city-directory-outcome-copy-0.3.74.sh","utf8");
+
+    for(const required of [
+      "app-staging-0.3.74.tar.gz",
+      "/opt/bitcoinwalk-app-staging/releases/0.3.73",
+      "/opt/bitcoinwalk-app-staging/releases/0.3.74",
+      "0.3.73 was restored",
+      "Existing trust anchor verified",
+      "Existing trust anchor recovered",
+    ])expect(installer).toContain(required);
+
+    for(const forbidden of [
+      "systemctl restart bitcoinwalk-directory-staging",
+      "docker restart",
+      "/var/lib/bitcoinwalk-directory",
+      "/etc/caddy/Caddyfile",
+    ])expect(installer).not.toContain(forbidden);
+  });
+});
