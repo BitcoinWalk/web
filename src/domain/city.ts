@@ -15,10 +15,32 @@ export const citySlugSchema = z
   .min(2)
   .max(63);
 
+export function normalizedCityName(value: string): string {
+  return value.normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
+}
+
+export function cityAliases(value: string | string[], canonicalName = ""): string[] {
+  const values=Array.isArray(value)?value:value.split(/[\n,;]+/);
+  const canonical=normalizedCityName(canonicalName),seen=new Set<string>(),aliases:string[]=[];
+  for(const item of values) {
+    const alias=item.trim(),key=normalizedCityName(alias);
+    if(!alias||!key||key===canonical||seen.has(key))continue;
+    seen.add(key);aliases.push(alias);
+  }
+  return aliases;
+}
+
+const cityAliasesSchema=z.array(z.string().trim().min(1).max(100)).max(20).superRefine((aliases,ctx)=>{
+  const seen=new Set<string>();
+  aliases.forEach((alias,index)=>{const key=normalizedCityName(alias);if(!key||seen.has(key))ctx.addIssue({code:"custom",path:[index],message:"Alternative city names must be unique"});seen.add(key);});
+});
+
 export const cityDocumentSchema = z.object({
   cityId: z.string().uuid(),
   slug: citySlugSchema,
   cityName: z.string().min(1).max(100),
+  /** Search-only localized and conventional names. Never routes or display titles. */
+  aliases: cityAliasesSchema.optional(),
   // Organizer preference only. Never proof of payment or paid-relay entitlement.
   requestedTier: z.enum(["free", "paid"]).optional(),
   startAt: z.string().datetime(),
@@ -56,16 +78,18 @@ export const cityApprovalSchema = z.object({
    * decisions omit it and retain their existing behaviour. */
   initialEventId: z.string().regex(/^[0-9a-f]{64}$/).optional(),
   heroImageUrl: z.url().optional(),
+  /** Optional super-admin override for the public URL. */
+  slug: citySlugSchema.optional(),
   status: z.enum(["approved", "rejected", "revoked"]),
   note: z.string().max(500).optional(),
 });
 
 export type CityApproval = z.infer<typeof cityApprovalSchema>;
 
-export function cityHostname(city: Pick<CityDocument, "slug">, hasPaidRelay: boolean): string {
-  return hasPaidRelay ? `${city.slug}.bitcoinwalk.org` : "bitcoinwalk.org";
+export function cityHostname(): string {
+  return "bitcoinwalk.org";
 }
 
-export function cityPath(city: Pick<CityDocument, "slug">, hasPaidRelay: boolean): string {
-  return hasPaidRelay ? "/" : `/${city.slug}`;
+export function cityPath(city: Pick<CityDocument, "slug">): string {
+  return `/${city.slug}`;
 }

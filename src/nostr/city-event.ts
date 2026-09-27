@@ -42,6 +42,7 @@ export function createApprovalEvent(approval: CityApproval): EventTemplate {
       ["i", validated.cityId],
       ["e", validated.cityRevisionId, "", "city-revision"],
       ...(validated.initialEventId ? [["e", validated.initialEventId, "", "initial-walk"]] : []),
+      ...(validated.slug ? [["city", validated.slug]] : []),
       ["status", validated.status],
       ["client", "bitcoinwalk.org"],
     ],

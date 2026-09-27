@@ -49,6 +49,13 @@ export async function queryDelegation(relays:string[],walk:Event):Promise<Delega
  const accepted=await queryRelayEvents(relays,[ACCEPTANCE_KIND],undefined,{authors:[current.control.nomineePubkey],"#e":[current.event.id],limit:10});
  return delegationState(walk,[...events,...accepted]);
 }
+export function supportsDelegationRelayVersion(value:unknown):boolean{
+ if(typeof value!=="string")return false;
+ const match=/^bitcoinwalk-organizers-(\d+)\.(\d+)\.(\d+)$/.exec(value);
+ if(!match)return false;
+ const [,major,minor,patch]=match.map(Number);
+ return major===0&&(minor>7||minor===7&&patch>=1);
+}
 export async function requireDelegationRelay(relays:string[]){
- for(const relay of relays){const url=new URL(relay);url.protocol=url.protocol==="ws:"?"http:":"https:";const r=await fetch(url,{headers:{Accept:"application/nostr+json"},cache:"no-store",signal:AbortSignal.timeout(5000)});if(!r.ok||(await r.json()).version!=="bitcoinwalk-organizers-0.7.1")throw new Error("Single-walk delegation is not enabled on this relay yet.");}
+ for(const relay of relays){const url=new URL(relay);url.protocol=url.protocol==="ws:"?"http:":"https:";const r=await fetch(url,{headers:{Accept:"application/nostr+json"},cache:"no-store",signal:AbortSignal.timeout(5000)});const info=r.ok?await r.json():null;if(!r.ok||!supportsDelegationRelayVersion(info?.version))throw new Error("Single-walk delegation is not enabled on this relay yet.");}
 }

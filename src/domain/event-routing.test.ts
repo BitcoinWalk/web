@@ -2,7 +2,7 @@ import {describe,expect,it} from "vitest";
 import {finalizeEvent,type Event} from "nostr-tools";
 import {createOrganizerCalendarEvent} from "../nostr/calendar-event";
 import type {CalendarWalk} from "../nostr/calendar-records";
-import {currentOrNextEvent,eventPageHref,managedCalendarEvents,paidCityForHost,paidCityForSlug} from "./event-routing";
+import {currentOrNextEvent,eventPageHref,managedCalendarEvents,paidCityForHost} from "./event-routing";
 import {cityDocumentSchema} from "./city";
 
 const city=cityDocumentSchema.parse({cityId:"550e8400-e29b-41d4-a716-446655440000",slug:"warsaw",cityName:"Warsaw",startAt:"2026-01-01T10:00:00Z",description:"Walk",meetingPoint:{description:"Square",latitude:52.2,longitude:21},chatUrl:"https://chat.example",heroImageUrl:"https://image.example/a.jpg"});
@@ -19,12 +19,11 @@ describe("event root routing",()=>{
   expect(managedCalendarEvents(walk,[second,first],3701).map(row=>row.status)).toEqual(["grace","upcoming"]);
   expect(managedCalendarEvents(walk,[second,first],9000).map(row=>row.status)).toEqual(["grace","past"]);
  });
- it("recognizes only explicitly ready paid subdomains",()=>{
+ it("uses paid subdomains only for legacy-host recognition while keeping public links canonical",()=>{
   const paid={x:{slug:"warsaw",featured:false,subdomainReady:true},y:{slug:"funchal",featured:false,subdomainReady:false}};
   expect(paidCityForHost("WARSAW.bitcoinwalk.org:443",paid)?.slug).toBe("warsaw");
   expect(paidCityForHost("funchal.bitcoinwalk.org",paid)).toBeNull();
-  expect(paidCityForSlug("warsaw",paid)?.slug).toBe("warsaw");
-  expect(eventPageHref("x","warsaw","nevent1abc",paid)).toBe("https://warsaw.bitcoinwalk.org/nevent1abc");
-  expect(eventPageHref("z","radom","nevent1abc",paid)).toBe("/radom/nevent1abc");
+  expect(eventPageHref("warsaw","nevent1abc")).toBe("/warsaw/nevent1abc");
+  expect(eventPageHref("radom","nevent1abc")).toBe("/radom/nevent1abc");
  });
 });

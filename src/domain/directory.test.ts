@@ -17,17 +17,28 @@ describe("approved city directory",()=>{
  it("does not infer paid status from sponsors",()=>{
   expect(approvedDirectory([revision("a")],[decision("a","approved",1)],{})[0]).toMatchObject({tier:"free",featured:false,href:"/radom"});
  });
- it("requires matching paid identity and only routes to a ready subdomain",()=>{
+ it("shows the landscape selected during approval when the organizer supplied none",()=>{
+  const item=revision("a");delete item.city.heroImageUrl;
+  const approved=decision("a","approved",1);approved.approval.heroImageUrl="https://app-staging.bitcoinwalk.org/api/media/files/generated.webp";
+  expect(approvedDirectory([item],[approved],{})[0].city.heroImageUrl).toBe(approved.approval.heroImageUrl);
+ });
+ it("marks paid identity while keeping the canonical website path",()=>{
   const a=[revision("a")],d=[decision("a","approved",1)];
   expect(approvedDirectory(a,d,{[cityId]:{slug:"radom",featured:true,subdomainReady:false}})[0]).toMatchObject({featured:true,tier:"paid",href:"/radom"});
-  expect(approvedDirectory(a,d,{[cityId]:{slug:"radom",featured:true,subdomainReady:true}})[0].href).toBe("https://radom.bitcoinwalk.org");
+  expect(approvedDirectory(a,d,{[cityId]:{slug:"radom",featured:true,subdomainReady:true}})[0].href).toBe("/radom");
   expect(approvedDirectory(a,d,{[cityId]:{slug:"other",featured:true,subdomainReady:true}})[0].tier).toBe("free");
  });
  it("searches city and meeting point without case sensitivity",()=>{
   const rows=approvedDirectory([revision("a")],[decision("a","approved",1)],{});
   expect(filterDirectory(rows," RADOM ")).toHaveLength(1);
   expect(filterDirectory(rows,"rynek")).toHaveLength(1);
-  expect(filterDirectory(rows,"madeira")).toHaveLength(0);
+ expect(filterDirectory(rows,"madeira")).toHaveLength(0);
+ });
+ it("finds a city through approved alternative names",()=>{
+  const warsaw={...revision("a"),city:{...revision("a").city,cityName:"Warszawa",aliases:["Warsaw","Warschau","Varsovia"]}};
+  const rows=approvedDirectory([warsaw],[decision("a","approved",1)],{});
+  expect(filterDirectory(rows,"warsaw")).toHaveLength(1);
+  expect(filterDirectory(rows,"WARSCHAU")).toHaveLength(1);
  });
  it("does not emit unsafe image URLs",()=>{
   expect(directoryImage("javascript:alert(1)")).toBeUndefined();

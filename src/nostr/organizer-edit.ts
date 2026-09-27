@@ -24,10 +24,10 @@ export function editableCityRevisions(pubkey: string, grants: AuthorizationRecor
   return [...cities.values()].sort((a,b) => a.city.cityName.localeCompare(b.city.cityName));
 }
 
-export type WalkEdits = Pick<CityDocument, "startAt" | "description" | "meetingPoint" | "heroImageUrl">;
+export type WalkEdits = Pick<CityDocument, "startAt" | "description" | "meetingPoint" | "heroImageUrl" | "aliases">;
 export function editedCity(base: CityDocument, edits: WalkEdits): CityDocument {
   // Do not spread arbitrary input over identity, chat entitlements or sponsorship.
-  return cityDocumentSchema.parse({...base, startAt: edits.startAt, description: edits.description, meetingPoint: edits.meetingPoint, heroImageUrl: edits.heroImageUrl});
+  return cityDocumentSchema.parse({...base, startAt: edits.startAt, description: edits.description, meetingPoint: edits.meetingPoint, heroImageUrl: edits.heroImageUrl,aliases:edits.aliases});
 }
 
 export function localDateTime(iso: string): string {

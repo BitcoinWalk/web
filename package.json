@@ -19,10 +19,15 @@
     "@photostructure/tz-lookup": "11.7.0",
     "leaflet": "latest",
     "next": "latest",
+    "nostr-login": "1.7.12",
+    "nostr-login-components": "1.0.1",
     "nostr-tools": "latest",
     "react": "latest",
     "react-dom": "latest",
     "react-leaflet": "latest",
+    "react-markdown": "10.1.0",
+    "remark-gfm": "4.0.1",
+    "sharp": "0.35.4",
     "zod": "latest"
   },
   "devDependencies": {

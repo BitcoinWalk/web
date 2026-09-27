@@ -2,6 +2,7 @@ import { z } from "zod";
 import { cityDocumentSchema } from "./city";
 import { localStart, scheduleOccurrences, DEFAULT_OCCURRENCES, MAX_HORIZON_DAYS, type WalkSchedule } from "./walk-schedule";
 import { withEventMeetingPoint, type LocatedOccurrence } from "./event-location";
+import {optionalAllTrailsRoute} from "./walk-route";
 
 const isoDate = z.string().regex(/^20\d{2}-\d{2}-\d{2}$/).refine(value => {
   const time = Date.parse(`${value}T00:00:00Z`);
@@ -14,7 +15,8 @@ export const recurringPlanSchema = z.object({
   frequency: z.enum(["weekly", "fortnightly"]), weekday: z.number().int().min(0).max(6),
   paused: z.boolean(), skippedDates: z.array(isoDate).max(200),
   meetingPoint: cityDocumentSchema.shape.meetingPoint,
-  draftEdits: z.record(z.string(),z.object({localDate:isoDate,localTime:z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/),meetingPoint:cityDocumentSchema.shape.meetingPoint})).refine(value=>Object.keys(value).length<=26,"Too many edited drafts.").optional(),
+  description:z.string().min(1).max(5000).optional(),routeUrl:z.string().max(2048).optional().refine(value=>{try{if(value)optionalAllTrailsRoute(value);return true;}catch{return false;}},"Invalid AllTrails route."),
+  draftEdits: z.record(z.string(),z.object({localDate:isoDate,localTime:z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/),meetingPoint:cityDocumentSchema.shape.meetingPoint,description:z.string().min(1).max(5000).optional(),routeUrl:z.string().max(2048).optional().refine(value=>{try{if(value)optionalAllTrailsRoute(value);return true;}catch{return false;}},"Invalid AllTrails route.")})).refine(value=>Object.keys(value).length<=26,"Too many edited drafts.").optional(),
 });
 export type RecurringPlan = z.infer<typeof recurringPlanSchema>;
 export type DraftEdit = NonNullable<RecurringPlan["draftEdits"]>[string];
@@ -25,7 +27,7 @@ export function editDraftOccurrence(draft:LocatedOccurrence,edit:DraftEdit,now=D
   const start=localStart(edit.localDate,edit.localTime,draft.timeZone);
   if(start*1000<=now)throw new Error("Choose a future start for this draft.");
   if(start*1000>now+MAX_HORIZON_DAYS*86_400_000)throw new Error(`Choose a date within the next ${MAX_HORIZON_DAYS} days.`);
-  return {...draft,localDate:edit.localDate,localTime:edit.localTime,start,end:start+(draft.end-draft.start),meetingPoint};
+  return {...draft,localDate:edit.localDate,localTime:edit.localTime,start,end:start+(draft.end-draft.start),meetingPoint,description:edit.description??draft.description,routeUrl:edit.routeUrl??draft.routeUrl};
 }
 
 function parsePlan(value: unknown): RecurringPlan {
@@ -67,7 +69,7 @@ export function upcomingDrafts(rawPlan: RecurringPlan, now = Date.now()): Locate
     const start = localStart(date, plan.localTime, plan.timeZone);
     if (start * 1000 <= now) continue;
     const schedule: WalkSchedule = { ...plan, firstDate: date, frequency: "once", count: 1, durationMinutes: 60 };
-    const draft=withEventMeetingPoint(scheduleOccurrences(schedule, now),plan.meetingPoint)[0];
+    const draft={...withEventMeetingPoint(scheduleOccurrences(schedule, now),plan.meetingPoint)[0],description:plan.description,routeUrl:plan.routeUrl};
     const edit=Object.hasOwn(plan.draftEdits??{},draft.id)?plan.draftEdits?.[draft.id]:undefined;
     if(edit){
       // A modified one-off date may have passed while its recurrence anchor is

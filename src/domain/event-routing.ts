@@ -13,15 +13,8 @@ export function paidCityForHost(host: string | null, paid: Record<string, PaidDi
   return Object.values(paid).find(city=>city.subdomainReady&&city.slug===match[1])??null;
 }
 
-export function paidCityForSlug(slug:string,paid:Record<string,PaidDirectoryCity>):PaidDirectoryCity|null {
-  return Object.values(paid).find(city=>city.subdomainReady&&city.slug===slug)??null;
-}
-
-export function eventPageHref(cityId:string,slug:string,nevent:string,paid:Record<string,PaidDirectoryCity>):string {
-  const entitlement=Object.hasOwn(paid,cityId)?paid[cityId]:undefined;
-  return entitlement?.subdomainReady&&entitlement.slug===slug
-    ? `https://${slug}.bitcoinwalk.org/${nevent}`
-    : `/${encodeURIComponent(slug)}/${nevent}`;
+export function eventPageHref(slug:string,nevent:string):string {
+  return `/${encodeURIComponent(slug)}/${nevent}`;
 }
 
 function routableOccurrence(walk:CalendarWalk,event:Event){

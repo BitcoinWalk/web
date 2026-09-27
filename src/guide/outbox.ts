@@ -1,9 +1,11 @@
 import { DatabaseSync } from "node:sqlite";
 import type { ApprovalRecord, CityRevision } from "../nostr/city-records";
 import type { Event } from "nostr-tools";
-import { approvalAlert, liveAlert, wrapAlert } from "./core";
+import { approvalAlert, liveAlert, replicationAlert, wrapAlert } from "./core";
 
-export type Delivery = { submission: string; recipient: string; wrapped: string; attempts: number; next_attempt: number; state: string; purpose: "review" | "live" };
+export type Delivery = { submission: string; recipient: string; wrapped: string; attempts: number; next_attempt: number; state: string; purpose: "review" | "live" | "replication-degraded" | "replication-recovered" };
+export type ReplicationCityStatus={cityId:string;destination:string;state:"healthy"|"pending"|"degraded";counts:Record<string,number>};
+export type ReplicationRecipient={recipient:string;cityName:string};
 export type LivePublication = { revision: CityRevision; approval: ApprovalRecord; event: Event };
 export class Outbox {
   readonly db: DatabaseSync;
@@ -18,6 +20,7 @@ export class Outbox {
     const columns = this.db.prepare("PRAGMA table_info(delivery)").all() as Array<{name:string}>;
     if (!columns.some(column => column.name === "purpose")) this.db.exec("ALTER TABLE delivery ADD COLUMN purpose TEXT NOT NULL DEFAULT 'review'");
     this.db.exec("CREATE TABLE IF NOT EXISTS live_seen (id TEXT PRIMARY KEY)");
+    this.db.exec("CREATE TABLE IF NOT EXISTS replication_state (city_id TEXT PRIMARY KEY, state TEXT NOT NULL, recipient TEXT NOT NULL, generation INTEGER NOT NULL DEFAULT 0)");
   }
   ingestLive(publications: LivePublication[], secret: Uint8Array, adminURL: string, relay: string): number {
     this.db.exec("BEGIN IMMEDIATE");
@@ -37,6 +40,25 @@ export class Outbox {
       this.db.prepare("INSERT OR IGNORE INTO meta VALUES ('live-initialized','1')").run();
       this.db.exec("COMMIT"); return queued;
     } catch (error) { this.db.exec("ROLLBACK"); throw error; }
+  }
+  ingestReplication(cities:ReplicationCityStatus[],organizers:Map<string,ReplicationRecipient>,secret:Uint8Array):number {
+    this.db.exec("BEGIN IMMEDIATE");
+    try{
+      let queued=0;
+      for(const city of cities){
+        const organizer=organizers.get(city.cityId);if(!organizer)continue;
+        const previous=this.db.prepare("SELECT state,recipient,generation FROM replication_state WHERE city_id=?").get(city.cityId) as {state:string;recipient:string;generation:number}|undefined;
+        const next=city.state==="degraded"?"degraded":city.state==="healthy"?"healthy":previous?.state??"healthy";
+        if(!previous){this.db.prepare("INSERT INTO replication_state (city_id,state,recipient,generation) VALUES (?,?,?,0)").run(city.cityId,next,organizer.recipient);continue;}
+        if(previous.state===next){this.db.prepare("UPDATE replication_state SET recipient=? WHERE city_id=?").run(organizer.recipient,city.cityId);continue;}
+        const generation=previous.generation+1,purpose=next==="degraded"?"replication-degraded":"replication-recovered";
+        const wraps=wrapAlert(replicationAlert(next==="degraded"?"degraded":"recovered",organizer.cityName,city.cityId),organizer.recipient,secret);
+        this.db.prepare("INSERT OR IGNORE INTO delivery (submission,recipient,wrapped,sender_copy,purpose) VALUES (?,?,?,?,?)")
+          .run(`replication:${city.cityId}:${generation}:${next}`,organizer.recipient,JSON.stringify(wraps.recipient),JSON.stringify(wraps.sender),purpose);
+        this.db.prepare("UPDATE replication_state SET state=?,recipient=?,generation=? WHERE city_id=?").run(next,organizer.recipient,generation,city.cityId);queued++;
+      }
+      this.db.exec("COMMIT");return queued;
+    }catch(error){this.db.exec("ROLLBACK");throw error;}
   }
   bind(bot: string, source: string) {
     const identity = JSON.stringify([bot, source]);

@@ -1,0 +1,10 @@
+
+# Production shared relay for free-tier BitcoinWalk city and NIP-52 events.
+relay.bitcoinwalk.org {
+	reverse_proxy 127.0.0.1:3340 {
+		header_up X-Forwarded-For {http.request.remote.host}
+		header_up X-Forwarded-Host relay.bitcoinwalk.org
+		header_up X-Forwarded-Proto https
+		header_up -Forwarded
+	}
+}

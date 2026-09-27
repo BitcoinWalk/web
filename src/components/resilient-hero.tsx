@@ -1,0 +1,3 @@
+"use client";
+import {useState} from "react";
+export default function ResilientHero({sources,alt,forecast=false}:{sources:(string|null|undefined)[];alt:string;forecast?:boolean}){const valid=[...new Set(sources.filter((value):value is string=>!!value))],[index,setIndex]=useState(0),src=valid[index];return <figure className="event-hero">{src?<img className="hero-image" src={src} alt={alt} referrerPolicy="no-referrer" onError={()=>setIndex(value=>value+1)}/>:<div className="hero-image hero-fallback" role="img" aria-label={alt}>₿ / BITCOINWALK</div>}{forecast&&index===0&&src&&<figcaption>Forecast-inspired view for this walk · not a live camera</figcaption>}</figure>;}

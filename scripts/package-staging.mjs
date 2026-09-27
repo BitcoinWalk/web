@@ -1,7 +1,7 @@
 import {execFileSync} from "node:child_process";
 import {createHash} from "node:crypto";
-import {cp, lstat, mkdir, mkdtemp, readFile, readdir, rename, rm, writeFile} from "node:fs/promises";
-import {basename, dirname, join, resolve} from "node:path";
+import {cp, lstat, mkdir, mkdtemp, readFile, readlink, readdir, rename, rm, writeFile} from "node:fs/promises";
+import {basename, dirname, isAbsolute, join, resolve} from "node:path";
 import {fileURLToPath} from "node:url";
 
 const root=resolve(dirname(fileURLToPath(import.meta.url)),"..");
@@ -23,7 +23,9 @@ async function rejectPrivateFiles(path){
     if(/^\.env(?:\..*)?$|^\.npmrc$|\.sqlite(?:-shm|-wal)?$|\.(?:pem|p12|key)$/.test(entry.name)){
       throw new Error(`Unexpected private file in release: ${join(path,entry.name)}`);
     }
-    if(entry.isDirectory())await rejectPrivateFiles(join(path,entry.name));
+    const child=join(path,entry.name);
+    if(entry.isSymbolicLink()&&isAbsolute(await readlink(child)))throw new Error(`Release contains an absolute symlink: ${child}`);
+    if(entry.isDirectory())await rejectPrivateFiles(child);
   }
 }
 
@@ -43,7 +45,9 @@ await mkdir(output,{recursive:true});
 const temp=await mkdtemp(join(output,".staging-"));
 try{
   const stage=join(temp,"package");
-  await cp(standalone,stage,{recursive:true});
+  // Next emits relative aliases for native server externals. Preserve them as
+  // relative links; fs.cp otherwise resolves them to this build machine.
+  await cp(standalone,stage,{recursive:true,verbatimSymlinks:true});
   await cp(staticAssets,join(stage,".next","static"),{recursive:true});
   if((await lstat(publicAssets).catch(()=>null))?.isDirectory())await cp(publicAssets,join(stage,"public"),{recursive:true});
 

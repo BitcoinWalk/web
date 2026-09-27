@@ -45,8 +45,8 @@ describe("organizer editor",()=>{
   expect(editableCityRevisions(creator,[record(1)],[other])).toEqual([]);
  });
  it("retains identity, chat and sponsor while applying allowed edits",()=>{
-  const result=editedCity(city,{...city,description:"Changed",cityId:crypto.randomUUID(),slug:"hijack",chatUrl:"https://other.example"} as Parameters<typeof editedCity>[1]);
-  expect(result).toEqual({...city,description:"Changed"});
+  const result=editedCity(city,{...city,description:"Changed",aliases:["Rادم","Radom City"],cityId:crypto.randomUUID(),slug:"hijack",chatUrl:"https://other.example"} as Parameters<typeof editedCity>[1]);
+  expect(result).toEqual({...city,description:"Changed",aliases:["Rادم","Radom City"]});
   expect(city.description).toBe("Original");
  });
  it("validates meeting point and date",()=>{

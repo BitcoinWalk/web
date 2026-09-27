@@ -1,7 +1,7 @@
 import { cityDocumentSchema, type CityDocument } from "./city";
 import type { WalkOccurrence } from "./walk-schedule";
 
-export type LocatedOccurrence = WalkOccurrence & { meetingPoint: CityDocument["meetingPoint"] };
+export type LocatedOccurrence = WalkOccurrence & { meetingPoint: CityDocument["meetingPoint"]; heroImageUrl?: string; description?:string; routeUrl?:string };
 
 /** Copy into each occurrence; never mutate the city default or share a mutable location. */
 export function withEventMeetingPoint(occurrences: WalkOccurrence[], meetingPoint: CityDocument["meetingPoint"] | null): LocatedOccurrence[] {

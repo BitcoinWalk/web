@@ -10,7 +10,7 @@ type CityTab="manage"|"requests"|"profile"|"editors";
 const tabs:{id:CityTab;label:string}[]=[
   {id:"manage",label:"City list"},
   {id:"requests",label:"Review requests"},
-  {id:"profile",label:"Profile"},
+  {id:"profile",label:"Edit city"},
   {id:"editors",label:"Editors"},
 ];
 export function cityTabFromLocation(search:string,hash:string):CityTab{

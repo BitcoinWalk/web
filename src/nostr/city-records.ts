@@ -82,7 +82,9 @@ export function parseApprovalRecord(event: Event): ApprovalRecord | null {
     if (!parsed.success) return null;
     const data = parsed.data;
     const initialTags = event.tags.filter(t => t[0] === "e" && t[3] === "initial-walk");
+    const cityTags = event.tags.filter(t => t[0] === "city");
     return workflowAddress(event, data.cityId) && (uniqueTag(event, "d", data.cityId) || uniqueTag(event, "i", data.cityId)) && uniqueTag(event, "status", data.status)
+      && (data.slug ? cityTags.length === 1 && cityTags[0][1] === data.slug : cityTags.length === 0)
       && event.tags.filter(t => t[0] === "e" && t[1] === data.cityRevisionId && t[3] === "city-revision").length === 1
       && (data.initialEventId ? initialTags.length === 1 && initialTags[0][1] === data.initialEventId : initialTags.length === 0)
       ? { event, approval: data } : null;
@@ -140,8 +142,15 @@ export async function queryRelayEvents(relays: string[], kinds: number[], onAuth
 export async function queryPublishedCity(relays: string[], slug: string): Promise<CityRevision | null> {
   const candidates = (await queryRelayEvents(relays, [CITY_UPDATE_KIND], undefined, { "#city": [slug], limit: 200 }))
     .map(parseCityRevision).filter((r): r is CityRevision => r !== null);
+  const overrideApprovals = (await queryRelayEvents(relays, [ADMIN_APPROVAL_KIND], undefined, { authors: [SUPER_ADMIN_PUBKEY], "#city": [slug], limit: 200 }))
+    .map(parseApprovalRecord).filter((r): r is ApprovalRecord => r !== null && r.approval.slug === slug);
+  const overrideIds = [...new Set(overrideApprovals.map(r => r.approval.cityRevisionId))];
+  for (let offset = 0; offset < overrideIds.length; offset += 100) {
+    const events = await queryRelayEvents(relays, [CITY_UPDATE_KIND], undefined, { ids: overrideIds.slice(offset, offset + 100), limit: 100 });
+    candidates.push(...events.map(parseCityRevision).filter((r): r is CityRevision => r !== null));
+  }
   const cityIds = [...new Set(candidates.map(r => r.city.cityId))];
-  const approvals: ApprovalRecord[] = [];
+  const approvals: ApprovalRecord[] = [...overrideApprovals];
   for (const cityId of cityIds) {
     const legacy = await queryRelayEvents(relays, [ADMIN_APPROVAL_KIND], undefined, { authors: [SUPER_ADMIN_PUBKEY], "#d": [cityId] });
     approvals.push(...legacy.map(parseApprovalRecord).filter((r): r is ApprovalRecord => r !== null));
@@ -216,12 +225,19 @@ export function resolveApprovedCity(revisions: CityRevision[], approvals: Approv
     }
   }
 
-  return revisions
+  const found = revisions
     .filter((revision) => {
       const decision = latest.get(revision.city.cityId);
-      return revision.city.slug === slug && decision?.status === "approved" && decision.cityRevisionId === revision.event.id;
+      return (decision?.slug ?? revision.city.slug) === slug && decision?.status === "approved" && decision.cityRevisionId === revision.event.id;
     })
     .sort((left, right) => compareEvents(left.event, right.event))[0] ?? null;
+  if (!found) return null;
+  const decision = latest.get(found.city.cityId)!;
+  const resolvedSlug=decision.slug??found.city.slug;
+  const heroImageUrl=decision.heroImageUrl??found.city.heroImageUrl;
+  return resolvedSlug!==found.city.slug||heroImageUrl!==found.city.heroImageUrl
+    ? {...found,city:{...found.city,slug:resolvedSlug,...(heroImageUrl?{heroImageUrl}:{heroImageUrl:undefined})}}
+    : found;
 }
 
 export function pendingCityRevisions(revisions: CityRevision[], approvals: ApprovalRecord[]): CityRevision[] {

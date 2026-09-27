@@ -14,6 +14,8 @@ import { archivedCityIds } from "../../nostr/moderation";
 import { editableCityRevisions, editedCity } from "../../nostr/organizer-edit";
 import { authenticateWithBrowserExtension, getBrowserExtensionPubkey, signWithBrowserExtension } from "../../nostr/signer";
 import { publishVerifiedEvent } from "../../nostr/relay";
+import {importCityImageURL} from "../../lib/media-client";
+import {cityAliases} from "../../domain/city";
 
 const LocationPicker = dynamic(() => import("../../components/location-picker"), {ssr:false});
 
@@ -27,9 +29,10 @@ export default function OrganizerPage() {
   const [pin,setPin] = useState<LocationValue|null>(null);
   const [message,setMessage] = useState("Connect your organizer extension to load walks you can edit.");
   const [submitted,setSubmitted] = useState(false);
+  const [submittedImageUrl,setSubmittedImageUrl]=useState("");
 
   function select(revision: CityRevision|null) {
-    setBase(revision); setPin(revision?.city.meetingPoint ?? null); setSubmitted(false);
+    setBase(revision); setPin(revision?.city.meetingPoint ?? null); setSubmitted(false);setSubmittedImageUrl("");
   }
 
   const dashboard=useDashboard();
@@ -56,10 +59,16 @@ export default function OrganizerPage() {
     if(lock.current || !base || !pin || submitted) return;
     const form = new FormData(event.currentTarget);
     lock.current=true;setBusy(true);
+    setMessage("Preparing your city changes…");
     try {
       if (!relayConfig.writeRelays.length) throw new Error("No write relay configured.");
-      const heroImageUrl=String(form.get("heroImageUrl")).trim()||undefined;
-      const candidate=editedCity(base.city,{startAt:base.city.startAt,description:String(form.get("description")),meetingPoint:{...pin,description:String(form.get("meetingDescription"))},heroImageUrl});
+      const requestedImage=String(form.get("heroImageUrl")).trim();
+      let heroImageUrl=base.city.heroImageUrl;
+      if(requestedImage&&requestedImage!==base.city.heroImageUrl){setMessage("Approve importing the new city-template image into protected BitcoinWalk storage…");heroImageUrl=(await importCityImageURL(base.city.cityId,requestedImage)).url;}
+      else if(!requestedImage)heroImageUrl=undefined;
+      const aliases=cityAliases(String(form.get("aliases")),base.city.cityName);
+      if(aliases.length>20)throw new Error("Use no more than 20 alternative city names.");
+      const candidate=editedCity(base.city,{startAt:base.city.startAt,description:String(form.get("description")),meetingPoint:{...pin,description:String(form.get("meetingDescription"))},heroImageUrl,aliases:aliases.length?aliases:undefined});
       const key=await getBrowserExtensionPubkey();
       if(key!==identity) throw new Error("Signer account changed. Connect and load your walks again before editing.");
       setMessage("Checking current permission and revision…");
@@ -74,6 +83,7 @@ export default function OrganizerPage() {
       const afterSigning=await queryDirectoryRecords(relayConfig.writeRelays);
       if(archivedCityIds(afterSigning.approvals).has(base.city.cityId)) {setCities(items=>items.filter(r=>r.city.cityId!==base.city.cityId));select(null);throw new Error("This city was archived while signing. The edit was not published.");}
       const publication=await publishVerifiedEvent(signed,relayConfig.writeRelays,1,authenticateWithBrowserExtension);
+      setSubmittedImageUrl(heroImageUrl??"");
       setSubmitted(true);
       setMessage(`Revision ${signed.id} submitted to ${publication.accepted.length} relay(s), awaiting super-admin approval. This does not change the public walk. Reload to edit again.`);
     } catch(error) {setMessage(error instanceof Error ? error.message : "Could not submit the revision.");}
@@ -88,10 +98,11 @@ export default function OrganizerPage() {
     <p>Archived cities are hidden. A super-admin can restore them from the archived-city list.</p>
     {identity && <p>Connected public key: {identity}</p>}
     <p role="status" aria-live="polite">{message}</p>
-    {!!cities.length && <label>Walk <select disabled={busy} value={base?.city.cityId ?? ""} onChange={e=>{
+    {!!cities.length&&<section><h3>Your cities</h3>{cities.filter(r=>showCityInPicker(r.city.cityName)).map(revision=><p key={revision.city.cityId}><strong>{revision.city.cityName}</strong> <button type="button" disabled={busy} onClick={()=>select(revision)}>Edit city</button></p>)}</section>}
+    {!!cities.length && <label>City <select disabled={busy} value={base?.city.cityId ?? ""} onChange={e=>{
       if(base && !submitted && !window.confirm("Switching walks discards unsent changes. Continue?")) return;
       select(cities.find(r=>r.city.cityId===e.target.value) ?? null);
-    }}><option value="">Select a walk</option>{cities.filter(r=>showCityInPicker(r.city.cityName)).map(r=><option key={r.city.cityId} value={r.city.cityId}>{r.city.cityName} — {r.city.cityId}</option>)}</select></label>}
+    }}><option value="">Select a city</option>{cities.filter(r=>showCityInPicker(r.city.cityName)).map(r=><option key={r.city.cityId} value={r.city.cityId}>{r.city.cityName} — {r.city.cityId}</option>)}</select></label>}
     {base && <section>
       <p>City ID: {base.city.cityId}<br/>Editing revision: {base.event.id}<br/>Revision status: {submitted ? "New edit submitted" : status}</p>
       <p><a href={`/${encodeURIComponent(base.city.slug)}`} target="_blank" rel="noreferrer">Open approved public page</a> (only available if an approved revision is published).</p>
@@ -99,13 +110,17 @@ export default function OrganizerPage() {
         <fieldset disabled={busy || submitted}>
           <legend>Walk details</legend>
           <LocationPicker cityName={base.city.cityName} onCityNameChange={()=>{}} cityLocked value={pin} onChange={value=>{if(!lock.current&&!submitted)setPin(value);}} />
+          <label>Alternative city names <textarea name="aliases" defaultValue={(base.city.aliases??[]).join("\n")} maxLength={2020} placeholder={base.city.cityName==="Warszawa"?"Warsaw\nWarschau\nVarsovia":"One name per line"} /></label>
+          <p>Optional. Add localized, translated or conventional spellings—one per line. These improve directory search but do not change the displayed city name or URL.</p>
           <label>Walk description <textarea name="description" defaultValue={base.city.description} maxLength={5000} required /></label>
           <label>Meeting-point description <input name="meetingDescription" defaultValue={base.city.meetingPoint.description} maxLength={500} required /></label>
-          <label>Fallback landscape image URL <input name="heroImageUrl" type="url" defaultValue={base.city.heroImageUrl??""} /></label>
+          <label>Default city landscape image URL <input name="heroImageUrl" type="url" defaultValue={base.city.heroImageUrl??""} /></label>
+          <p>Future walks inherit this image unless their organizer chooses a walk-specific override. A replacement is imported into BitcoinWalk storage and becomes public only after super-admin approval.</p>
           <p>The city URL, chat configuration and sponsor are preserved. This form does not change editor permissions.</p>
-          <button type="submit">Submit edit for approval</button>
+          <button type="submit">{submitted?"Submitted":busy?"Submitting…":"Submit edit for approval"}</button>
         </fieldset>
       </form>
+      {submitted&&<section aria-live="polite"><h3>Submitted city image</h3>{submittedImageUrl?<img className="hero-image" src={submittedImageUrl} alt={`Pending landscape for BitcoinWalk ${base.city.cityName}`} referrerPolicy="no-referrer"/>:<p>The submitted revision removes the city template image.</p>}<p>This is the safely stored image in the pending revision. The public city template and inherited walk images will change only after super-admin approval.</p></section>}
     </section>}
   </section>;
 }

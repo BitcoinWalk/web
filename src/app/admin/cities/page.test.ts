@@ -6,7 +6,7 @@ import CitiesPage,{cityTabFromLocation} from "./page";
 describe("consolidated city administration",()=>{
   it("provides one Cities page with four focused views",()=>{
     const html=renderToStaticMarkup(createElement(CitiesPage));
-    for(const label of ["City list","Review requests","Profile","Editors"])expect(html).toContain(label);
+    for(const label of ["City list","Review requests","Edit city","Editors"])expect(html).toContain(label);
   });
   it("opens old approval anchors in Review requests",()=>{
     const hash=`#submission-${"a".repeat(64)}`;

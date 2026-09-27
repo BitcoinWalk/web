@@ -3,7 +3,6 @@ import type {DashboardSummary} from "../nostr/dashboard-data";
 import type {HostedWalk} from "../nostr/hosted-walks";
 import {calendarNevent} from "../nostr/calendar-records";
 import {eventPageHref} from "../domain/event-routing";
-import {directoryConfig} from "../lib/directory-config";
 import {relayConfig} from "../lib/relay-config";
 import type {DashboardRole} from "../domain/dashboard";
 
@@ -13,7 +12,7 @@ function WalkPreview({title,items,href}:{title:string;items:HostedWalk[]|null;hr
   const date=new Intl.DateTimeFormat("en-GB",{dateStyle:"full",timeStyle:"short",...(item.timeZone?{timeZone:item.timeZone}:{timeZone:"UTC"})}).format(new Date(item.start*1000));
   return <li key={item.event.id}><strong>{city.cityName}</strong> — {item.status==="active"?"Happening now":item.status==="grace"?"Late-arrival window":"Upcoming"}<br/>
    {date} ({item.timeZone??"UTC"})<br/>{item.meetingPoint.description}<br/>
-   <a href={eventPageHref(city.cityId,city.slug,calendarNevent(item.event,relayConfig.readRelays),directoryConfig.paidCities)}>Open walk event ↗</a>
+   <a href={eventPageHref(city.slug,calendarNevent(item.event,relayConfig.readRelays))}>Open walk event ↗</a>
   </li>;
  })}</ol>}<p>Showing up to five walks, earliest first. <Link href={href}>View full list →</Link></p></section>;
 }

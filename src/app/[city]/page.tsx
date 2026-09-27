@@ -1,13 +1,14 @@
 import {headers} from "next/headers";
 import {notFound,redirect} from "next/navigation";
 import Link from "next/link";
-import WalkEvent from "../../components/walk-event";
 import {directoryConfig} from "../../lib/directory-config";
 import {relayConfig} from "../../lib/relay-config";
 import {serverReadRelays} from "../../lib/server-relay-config";
-import {currentOrNextEvent,paidCityForHost,paidCityForSlug} from "../../domain/event-routing";
+import {currentOrNextEvent,paidCityForHost} from "../../domain/event-routing";
 import {calendarNevent,loadCalendarWalks,resolveCalendarLink} from "../../nostr/calendar-records";
 import {queryCalendarEvents} from "../../nostr/city-records";
+import {contentRoute,queryContentRevisions} from "../../nostr/content-records";
+import StaticContentPage from "../../components/static-content-page";
 
 export const dynamic="force-dynamic";
 
@@ -18,17 +19,13 @@ export default async function CityOrEventPage({params}:{params:Promise<{city:str
     let result;
     try{result=await resolveCalendarLink(city,serverReadRelays());}catch{return <main><h1>Event temporarily unavailable</h1><p>The relay could not be read. Please try again later.</p></main>;}
     if(!result||paidHost&&result.walk.revision.city.slug!==paidHost.slug)notFound();
-    if(!paidHost){
-      const eventCity=result.walk.revision.city;
-      const migratedEvent=paidCityForSlug(eventCity.slug,directoryConfig.paidCities);
-      if(migratedEvent)redirect(`https://${migratedEvent.slug}.bitcoinwalk.org/${city}`);
-      redirect(`/${encodeURIComponent(eventCity.slug)}/${city}`);
-    }
-    return <WalkEvent event={result.event} walk={result.walk}/>;
+    const eventCity=result.walk.revision.city;
+    redirect(`https://bitcoinwalk.org/${encodeURIComponent(eventCity.slug)}/${city}`);
   }
-  const migrated=paidCityForSlug(city,directoryConfig.paidCities);
-  if(migrated)redirect(`https://${migrated.slug}.bitcoinwalk.org`);
-  if(paidHost)notFound();
+  if(paidHost)redirect(`https://bitcoinwalk.org/${encodeURIComponent(paidHost.slug)}`);
+  let staticRoute:ReturnType<typeof contentRoute>=null;
+  try{staticRoute=contentRoute(await queryContentRevisions(serverReadRelays()),city);}catch{}
+  if(staticRoute){if("redirect" in staticRoute)redirect(staticRoute.redirect);return <StaticContentPage page={staticRoute.page.page}/>;}
   let outcome: {state:"unavailable"}|{state:"missing"}|{state:"ready";cityName:string;eventHref?:string};
   try{
     const walks=await loadCalendarWalks(serverReadRelays());

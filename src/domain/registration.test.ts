@@ -1,12 +1,19 @@
 import { describe, expect, it } from "vitest";
 import { cityDocumentSchema } from "./city";
 import { approvedDirectory } from "./directory";
-import { registrationDocument, PAID_PRICE_SATS, PLAN_BENEFITS } from "./registration";
+import { registrationDocument, registrationSlug, PAID_PRICE_SATS, PLAN_BENEFITS } from "./registration";
 import { createCityUpdateEvent } from "../nostr/city-event";
 import type { CityRevision, ApprovalRecord } from "../nostr/city-records";
 
 const input = { cityId: "6302b5c2-b579-4441-a828-9bffce073f97", cityName: "Funchal", startAt: "2026-10-03T10:00:00Z", description: "Walk with us", location: { latitude: 32.6, longitude: -16.9, description: "Square" }, meetingDescription: "", requestedTier: "free" as const };
 describe("two-step registration", () => {
+  it("transliterates non-ASCII Latin city letters instead of replacing them with separators", () => {
+    expect(registrationSlug("Szydłowiec")).toBe("szydlowiec");
+    expect(registrationSlug("Łódź")).toBe("lodz");
+    expect(registrationSlug("São Paulo")).toBe("sao-paulo");
+    expect(registrationSlug("Tromsø")).toBe("tromso");
+    expect(registrationSlug("Straße")).toBe("strasse");
+  });
   it("validates details before account connection and preserves selected values", () => {
     expect(registrationDocument(input)).toMatchObject({ cityId: input.cityId, cityName: "Funchal", slug: "funchal", startAt: new Date(input.startAt).toISOString(), requestedTier: "free", meetingPoint: input.location });
     expect(registrationDocument(input)).not.toHaveProperty("heroImageUrl");

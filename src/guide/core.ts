@@ -58,6 +58,12 @@ export function liveAlert(revision: CityRevision, event: Event, adminURL: string
   return `Your BitcoinWalk in ${city} is live!\n\nOpen your walk: ${origin}/${encodeURIComponent(revision.city.slug)}/${nevent}\nManage this city and add future walks: ${origin}/admin/walks\n\nBitcoinWalk Guide is automated; replies are not monitored. Never share your private key.`;
 }
 
+export function replicationAlert(state:"degraded"|"recovered",cityName:string,cityId:string):string {
+  const city=cityName.replace(/[\p{C}\p{Z}]+/gu," ").trim();
+  if(state==="degraded")return `BitcoinWalk replication is delayed for ${city}.\nCity ID: ${cityId}\n\nYour public walk remains on the shared relay while BitcoinWalk retries the city replica. Do not republish or sign duplicate events. We will send another message after replication recovers.\n\nBitcoinWalk Guide is automated; replies are not monitored. Never share your private key.`;
+  return `BitcoinWalk replication has recovered for ${city}.\nCity ID: ${cityId}\n\nThe city replica is healthy again. No organizer action is required.\n\nBitcoinWalk Guide is automated; replies are not monitored. Never share your private key.`;
+}
+
 export function selectInbox(events: Event[], recipient: string, allowed: string[], now = Math.floor(Date.now()/1000)): string[] {
   const latest = events.filter(e => e.kind === 10050 && e.pubkey === recipient && e.created_at <= now + 60 && verifyEvent(e)).sort(compareEvents)[0];
   if (!latest) throw new Error("Recipient has no verified NIP-17 inbox list.");

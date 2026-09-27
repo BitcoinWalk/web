@@ -1,11 +1,12 @@
 # BitcoinWalk Guide — notification-only staging pilot
 
-Status: the [backlog](project-backlog.md) reports that the notification worker is
-installed on staging, its VPS bot key was generated, a real encrypted approval DM
-arrived in Armada, and the public bot profile was published. Display-name refresh,
-exact review-link behavior, restart deduplication and mobile push remain acceptance
-items. The initial dry run on 20 September 2026 succeeded against the organizer
-staging relay and the super-admin's advertised inbox list.
+Status: Guide `0.3.68` is active on staging. Its VPS bot key remains separate;
+real encrypted approval and live-link delivery, exact-event retry across restart,
+recipient-signed per-relay inbox discovery, guarded same-event re-publication and
+human-confirmed degraded/recovered replication DMs have passed. App `0.3.62` grants
+the pinned Guide identity one signed read of the sanitized replication report;
+the Guide receives no relay status credential. Healthy replication was baselined
+without historical messages. Mobile push remains an acceptance item.
 
 ## Identity and scope
 
@@ -39,6 +40,14 @@ worker only calls the walk live after the exact approval-bound NIP-52 event is
 readable from the managed relay. Review and live messages have separate durable
 deduplication/retry state; revocation or loss of public eligibility suppresses a
 queued live notification.
+
+Replication health uses a separate transition baseline. Only the content-free city
+state is consumed; event IDs, payloads, attempts, relay credentials and private
+messages are absent. A newly observed healthy city produces no message. One degraded
+DM is queued for the currently approved organizer, followed by one recovery DM only
+after health returns. Restart preserves the transition state and exact encrypted
+wrapper.
+
 SQLite commits the queue and seen IDs together. Gift-wrap events are encrypted
 before storage; a separately encrypted sender copy is retained locally, not
 published to an invented bot inbox. Failed deliveries retry with exponential
@@ -52,6 +61,19 @@ NIP-17 kind-10050 inbox lists are signature-checked and rediscovered on retry.
 Destinations must also be in the operator-reviewed allowlist. No public-note,
 plaintext or NIP-04 fallback. Recipient inbox changes to a new host require
 configuration review. NIP-42 transport authentication uses only the bot key.
+
+The Memphis staging rehearsal on 27 September 2026 produced one durable
+`replication-degraded` row and one `replication-recovered` row while a controlled
+receiver outage moved the real source outbox through retry and back to acknowledged.
+The recovery DM appeared immediately in Armada. The degraded wrapper was accepted
+by an inbox relay but did not initially appear, demonstrating that acknowledgement
+is not a read receipt. Guide `0.3.68` re-published the exact persisted degraded
+gift wrap (`d249a94d…7373`) to the recipient's signed Damus/nos.lol inbox set; Armada
+then displayed exactly one delayed message followed by exactly one recovered
+message. No new message, delivery row, replication outage or relay-state change was
+created. Consistent backups are
+`/var/backups/bitcoinwalk-guide-replication-transition.YdMxXL` and
+`/var/backups/bitcoinwalk-guide-degraded-retry.CCNJyU`.
 
 For the configured super-admin, the discovery result advertised:
 `wss://auth.nostr1.com/`, `wss://relay.keychat.io/`, `wss://relay.ditto.pub/`.

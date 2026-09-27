@@ -12,3 +12,11 @@ next-env.d.ts
 *.sqlite-wal
 AGENTS.md
 CLAUDE.md
+
+# Generated staging/release artifacts. Source and installers belong in Git;
+# locally packaged archives, hash manifests, and executables are preserved separately.
+app-staging-*.tar.gz
+app-staging-*.tar.gz.sha256
+bitcoinwalk-guide-replication-alerts-*.cjs
+GUIDE-*-SHA256SUMS
+deploy/bitcoinwalk-relay-production-0.8.*

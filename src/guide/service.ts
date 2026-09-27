@@ -1,13 +1,17 @@
 import { readFileSync, lstatSync } from "node:fs";
 import { join } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
+import { DatabaseSync } from "node:sqlite";
 import { SimplePool, finalizeEvent, type Event } from "nostr-tools";
 import { configSchema, assertBotKey, selectInbox, guideProfile, signTransportAuth } from "./core";
 import { Outbox } from "./outbox";
-import { history, readComplete } from "./transport";
+import { history, publishIdempotent, readAnyComplete, readComplete } from "./transport";
 import { SUPER_ADMIN_PUBKEY } from "../nostr/authority";
 import { parseCityRevision, parseApprovalRecord, pendingCityRevisions, type CityRevision, type ApprovalRecord } from "../nostr/city-records";
-import { matchesInitialCalendar } from "../nostr/calendar-records";
+import {managedCities} from "../nostr/moderation";
+import {readGuideReplicationStatus} from "./replication";
+import {verifiedLivePublications} from "./live";
+import {exactLiveDeliveryForRetry, exactReplicationDeliveryForRetry, type PersistedDelivery} from "./operator";
 
 async function main() {
   process.umask(0o077);
@@ -16,7 +20,20 @@ async function main() {
   const config = configSchema.parse(JSON.parse(readFileSync(configPath, "utf8")));
   const dryRun = process.argv.includes("--dry-run");
   const publishProfile = process.argv.includes("--publish-profile");
-  if (!dryRun && !publishProfile && !config.enabled) throw new Error("Guide is disabled. Complete dry-run and operator review before enabling.");
+  const printIdentity = process.argv.includes("--print-identity");
+  const checkReplication = process.argv.includes("--check-replication");
+  const retryIndex=process.argv.indexOf("--retry-delivery");
+  const retryDelivery=retryIndex!==-1;
+  const retryReplicationIndex=process.argv.indexOf("--retry-replication-delivery");
+  const retryReplicationDelivery=retryReplicationIndex!==-1;
+  const selectedRetryIndex=retryDelivery?retryIndex:retryReplicationIndex;
+  const retrySubmission=(retryDelivery||retryReplicationDelivery)?process.argv[selectedRetryIndex+1]:undefined;
+  const retryRecipient=(retryDelivery||retryReplicationDelivery)?process.argv[selectedRetryIndex+2]:undefined;
+  const retryPurpose=retryReplicationDelivery?process.argv[selectedRetryIndex+3]:undefined;
+  if(retryDelivery&&(!retrySubmission||!retryRecipient))throw new Error("Retry requires an exact live submission and recipient.");
+  if(retryReplicationDelivery&&(!retrySubmission||!retryRecipient||!retryPurpose))throw new Error("Replication retry requires an exact submission, recipient and purpose.");
+  if([dryRun,publishProfile,printIdentity,checkReplication,retryDelivery,retryReplicationDelivery].filter(Boolean).length>1)throw new Error("Choose only one Guide operation mode.");
+  if (!dryRun && !publishProfile && !printIdentity && !checkReplication && !retryDelivery && !retryReplicationDelivery && !config.enabled) throw new Error("Guide is disabled. Complete dry-run and operator review before enabling.");
   let secret: Uint8Array | undefined;
   let outbox: Outbox | undefined;
   if (!dryRun) {
@@ -30,9 +47,13 @@ async function main() {
     if (!/^[0-9a-f]{64}$/.test(raw)) throw new Error("Invalid Guide credential format.");
     secret = Uint8Array.from(Buffer.from(raw, "hex"));
     const bot = assertBotKey(secret, config.recipients);
-    outbox = new Outbox(join(state, "guide.sqlite"));
-    outbox.bind(bot, config.sourceRelay);
-    console.log("BitcoinWalk Guide notification worker started; bot public key:", bot);
+    if(printIdentity){process.stdout.write(bot+"\n");secret.fill(0);return;}
+    if(checkReplication){const report=await readGuideReplicationStatus(secret);console.log(`Guide replication authorization passed: ${report.state}; ${report.cities.length} city row(s).`);secret.fill(0);return;}
+    if(!retryDelivery&&!retryReplicationDelivery){
+      outbox = new Outbox(join(state, "guide.sqlite"));
+      outbox.bind(bot, config.sourceRelay);
+      console.log("BitcoinWalk Guide notification worker started; bot public key:", bot);
+    }
   }
   const pool = new SimplePool({ enableReconnect: false });
   let stopping = false;
@@ -44,6 +65,21 @@ async function main() {
       console.log("BitcoinWalk Guide public bot profile acknowledged. No NIP-05 claim or DM was published.");
       return;
     }
+    if(retryDelivery||retryReplicationDelivery){
+      const state=process.env.STATE_DIRECTORY!;
+      const db=new DatabaseSync(join(state,"guide.sqlite"),{readOnly:true});
+      let row:PersistedDelivery|undefined;
+      try {row=db.prepare("SELECT submission,recipient,wrapped,state,purpose FROM delivery WHERE submission=? AND recipient=?").get(retrySubmission!,retryRecipient!) as PersistedDelivery|undefined;}
+      finally {db.close();}
+      const wrapped=retryReplicationDelivery
+        ? exactReplicationDeliveryForRetry(row,retrySubmission!,retryRecipient!,retryPurpose!)
+        : exactLiveDeliveryForRetry(row,retrySubmission!,retryRecipient!);
+      const lists=await readAnyComplete(pool,config.discoveryRelays,{kinds:[10050],authors:[retryRecipient!],limit:10});
+      const relays=selectInbox(lists,retryRecipient!,config.allowedInboxRelays);
+      const result=await publishIdempotent(pool,relays,wrapped,async template=>signTransportAuth(template,secret!,relays));
+      console.log(JSON.stringify({submission:retrySubmission,recipient:retryRecipient,purpose:retryPurpose??"live",eventId:wrapped.id,destinations:relays,result,reusedExactEvent:true}));
+      return;
+    }
     do {
       try {
         // Re-read retained history: event timestamps are author-controlled, not an ingestion cursor.
@@ -53,47 +89,53 @@ async function main() {
         const revisions = revisionEvents.map(parseCityRevision).filter((r): r is CityRevision => r !== null);
         const decisions = decisionEvents.map(parseApprovalRecord).filter((r): r is ApprovalRecord => r !== null);
         const pending = pendingCityRevisions(revisions, decisions);
-        const live = decisions.flatMap(approval => {
-          const initialID = approval.approval.initialEventId;
-          if (approval.approval.status !== "approved" || !initialID) return [];
-          const revision = revisions.find(item => item.event.id === approval.approval.cityRevisionId && item.city.cityId === approval.approval.cityId);
-          const event = calendarEvents.find(item => item.id === initialID);
-          if (!revision || !event || !matchesInitialCalendar(event, {revision, approval})) return [];
-          return [{revision, approval, event}];
-        });
+        const live=verifiedLivePublications(revisions,decisions,calendarEvents);
+        const replication=dryRun?undefined:await readGuideReplicationStatus(secret!);
+        const replicationOrganizers=new Map(managedCities(revisions,decisions).filter(city=>city.state==="approved").map(city=>[city.revision.city.cityId,{recipient:city.revision.event.pubkey,cityName:city.revision.city.cityName}]));
         if (dryRun) {
           for (const recipient of config.recipients) {
-            const lists = await readComplete(pool, config.discoveryRelays, { kinds: [10050], authors: [recipient], limit: 10 });
+            const lists = await readAnyComplete(pool, config.discoveryRelays, { kinds: [10050], authors: [recipient], limit: 10 });
             selectInbox(lists, recipient, config.allowedInboxRelays);
           }
           console.log(`Dry run passed: ${pending.length} pending revisions; all recipient inboxes verified. No key loaded, messages sent or baseline written.`);
           return;
         }
         const queued = outbox!.ingest(revisionEvents, pending, config.recipients, secret!, config.adminURL)
-          + outbox!.ingestLive(live, secret!, config.adminURL, config.sourceRelay);
+          + outbox!.ingestLive(live, secret!, config.adminURL, config.sourceRelay)
+          + outbox!.ingestReplication(replication!.cities,replicationOrganizers,secret!);
         console.log(`Scan complete; ${queued} new recipient notification(s) queued.`);
         const pendingIDs = new Set(pending.map(r => r.event.id));
         const liveIDs = new Set(live.map(item => `live:${item.approval.event.id}`));
+        const replicationStates=new Map(replication!.cities.map(city=>[city.cityId,city.state]));
         for (const row of outbox!.due(Math.floor(Date.now()/1000))) {
           if (stopping) break;
           if (row.purpose === "review" && !config.recipients.includes(row.recipient)) { outbox!.state(row, "removed-recipient"); continue; }
-          if (row.purpose === "review" ? !pendingIDs.has(row.submission) : !liveIDs.has(row.submission)) { outbox!.state(row, "obsolete"); continue; }
+          const replicationCity=row.submission.startsWith("replication:")?row.submission.split(":")[1]:"";
+          const current=row.purpose==="replication-degraded"?replicationStates.get(replicationCity)==="degraded":row.purpose==="replication-recovered"?replicationStates.get(replicationCity)==="healthy":row.purpose==="review"?pendingIDs.has(row.submission):liveIDs.has(row.submission);
+          if(!current){outbox!.state(row,"obsolete");continue;}
+          let relays:string[];
           try {
             // Recheck decisions immediately before sending delayed work.
             if (row.purpose === "review") {
               const fresh = (await history(pool, config.sourceRelay, 30304, SUPER_ADMIN_PUBKEY)).map(parseApprovalRecord).filter((r): r is ApprovalRecord => r !== null);
               if (!pendingCityRevisions(revisions, fresh).some(r => r.event.id === row.submission)) { outbox!.state(row, "obsolete"); continue; }
             }
-            const lists = await readComplete(pool, config.discoveryRelays, { kinds: [10050], authors: [row.recipient], limit: 10 });
-            const relays = selectInbox(lists, row.recipient, config.allowedInboxRelays);
-            const wrapped: Event = JSON.parse(row.wrapped);
-            // Retries reuse the exact persisted gift-wrap ID, including after an uncertain acknowledgement.
-            await Promise.any(pool.publish(relays, wrapped, { maxWait: 10_000, onauth: async template => signTransportAuth(template, secret!, relays) }));
+            const lists = await readAnyComplete(pool, config.discoveryRelays, { kinds: [10050], authors: [row.recipient], limit: 10 });
+            relays = selectInbox(lists, row.recipient, config.allowedInboxRelays);
+          }catch{
+            outbox!.retry(row,Math.floor(Date.now()/1000));
+            console.error("Notification deferred: inbox discovery or allowlist validation failed. Exact event retained for retry.");continue;
+          }
+          try{
+            const wrapped:Event=JSON.parse(row.wrapped);
+            // Retries reuse the exact persisted gift-wrap ID. A relay-confirmed
+            // duplicate proves that exact ID is already stored.
+            await publishIdempotent(pool,relays,wrapped,async template=>signTransportAuth(template,secret!,relays));
             outbox!.state(row, "acknowledged");
             console.log("Notification acknowledged by an inbox relay (not proof of reading).");
-          } catch {
+          } catch(error) {
             outbox!.retry(row, Math.floor(Date.now()/1000));
-            console.error("Notification deferred: inbox discovery or publication failed. Exact event retained for retry.");
+            console.error(`Notification deferred: ${error instanceof Error?error.message:"publication failed: unknown"}. Exact event retained for retry.`);
           }
         }
       } catch {

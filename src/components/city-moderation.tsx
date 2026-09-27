@@ -13,6 +13,7 @@ import {isSuperAdmin} from "../nostr/authority";
 import {calendarNevent} from "../nostr/calendar-records";
 import {eventPageHref,managedCalendarEvents,type ManagedCalendarEvent} from "../domain/event-routing";
 import {publishVerifiedEvent} from "../nostr/relay";
+import {requireOccurrenceCancellationRelay} from "../nostr/relay-capabilities";
 
 export default function CityModeration(){
  const dashboard=useDashboard();
@@ -38,7 +39,7 @@ export default function CityModeration(){
   });
  }
  async function removeEvent(row:ManagedCity,item:ManagedCalendarEvent){await run(async()=>{
-  for(const relay of relayConfig.writeRelays){const endpoint=new URL(relay);endpoint.protocol="https:";const response=await fetch(endpoint,{headers:{Accept:"application/nostr+json"},signal:AbortSignal.timeout(5000),cache:"no-store"});if(!response.ok||!["bitcoinwalk-organizers-0.6.0","bitcoinwalk-organizers-0.6.1","bitcoinwalk-organizers-0.7.0","bitcoinwalk-organizers-0.7.1"].includes((await response.json()).version))throw new Error("A compatible organizer occurrence relay is required before cancelling a walk. Nothing signed or cancelled.");}
+  await requireOccurrenceCancellationRelay(relayConfig.writeRelays);
   await current(row);const live=await queryCalendarEvents(relayConfig.writeRelays,{ids:[item.event.id]});if(!live.some(e=>e.id===item.event.id&&e.pubkey===item.event.pubkey))throw new Error("This exact occurrence is no longer public. Reload before deleting.");
   const city=row.revision.city,template=createCalendarDeletion(item.event,city.cityId);
   const when=new Intl.DateTimeFormat(undefined,{dateStyle:"full",timeStyle:"short",...(item.timeZone?{timeZone:item.timeZone}:{})}).format(new Date(item.start*1000));
@@ -49,7 +50,7 @@ export default function CityModeration(){
   if(!tombstones.some(e=>e.id===signed.id)||remaining.length)throw new Error("Deletion acknowledged but exact removal not confirmed. Reload before retrying.");
   await reload();setMessage(`${city.cityName}: occurrence removed and tombstone verified. The city URL will select the next eligible walk. External copies may remain.`);
  });}
- function eventRow(row:ManagedCity,item:ManagedCalendarEvent){const city=row.revision.city,nevent=calendarNevent(item.event,relayConfig.readRelays),href=eventPageHref(city.cityId,city.slug,nevent,directoryConfig.paidCities),when=new Intl.DateTimeFormat(undefined,{dateStyle:"full",timeStyle:"short",...(item.timeZone?{timeZone:item.timeZone}:{})}).format(new Date(item.start*1000));return <li key={item.event.id}><p><strong>{item.status==="active"?"Active":item.status==="grace"?"Late-arrival grace":item.status==="upcoming"?"Upcoming":"Past"}</strong> — {when}<br/>{item.meetingPoint.description}<br/><small>Organizer: {nip19.npubEncode(item.event.pubkey)}<br/>Event: {item.event.id}</small></p><p><a href={href} target="_blank" rel="noreferrer">Open event ↗</a>{" "}<button disabled={busy} onClick={()=>removeEvent(row,item)}>Cancel this walk</button></p></li>;}
+ function eventRow(row:ManagedCity,item:ManagedCalendarEvent){const city=row.revision.city,nevent=calendarNevent(item.event,relayConfig.readRelays),href=eventPageHref(city.slug,nevent),when=new Intl.DateTimeFormat(undefined,{dateStyle:"full",timeStyle:"short",...(item.timeZone?{timeZone:item.timeZone}:{})}).format(new Date(item.start*1000));return <li key={item.event.id}><p><strong>{item.status==="active"?"Active":item.status==="grace"?"Late-arrival grace":item.status==="upcoming"?"Upcoming":"Past"}</strong> — {when}<br/>{item.meetingPoint.description}<br/><small>Organizer: {nip19.npubEncode(item.event.pubkey)}<br/>Event: {item.event.id}</small></p><p><a href={href} target="_blank" rel="noreferrer">Open event ↗</a>{" "}<button disabled={busy} onClick={()=>removeEvent(row,item)}>Cancel this walk</button></p></li>;}
  const available=visibleManagedCities(rows,showArchived).filter(row=>!dashboard.selectedCity||row.revision.city.cityId===dashboard.selectedCity);
  return <section>
   <h2>City list</h2>

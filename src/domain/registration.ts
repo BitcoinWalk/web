@@ -33,5 +33,8 @@ export function registrationDocument(input: {
 }
 
 export function registrationSlug(name: string) {
-  return name.normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+  const latin: Record<string,string> = {
+    ł:"l",đ:"d",ð:"d",þ:"th",æ:"ae",œ:"oe",ø:"o",ħ:"h",ı:"i",ŧ:"t",ŋ:"n",ə:"e",ß:"ss",ƒ:"f",
+  };
+  return name.normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[łđðþæœøħıŧŋəßƒ]/g, letter=>latin[letter]??letter).trim().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
 }

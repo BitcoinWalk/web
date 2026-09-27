@@ -1,0 +1,3 @@
+import Link from "next/link";
+import type {ContentPage} from "../domain/content";
+export default function StaticContentPage({page}:{page:ContentPage}){const paragraphs=page.body.split(/\n\s*\n/).map(value=>value.trim()).filter(Boolean);return <main><nav><Link href="/">BitcoinWalk</Link>{" · "}<Link href="/start">Start a walk</Link></nav>{page.eyebrow&&<p>{page.eyebrow}</p>}<h1>{page.title}</h1>{page.intro&&<p>{page.intro}</p>}{paragraphs.map((paragraph,index)=><p key={index} style={{whiteSpace:"pre-wrap"}}>{paragraph}</p>)}{page.ctaLabel&&page.ctaHref&&<p><a href={page.ctaHref}>{page.ctaLabel}</a></p>}</main>;}

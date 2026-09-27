@@ -4,10 +4,11 @@ import { unwrapEvent } from "nostr-tools/nip59";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { configSchema, selectInbox, wrapAlert, approvalAlert, liveAlert, assertBotKey, guideProfile, signTransportAuth } from "./core";
+import { configSchema, selectInbox, wrapAlert, approvalAlert, liveAlert, replicationAlert, assertBotKey, guideProfile, signTransportAuth } from "./core";
 import { createInitialCalendarProposal } from "../nostr/calendar-event";
 import { Outbox } from "./outbox";
 import { type CityRevision, parseCityRevision, pendingCityRevisions } from "../nostr/city-records";
+import {verifiedLivePublications} from "./live";
 
 const bot = generateSecretKey(), admin = generateSecretKey(), organizer = generateSecretKey();
 const recipient = getPublicKey(admin);
@@ -70,6 +71,13 @@ describe("BitcoinWalk Guide", () => {
       expect(box.ingestLive([publication],bot,"https://bitcoinwalk.org/admin","wss://relay.bitcoinwalk.org")).toBe(0);
     } finally {box.close();}
   });
+  it("makes a delayed live notification obsolete after city revocation",()=>{
+    const item=revision(),event=finalizeEvent(createInitialCalendarProposal(city,"America/Chicago"),organizer);
+    const approved={event:finalizeEvent({kind:30304,created_at:101,content:"",tags:[]},admin),approval:{cityId:city.cityId,cityRevisionId:item.event.id,initialEventId:event.id,status:"approved" as const}};
+    const revoked={event:finalizeEvent({kind:30304,created_at:102,content:"",tags:[]},admin),approval:{cityId:city.cityId,cityRevisionId:item.event.id,status:"revoked" as const}};
+    expect(verifiedLivePublications([item],[approved],[event])).toHaveLength(1);
+    expect(verifiedLivePublications([item],[approved,revoked],[event])).toEqual([]);
+  });
   it("rejects arbitrary review-link hosts and insecure relay configuration", () => {
     const config = {sourceRelay:"wss://relay.bitcoinwalk.org",discoveryRelays:["wss://relay.example.com"],allowedInboxRelays:["wss://relay.example.com"],recipients:[recipient],adminURL:"https://app-staging.bitcoinwalk.org/admin"};
     expect(configSchema.parse(config).enabled).toBe(false);
@@ -107,5 +115,26 @@ describe("BitcoinWalk Guide", () => {
       const rows = box.due(0); expect(rows).toHaveLength(2);
       box.state(rows[0],"obsolete"); expect(box.due(0)).toHaveLength(1);
     } finally { box.close(); }
+  });
+  it("baselines healthy replication and deduplicates degraded and recovery transitions across restart",()=>{
+    const dir=mkdtempSync(join(tmpdir(),"bitcoinwalk-guide-replication-"));let box=new Outbox(join(dir,"queue.sqlite"));
+    const healthy={cityId:city.cityId,destination:"wss://replica.example.com/",state:"healthy" as const,counts:{acknowledged:8,canceled:5}};
+    const degraded={...healthy,state:"degraded" as const,counts:{retry:1}};
+    try{
+      expect(box.ingestReplication([healthy],new Map([[city.cityId,{recipient:getPublicKey(organizer),cityName:city.cityName}]]),bot)).toBe(0);
+      expect(box.ingestReplication([degraded],new Map([[city.cityId,{recipient:getPublicKey(organizer),cityName:city.cityName}]]),bot)).toBe(1);
+      let row=box.due(0)[0];expect(row.purpose).toBe("replication-degraded");const exact=row.wrapped;
+      expect(unwrapEvent(JSON.parse(row.wrapped),organizer).content).toContain("replication is delayed");
+      expect(unwrapEvent(JSON.parse(row.wrapped),organizer).content).not.toContain("retry");
+      box.close();box=new Outbox(join(dir,"queue.sqlite"));
+      expect(box.ingestReplication([degraded],new Map([[city.cityId,{recipient:getPublicKey(organizer),cityName:city.cityName}]]),bot)).toBe(0);
+      expect(box.due(0)[0].wrapped).toBe(exact);box.state(box.due(0)[0],"acknowledged");
+      expect(box.ingestReplication([healthy],new Map([[city.cityId,{recipient:getPublicKey(organizer),cityName:city.cityName}]]),bot)).toBe(1);
+      row=box.due(0)[0];expect(row.purpose).toBe("replication-recovered");expect(unwrapEvent(JSON.parse(row.wrapped),organizer).content).toContain("replication has recovered");
+    }finally{box.close();rmSync(dir,{recursive:true,force:true});}
+  });
+  it("keeps replication messages content-free",()=>{
+    const text=replicationAlert("degraded",city.cityName,city.cityId);
+    expect(text).toContain(city.cityName);expect(text).toContain(city.cityId);expect(text).not.toMatch(/[0-9a-f]{64}/);expect(text).not.toContain("wss://");
   });
 });

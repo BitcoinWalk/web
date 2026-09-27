@@ -1,70 +1,30 @@
 "use client";
 
-import { useRef, useState } from "react";
-import { nip19 } from "nostr-tools";
-import { getBrowserExtensionPubkey } from "../nostr/signer";
-import { validOrganizerKey } from "../nostr/organizer-identity";
+import {useCallback,useEffect,useRef,useState} from "react";
+import {finalizeEvent,generateSecretKey,getPublicKey,nip19,type EventTemplate} from "nostr-tools";
+import {getBrowserExtensionPubkey,type NostrBrowserExtension} from "../nostr/signer";
+import {validOrganizerKey} from "../nostr/organizer-identity";
 
-type Choice = "existing" | "dedicated";
+type LoginController={launch:(screen?:"welcome"|"switch-account")=>Promise<void>};
+let loginReady:Promise<LoginController>|null=null;
+function prepareRemoteLogin(){if(!loginReady)loginReady=import("nostr-login").then(async module=>{const login=new module.NostrLoginInitializer(),service=login.authNostrService;service.getNostrConnectServices=async()=>{const base=await service.createNostrConnect(),relay="wss://relay.nsec.app/",connection=`${base}&relay=${relay}`;return[base,[{name:"Nsec.app",domain:"nsec.app",canImport:true,img:"https://nsec.app/assets/favicon.ico",link:`https://use.nsec.app/${connection}`,relay},{name:"Other key stores",img:"",link:connection,relay}]];};await login.init({noBanner:true,methods:["connect"],bunkers:"nsec.app",perms:"sign_event:31923,sign_event:30303,sign_event:22242",title:"Connect a remote signer",description:"Keep your private key in a separate signer and approve BitcoinWalk requests remotely."});return login;});return loginReady;}
+function downloadPrivateKey(nsec:string){const text=["BitcoinWalk Nostr account backup","","PRIVATE KEY — KEEP SECRET","Anyone with this nsec can control your Nostr identity.","Never upload it or share it with BitcoinWalk support.","","nsec:",nsec,"","RECOMMENDED NEXT STEP","On desktop, import this nsec into a trusted Nostr browser-extension signer.","On mobile, import it into a signer app such as Amber or Clave and connect through a bunker/remote-signer link.","Delete insecure extra copies and keep one protected offline backup."].join("\n"),url=URL.createObjectURL(new Blob([text],{type:"text/plain;charset=utf-8"})),anchor=document.createElement("a");anchor.href=url;anchor.download=`bitcoinwalk-nostr-key-${new Date().toISOString().slice(0,10)}.txt`;anchor.hidden=true;document.body.appendChild(anchor);anchor.click();anchor.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);}
+function localSigner(secretKey:Uint8Array):NostrBrowserExtension{const pubkey=getPublicKey(secretKey);return{getPublicKey:async()=>pubkey,signEvent:async(template:EventTemplate)=>finalizeEvent(structuredClone(template),secretKey)};}
+function decodeNsec(value:string){const decoded=nip19.decode(value.trim());if(decoded.type!=="nsec"||!(decoded.data instanceof Uint8Array))throw new Error("Enter a valid private key beginning with nsec1.");return decoded.data;}
 
-export default function OrganizerIdentity({ disabled, onIdentityChange }: {
-  disabled: boolean; onIdentityChange: (key: string | null) => void;
-}) {
-  const [choice, setChoice] = useState<Choice>("existing");
-  const [backedUp, setBackedUp] = useState(false);
-  const [pubkey, setPubkey] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState("");
-  const connecting = useRef(false);
-
-  function clearIdentity() {
-    setPubkey(null);
-    onIdentityChange(null);
-    setMessage("");
-  }
-
-  async function connect() {
-    if (connecting.current || disabled || (choice === "dedicated" && !backedUp)) return;
-    connecting.current = true;
-    setBusy(true);
-    clearIdentity();
-    try {
-      const key = validOrganizerKey(await getBrowserExtensionPubkey());
-      setPubkey(key);
-      onIdentityChange(key);
-      setMessage("Identity connected. Check the npub below before submitting. Connecting does not publish anything or rename your profile.");
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Could not connect your signer.");
-    } finally {
-      connecting.current = false;
-      setBusy(false);
-    }
-  }
-
-  return <section aria-labelledby="organizer-identity-heading">
-    <h2 id="organizer-identity-heading">Choose your organizer identity</h2>
-    <p>You can keep your personal account unchanged, or use a separate city account.</p>
-    <fieldset disabled={disabled || busy}>
-      <legend>Nostr account</legend>
-      <label><input type="radio" name="identity-choice" checked={choice === "existing"} onChange={() => { setChoice("existing"); clearIdentity(); }} /> Use an existing Nostr identity</label>
-      <label><input type="radio" name="identity-choice" checked={choice === "dedicated"} onChange={() => { setChoice("dedicated"); clearIdentity(); }} /> Set up a separate BitcoinWalk city identity</label>
-      {choice === "existing" ? <p>Select your existing account in your signer, then connect below. Registration does not change your name, picture, followers or profile.</p> : <>
-        <ol>
-          <li>In your Nostr signer, create a new identity (a new key pair), or select a dedicated city identity you already own.</li>
-          <li>Back up its private key securely using the signer&apos;s backup feature. BitcoinWalk cannot recover it for you.</li>
-          <li>Select that city identity in the signer, then connect below. A separate account keeps your personal profile separate, but does not guarantee anonymity.</li>
-        </ol>
-        <label><input type="checkbox" checked={backedUp} onChange={(event) => { setBackedUp(event.target.checked); clearIdentity(); }} /> I have selected my dedicated identity and securely backed up its key.</label>
-      </>}
-      <p>New to Nostr? Your <strong>npub</strong> is your public account identifier. Your <strong>nsec</strong> is secret. Create keys in a Nostr browser-extension signer; never paste an nsec into BitcoinWalk. This registration flow currently requires a browser extension; remote/mobile signer support is planned.</p>
-      <button type="button" onClick={connect} disabled={choice === "dedicated" && !backedUp}>{busy ? "Connecting…" : pubkey ? "Reconnect / change account" : "Connect selected signer identity"}</button>
-    </fieldset>
-    {message && <p role="status">{message}</p>}
-    {pubkey && <p style={{ overflowWrap: "anywhere" }}>Connected npub: <code>{nip19.npubEncode(pubkey)}</code></p>}
-    <details>
-      <summary>Can I call my account “BitcoinWalk in [City]”?</summary>
-      <p>Yes. Edit the profile of your chosen identity in your Nostr client as a separate action. You must control its signing key; knowing an npub is not enough. If you rename an existing personal identity, that name changes for the same account across Nostr—not just BitcoinWalk. Create a separate identity if you want to keep your personal profile unchanged.</p>
-      <p>BitcoinWalk does not automatically rename accounts or publish profile changes.</p>
-    </details>
-  </section>;
+export default function OrganizerIdentity({disabled,onIdentityChange}:{disabled:boolean;onIdentityChange:(key:string|null)=>void}){
+ const [pubkey,setPubkey]=useState<string|null>(null),[busy,setBusy]=useState(false),[message,setMessage]=useState(""),[advanced,setAdvanced]=useState(false),[secretInput,setSecretInput]=useState("");
+ const active=useRef(true),originalSigner=useRef<NostrBrowserExtension|undefined>(undefined),localSession=useRef(false);
+ const connected=useCallback((key:string,note="")=>{const valid=validOrganizerKey(key);setPubkey(valid);onIdentityChange(valid);setMessage(note);},[onIdentityChange]);
+ const readIdentity=useCallback(async()=>{connected(await getBrowserExtensionPubkey());},[connected]);
+ useEffect(()=>{active.current=true;originalSigner.current=window.nostr;const auth=(event:Event)=>{const detail=(event as CustomEvent<{type?:string}>).detail;if(detail?.type==="logout"){setPubkey(null);onIdentityChange(null);return;}void readIdentity();};document.addEventListener("nlAuth",auth);return()=>{active.current=false;document.removeEventListener("nlAuth",auth);if(localSession.current)window.nostr=originalSigner.current;};},[onIdentityChange,readIdentity]);
+ async function run(action:()=>Promise<void>){if(disabled||busy)return;setBusy(true);setMessage("");try{await action();}catch(error){if(active.current)setMessage(error instanceof Error?error.message:"Could not connect this account.");}finally{if(active.current)setBusy(false);}}
+ function installLocal(secretKey:Uint8Array,note:string){if(originalSigner.current&&!localSession.current)throw new Error("A browser signer is already installed. Use it below, or open BitcoinWalk in a browser profile without that extension to create a separate account.");window.nostr=localSigner(secretKey);localSession.current=true;connected(getPublicKey(secretKey),note);}
+ async function createAccount(){await run(async()=>{const secret=generateSecretKey(),nsec=nip19.nsecEncode(secret);downloadPrivateKey(nsec);installLocal(secret,"Account created. Your private-key backup was downloaded—store it safely before continuing.");});}
+ async function connectExtension(){await run(readIdentity);}
+ async function importKey(){await run(async()=>{const secret=decodeNsec(secretInput);installLocal(secret,"Private key loaded for this page only.");setSecretInput("");});}
+ async function connectRemote(){await run(async()=>{const login=await prepareRemoteLogin();void login.launch("welcome").catch(error=>setMessage(error instanceof Error?error.message:"Remote signer could not be opened."));});}
+ function disconnect(){if(localSession.current){window.nostr=originalSigner.current;localSession.current=false;}setPubkey(null);onIdentityChange(null);setMessage("");setAdvanced(false);}
+ const npub=pubkey?nip19.npubEncode(pubkey):"";
+ return <section className="nostr-onboarding" aria-labelledby="organizer-identity-heading"><div className="nostr-onboarding__intro"><span className="nostr-onboarding__key" aria-hidden="true">⚿</span><h2 id="organizer-identity-heading">Step 2 of 2 — Your account</h2><p>Create a new Nostr identity, or connect one you already use.</p></div>{!pubkey?<div className="nostr-onboarding__actions"><button className="nostr-onboarding__primary" type="button" disabled={disabled||busy} onClick={createAccount}>{busy?"Please wait…":"Create new account"}</button><div className="nostr-onboarding__divider"><span>or connect</span></div><button type="button" disabled={disabled||busy} onClick={connectExtension}>Use browser extension</button><button className="nostr-onboarding__advanced-toggle" type="button" aria-expanded={advanced} onClick={()=>setAdvanced(value=>!value)}>{advanced?"Hide other sign-in options":"Use a private key or remote signer"}</button>{advanced&&<div className="nostr-onboarding__advanced"><label>Private key <input type="password" autoComplete="off" spellCheck={false} value={secretInput} onChange={event=>setSecretInput(event.target.value)} placeholder="nsec1…"/></label><button type="button" disabled={disabled||busy||!secretInput.trim()} onClick={importKey}>Use key for this page</button><p className="nostr-onboarding__or">or</p><button type="button" disabled={disabled||busy} onClick={connectRemote}>Connect remote signer</button></div>}</div>:<div className="nostr-onboarding__connected"><span aria-hidden="true">✓</span><p><strong>Account connected</strong><br/><code title={npub}>{npub.slice(0,12)}…{npub.slice(-8)}</code></p><button type="button" disabled={disabled||busy} onClick={disconnect}>Use another account</button></div>}<p className="nostr-onboarding__privacy"><small>Your private key stays in this browser. BitcoinWalk does not upload or store it. Locally created accounts receive a one-time text backup.</small></p>{message&&<p className="nostr-onboarding__message" role="status">{message}</p>}</section>;
 }

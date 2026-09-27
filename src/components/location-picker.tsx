@@ -89,7 +89,7 @@ export default function LocationPicker({
       <label>City
         <input value={cityName} readOnly={cityLocked} maxLength={120} onChange={(event) => {active.current?.abort();setIsSearching(false);setResults([]);setSearchMessage("");onCityNameChange(event.target.value);}} onKeyDown={event=>{if(event.key==="Enter"&&!cityLocked){event.preventDefault();void searchCity();}}} placeholder="Cleveland, Ohio" required autoComplete="off" />
       </label>
-      {!cityLocked&&<><button type="button" disabled={isSearching||cityName.trim().length<2} onClick={searchCity}>{isSearching?"Searching…":"Search city"}</button><p role="status">{searchMessage}</p><p>City searches use OpenStreetMap’s Nominatim service. Search only public place names, not personal addresses. <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">© OpenStreetMap contributors</a></p></>}
+      {!cityLocked&&<><button type="button" disabled={isSearching||cityName.trim().length<2} onClick={searchCity}>{isSearching?"Searching…":"Search city"}</button><p role="status">{searchMessage}</p></>}
       <div className="search-results">
         {!cityLocked && cityName.trim().length >= 2 && results.map((result) => <button key={`${result.latitude}:${result.longitude}`} type="button" onClick={() => choose(result)}>{result.name}</button>)}
       </div>

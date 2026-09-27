@@ -1,8 +1,9 @@
 import { PAID_PRICE_SATS, PLAN_BENEFITS, type RequestedTier } from "../domain/registration";
 
-export default function RegistrationPlans({ value, onChange, disabled }: {
-  value: RequestedTier; onChange: (value: RequestedTier) => void; disabled: boolean;
+export default function RegistrationPlans({ value, onChange, disabled, paidEnabled=true }: {
+  value: RequestedTier; onChange: (value: RequestedTier) => void; disabled: boolean; paidEnabled?:boolean;
 }) {
+  if(!paidEnabled)return <section aria-label="Registration plan"><p><strong>Free plan</strong> — Shared BitcoinWalk relay and global community access. Paid registration is not currently available.</p></section>;
   return <section aria-labelledby="plan-heading">
     <h2 id="plan-heading">Choose your plan</h2>
     <fieldset disabled={disabled} style={{ display: "grid", gap: "1rem" }}>

@@ -21,9 +21,13 @@ import { cityTimeZone } from "../../../domain/city-time";
 import { showCityInPicker } from "../../../domain/city-picker";
 import { editDraftOccurrence, readRecurringPlan, saveRecurringPlan, upcomingDrafts, type RecurringPlan } from "../../../domain/rolling-drafts";
 import { eventPageHref, managedCalendarEvents, type ManagedCalendarEvent } from "../../../domain/event-routing";
-import { directoryConfig } from "../../../lib/directory-config";
 import { reconcileOccurrences } from "../../../domain/recurrence-reconciliation";
 import { createOrganizerCancellation } from "../../../nostr/moderation";
+import {importCityImageURL} from "../../../lib/media-client";
+import {RichDescriptionEditor} from "../../../components/rich-description";
+import {calendarRoute} from "../../../nostr/calendar-records";
+import {optionalAllTrailsRoute} from "../../../domain/walk-route";
+import {requireOccurrenceCancellationRelay} from "../../../nostr/relay-capabilities";
 
 const LocationPicker = dynamic(() => import("../../../components/location-picker"), { ssr: false });
 
@@ -46,6 +50,8 @@ export default function OrganizerEventsPage() {
   const [preview, setPreview] = useState<LocatedOccurrence[]>([]);
   const [coverage, setCoverage] = useState<{ planned: number; published: number; missing: number } | null>(null);
   const [meetingPoint, setMeetingPoint] = useState<LocationValue | null>(null);
+  const [walkDescription,setWalkDescription]=useState("");
+  const [routeUrl,setRouteUrl]=useState("");
   const [frequency, setFrequency] = useState<WalkSchedule["frequency"]>("weekly");
   const [weekday, setWeekday] = useState(DEFAULT_WEEKDAY);
   const [owner, setOwner] = useState("");
@@ -59,6 +65,9 @@ export default function OrganizerEventsPage() {
   const [editDate,setEditDate]=useState("");
   const [editTime,setEditTime]=useState("");
   const [editMeetingPoint,setEditMeetingPoint]=useState<LocationValue|null>(null);
+  const [editHeroImageUrl,setEditHeroImageUrl]=useState("");
+  const [editDescription,setEditDescription]=useState("");
+  const [editRouteUrl,setEditRouteUrl]=useState("");
   const signedRetries = useRef<Record<string, Event>>({});
   const seriesId = useRef("");
   const lock = useRef(false);
@@ -143,6 +152,7 @@ export default function OrganizerEventsPage() {
       const result=reconcile(plan.cityId,drafts,plan.timeZone);
       setShowForm(true);
       setCityId(plan.cityId); setMeetingPoint({ ...plan.meetingPoint }); setFrequency(plan.frequency);
+      setWalkDescription(plan.description??walks.find(w=>w.revision.city.cityId===plan.cityId)?.revision.city.description??"");setRouteUrl(plan.routeUrl??"");
       setWeekday(plan.weekday); setFirstDate(plan.firstDate); setLocalTime(plan.localTime); seriesId.current = plan.seriesId;
       setPreview(result.missing); setSelected(new Set(result.missing.map(d=>d.id))); setResults({}); setEditingId(""); setReviewing(true);
       setCoverage({ planned: drafts.length, published: result.covered.length, missing: result.missing.length });
@@ -179,7 +189,7 @@ export default function OrganizerEventsPage() {
       if (!seriesId.current) seriesId.current = crypto.randomUUID();
       const existing = readRecurringPlan(window.localStorage, owner, cityId);
       const sameSchedule=existing?.seriesId===seriesId.current&&existing.firstDate===firstDate&&existing.localTime===localTime&&existing.frequency===frequency&&existing.weekday===weekday;
-      persist({ version: 1, owner, cityId, seriesId: seriesId.current, firstDate, localTime, timeZone: cityTimeZone(city.meetingPoint), frequency, weekday, meetingPoint: { ...meetingPoint }, paused: existing?.paused ?? false, skippedDates: existing?.skippedDates ?? [],draftEdits:sameSchedule?existing?.draftEdits:undefined });
+      persist({ version: 1, owner, cityId, seriesId: seriesId.current, firstDate, localTime, timeZone: cityTimeZone(city.meetingPoint), frequency, weekday, meetingPoint: { ...meetingPoint },description:walkDescription.trim(),routeUrl:optionalAllTrailsRoute(routeUrl), paused: existing?.paused ?? false, skippedDates: existing?.skippedDates ?? [],draftEdits:sameSchedule?existing?.draftEdits:undefined });
     } catch (error) { setMessage(error instanceof Error ? error.message : "Could not save recurring plan."); }
   }
 
@@ -192,7 +202,8 @@ export default function OrganizerEventsPage() {
       if (!seriesId.current) seriesId.current = crypto.randomUUID();
       const occurrences = scheduleOccurrences({ seriesId: seriesId.current, firstDate: String(form.get("firstDate")), localTime: String(form.get("localTime")), timeZone: cityTimeZone(city.meetingPoint), weekday, frequency,
         count: frequency === "once" ? 1 : DEFAULT_OCCURRENCES, durationMinutes: 60 });
-      const located=withEventMeetingPoint(occurrences, meetingPoint);
+      if(!walkDescription.trim())throw new Error("Add a walk description.");const route=optionalAllTrailsRoute(routeUrl);
+      const located=withEventMeetingPoint(occurrences, meetingPoint).map(item=>({...item,description:walkDescription.trim(),routeUrl:route}));
       const result=reconcile(cityId,located,cityTimeZone(city.meetingPoint));
       setPreview(result.missing); setSelected(new Set(result.missing.map(d=>d.id))); setResults({});
       setCoverage({ planned: located.length, published: result.covered.length, missing: result.missing.length });
@@ -202,14 +213,59 @@ export default function OrganizerEventsPage() {
 
   function beginEdit(draft:LocatedOccurrence){
     if(signedRetries.current[draft.id]){setMessage("This draft already has a signed publication retry. Finish that retry or refresh before editing.");return;}
-    setEditingId(draft.id);setEditDate(draft.localDate);setEditTime(draft.localTime);setEditMeetingPoint({...draft.meetingPoint});setMessage("Edit this unsigned walk draft, then save it before publishing.");
+    setEditingId(draft.id);setEditDate(draft.localDate);setEditTime(draft.localTime);setEditMeetingPoint({...draft.meetingPoint});setEditDescription(draft.description??walks.find(w=>w.revision.city.cityId===cityId)?.revision.city.description??"");setEditRouteUrl(draft.routeUrl??"");setMessage("Edit this unsigned walk draft, then save it before publishing.");
+  }
+
+  function publishedDraft(event:Event,item:ManagedCalendarEvent):LocatedOccurrence{
+    const id=event.tags.find(tag=>tag[0]==="d"&&tag.length===2)?.[1];
+    if(!id||!item.timeZone)throw new Error("This walk does not have editable date/time metadata.");
+    const parts=Object.fromEntries(new Intl.DateTimeFormat("en-CA",{timeZone:item.timeZone,year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit",hourCycle:"h23"}).formatToParts(new Date(item.start*1000)).map(part=>[part.type,part.value]));
+    return {id,seriesId:id.split(":")[0],localDate:`${parts.year}-${parts.month}-${parts.day}`,localTime:`${parts.hour}:${parts.minute}`,timeZone:item.timeZone,start:item.start,end:item.end,meetingPoint:{...item.meetingPoint}};
+  }
+
+  function beginPublishedEdit(event:Event,item:ManagedCalendarEvent){
+    try{
+      const draft=publishedDraft(event,item);
+      setEditingId(`published:${event.id}`);setEditDate(draft.localDate);setEditTime(draft.localTime);setEditMeetingPoint({...draft.meetingPoint});setEditHeroImageUrl("");setEditDescription(event.content);setEditRouteUrl(calendarRoute(event)??"");setMessage("Edit this published walk. Saving will ask you to sign a replacement NIP-52 event.");
+    }catch(error){setMessage(error instanceof Error?error.message:"This walk cannot be edited.");}
+  }
+
+  async function savePublishedEdit(walk:CalendarWalk,item:ManagedCalendarEvent){
+    if(lock.current||!owner||editingId!==`published:${item.event.id}`)return;
+    lock.current=true;setBusy(true);
+    setMessage("Preparing your walk changes…");
+    try{
+      if(item.event.pubkey!==owner)throw new Error("Only the signer of this walk can edit it.");
+      if(!editMeetingPoint)throw new Error("Choose a meeting point for this walk.");
+      if(await getBrowserExtensionPubkey()!==owner)throw new Error("Signer identity changed. Reconnect before editing.");
+      const original=publishedDraft(item.event,item);
+      const updated=editDraftOccurrence(original,{localDate:editDate,localTime:editTime,meetingPoint:{...editMeetingPoint},description:editDescription.trim(),routeUrl:optionalAllTrailsRoute(editRouteUrl)});
+      const other=(publishedByCity[walk.revision.city.cityId]??[]).filter(event=>event.tags.find(tag=>tag[0]==="d")?.[1]!==original.id);
+      if(reconcileOccurrences([updated],managedCalendarEvents(walk,other),updated.timeZone).covered.length)throw new Error("Another walk is already published for that city date.");
+      const photoUrl=editHeroImageUrl.trim();
+      if(photoUrl){try{if(!photoUrl.startsWith("https://"))throw new Error();new URL(photoUrl);}catch{throw new Error("Use a valid HTTPS landscape image URL.");}}
+      let imageOverride:string|undefined;
+      if(photoUrl){setMessage("Approve importing this walk image into protected BitcoinWalk storage…");imageOverride=(await importCityImageURL(walk.revision.city.cityId,photoUrl)).url;}
+      const template=createOrganizerCalendarEvent(walk,{...updated,...(imageOverride?{heroImageUrl:imageOverride}:{})});
+      setMessage("Approve the replacement walk event in your signer…");
+      const signed=await signWithBrowserExtension(template);
+      if(!verifyEvent(signed)||signed.pubkey!==owner||signed.kind!==template.kind||signed.tags.find(tag=>tag[0]==="d")?.[1]!==original.id)throw new Error("Signer returned a different identity or walk address. Nothing published.");
+      await publishVerifiedEvent(signed,relayConfig.writeRelays,1,authenticateWithBrowserExtension);
+      const readback=await queryCalendarEvents(relayConfig.readRelays,{ids:[signed.id]});
+      if(!readback.some(event=>event.id===signed.id))throw new Error("The relay acknowledged the edit, but read-back was inconclusive. Refresh before retrying.");
+      const refreshed=await completeCityEvents(relayConfig.readRelays,walk.revision.city.cityId);
+      setPublishedByCity(previous=>({...previous,[walk.revision.city.cityId]:refreshed}));
+      setMessage(imageOverride?"Walk and its image override updated, signed and verified on the relay.":"Walk updated, signed and verified on the relay.");
+      setEditingId("");setEditHeroImageUrl("");
+    }catch(error){setMessage(error instanceof Error?error.message:"Could not update this walk.");}
+    finally{lock.current=false;setBusy(false);}
   }
 
   function saveDraftEdit(draft:LocatedOccurrence){
     try{
       if(busy||editingId!==draft.id||results[draft.id]?.status==="published"||signedRetries.current[draft.id])throw new Error("This walk can no longer be edited as a draft. Refresh the list.");
       if(!editMeetingPoint)throw new Error("Choose a meeting point for this draft.");
-      const edit={localDate:editDate,localTime:editTime,meetingPoint:{...editMeetingPoint}};
+      const edit={localDate:editDate,localTime:editTime,meetingPoint:{...editMeetingPoint},description:editDescription.trim(),routeUrl:optionalAllTrailsRoute(editRouteUrl)};
       const updated=editDraftOccurrence(draft,edit);
       if(preview.some(other=>other.id!==draft.id&&other.localDate===updated.localDate))throw new Error("Another draft is already scheduled for this date.");
       const walk=walks.find(item=>item.revision.city.cityId===cityId);
@@ -297,11 +353,7 @@ export default function OrganizerEventsPage() {
     lock.current = true; setBusy(true);
     try {
       if (await getBrowserExtensionPubkey() !== owner) throw new Error("Signer identity changed. Reconnect before cancelling.");
-      for (const relay of relayConfig.writeRelays) {
-        const endpoint = new URL(relay); endpoint.protocol = "https:";
-        const response = await fetch(endpoint, { headers: { Accept: "application/nostr+json" }, signal: AbortSignal.timeout(5000), cache: "no-store" });
-        if (!response.ok || !["bitcoinwalk-organizers-0.6.1","bitcoinwalk-organizers-0.7.0","bitcoinwalk-organizers-0.7.1"].includes((await response.json()).version)) throw new Error("Organizer cancellation is not enabled on this relay. Nothing signed or cancelled.");
-      }
+      await requireOccurrenceCancellationRelay(relayConfig.writeRelays);
       const live = await queryCalendarEvents(relayConfig.writeRelays, { ids: [event.id] });
       if (!live.some(item => item.id === event.id && item.pubkey === owner)) throw new Error("This exact walk is no longer public. Refresh the scheduled list.");
       const template = createOrganizerCancellation(event, city.cityId, owner);
@@ -323,14 +375,14 @@ export default function OrganizerEventsPage() {
 
   function publishedHref(walk:CalendarWalk,event:Event){
     const city=walk.revision.city;
-    return eventPageHref(city.cityId,city.slug,calendarNevent(event,relayConfig.readRelays),directoryConfig.paidCities);
+    return eventPageHref(city.slug,calendarNevent(event,relayConfig.readRelays));
   }
 
   function openForm(){
     setShowForm(true);
     if(walks.length===1&&!cityId){
       const city=walks[0].revision.city;
-      setCityId(city.cityId);setMeetingPoint({...city.meetingPoint});
+      setCityId(city.cityId);setMeetingPoint({...city.meetingPoint});setWalkDescription(city.description);setRouteUrl("");
     }
   }
 
@@ -389,7 +441,7 @@ export default function OrganizerEventsPage() {
       const selected = walks.find(w => w.revision.city.cityId === e.target.value)?.revision.city;
       const saved = plans[e.target.value];
       if (saved) { review(saved); return; }
-      setCityId(e.target.value); setMeetingPoint(selected ? { ...selected.meetingPoint } : null); setPreview([]); setCoverage(null); setSelected(new Set()); setResults({}); signedRetries.current={}; seriesId.current = ""; setFirstDate(""); setLocalTime("10:00"); setFrequency("weekly"); setWeekday(DEFAULT_WEEKDAY); setReviewing(false);
+      setCityId(e.target.value); setMeetingPoint(selected ? { ...selected.meetingPoint } : null);setWalkDescription(selected?.description??"");setRouteUrl(""); setPreview([]); setCoverage(null); setSelected(new Set()); setResults({}); signedRetries.current={}; seriesId.current = ""; setFirstDate(""); setLocalTime("10:00"); setFrequency("weekly"); setWeekday(DEFAULT_WEEKDAY); setReviewing(false);
     }}><option value="">Select your city</option>{walks.filter(w=>showCityInPicker(w.revision.city.cityName)).map(w => <option key={w.revision.city.cityId} value={w.revision.city.cityId}>{w.revision.city.cityName}</option>)}</select></label>
     {cityId && <form ref={scheduleForm} onSubmit={makePreview} onChange={() => { setPreview([]); setCoverage(null); setReviewing(false); }}>
       <fieldset disabled={busy} style={{ display: "grid", gap: "1rem" }}>
@@ -398,6 +450,8 @@ export default function OrganizerEventsPage() {
         {frequency !== "once" && <label>Weekday <select value={weekday} onChange={e => setWeekday(Number(e.target.value))}>{WEEKDAYS.map((day, index) => <option key={day} value={index}>{day}</option>)}</select></label>}
         <label>{frequency === "once" ? "Walk date" : "Start on or after"} <input type="date" name="firstDate" min="2000-01-01" max="2099-12-31" value={firstDate} onChange={e => setFirstDate(e.target.value)} required /></label>
         <label>Start time <input type="time" name="localTime" value={localTime} onChange={e => setLocalTime(e.target.value)} required /></label>
+        <RichDescriptionEditor value={walkDescription} onChange={value=>{setWalkDescription(value);setPreview([]);setCoverage(null);}} disabled={busy}/>
+        <label>AllTrails route (optional) <input type="url" value={routeUrl} onChange={event=>{setRouteUrl(event.target.value);setPreview([]);setCoverage(null);}} placeholder="https://www.alltrails.com/explore/trail/…"/></label>
         <p>All times are local to {walks.find(w => w.revision.city.cityId === cityId)?.revision.city.cityName}.</p>
         <h2>Meeting point for this walk</h2>
         <p>Starts from the city&apos;s default. Changing it here does not change the city profile.{frequency !== "once" && " This location will be copied into each occurrence in this new series."}</p>
@@ -422,8 +476,8 @@ export default function OrganizerEventsPage() {
         {row.kind==="canceled"?<><span>Cancellation recorded {new Intl.DateTimeFormat("en-GB",{dateStyle:"full",timeStyle:"short",timeZone:"UTC"}).format(new Date(row.at*1000))} UTC. Original walk date unavailable.</span><br/><small>Event: {row.targetId}</small><br/><button type="button" onClick={()=>void navigator.clipboard.writeText(row.targetId).then(()=>setMessage("Canceled event ID copied.")).catch(()=>setMessage("Could not copy the event ID."))}>Copy event ID</button></>:row.kind==="draft"?<>
           {new Intl.DateTimeFormat("en-GB",{dateStyle:"full",timeStyle:"short",timeZone:row.draft.timeZone}).format(new Date(row.at*1000))} ({row.draft.timeZone})<br/>{row.draft.meetingPoint.description}<br/><small>Meeting pin: {row.draft.meetingPoint.latitude.toFixed(6)}, {row.draft.meetingPoint.longitude.toFixed(6)}</small>
           {row.inReview?<><p><label><input type="checkbox" disabled={busy||results[row.draft.id]?.status==="published"} checked={selected.has(row.draft.id)} onChange={e=>setSelected(previous=>{const next=new Set(previous);if(e.target.checked)next.add(row.draft.id);else next.delete(row.draft.id);return next;})}/> Select for signing</label> <button type="button" disabled={busy} onClick={()=>beginEdit(row.draft)}>Edit walk</button>{reviewing&&plans[row.walk.revision.city.cityId]&&!results[row.draft.id]&&<> <button type="button" disabled={busy} onClick={()=>updateSaved({skippedDates:[...new Set([...plans[row.walk.revision.city.cityId].skippedDates,row.draft.id.split(":").at(-1)!])]})}>Skip this draft</button></>}</p>{results[row.draft.id]&&<p role="status">{results[row.draft.id].status}: {results[row.draft.id].detail??""}</p>}</>:<p><button type="button" disabled={busy} onClick={()=>{const plan=plans[row.walk.revision.city.cityId];if(plan){review(plan);beginEdit(row.draft);}}}>Edit walk</button> <button type="button" disabled={busy} onClick={()=>{const plan=plans[row.walk.revision.city.cityId];if(plan)review(plan);}}>Review for publishing</button></p>}
-          {editingId===row.draft.id&&<form onSubmit={event=>{event.preventDefault();saveDraftEdit(row.draft);}}><fieldset disabled={busy}><legend>Edit this walk draft</legend><label>Date <input type="date" required min="2000-01-01" max="2099-12-31" value={editDate} onChange={event=>setEditDate(event.target.value)}/></label><label>Local start time <input type="time" required value={editTime} onChange={event=>setEditTime(event.target.value)}/></label><label>Meeting-point description <input required maxLength={500} value={editMeetingPoint?.description??""} onChange={event=>setEditMeetingPoint(point=>point?{...point,description:event.target.value}:null)}/></label><LocationPicker key={`edit-${row.draft.id}`} cityName={row.walk.revision.city.cityName} onCityNameChange={()=>{}} cityLocked value={editMeetingPoint} onChange={point=>setEditMeetingPoint({...point})}/><button type="submit">Save this draft</button> <button type="button" onClick={()=>setEditingId("")}>Discard changes</button></fieldset></form>}
-        </>:<>{new Intl.DateTimeFormat("en-GB",{dateStyle:"full",timeStyle:"short",...(row.item.timeZone?{timeZone:row.item.timeZone}:{})}).format(new Date(row.at*1000))}{row.item.timeZone?` (${row.item.timeZone})`:""}<br/>{row.item.meetingPoint.description}<br/><a href={publishedHref(row.walk,row.item.event)} target="_blank" rel="noreferrer">Open walk event ↗</a>{row.hosted&&<> — You’re hosting</>}{row.kind==="upcoming"&&!row.hosted&&<>{row.item.event.pubkey===owner&&<> <button disabled={busy} onClick={()=>cancelWalk(row.walk,row.item.event)}>Cancel this walk</button></>} <WalkDelegation event={row.item.event} actor={owner} cityName={row.walk.revision.city.cityName} disabled={busy}/></>}</>}
+          {editingId===row.draft.id&&<form onSubmit={event=>{event.preventDefault();saveDraftEdit(row.draft);}}><fieldset disabled={busy}><legend>Edit this walk draft</legend><label>Date <input type="date" required min="2000-01-01" max="2099-12-31" value={editDate} onChange={event=>setEditDate(event.target.value)}/></label><label>Local start time <input type="time" required value={editTime} onChange={event=>setEditTime(event.target.value)}/></label><RichDescriptionEditor value={editDescription} onChange={setEditDescription} disabled={busy}/><label>AllTrails route (optional) <input type="url" value={editRouteUrl} onChange={event=>setEditRouteUrl(event.target.value)} placeholder="https://www.alltrails.com/explore/trail/…"/></label><label>Meeting-point description <input required maxLength={500} value={editMeetingPoint?.description??""} onChange={event=>setEditMeetingPoint(point=>point?{...point,description:event.target.value}:null)}/></label><LocationPicker key={`edit-${row.draft.id}`} cityName={row.walk.revision.city.cityName} onCityNameChange={()=>{}} cityLocked value={editMeetingPoint} onChange={point=>setEditMeetingPoint({...point})}/><button type="submit">Save this draft</button> <button type="button" onClick={()=>setEditingId("")}>Discard changes</button></fieldset></form>}
+        </>:<>{new Intl.DateTimeFormat("en-GB",{dateStyle:"full",timeStyle:"short",...(row.item.timeZone?{timeZone:row.item.timeZone}:{})}).format(new Date(row.at*1000))}{row.item.timeZone?` (${row.item.timeZone})`:""}<br/>{row.item.meetingPoint.description}<br/><a href={publishedHref(row.walk,row.item.event)} target="_blank" rel="noreferrer">Open walk event ↗</a>{row.hosted&&<> — You’re hosting</>}{row.kind==="upcoming"&&!row.hosted&&<>{row.item.event.pubkey===owner&&<> {row.item.status==="upcoming"&&<button disabled={busy} onClick={()=>beginPublishedEdit(row.item.event,row.item)}>Edit walk</button>} <button disabled={busy} onClick={()=>cancelWalk(row.walk,row.item.event)}>Cancel this walk</button></>} <WalkDelegation event={row.item.event} actor={owner} cityName={row.walk.revision.city.cityName} disabled={busy}/></>}{editingId===`published:${row.item.event.id}`&&<form onSubmit={event=>{event.preventDefault();void savePublishedEdit(row.walk,row.item);}}><fieldset disabled={busy}><legend>Edit this published walk</legend><label>Date <input type="date" required min="2000-01-01" max="2099-12-31" value={editDate} onChange={event=>setEditDate(event.target.value)}/></label><label>Local start time <input type="time" required value={editTime} onChange={event=>setEditTime(event.target.value)}/></label><RichDescriptionEditor value={editDescription} onChange={setEditDescription} disabled={busy}/><label>AllTrails route (optional) <input type="url" value={editRouteUrl} onChange={event=>setEditRouteUrl(event.target.value)} placeholder="https://www.alltrails.com/explore/trail/…"/></label><label>Meeting-point description <input required maxLength={500} value={editMeetingPoint?.description??""} onChange={event=>setEditMeetingPoint(point=>point?{...point,description:event.target.value}:null)}/></label><LocationPicker key={`published-edit-${row.item.event.id}`} cityName={row.walk.revision.city.cityName} onCityNameChange={()=>{}} cityLocked value={editMeetingPoint} onChange={point=>setEditMeetingPoint({...point})}/><h3>Walk photo</h3><label>Landscape image override (optional) <input type="url" value={editHeroImageUrl} onChange={event=>setEditHeroImageUrl(event.target.value)} placeholder="https://… (.png, .jpg or .webp content)"/></label><p>Leave blank to inherit the city template. A supplied image applies only to this walk and does not require super-admin approval.</p><button type="submit">{busy?"Saving…":"Sign and save changes"}</button> <button type="button" onClick={()=>{setEditingId("");setEditHeroImageUrl("");}}>Discard changes</button></fieldset></form>}</>}
       </li>)}</ol></section>)}
       {!!preview.length&&<p><button disabled={busy||!!editingId||!preview.some(draft=>selected.has(draft.id)&&results[draft.id]?.status!=="published")} onClick={publishSelected}>Sign and publish selected walks</button></p>}
       {!!Object.keys(plans).length&&<section><h3>Recurring plan controls</h3>{Object.values(plans).map(plan=><p key={plan.cityId}>{walks.find(w=>w.revision.city.cityId===plan.cityId)?.revision.city.cityName} — {planSummary(plan)} <button disabled={busy} onClick={()=>review(plan)}>Review missing dates</button></p>)}</section>}

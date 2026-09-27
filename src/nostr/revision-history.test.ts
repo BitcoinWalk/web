@@ -12,6 +12,21 @@ const edit = parseCityRevision(finalizeEvent(createCityUpdateEvent({...city,desc
 const decision = (status: "approved" | "rejected" | "revoked", time: number, revision = first): ApprovalRecord => ({event: {id: String(time).padStart(64,"0"),created_at:time} as ApprovalRecord["event"],approval:{cityId,cityRevisionId:revision.event.id,status}});
 
 describe("retained approved revisions", () => {
+ it("uses the super-admin slug override without changing the signed revision", () => {
+  const approval=decision("approved",20);
+  approval.approval.slug="szydlowiec";
+  const resolved=resolveApprovedCity([first],[approval],"szydlowiec");
+  expect(resolved?.city.slug).toBe("szydlowiec");
+  expect(first.city.slug).toBe("radom");
+ });
+ it("uses the approved generated image without mutating the organizer revision",()=>{
+  const photoFree={...first,city:{...first.city,heroImageUrl:undefined}};
+  const approval=decision("approved",20,photoFree);
+  approval.approval.heroImageUrl="https://app-staging.bitcoinwalk.org/api/media/files/generated.webp";
+  const resolved=resolveApprovedCity([photoFree],[approval],"radom");
+  expect(resolved?.city.heroImageUrl).toBe(approval.approval.heroImageUrl);
+  expect(photoFree.city.heroImageUrl).toBeUndefined();
+ });
  it("gives edits and decisions separate addresses, even within the same second", () => {
   expect(first.event.tags[0]).not.toEqual(edit.event.tags[0]);
   const data = decision("approved",1).approval;

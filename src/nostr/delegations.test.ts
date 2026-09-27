@@ -1,7 +1,7 @@
 import {describe,it,expect} from "vitest";
 import {finalizeEvent,getPublicKey} from "nostr-tools";
 import {SUPER_ADMIN_PUBKEY} from "./authority";
-import {delegationControl,delegationAcceptance,delegationState,canDelegateWalk} from "./delegations";
+import {delegationControl,delegationAcceptance,delegationState,canDelegateWalk,supportsDelegationRelayVersion} from "./delegations";
 const creatorKey=new Uint8Array(32).fill(2),nomineeKey=new Uint8Array(32).fill(3),otherKey=new Uint8Array(32).fill(4);
 const creator=getPublicKey(creatorKey),nominee=getPublicKey(nomineeKey),other=getPublicKey(otherKey);
 const cityId="66f137cb-2ac1-4eef-8358-7dd66b45922f";
@@ -9,6 +9,12 @@ const walk=finalizeEvent({kind:31923,created_at:1,tags:[["d","first"],["i",cityI
 const second=finalizeEvent({...walk,tags:[...walk.tags.filter(t=>t[0]!=="d"),["d","second"]]},creatorKey);
 const invitation=()=>finalizeEvent(delegationControl(walk,creator,nominee,"invite",undefined,100),creatorKey);
 describe("single-walk hosting delegation",()=>{
+ it("accepts delegation-capable organizer relay releases",()=>{
+  expect(supportsDelegationRelayVersion("bitcoinwalk-organizers-0.7.1")).toBe(true);
+  expect(supportsDelegationRelayVersion("bitcoinwalk-organizers-0.8.3")).toBe(true);
+  expect(supportsDelegationRelayVersion("bitcoinwalk-organizers-0.7.0")).toBe(false);
+  expect(supportsDelegationRelayVersion("bitcoinwalk-foundation-0.1.0")).toBe(false);
+ });
  it("requires acceptance and cannot leak onto another date in the same city",()=>{
   const invite=invitation(),pending=delegationState(walk,[invite],101)!;expect(pending.status).toBe("pending");
   const accept=finalizeEvent(delegationAcceptance(pending,nominee,102),nomineeKey);

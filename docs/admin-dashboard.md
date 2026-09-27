@@ -40,7 +40,7 @@ DM delivery remains a separate open issue. This release does not change the Guid
 
 ## App 0.3.26 — Cities visibility
 
-Only the super-admin sees or can open `/admin/cities` through the dashboard. Organizers use `/admin/walks`; legacy `/organizer` now redirects there. The overview city-count link also points organizers to Walks. This is an interface restriction, not a relay policy change: authorized organizer keys may still sign city revisions through other clients. Organizers have a narrowly scoped `/admin/appearance` page for proposing a replacement fallback landscape image; it does not expose city moderation or permission controls, and the replacement remains pending until super-admin approval.
+Only the super-admin sees or can open `/admin/cities` through the dashboard. Organizers use `/admin/walks`; legacy `/organizer` now redirects there. The overview city-count link also points organizers to Walks. This is an interface restriction, not a relay policy change: authorized organizer keys may still sign city revisions through other clients. The optional replacement landscape URL is part of the published-walk **Edit walk** form and uses the same **Sign and save changes** action; it does not expose city moderation or permission controls, and the city-default replacement remains pending until super-admin approval. The retired `/admin/appearance` URL redirects to Walks.
 
 ## App 0.3.27 — permission-test city selectors
 
@@ -61,6 +61,24 @@ The super-admin sidebar has one Cities entry with four focused views: City list,
 City list reads city state first and reads NIP-52 occurrences only for the selected city. It keeps approve/restore, disapprove, free-city archive and exact published-walk cancellation with existing confirmations and relay read-back. Review requests keeps approve/reject and the required creator-registration signature; paid requests remain preferences, not entitlements. Editors keeps signed city-wide add/remove with creator protection. Profile edits are limited to city description, hero image, and default meeting point; the legacy city start date is preserved but no longer editable in this screen because actual walks are managed per event in Walks. Redundant breadcrumbs and cross-links are removed. Relay policy, keys, records and published events are unchanged. Staging and cross-role human acceptance remain pending.
 
 For 0.3.17 acceptance: connect once, inspect overview counts, select a city and navigate between Walks/Cities/Hosting. Confirm the filter persists and each screen loads without a second connect click. Test All available cities, a host-only identity, and a relay outage. Refresh overview after signed changes; counts are not live.
+
+## Content administration
+
+The super-admin sidebar includes **Content** at `/admin/content`. It edits the
+homepage's editorial copy and manages additional static pages. Each change is a
+retained, super-admin-signed relay revision; no server-held signing key is used.
+The homepage remains fixed at `/`. Other page URLs may be changed, with the old
+published URL resolving to the current one. Application routes and BitcoinWalk
+city slugs are reserved and cannot be claimed by content pages. Organizers and
+hosts cannot see or open this section. Dynamic directory cards, maps, walks and
+other application data remain generated from signed records rather than being
+editable HTML.
+
+The same section contains signed feature flags. `Paid tier registration`
+defaults off when no valid setting exists or the relay cannot be read. While
+off, `/start` presents the Free plan without a plan chooser and the relay also
+rejects organizer-crafted Paid requests. Enabling it requires the super-admin
+signature and restores the Free/Paid comparison and selection in step 2.
 
 ## App 0.3.18 — overview actions
 

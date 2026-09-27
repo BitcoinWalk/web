@@ -2,6 +2,9 @@
 
 Published `nevent` pages and authenticated previews share one `CityChat` component. Its single ordinary HTTPS link goes directly to official Armada. No iframe, self-hosted Armada, custom URI scheme, login automation or private-key input is used. App opening depends on the user's installed app and operating-system link settings.
 
+User-facing setup for Armada's App, Community, Search and Direct-message relay
+categories is documented in [Configure Armada relays for BitcoinWalk](armada-relays.md).
+
 ## Routing and trust
 
 `src/lib/chat-config.ts` is public, operator-controlled configuration. It selects the verified production global group `13bc3a423b4f2954` on `chat.bitcoinwalk.org`. The Khatru relay, HTTPS/WSS, signed metadata, super-admin access and open regular-user joining were human-tested on 23 September 2026.
