@@ -1,11 +1,11 @@
 "use client";
 
-import {nip19,verifyEvent,type Event} from "nostr-tools";
+import {nip19,type Event} from "nostr-tools";
 import {useRef,useState,type FormEvent} from "react";
 import {relayConfig} from "../lib/relay-config";
 import {latestDashboardGrants} from "../nostr/dashboard-data";
 import {queryAuthorizations,queryRelayEvents} from "../nostr/city-records";
-import {CITY_DIRECTORY_KIND,createCityDirectoryRoot,normalizeDirectoryRelays,publishAndConfirmCityDirectoryRoot,verifySignedCityDirectoryTemplate} from "../nostr/city-directory";
+import {CITY_DIRECTORY_KIND,createCityDirectoryRoot,normalizeDirectoryRelays,publishAndConfirmCityDirectoryRoot,selectExistingCityDirectoryRoot,verifySignedCityDirectoryTemplate} from "../nostr/city-directory";
 import {publishVerifiedEvent} from "../nostr/relay";
 import {authenticateWithBrowserExtension,getBrowserExtensionPubkey,signWithBrowserExtension} from "../nostr/signer";
 import {useDashboard,useDashboardAutoLoad} from "./dashboard-context";
@@ -47,7 +47,13 @@ export default function CityDirectoryOwner(){
       if(!current||current.grant.creatorPubkey!==identity)throw new Error("Current relay records do not confirm this signer as the original city owner. Nothing was signed.");
       setMessage("Checking each discovery relay for an existing root…");
       const existing=await Promise.all(discovery.map(relay=>queryRelayEvents([relay],[CITY_DIRECTORY_KIND],undefined,{"#i":[cityId],limit:20})));
-      if(existing.some(events=>events.some(event=>event.pubkey===identity&&verifyEvent(event))))throw new Error("An owner-signed directory event already exists on at least one discovery relay. Root creation will not overwrite it; use audited successor tooling.");
+      const existingRoot=selectExistingCityDirectoryRoot(existing.flat(),cityId,identity);
+      if(existingRoot){
+        setMessage(`Recovering partial publication of exact root ${existingRoot.id}; no new event or signature will be created…`);
+        await publishAndConfirmCityDirectoryRoot(existingRoot,discovery,(event,relays,required)=>publishVerifiedEvent(event,relays,required,authenticateWithBrowserExtension));
+        setPublished(existingRoot);setMessage(`Existing directory root ${existingRoot.id} was recovered and read back from all ${discovery.length} discovery relays. Record this event ID as the city trust anchor.`);
+        return;
+      }
       const template=createCityDirectoryRoot({cityId,ownerPubkey:identity,operatorPubkeys:lines(form.get("operators")).map(value=>pubkey(value,"Each operator")),recoveryPubkey:pubkey(String(form.get("recovery")),"Recovery key"),primaryRelay:String(form.get("primary")),mirrorRelays:lines(form.get("mirrors"))});
       if(!window.confirm("Your connected Nostr signer will be asked to sign the permanent directory root shown in this form. The recovery key and city endpoints cannot be silently replaced. Continue?"))throw new Error("Signing cancelled; nothing was published.");
       setMessage("Approve the exact kind 30309 directory root in your connected Nostr signer…");

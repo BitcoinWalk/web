@@ -4,6 +4,7 @@ import {
   CITY_DIRECTORY_KIND,
   createCityDirectoryRoot,
   normalizeDirectoryRelays,
+  selectExistingCityDirectoryRoot,
   verifySignedCityDirectoryTemplate,
   type CityDirectoryRootInput,
 } from "./city-directory";
@@ -50,5 +51,21 @@ describe("directory discovery relays",()=>{
     expect(normalizeDirectoryRelays(["wss://one.example","wss://two.example/"])).toEqual(["wss://one.example/","wss://two.example/"]);
     expect(()=>normalizeDirectoryRelays(["wss://one.example/"])).toThrow("two");
     expect(()=>normalizeDirectoryRelays(["wss://one.example","wss://one.example/"])).toThrow("unique");
+  });
+});
+
+describe("partial root publication recovery",()=>{
+  it("selects one exact owner root while ignoring outsider noise",()=>{
+    const template=createCityDirectoryRoot(input,1234),root=finalizeEvent(structuredClone(template),ownerSecret);
+    const noise=finalizeEvent(structuredClone(template),generateSecretKey());
+    expect(selectExistingCityDirectoryRoot([noise,root,root],cityId,owner)).toBe(root);
+  });
+
+  it("fails closed on conflicting valid owner roots and rejects malformed owner scope",()=>{
+    const first=finalizeEvent(createCityDirectoryRoot(input,1234),ownerSecret);
+    const second=finalizeEvent(createCityDirectoryRoot({...input,primaryRelay:"wss://other.example/"},1235),ownerSecret);
+    expect(()=>selectExistingCityDirectoryRoot([first,second],cityId,owner)).toThrow("conflicting");
+    const malformed=finalizeEvent({...createCityDirectoryRoot(input,1234),content:"{}"},ownerSecret);
+    expect(selectExistingCityDirectoryRoot([malformed],cityId,owner)).toBeNull();
   });
 });
