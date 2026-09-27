@@ -56,7 +56,7 @@ The existing BitcoinWalk Guide npub remains a communication identity, not replic
 | Item | Deliverable | Depends on |
 | --- | --- | --- |
 | BW-59 🟢 | Reconciliation/backfill accepted: bounded gap detection, signed-history recovery, persisted cancellation/revocation state, aggregate non-repairing audit and restore without resurrecting events | BW-56 |
-| BW-60 🟠 | Portable city ownership and signed endpoint directory: real Memphis root, durable offline-verifiable anchor and optional public attestations accepted; rehearse at `directory-staging.bitcoinwalk.org`, then require audited replacement with `directory.bitcoinwalk.org` before production; successor signing, independent discovery transports and rotation/recovery rehearsals remain | BW-59 |
+| BW-60 🟠 | Portable city ownership and signed endpoint directory: real Memphis root, durable offline anchor and loopback-only first-party transport accepted; public TLS remains at `directory-staging.bitcoinwalk.org`, followed by a separate-failure-domain transport and audited production replacement with `directory.bitcoinwalk.org` | BW-59 |
 | BW-61 | Endpoint migration: add/verify/sync/switch/retire, owner domain or independently reachable endpoint, rollback and client discovery tests | BW-60 |
 | BW-62 | Self-host package for Umbrel/Start9: relay plus dashboard, resource limits, encrypted backup/import/export, updates, no access to Bitcoin/Lightning credentials | BW-61 |
 | BW-63 | Independence acceptance: publish/read/manage with BitcoinWalk infrastructure unavailable; reconcile on recovery with explicit conflict and official-recognition rules | BW-62 |
