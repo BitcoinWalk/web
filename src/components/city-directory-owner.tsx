@@ -4,8 +4,8 @@ import {nip19,type Event} from "nostr-tools";
 import {useRef,useState,type FormEvent} from "react";
 import {relayConfig} from "../lib/relay-config";
 import {latestDashboardGrants} from "../nostr/dashboard-data";
-import {queryAuthorizations,queryRelayEvents} from "../nostr/city-records";
-import {CITY_DIRECTORY_KIND,createCityDirectoryRoot,normalizeDirectoryRelays,publishAndConfirmCityDirectoryRoot,selectExistingCityDirectoryRoot,verifySignedCityDirectoryTemplate} from "../nostr/city-directory";
+import {queryAuthorizations} from "../nostr/city-records";
+import {createCityDirectoryRoot,discoverExistingCityDirectoryRoot,normalizeDirectoryRelays,publishAndConfirmCityDirectoryRoot,verifySignedCityDirectoryTemplate} from "../nostr/city-directory";
 import {publishVerifiedEvent} from "../nostr/relay";
 import {authenticateWithBrowserExtension,getBrowserExtensionPubkey,signWithBrowserExtension} from "../nostr/signer";
 import {useDashboard,useDashboardAutoLoad} from "./dashboard-context";
@@ -46,9 +46,13 @@ export default function CityDirectoryOwner(){
       const current=grants.find(record=>record.grant.cityId===cityId);
       if(!current||current.grant.creatorPubkey!==identity)throw new Error("Current relay records do not confirm this signer as the original city owner. Nothing was signed.");
       setMessage("Checking each discovery relay for an existing root…");
-      const existing=await Promise.all(discovery.map(relay=>queryRelayEvents([relay],[CITY_DIRECTORY_KIND],undefined,{"#i":[cityId],limit:20})));
-      const existingRoot=selectExistingCityDirectoryRoot(existing.flat(),cityId,identity);
+      const existing=await discoverExistingCityDirectoryRoot(discovery,cityId,identity);
+      const existingRoot=existing.root;
       if(existingRoot){
+        if(existing.unavailableRelays.length){
+          setPublished(existingRoot);setMessage(`Existing directory root ${existingRoot.id} was verified through ${existing.reachableRelays.length} transport${existing.reachableRelays.length===1?"":"s"}. ${existing.unavailableRelays.length} configured transport${existing.unavailableRelays.length===1?" is":"s are"} unavailable, so no replacement was created and no repair publication was attempted.`);
+          return;
+        }
         setMessage(`Recovering partial publication of exact root ${existingRoot.id}; no new event or signature will be created…`);
         await publishAndConfirmCityDirectoryRoot(existingRoot,discovery,(event,relays,required)=>publishVerifiedEvent(event,relays,required,authenticateWithBrowserExtension));
         setPublished(existingRoot);setMessage(`Existing directory root ${existingRoot.id} was recovered and read back from all ${discovery.length} discovery relays. Record this event ID as the city trust anchor.`);

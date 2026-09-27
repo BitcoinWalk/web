@@ -35,3 +35,30 @@ describe("first-party directory staging installer",()=>{
     ])expect(installer).not.toContain(forbidden);
   });
 });
+
+describe("directory failover staging installer",()=>{
+  it("activates only app 0.3.72 from the accepted 0.3.71 release with rollback",async()=>{
+    const installer=await readFile("deploy/install-city-directory-failover-0.3.72.sh","utf8");
+
+    for(const required of [
+      "mktemp -d /var/backups/bitcoinwalk-city-directory-failover.",
+      "app-staging-0.3.72.tar.gz",
+      "/opt/bitcoinwalk-app-staging/releases/0.3.71",
+      "/opt/bitcoinwalk-app-staging/releases/0.3.72",
+      "0.3.71 was restored",
+      "wss://directory-staging.bitcoinwalk.org/",
+      "wss://directory-2-staging.bitcoinwalk.org/",
+    ])expect(installer).toContain(required);
+  });
+
+  it("does not restart or mutate either directory transport",async()=>{
+    const installer=await readFile("deploy/install-city-directory-failover-0.3.72.sh","utf8");
+
+    for(const forbidden of [
+      "systemctl restart bitcoinwalk-directory-staging",
+      "docker restart",
+      "/var/lib/bitcoinwalk-directory",
+      "/etc/caddy/Caddyfile",
+    ])expect(installer).not.toContain(forbidden);
+  });
+});

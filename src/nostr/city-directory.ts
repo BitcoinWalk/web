@@ -11,6 +11,8 @@ export type CityDirectoryContent={version:1;cityId:string;sequence:0;action:"est
 export type CityDirectoryRootInput={cityId:string;ownerPubkey:string;operatorPubkeys:string[];recoveryPubkey:string;primaryRelay:string;mirrorRelays:string[]};
 type Publish=(event:Event,relays:string[],minimumAcknowledgements:number)=>Promise<RelayPublication>;
 type Read=(relay:string,event:Event)=>Promise<Event[]>;
+type DiscoverRead=(relay:string,cityId:string)=>Promise<Event[]>;
+export type CityDirectoryDiscovery={root:Event|null;reachableRelays:string[];unavailableRelays:string[]};
 
 export function normalizeRootWssRelay(value:string):string{
   let url:URL;
@@ -79,6 +81,25 @@ export function selectExistingCityDirectoryRoot(events:Event[],cityId:string,own
   for(const event of events){const root=verifiedRoot(event,cityId,ownerPubkey);if(root)roots.set(root.id,root);}
   if(roots.size>1)throw new Error("Multiple conflicting owner-signed directory roots exist; fail closed and audit them before continuing.");
   return roots.values().next().value??null;
+}
+
+async function defaultDiscoverRead(relay:string,cityId:string){
+  return queryRelayEvents([relay],[CITY_DIRECTORY_KIND],undefined,{"#i":[cityId],limit:20});
+}
+
+/** Read transports independently. One exact valid owner root is sufficient to
+ * preserve discovery during an outage, but incomplete empty reads can never
+ * authorize creation of a replacement root. Conflicting valid roots still fail
+ * closed regardless of transport availability. */
+export async function discoverExistingCityDirectoryRoot(relayValues:string[],cityId:string,ownerPubkey:string,read:DiscoverRead=defaultDiscoverRead):Promise<CityDirectoryDiscovery>{
+  const relays=normalizeDirectoryRelays(relayValues);
+  const outcomes=await Promise.allSettled(relays.map(relay=>read(relay,cityId)));
+  const reachableRelays=relays.filter((_,index)=>outcomes[index].status==="fulfilled");
+  const unavailableRelays=relays.filter((_,index)=>outcomes[index].status==="rejected");
+  const events=outcomes.flatMap(outcome=>outcome.status==="fulfilled"?outcome.value:[]);
+  const root=selectExistingCityDirectoryRoot(events,cityId,ownerPubkey);
+  if(!root&&unavailableRelays.length)throw new Error(`Directory discovery is incomplete and cannot prove that no directory root exists. Unavailable: ${unavailableRelays.join(", ")}`);
+  return {root,reachableRelays,unavailableRelays};
 }
 
 async function defaultRead(relay:string,event:Event){

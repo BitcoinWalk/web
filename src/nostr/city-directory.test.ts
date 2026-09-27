@@ -3,6 +3,7 @@ import {describe,expect,it} from "vitest";
 import {
   CITY_DIRECTORY_KIND,
   createCityDirectoryRoot,
+  discoverExistingCityDirectoryRoot,
   normalizeDirectoryRelays,
   selectExistingCityDirectoryRoot,
   verifySignedCityDirectoryTemplate,
@@ -51,6 +52,54 @@ describe("directory discovery relays",()=>{
     expect(normalizeDirectoryRelays(["wss://one.example","wss://two.example/"])).toEqual(["wss://one.example/","wss://two.example/"]);
     expect(()=>normalizeDirectoryRelays(["wss://one.example/"])).toThrow("two");
     expect(()=>normalizeDirectoryRelays(["wss://one.example","wss://one.example/"])).toThrow("unique");
+  });
+
+  it("retains a valid owner root while one configured transport is unavailable",async()=>{
+    const root=finalizeEvent(createCityDirectoryRoot(input,1234),ownerSecret);
+    const result=await discoverExistingCityDirectoryRoot(
+      ["wss://one.example/","wss://two.example/"],
+      cityId,
+      owner,
+      async relay=>relay.includes("one")?[root]:Promise.reject(new Error("offline")),
+    );
+
+    expect(result.root).toBe(root);
+    expect(result.reachableRelays).toEqual(["wss://one.example/"]);
+    expect(result.unavailableRelays).toEqual(["wss://two.example/"]);
+  });
+
+  it("does not mistake an incomplete outage read for proof that no root exists",async()=>{
+    await expect(discoverExistingCityDirectoryRoot(
+      ["wss://one.example/","wss://two.example/"],
+      cityId,
+      owner,
+      async relay=>relay.includes("one")?[]:Promise.reject(new Error("offline")),
+    )).rejects.toThrow("cannot prove that no directory root exists");
+  });
+
+  it("accepts root absence only when every configured transport completed",async()=>{
+    const result=await discoverExistingCityDirectoryRoot(
+      ["wss://one.example/","wss://two.example/"],
+      cityId,
+      owner,
+      async()=>[],
+    );
+
+    expect(result.root).toBeNull();
+    expect(result.reachableRelays).toHaveLength(2);
+    expect(result.unavailableRelays).toEqual([]);
+  });
+
+  it("fails closed when reachable transports contain conflicting valid owner roots",async()=>{
+    const first=finalizeEvent(createCityDirectoryRoot(input,1234),ownerSecret);
+    const second=finalizeEvent(createCityDirectoryRoot({...input,primaryRelay:"wss://other.example/"},1235),ownerSecret);
+
+    await expect(discoverExistingCityDirectoryRoot(
+      ["wss://one.example/","wss://two.example/"],
+      cityId,
+      owner,
+      async relay=>relay.includes("one")?[first]:[second],
+    )).rejects.toThrow("conflicting");
   });
 });
 
