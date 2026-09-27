@@ -73,7 +73,7 @@ try{
   if(!asset.ok || (await asset.arrayBuffer()).byteLength===0){
     throw new Error(`Packaged static asset failed: ${staticFile} (HTTP ${asset.status})`);
   }
-  for(const [path,label] of [["/admin","Your BitcoinWalk dashboard"],["/admin/walks","Welcome to your dashboard!"],["/admin/hosting","Welcome to your dashboard!"],["/admin/approvals","Welcome to your dashboard!"],["/admin/cities","Welcome to your dashboard!"],["/admin/accept-invitation","Walk hosting invitation"],["/organizer/invitations","Dashboard moved"],["/organizer/events","Dashboard moved"],["/admin/calendar","Dashboard moved"]]){
+  for(const [path,label] of [["/admin","Your BitcoinWalk dashboard"],["/admin/walks","Welcome to your dashboard!"],["/admin/directory","Welcome to your dashboard!"],["/admin/hosting","Welcome to your dashboard!"],["/admin/approvals","Welcome to your dashboard!"],["/admin/cities","Welcome to your dashboard!"],["/admin/accept-invitation","Walk hosting invitation"],["/organizer/invitations","Dashboard moved"],["/organizer/events","Dashboard moved"],["/admin/calendar","Dashboard moved"]]){
     const page=await fetch(`${base}${path}`,{signal:AbortSignal.timeout(5000)});
     if(!page.ok || !(await page.text()).includes(label))throw new Error(`Packaged route failed: ${path}`);
   }

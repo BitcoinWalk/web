@@ -2,6 +2,8 @@
 
 Status: 🟠 in progress. Relay commit `dc16bfc` implements and tests the signed trust chain plus strict consensus over independent mirror snapshots. The web organizer flow now constructs the exact root in the browser, confirms original-owner authority, asks SideCar to sign kind `30309`, verifies the returned event byte-for-byte at the template boundary, publishes the same event to every configured discovery relay and reads its exact ID back from each relay independently. It does not yet publish a real city directory, resolve successor chains from live WSS mirrors, change live routing or transfer ownership.
 
+App release candidate `0.3.69` embeds `wss://relay.damus.io/` and `wss://nos.lol/` as independent staging discovery sources. On 27 September 2026 both completed bounded kind-30309 reads independently and returned an empty pre-root baseline. The candidate passed 290/290 tests, production build, package smoke and static-bundle verification. Its backup-first installer does not itself sign or publish a root.
+
 ## Purpose
 
 A paid-city relay must remain discoverable when its hostname, hosting provider or BitcoinWalk relationship changes. The immutable city UUID identifies the city, but the UUID alone proves neither ownership nor official recognition. Clients begin from an explicit trusted root and then follow an owner-controlled signed chain.
