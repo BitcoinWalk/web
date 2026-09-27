@@ -79,6 +79,6 @@ BW-60 remains open until all of these pass:
 6. backup and rollback evidence with no implicit change to the existing replication registry;
 7. an explicit distinction between owner control and BitcoinWalk official-directory recognition.
 
-The next infrastructure increment is two BitcoinWalk-operated discovery relays in separate failure domains. Clients will ship their endpoints plus the signed last-known-good bundle, retain cached valid state during outages, and continue treating public relays as optional fan-out only.
+The next infrastructure increment is two BitcoinWalk-operated discovery relays in separate failure domains. The rehearsal endpoint is explicitly `wss://directory-staging.bitcoinwalk.org/`. Before production acceptance, publish and independently verify the same signed chain at `wss://directory.bitcoinwalk.org/`, update every production client/default and operator runbook to the production hostname, prove that no production artifact contains `directory-staging.bitcoinwalk.org`, and only then retire the staging dependency. Clients will ship their endpoints plus the signed last-known-good bundle, retain cached valid state during outages, and continue treating public relays as optional fan-out only.
 
 Endpoint activation and retirement belong to BW-61. BW-60 proves who controls discovery and how clients resolve it; it does not silently migrate a live receiver.
