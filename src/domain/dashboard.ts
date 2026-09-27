@@ -3,6 +3,7 @@ export const dashboardItems=[
  {href:"/admin",label:"Overview",access:"all"},
  {href:"/admin/walks",label:"Walks",access:"connected"},
  {href:"/admin/my-cities",label:"Cities",access:"organizer"},
+ {href:"/admin/directory",label:"Relay directory",access:"organizer"},
  {href:"/admin/cities",label:"Cities",access:"admin"},
  {href:"/admin/invitations",label:"Invite organizers",access:"admin"},
  {href:"/admin/content",label:"Content",access:"admin"},

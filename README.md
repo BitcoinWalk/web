@@ -36,9 +36,10 @@ Create `.env.local` in the repository root when you have an appropriate BitcoinW
 ```text
 NEXT_PUBLIC_READ_RELAYS=wss://relay-staging.bitcoinwalk.org
 NEXT_PUBLIC_WRITE_RELAYS=wss://relay-staging.bitcoinwalk.org
+NEXT_PUBLIC_DIRECTORY_RELAYS=wss://directory-one.example,wss://directory-two.example
 ```
 
-Both values are comma-separated `wss://` relay lists. They have no default; relay-backed pages and submissions need explicit configuration. `NEXT_PUBLIC_` values are exposed to the browser and baked into production builds. Restart the dev server after changing `.env.local`.
+These values are comma-separated `wss://` relay lists. They have no default; relay-backed pages and submissions need explicit configuration. The directory list must contain two to eight independent root relay URLs before an owner can publish a portable city endpoint root. It is intentionally separate from the application read/write relays. `NEXT_PUBLIC_` values are exposed to the browser and baked into production builds. Restart the dev server after changing `.env.local`.
 
 | Optional variable | Purpose |
 |---|---|

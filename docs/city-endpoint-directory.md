@@ -1,6 +1,6 @@
 # BW-60 — portable city ownership and endpoint discovery
 
-Status: 🟠 in progress. Relay commit `dc16bfc` implements and tests the signed trust chain plus strict consensus over independent mirror snapshots. It does not publish a real city directory, fetch network mirrors, change live routing, or transfer ownership.
+Status: 🟠 in progress. Relay commit `dc16bfc` implements and tests the signed trust chain plus strict consensus over independent mirror snapshots. The web organizer flow now constructs the exact root in the browser, confirms original-owner authority, asks SideCar to sign kind `30309`, verifies the returned event byte-for-byte at the template boundary, publishes the same event to every configured discovery relay and reads its exact ID back from each relay independently. It does not yet publish a real city directory, resolve successor chains from live WSS mirrors, change live routing or transfer ownership.
 
 ## Purpose
 
@@ -38,7 +38,9 @@ A rotated owner no longer affects state. Malformed or unauthorised relay noise i
 
 The anchor binds one city UUID to the exact root event ID and initial owner pubkey. An anchor may come from BitcoinWalk official recognition, an owner-controlled domain or another trust channel, but clients must know which trust source they selected.
 
-The first implementation audits two to eight independently supplied, owner-controlled mirror snapshot files. Each mirror is validated separately and must resolve to the identical current event and state. Duplicate paths, stale mirrors, unsafe file modes, unknown fields or disagreement are rejected.
+The relay implementation audits two to eight independently supplied, owner-controlled mirror snapshot files. Each mirror is validated separately and must resolve to the identical current event and state. Duplicate paths, stale mirrors, unsafe file modes, unknown fields or disagreement are rejected.
+
+The organizer root-publication flow separately requires two to eight unique `NEXT_PUBLIC_DIRECTORY_RELAYS`. It checks each source before signing, never treats outsider noise as an owner root, requires every publication acknowledgement, and independently reads the exact signed event ID back from every source. Only the original city creator from the current signed BitcoinWalk grant can establish the root; editors and the BitcoinWalk super-admin cannot substitute themselves.
 
 This file-based boundary deliberately separates deterministic protocol validation from network behaviour. Real WSS retrieval must additionally prove complete query results, bounded responses, timeouts and agreement across independently operated relays.
 
@@ -62,7 +64,7 @@ Relay verification after this increment is 93/93 top-level tests with race detec
 
 BW-60 remains open until all of these pass:
 
-1. confirmation-gated signing and successor-file tooling that never overwrites an accepted chain;
+1. successor-event signing for owner/operator update, rotation and recovery that never overwrites an accepted chain (confirmation-gated root signing is implemented);
 2. bounded read-only WSS retrieval from at least two independently operated discovery mirrors;
 3. a real staging city root anchored to its verified current owner through a separate trust channel;
 4. owner update, operator endpoint update, owner rotation and offline recovery rehearsals;

@@ -8,4 +8,5 @@ function parseRelayList(value: string | undefined): string[] {
 export const relayConfig = {
   readRelays: parseRelayList(process.env.NEXT_PUBLIC_READ_RELAYS),
   writeRelays: parseRelayList(process.env.NEXT_PUBLIC_WRITE_RELAYS),
+  directoryRelays: parseRelayList(process.env.NEXT_PUBLIC_DIRECTORY_RELAYS),
 };
