@@ -29,6 +29,28 @@ async function rejectPrivateFiles(path){
   }
 }
 
+async function treeContains(path,needle){
+  for(const entry of await readdir(path,{withFileTypes:true})){
+    const child=join(path,entry.name);
+    if(entry.isDirectory()){
+      if(await treeContains(child,needle))return true;
+    }else if(entry.isFile()&&(await readFile(child)).includes(Buffer.from(needle))){
+      return true;
+    }
+  }
+  return false;
+}
+
+async function requireStagingRelays(path){
+  for(const relay of [
+    "wss://relay-staging.bitcoinwalk.org/",
+    "wss://directory-staging.bitcoinwalk.org/",
+    "wss://directory-2-staging.bitcoinwalk.org/",
+  ]){
+    if(!await treeContains(path,relay))throw new Error(`Required staging relay is absent from the browser bundle: ${relay}`);
+  }
+}
+
 const health=await readFile(join(root,"src","app","api","healthz","route.ts"),"utf8");
 const release=health.match(/release:\s*["'](app-staging-\d+\.\d+\.\d+)["']/)?.[1];
 if(!release)throw new Error("Set an app-staging-X.Y.Z release label in src/app/api/healthz/route.ts.");
@@ -58,6 +80,7 @@ try{
     await requirePath(join(stage,directory),"directory");
   }
   if(!(await readdir(join(stage,".next","static"))).length)throw new Error("Release static assets are empty.");
+  await requireStagingRelays(join(stage,".next","static"));
   await rejectPrivateFiles(stage);
 
   const archive=join(output,`${release}.tar.gz`);

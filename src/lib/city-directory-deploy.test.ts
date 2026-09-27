@@ -62,3 +62,30 @@ describe("directory failover staging installer",()=>{
     ])expect(installer).not.toContain(forbidden);
   });
 });
+
+describe("corrected reproducible staging release",()=>{
+  it("packages only a browser bundle containing every required public relay",async()=>{
+    const packager=await readFile("scripts/package-staging.mjs","utf8");
+
+    for(const required of [
+      "wss://relay-staging.bitcoinwalk.org/",
+      "wss://directory-staging.bitcoinwalk.org/",
+      "wss://directory-2-staging.bitcoinwalk.org/",
+      "Required staging relay is absent from the browser bundle",
+    ])expect(packager).toContain(required);
+  });
+
+  it("replaces rejected releases directly from known-good 0.3.70 with rollback",async()=>{
+    const installer=await readFile("deploy/install-city-directory-failover-0.3.73.sh","utf8");
+
+    for(const required of [
+      "app-staging-0.3.73.tar.gz",
+      "/opt/bitcoinwalk-app-staging/releases/0.3.70",
+      "/opt/bitcoinwalk-app-staging/releases/0.3.73",
+      "0.3.70 was restored",
+      "wss://relay-staging.bitcoinwalk.org/",
+      "wss://directory-staging.bitcoinwalk.org/",
+      "wss://directory-2-staging.bitcoinwalk.org/",
+    ])expect(installer).toContain(required);
+  });
+});

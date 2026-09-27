@@ -18,6 +18,10 @@ App `0.3.71` changes the staging discovery default to the two BitcoinWalk transp
 
 App `0.3.72` adds fail-closed partial-outage discovery. It queries each configured transport independently, retains one exact valid owner root when another transport is unavailable, and reports which sources completed. It accepts root absence only after every configured transport completes; an empty reachable source plus an unavailable source is indeterminate and cannot lead to a replacement signature. Conflicting valid roots still fail closed. During an outage, the owner UI displays the recovered root without attempting a repair publication that cannot meet the all-transport acknowledgement policy.
 
+The initial `0.3.71` and `0.3.72` artifacts were built from a clean worktree without explicit application read/write relay variables. Their directory settings were correct, but the browser bundle contained no application read relay. Human acceptance of `0.3.72` exposed this as `No read relay configured` before the outage rehearsal began. The operator immediately restored verified app `0.3.70`; loopback health returned `app-staging-0.3.70`, its service was active on the recorded working directory and the primary directory transport was active. No directory service or database changed. Both artifacts are rejected and must not be activation bases.
+
+App `0.3.73` corrects the release boundary: staging application and directory transports are source-controlled non-blank defaults, explicit production values still replace them, packaging refuses a browser bundle missing any required staging URL, and the installer independently checks all three URLs before activation. It upgrades directly from known-good `0.3.70` and never trusts the rejected releases.
+
 ## Purpose
 
 A paid-city relay must remain discoverable when its hostname, hosting provider or BitcoinWalk relationship changes. The immutable city UUID identifies the city, but the UUID alone proves neither ownership nor official recognition. Clients begin from an explicit trusted root and then follow an owner-controlled signed chain.
@@ -75,7 +79,7 @@ The relay suite covers:
 - stale, writable, unknown-field and single-source consensus rejection;
 - offline bundle validation with zero public attestations and fail-closed disagreement.
 
-Relay verification through secondary Docker packaging is 103/103 top-level Go test functions, plus 8/8 collector tests, with the full suite, race detector, vet, checksum audits, offline acceptance and GitHub CI green. Both public transports returned the same signed root before and after secondary restart. App `0.3.71` adds regression coverage for its two first-party staging defaults and the mandatory explicit production override. App `0.3.72` adds four failover invariants: valid-root retention, indeterminate-absence rejection, complete-absence acceptance and conflict rejection. Its 303/303 tests, lint, clean typecheck, production build and package smoke pass locally.
+Relay verification through secondary Docker packaging is 103/103 top-level Go test functions, plus 8/8 collector tests, with the full suite, race detector, vet, checksum audits, offline acceptance and GitHub CI green. Both public transports returned the same signed root before and after secondary restart. App failover tests cover valid-root retention, indeterminate-absence rejection, complete-absence acceptance and conflict rejection. Release-boundary tests additionally cover application/directory staging defaults, production overrides, blank-variable resistance, package rejection and known-good rollback.
 
 ## Remaining acceptance gates
 
