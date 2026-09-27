@@ -36,10 +36,12 @@ Create `.env.local` in the repository root when you have an appropriate BitcoinW
 ```text
 NEXT_PUBLIC_READ_RELAYS=wss://relay-staging.bitcoinwalk.org
 NEXT_PUBLIC_WRITE_RELAYS=wss://relay-staging.bitcoinwalk.org
-NEXT_PUBLIC_DIRECTORY_RELAYS=wss://directory-one.example,wss://directory-two.example
+NEXT_PUBLIC_DIRECTORY_RELAYS=wss://directory-staging.bitcoinwalk.org/,wss://directory-2-staging.bitcoinwalk.org/
 ```
 
-These values are comma-separated `wss://` relay lists. They have no default; relay-backed pages and submissions need explicit configuration. The directory list must contain two to eight independent root relay URLs before an owner can publish a portable city endpoint root. It is intentionally separate from the application read/write relays. `NEXT_PUBLIC_` values are exposed to the browser and baked into production builds. Restart the dev server after changing `.env.local`.
+These values are comma-separated `wss://` relay lists. Read and write relays have no default. Directory discovery defaults to the two independently hosted BitcoinWalk staging transports shown above; an explicit `NEXT_PUBLIC_DIRECTORY_RELAYS` replaces that complete list. The directory list must contain two to eight independent root relay URLs before an owner can publish a portable city endpoint root. It is intentionally separate from the application read/write relays. `NEXT_PUBLIC_` values are exposed to the browser and baked into production builds. Restart the dev server after changing `.env.local`.
+
+Production builds must override the staging directory list with verified production transports and must reject any built artifact that still contains `directory-staging.bitcoinwalk.org` or `directory-2-staging.bitcoinwalk.org`. Damus, nos.lol and other third-party relays are optional attestations or profile/DM transports; they are not default city-directory dependencies.
 
 | Optional variable | Purpose |
 |---|---|
