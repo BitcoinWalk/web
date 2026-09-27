@@ -1,24 +1,31 @@
 #!/bin/sh
-# Activate the browser-signed BW-60 root-publication UI with two independent
-# staging discovery relays. This changes only the app release.
+# Resume app 0.3.69 after the first installer staged the release but stopped
+# before changing the systemd unit. Never delete or overwrite the staged tree.
 set -eu
 
 test "$(id -u)" -eq 0 || { echo 'Run with sudo.' >&2; exit 1; }
 cd "$(dirname "$0")/.."
 
-archive=app-staging-0.3.69.tar.gz
-manifest=CITY-DIRECTORY-0.3.69-SHA256SUMS
+manifest=CITY-DIRECTORY-RESUME-0.3.69-SHA256SUMS
 unit=/etc/systemd/system/bitcoinwalk-app-staging.service
 previous=/opt/bitcoinwalk-app-staging/releases/0.3.62
 release=/opt/bitcoinwalk-app-staging/releases/0.3.69
 
 sha256sum -c "$manifest"
-test -f "$unit";test ! -e "$release"
+test -f "$unit";test -d "$release"
 grep -qx "WorkingDirectory=$previous" "$unit"
 curl --fail --silent --max-time 5 http://127.0.0.1:3338/api/healthz|grep -q '"release":"app-staging-0.3.62"'
 for service in bitcoinwalk-app-staging bitcoinwalk-guide bitcoinwalk-relay bitcoinwalk-replica-rehearsal bitcoinwalk-replica-firstwalk caddy;do systemctl is-active --quiet "$service";done
 
-backup=$(mktemp -d /var/backups/bitcoinwalk-city-directory-app.XXXXXX)
+test -f "$release/server.js";test -f "$release/.next/BUILD_ID";test -L "$release/.next/cache";test "$(readlink "$release/.next/cache")" = /var/cache/bitcoinwalk-app-staging
+test -f "$release/node_modules/sharp/dist/index.cjs"
+sharp_alias=$(find "$release/.next/node_modules" -maxdepth 1 -type l -name 'sharp-*' -print -quit)
+test -n "$sharp_alias";test "$(readlink "$sharp_alias")" = '../../node_modules/sharp'
+grep -Rqs 'wss://relay.damus.io/' "$release/.next/static"
+grep -Rqs 'wss://nos.lol/' "$release/.next/static"
+grep -Rqs 'The directory root must be signed by the verified city owner' "$release/.next/static"
+
+backup=$(mktemp -d /var/backups/bitcoinwalk-city-directory-app-resume.XXXXXX)
 chmod 0700 "$backup"
 cp -p "$unit" "$backup/service.before"
 sha256sum "$backup/service.before">"$backup/SHA256SUMS"
@@ -31,24 +38,14 @@ rollback(){
   systemctl daemon-reload
   systemctl reset-failed bitcoinwalk-app-staging.service >/dev/null 2>&1||true
   systemctl restart bitcoinwalk-app-staging.service >/dev/null 2>&1||true
-  echo "0.3.69 activation failed; app 0.3.62 was restored. Backup: $backup" >&2
+  echo "0.3.69 resume failed; app 0.3.62 was restored. Backup: $backup" >&2
  fi
- if [ "$completed" -ne 1 ];then echo 'City directory app activation did not complete.' >&2;fi
+ if [ "$completed" -ne 1 ];then echo 'City directory app resume did not complete.' >&2;fi
  exit "$code"
 }
 trap rollback EXIT
 
-echo "Consistent pre-activation app service backup created: $backup"
-install -d -m 0755 "$release"
-tar -xzf "$archive" -C "$release"
-test -f "$release/server.js";test -f "$release/.next/BUILD_ID";test ! -e "$release/.next/cache";test -f "$release/node_modules/sharp/dist/index.cjs"
-sharp_alias=$(find "$release/.next/node_modules" -maxdepth 1 -type l -name 'sharp-*' -print -quit)
-test -n "$sharp_alias";test "$(readlink "$sharp_alias")" = '../../node_modules/sharp'
-grep -Rqs 'wss://relay.damus.io/' "$release/.next/static"
-grep -Rqs 'wss://nos.lol/' "$release/.next/static"
-grep -Rqs 'The directory root must be signed by the verified city owner' "$release/.next/static"
-ln -s /var/cache/bitcoinwalk-app-staging "$release/.next/cache"
-
+echo "Consistent pre-resume app service backup created: $backup"
 sed "s@^WorkingDirectory=$previous\$@WorkingDirectory=$release@" "$unit">"$backup/bitcoinwalk-app-staging.service"
 grep -qx "WorkingDirectory=$release" "$backup/bitcoinwalk-app-staging.service"
 systemd-analyze verify "$backup/bitcoinwalk-app-staging.service" >/dev/null
@@ -68,6 +65,6 @@ for service in bitcoinwalk-app-staging bitcoinwalk-guide bitcoinwalk-relay bitco
 
 completed=1
 trap - EXIT
-echo "BW-60 owner directory UI accepted on app 0.3.69. Backup: $backup"
+echo "BW-60 owner directory UI resumed and accepted on app 0.3.69. Backup: $backup"
 echo 'Discovery relays: wss://relay.damus.io/ and wss://nos.lol/'
 echo 'No directory root was signed or published; no Guide, relay, replica, database, key, Caddy or DNS state was changed.'
