@@ -275,7 +275,6 @@ await rm(outputDir, { recursive: true, force: true });
 await mkdir(outputDir, { recursive: true });
 await Promise.all([
   writeFile(path.join(outputDir, "index.html"), html),
-  writeFile(path.join(outputDir, "CNAME"), "backlog.bitcoinwalk.org\n"),
   writeFile(path.join(outputDir, ".nojekyll"), ""),
 ]);
 
