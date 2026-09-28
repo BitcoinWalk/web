@@ -1,8 +1,8 @@
 import {describe,it,expect,vi} from "vitest";
 import {finalizeEvent,getPublicKey,nip19,type Event} from "nostr-tools";
 vi.mock("./authority",()=>({isSuperAdmin:(key:string)=>key===getPublicKey(new Uint8Array(32).fill(1)),SUPER_ADMIN_PUBKEY:getPublicKey(new Uint8Array(32).fill(1))}));
-import {approvedCalendarWalks,matchesCalendar,matchesOrganizerCalendar,decodeCalendarLink,calendarNevent,type CalendarWalk} from "./calendar-records";
-import {createApprovedCalendarEvent,createOrganizerCalendarEvent} from "./calendar-event";
+import {approvedCalendarWalks,matchesCalendar,matchesInitialCalendar,matchesOrganizerCalendar,decodeCalendarLink,calendarNevent,type CalendarWalk} from "./calendar-records";
+import {createApprovedCalendarEvent,createInitialCalendarProposal,createOrganizerCalendarEvent} from "./calendar-event";
 import type {ApprovalRecord} from "./city-records";
 const city={cityId:"66f137cb-2ac1-4eef-8358-7dd66b45922f",slug:"radom",cityName:"Radom",description:"Friday walk",startAt:"2026-10-02T15:00:00Z",meetingPoint:{description:"Square",latitude:51.4,longitude:21.1},heroImageUrl:"https://example.com/hero.jpg"};
 const event=(id:string,time:number):Event=>({id:id.repeat(64),created_at:time,pubkey:"a".repeat(64),sig:"",kind:30304,tags:[],content:""});
@@ -20,6 +20,18 @@ describe("calendar approval selection",()=>{
  });
  it("requires revision to belong to the approved city",()=>{
   expect(approvedCalendarWalks([{...revision,city:{...city,cityId:"other"}}],[approval])).toEqual([]);
+ });
+ it("keeps exact first-walk approval provenance after a later profile approval",()=>{
+  const organizerKey=new Uint8Array(32).fill(2),organizer=getPublicKey(organizerKey),initial=finalizeEvent(createInitialCalendarProposal(city,"UTC"),organizerKey);
+  const firstRevision={event:{...event("c",1),pubkey:organizer},city};
+  const firstApproval:ApprovalRecord={event:event("d",2),approval:{cityId:city.cityId,cityRevisionId:firstRevision.event.id,initialEventId:initial.id,status:"approved"}};
+  const currentRevision={event:{...event("e",3),pubkey:organizer},city:{...city,description:"Updated city profile"}};
+  const currentApproval:ApprovalRecord={event:event("f",4),approval:{cityId:city.cityId,cityRevisionId:currentRevision.event.id,status:"approved"}};
+  const selected=approvedCalendarWalks([firstRevision,currentRevision],[firstApproval,currentApproval]);
+  expect(selected).toHaveLength(1);
+  expect(selected[0].revision.event.id).toBe(currentRevision.event.id);
+  expect(selected[0].initialRelease?.revision.event.id).toBe(firstRevision.event.id);
+  expect(matchesInitialCalendar(initial,selected[0])).toBe(true);
  });
 });
 describe("calendar event verification and links",()=>{

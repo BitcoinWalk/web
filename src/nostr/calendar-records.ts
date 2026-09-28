@@ -4,9 +4,17 @@ import {createApprovedCalendarEvent} from "./calendar-event";
 import {queryDirectoryRecords,queryCalendarEvents,type CityRevision,type ApprovalRecord} from "./city-records";
 import {allTrailsRoute} from "../domain/walk-route";
 
-export type CalendarWalk={revision:CityRevision;approval:ApprovalRecord};
+export type CalendarSource={revision:CityRevision;approval:ApprovalRecord};
+export type CalendarWalk=CalendarSource&{initialRelease?:CalendarSource};
 export function approvedCalendarWalks(revisions:CityRevision[],decisions:ApprovalRecord[]):CalendarWalk[] {
   const result:CalendarWalk[]=[];
+  const initialReleases=new Map<string,CalendarSource>();
+  for(const record of [...decisions].sort((a,b)=>compareEvents(a.event,b.event))){
+    const decision=record.approval;
+    if(initialReleases.has(decision.cityId)||decision.status!=="approved"||!decision.initialEventId)continue;
+    const revision=revisions.find(item=>item.city.cityId===decision.cityId&&item.event.id===decision.cityRevisionId);
+    if(revision)initialReleases.set(decision.cityId,{revision,approval:record});
+  }
   const finished=new Set<string>(),rejected=new Map<string,Set<string>>();
   for(const record of [...decisions].sort((a,b)=>compareEvents(a.event,b.event))) {
     const d=record.approval;
@@ -15,7 +23,7 @@ export function approvedCalendarWalks(revisions:CityRevision[],decisions:Approva
     finished.add(d.cityId);
     if(d.status!=="approved"||rejected.get(d.cityId)?.has(d.cityRevisionId))continue;
     const revision=revisions.find(r=>r.city.cityId===d.cityId&&r.event.id===d.cityRevisionId);
-    if(revision)result.push({revision:d.slug&&d.slug!==revision.city.slug?{...revision,city:{...revision.city,slug:d.slug}}:revision,approval:record});
+    if(revision)result.push({revision:d.slug&&d.slug!==revision.city.slug?{...revision,city:{...revision.city,slug:d.slug}}:revision,approval:record,...(initialReleases.has(d.cityId)?{initialRelease:initialReleases.get(d.cityId)}:{})});
   }
   return result.sort((a,b)=>a.revision.city.cityName.localeCompare(b.revision.city.cityName));
 }
@@ -50,8 +58,8 @@ export function matchesOrganizerCalendar(event:Event,walk:CalendarWalk):boolean 
   return true;
 }
 export function matchesInitialCalendar(event:Event,walk:CalendarWalk):boolean {
-  const city=walk.revision.city;
-  if(event.kind!==31923||!verifyEvent(event)||event.pubkey!==walk.revision.event.pubkey||walk.approval.approval.initialEventId!==event.id)return false;
+  const source=walk.initialRelease??walk,city=source.revision.city;
+  if(city.cityId!==walk.revision.city.cityId||event.kind!==31923||!verifyEvent(event)||event.pubkey!==source.revision.event.pubkey||source.approval.approval.initialEventId!==event.id)return false;
   if(one(event,"bitcoinwalk")!=="initial-proposal-v1"||one(event,"i")!==city.cityId||one(event,"title")!==`BitcoinWalk ${city.cityName}`||one(event,"summary")!==`BitcoinWalk in ${city.cityName}`||one(event,"image")!==(city.heroImageUrl??null)||one(event,"t")!=="bitcoinwalk"||event.content!==city.description)return false;
   const start=Number(one(event,"start")),end=Number(one(event,"end"));if(!Number.isSafeInteger(start)||!Number.isSafeInteger(end)||end-start!==3600||new Date(city.startAt).getTime()/1000!==start||one(event,"D")!==String(Math.floor(start/86400)))return false;
   const zone=one(event,"start_tzid");if(!zone||one(event,"end_tzid")!==zone)return false;
