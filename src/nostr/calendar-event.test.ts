@@ -24,4 +24,8 @@ describe("NIP-52 calendar event", () => {
     const event=createOrganizerCalendarEvent({revision:{event:{id:"1".repeat(64)} as never,city},approval:{event:{id:"2".repeat(64)} as never,approval:{}} as never},{id:`${crypto.randomUUID()}:2026-09-19`,seriesId:crypto.randomUUID(),localDate:"2026-09-19",localTime:"10:00",timeZone:"America/Chicago",start:1789715200,end:1789718800,meetingPoint:city.meetingPoint,heroImageUrl:override});
     expect(event.tags).toContainEqual(["image",override]);expect(event.tags).toContainEqual(["bitcoinwalk-image","override-v1"]);expect(city.heroImageUrl).toBe("https://example.com/hero.jpg");
   });
+  it("emits every required day tag when an occurrence crosses UTC midnight",()=>{
+    const event=createCalendarEvent(city,{id:"midnight",startUnixSeconds:86_300,endUnixSeconds:86_500});
+    expect(event.tags.filter(tag=>tag[0]==="D")).toEqual([["D","0"],["D","1"]]);
+  });
 });

@@ -12,7 +12,7 @@ function WalkPreview({title,items,href}:{title:string;items:HostedWalk[]|null;hr
   const date=new Intl.DateTimeFormat("en-GB",{dateStyle:"full",timeStyle:"short",...(item.timeZone?{timeZone:item.timeZone}:{timeZone:"UTC"})}).format(new Date(item.start*1000));
   return <li key={item.event.id}><strong>{city.cityName}</strong> — {item.status==="active"?"Happening now":item.status==="grace"?"Late-arrival window":"Upcoming"}<br/>
    {date} ({item.timeZone??"UTC"})<br/>{item.meetingPoint.description}<br/>
-   <a href={eventPageHref(city.slug,calendarNevent(item.event,relayConfig.readRelays))}>Open walk event ↗</a>
+   <a href={eventPageHref(city.slug,calendarNevent(item.event,relayConfig.calendarRelayHints))}>Open walk event ↗</a>
   </li>;
  })}</ol>}<p>Showing up to five walks, earliest first. <Link href={href}>View full list →</Link></p></section>;
 }

@@ -3,6 +3,7 @@ import {isSuperAdmin} from "./authority";
 import {createApprovedCalendarEvent} from "./calendar-event";
 import {queryDirectoryRecords,queryCalendarEvents,type CityRevision,type ApprovalRecord} from "./city-records";
 import {allTrailsRoute} from "../domain/walk-route";
+import {occurrenceDays} from "../domain/walk-schedule";
 
 export type CalendarSource={revision:CityRevision;approval:ApprovalRecord};
 export type CalendarWalk=CalendarSource&{initialRelease?:CalendarSource};
@@ -39,6 +40,7 @@ export function matchesCalendar(event:Event,walk:CalendarWalk):boolean {
 }
 function one(event:Event,name:string):string|null {const tags=event.tags.filter(t=>t[0]===name&&t.length===2);return tags.length===1&&tags[0][1]?tags[0][1]:null;}
 function source(event:Event,marker:string):string|null {const tags=event.tags.filter(t=>t[0]==="e"&&t.length===4&&t[2]===""&&t[3]===marker);return tags.length===1?tags[0][1]:null;}
+function matchesOccurrenceDays(event:Event,start:number,end:number):boolean {try{const actual=event.tags.filter(tag=>tag[0]==="D"&&tag.length===2).map(tag=>tag[1]);return JSON.stringify(actual)===JSON.stringify(occurrenceDays(start,end));}catch{return false;}}
 const managedImage=/^https:\/\/(?:app-staging\.)?bitcoinwalk\.org\/api\/media\/files\/[0-9a-f]{64}\.webp$/;
 export function calendarImageOverride(event:Event):string|null {const marker=one(event,"bitcoinwalk-image"),image=one(event,"image");return marker==="override-v1"&&image&&managedImage.test(image)?image:null;}
 export function calendarRoute(event:Event):string|null {if(one(event,"bitcoinwalk-route")!=="alltrails-v1")return null;for(const tag of event.tags.filter(tag=>tag[0]==="r"&&tag.length===2)){try{const route=allTrailsRoute(tag[1]);if(route)return route.url;}catch{}}return null;}
@@ -50,7 +52,7 @@ export function matchesOrganizerCalendar(event:Event,walk:CalendarWalk):boolean 
   if(marker!==null&&marker!=="override-v1"||marker==="override-v1"&&!override)return false;
   if(one(event,"title")!==`BitcoinWalk ${city.cityName}`||one(event,"summary")!==`BitcoinWalk in ${city.cityName}`||(!override&&one(event,"image")!==(city.heroImageUrl??null))||one(event,"t")!=="bitcoinwalk"||event.content.trim().length<1||event.content.length>5000)return false;
   const start=Number(one(event,"start")),end=Number(one(event,"end"));
-  if(!Number.isSafeInteger(start)||!Number.isSafeInteger(end)||end-start<900||end-start>43200||one(event,"D")!==String(Math.floor(start/86400)))return false;
+  if(!Number.isSafeInteger(start)||!Number.isSafeInteger(end)||end-start<900||end-start>43200||!matchesOccurrenceDays(event,start,end))return false;
   const zone=one(event,"start_tzid");if(!zone||one(event,"end_tzid")!==zone)return false;
   const locations=event.tags.filter(t=>t[0]==="location"&&t.length===2);if(locations.length!==2||!locations[0][1])return false;
   const coords=locations[1][1].split(",").map(Number);if(coords.length!==2||!Number.isFinite(coords[0])||Math.abs(coords[0])>90||!Number.isFinite(coords[1])||Math.abs(coords[1])>180)return false;
@@ -61,7 +63,7 @@ export function matchesInitialCalendar(event:Event,walk:CalendarWalk):boolean {
   const source=walk.initialRelease??walk,city=source.revision.city;
   if(city.cityId!==walk.revision.city.cityId||event.kind!==31923||!verifyEvent(event)||event.pubkey!==source.revision.event.pubkey||source.approval.approval.initialEventId!==event.id)return false;
   if(one(event,"bitcoinwalk")!=="initial-proposal-v1"||one(event,"i")!==city.cityId||one(event,"title")!==`BitcoinWalk ${city.cityName}`||one(event,"summary")!==`BitcoinWalk in ${city.cityName}`||one(event,"image")!==(city.heroImageUrl??null)||one(event,"t")!=="bitcoinwalk"||event.content!==city.description)return false;
-  const start=Number(one(event,"start")),end=Number(one(event,"end"));if(!Number.isSafeInteger(start)||!Number.isSafeInteger(end)||end-start!==3600||new Date(city.startAt).getTime()/1000!==start||one(event,"D")!==String(Math.floor(start/86400)))return false;
+  const start=Number(one(event,"start")),end=Number(one(event,"end"));if(!Number.isSafeInteger(start)||!Number.isSafeInteger(end)||end-start!==3600||new Date(city.startAt).getTime()/1000!==start||!matchesOccurrenceDays(event,start,end))return false;
   const zone=one(event,"start_tzid");if(!zone||one(event,"end_tzid")!==zone)return false;
   const locations=event.tags.filter(t=>t[0]==="location"&&t.length===2);if(locations.length!==2||locations[0][1]!==city.meetingPoint.description||locations[1][1]!==`${city.meetingPoint.latitude},${city.meetingPoint.longitude}`)return false;
   const links=event.tags.filter(t=>t[0]==="r"&&t.length===2).map(t=>t[1]),route=calendarRoute(event);if(one(event,"bitcoinwalk-route")!==null&&!route)return false;const expected=[...(city.chatUrl?[city.chatUrl]:[]),...(route?[route]:[])];if(links.length!==expected.length||expected.some(link=>!links.includes(link)))return false;
