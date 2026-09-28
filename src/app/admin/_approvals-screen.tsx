@@ -17,6 +17,7 @@ import { queryCalendarEvents } from "../../nostr/city-records";
 import { registrationSlug } from "../../domain/registration";
 import {generateCityImage,importCityImageURL} from "../../lib/media-client";
 import {cityFieldChanges} from "../../domain/city-diff";
+import {calendarDiscoverySummary,publishCalendarDiscoveryEvent} from "../../nostr/calendar-discovery";
 
 type Submission = { eventId: string; initialEventId?: string; author: string; cityId: string; slug: string; cityName: string; startAt: string; meetingPoint: string; city: CityDocument; previous?: string; previousCity?:CityDocument };
 type State = { message: string; tone: "info" | "error" | "success"; approvedWalk?: { href: string; name: string } };
@@ -109,15 +110,18 @@ export default function SubmissionApprovals() {
       }));
       if (signed.pubkey !== pubkey) throw new Error("Signer identity changed; decision cancelled.");
       const publication = await publishVerifiedEvent(signed, relayConfig.writeRelays, 1, authenticateWithBrowserExtension);
+      let discoveryMessage="";
       if (status === "approved" && submission.initialEventId) {
         const events = await queryCalendarEvents(relayConfig.readRelays, { ids: [submission.initialEventId] });
         const first = events.find(event => event.id === submission.initialEventId);
         const walk = { revision: { event: { id: submission.eventId, pubkey: submission.author } as Event, city: submission.city }, approval: { event: signed, approval: { cityId: submission.cityId, cityRevisionId: submission.eventId, initialEventId: submission.initialEventId, status: "approved" as const } } };
         if (!first || !matchesInitialCalendar(first, walk)) throw new Error("City approval was saved, but the first walk could not be verified. Do not approve again; retry the read and investigate publication.");
+        const discovery=await publishCalendarDiscoveryEvent(first,relayConfig.calendarDiscoveryRelays);
+        discoveryMessage=` ${calendarDiscoverySummary(discovery,relayConfig.calendarDiscoveryRelays.length)}`;
       }
       setSubmissions((items) => items.filter((item) => item.eventId !== submission.eventId));
       setState({
-        message: `${status === "approved" ? "Approved" : "Rejected"} on ${publication.accepted.length} relay(s).`,
+        message: `${status === "approved" ? "Approved" : "Rejected"} on ${publication.accepted.length} BitcoinWalk relay(s).${discoveryMessage}`,
         tone: "success",
         ...(status === "approved" ? { approvedWalk: { href: `/${encodeURIComponent(approvedSlug)}`, name: submission.cityName } } : {}),
       });

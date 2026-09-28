@@ -46,6 +46,8 @@ async function requireStagingRelays(path){
     "wss://relay-staging.bitcoinwalk.org/",
     "wss://directory-staging.bitcoinwalk.org/",
     "wss://directory-2-staging.bitcoinwalk.org/",
+    "wss://relay.ditto.pub/",
+    "wss://relay.primal.net/",
   ]){
     if(!await treeContains(path,relay))throw new Error(`Required staging relay is absent from the browser bundle: ${relay}`);
   }

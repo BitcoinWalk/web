@@ -34,7 +34,7 @@ export default async function CityOrEventPage({params}:{params:Promise<{city:str
     else{
       const events=await queryCalendarEvents(serverReadRelays(),{cityId:walk.revision.city.cityId});
       const event=currentOrNextEvent(walk,events);
-      outcome={state:"ready",cityName:walk.revision.city.cityName,eventHref:event?`/${encodeURIComponent(city)}/${calendarNevent(event,relayConfig.readRelays)}`:undefined};
+      outcome={state:"ready",cityName:walk.revision.city.cityName,eventHref:event?`/${encodeURIComponent(city)}/${calendarNevent(event,relayConfig.calendarRelayHints)}`:undefined};
     }
   }catch{
     outcome={state:"unavailable"};

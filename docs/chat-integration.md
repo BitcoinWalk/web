@@ -9,6 +9,10 @@ categories is documented in [Configure Armada relays for BitcoinWalk](armada-rel
 
 `src/lib/chat-config.ts` is public, operator-controlled configuration. It selects the verified production global group `13bc3a423b4f2954` on `chat.bitcoinwalk.org`. The Khatru relay, HTTPS/WSS, signed metadata, super-admin access and open regular-user joining were human-tested on 23 September 2026.
 
+On 29 September the user confirmed that the obsolete Zooid service is turned off,
+completing BW-24. BW-53 retains the post-migration check that Khatru and the public
+aliases remain healthy and Zooid does not restart or receive traffic.
+
 - Free cities, old approved city records and the Austin demo use global chat.
 - Paid cities are registered by immutable city UUID in both the verified entitlement registry and chat provisioning registry, with their expected slug and provisioned destination. A paid city without a valid dedicated destination shows a setup message and never falls back to global chat.
 - A paid destination must match `wss://<slug>.bitcoinwalk.org` and have a verified group ID. The resolver only generates links on `https://armada.buzz`.

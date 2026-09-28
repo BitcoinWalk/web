@@ -29,7 +29,7 @@ export default async function WalkEvent({event,walk}:{event:Event;walk:CalendarW
     {calendarRoute(event)&&<WalkRoute url={calendarRoute(event)!}/>}
     <CoordinatesCopy latitude={point.latitude} longitude={point.longitude}/>
     <WalkDelegation event={publicEvent} readOnly/>
-    <CalendarShare nevent={calendarNevent(event,relayConfig.readRelays)}/>
+    <CalendarShare nevent={calendarNevent(event,relayConfig.calendarRelayHints)}/>
     <CityChat cityId={city.cityId} slug={city.slug}/>
   </main>;
 }

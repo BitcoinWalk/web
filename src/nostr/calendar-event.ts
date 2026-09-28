@@ -3,6 +3,7 @@ import type { LocatedOccurrence } from "../domain/event-location";
 import type { CalendarWalk } from "./calendar-records";
 import { CALENDAR_EVENT_KIND } from "../domain/city";
 import {optionalAllTrailsRoute} from "../domain/walk-route";
+import {occurrenceDays} from "../domain/walk-schedule";
 
 export type UnsignedNostrEvent = {
   kind: number;
@@ -19,12 +20,13 @@ export function createCalendarEvent(
   city: CityDocument,
   occurrence: { id: string; startUnixSeconds: number; endUnixSeconds?: number; geohash?: string },
 ): UnsignedNostrEvent {
+  const days=occurrence.endUnixSeconds?occurrenceDays(occurrence.startUnixSeconds,occurrence.endUnixSeconds):[String(Math.floor(occurrence.startUnixSeconds/86_400))];
   const tags = [
     ["d", occurrence.id],
     ["title", `BitcoinWalk ${city.cityName}`],
     ["summary", `BitcoinWalk in ${city.cityName}`],
     ["start", String(occurrence.startUnixSeconds)],
-    ["D", String(Math.floor(occurrence.startUnixSeconds / 86_400))],
+    ...days.map(day=>["D",day]),
     ["location", city.meetingPoint.description],
     ["location", `${city.meetingPoint.latitude},${city.meetingPoint.longitude}`],
     ["t", "bitcoinwalk"],

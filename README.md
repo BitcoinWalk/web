@@ -37,11 +37,12 @@ Create `.env.local` in the repository root when you have an appropriate BitcoinW
 NEXT_PUBLIC_READ_RELAYS=wss://relay-staging.bitcoinwalk.org
 NEXT_PUBLIC_WRITE_RELAYS=wss://relay-staging.bitcoinwalk.org
 NEXT_PUBLIC_DIRECTORY_RELAYS=wss://directory-staging.bitcoinwalk.org/,wss://directory-2-staging.bitcoinwalk.org/
+NEXT_PUBLIC_CALENDAR_DISCOVERY_RELAYS=wss://relay.ditto.pub/,wss://relay.primal.net/
 ```
 
-These values are comma-separated `wss://` relay lists. Staging defaults read and write traffic to `wss://relay-staging.bitcoinwalk.org/` and directory discovery to the two independently hosted BitcoinWalk staging transports shown above. Non-blank explicit variables replace the corresponding complete default list; blank variables cannot erase the staging baseline. The directory list must contain two to eight independent root relay URLs before an owner can publish a portable city endpoint root. It is intentionally separate from the application read/write relays. `NEXT_PUBLIC_` values are exposed to the browser and baked into production builds. Restart the dev server after changing `.env.local`.
+These values are comma-separated `wss://` relay lists. Staging defaults read and write traffic to `wss://relay-staging.bitcoinwalk.org/`, directory discovery to the two independently hosted BitcoinWalk staging transports shown above, and exact organizer-signed NIP-52 copies to Ditto and Primal for public calendar discovery. Non-blank explicit variables replace the corresponding complete default list; blank variables cannot erase the staging baseline. The directory list must contain two to eight independent root relay URLs before an owner can publish a portable city endpoint root. It is intentionally separate from both application traffic and calendar discovery. `NEXT_PUBLIC_` values are exposed to the browser and baked into production builds. Restart the dev server after changing `.env.local`.
 
-Production builds must override the staging application and directory lists with verified production transports and must reject any built artifact that still contains `relay-staging.bitcoinwalk.org`, `directory-staging.bitcoinwalk.org` or `directory-2-staging.bitcoinwalk.org`. Damus, nos.lol and other third-party relays are optional attestations or profile/DM transports; they are not default city-directory dependencies.
+Production builds must override the staging application and directory lists with verified production transports and must reject any built artifact that still contains `relay-staging.bitcoinwalk.org`, `directory-staging.bitcoinwalk.org` or `directory-2-staging.bitcoinwalk.org`. Calendar discovery relays remain a separate explicit list: they receive the unchanged public occurrence or organizer-signed cancellation only after the authoritative BitcoinWalk relay accepts and returns the exact event. Third-party relays are never authoritative application or city-directory sources.
 
 | Optional variable | Purpose |
 |---|---|
