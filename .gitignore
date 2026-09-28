@@ -5,6 +5,7 @@ node_modules/
 coverage/
 guide-build/
 release-build/
+public-backlog-dist/
 *.tsbuildinfo
 next-env.d.ts
 *.sqlite

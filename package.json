@@ -3,6 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "backlog:build": "node scripts/build-public-backlog.mjs",
+    "backlog:check": "node scripts/build-public-backlog.mjs && test -f public-backlog-dist/index.html && grep -q 'BitcoinWalk backlog' public-backlog-dist/index.html && grep -q 'backlog.bitcoinwalk.org' public-backlog-dist/CNAME",
     "guide:build": "tsc -p tsconfig.guide.json && esbuild src/guide/service.ts --bundle --platform=node --target=node24 --format=cjs --outfile=guide-build/guide.cjs && esbuild src/guide/init-key.ts --bundle --platform=node --target=node24 --format=cjs --outfile=guide-build/guide-key.cjs",
     "guide:dry-run": "node guide-build/guide.cjs --dry-run",
     "dev": "next dev",
