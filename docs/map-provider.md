@@ -29,3 +29,10 @@ Acceptance:
 4. Expand the fallback, apply valid coordinates, and reject out-of-range values.
 5. Confirm the public directory map renders with the same provider and that no
    request targets `tile.openstreetmap.org`.
+
+Staging acceptance passed on 28 September 2026 with app 0.3.80. Piaseczno
+autocomplete returned the expected Polish city results; selecting the first
+result zoomed to the city, rendered the meeting pin at `52.074738, 21.027089`,
+showed OpenFreeMap/OpenMapTiles/OpenStreetMap attribution, and populated the
+manual-coordinate fallback. The packaged and live same-origin MapLibre worker
+and shared-module assets were also verified.
