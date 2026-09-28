@@ -142,6 +142,19 @@ regular recipient cannot approve; inbox failures do not block submission. For a
 fresh new city, approval must publish its exact organizer-signed first walk, and
 Guide must send the organizer that walk's memorable URL once publication is verified.
 
+Norilsk completed that end-to-end staging acceptance on 28 September 2026. The
+free-city proposal and its organizer-signed first walk remained hidden until the
+super-admin received the review DM and signed creator registration plus approval.
+The public city redirect then resolved to the exact valid NIP-52 event, the city
+appeared in the organizer dashboard, and the organizer received one live-link DM.
+The organizer's final signed kind-10050 list named Ditto, nos.lol and Damus. An
+operator-requested retry reused persisted gift wrap
+`8d1f6b3c90f12e9f0a608358bd2c9d3171feb33afef886ccf3cd685f604566b8`;
+it created no replacement delivery and Armada displayed one message after NIP-44
+decryption was enabled. Relay 0.8.24 separately fixed a staging-discovered limit
+bug so unauthenticated NIP-42 attempts and exact retransmissions no longer spend
+the three-per-day initial-walk budget.
+
 ## Operations and rollback
 
 ```sh
