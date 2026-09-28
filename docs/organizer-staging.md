@@ -1,6 +1,6 @@
 # Organizer staging integration — retained revisions
 
-Local app reads/writes `wss://relay-staging.bitcoinwalk.org` (organizer mode 0.3.0 was verified on 19 September 2026; the relay advertised 0.6.0 on 21 September). The user installed the retained-history upgrade; protected backup: `/var/backups/bitcoinwalk-approved-revisions.rr06ol`. The matching web changes are activated locally. DNS, chat, legacy services and existing signed records were not changed. Staging proposals are publicly readable.
+Local app reads/writes `wss://relay-staging.bitcoinwalk.org`. Retained-history browser acceptance completed on 29 September 2026 with relay `bitcoinwalk-organizers-0.8.53` and app `app-staging-0.3.81`. Relay rollback backup: `/var/backups/bitcoinwalk-relay-bw08-0.8.53.UFIuaJ`; app rollback backup: `/home/bitcoinwalk/backups/bitcoinwalk-app-bw08-0.3.81.E6eWlI`. DNS, chat, legacy services and signed record contents were not changed. Staging proposals and released walks are publicly readable.
 
 ## Implemented
 
@@ -11,7 +11,7 @@ Local app reads/writes `wss://relay-staging.bitcoinwalk.org` (organizer mode 0.3
 - Each new revision and decision uses its own cityUUID:randomUUID address. The relay blocks replacement, retaining the previous approved snapshot. Legacy addresses remain readable.
 - Public rendering selects the exact approved revision; pending edits and rejection of another revision leave it visible. Revocation hides the city until a later approval. Missing selected content does not fall back to an older version.
 - Public lookup pages city-scoped decision history and retrieves approved snapshots by ID, rather than relying on the newest draft query page. The regression suite includes more than 200 newer edits/decisions.
-- 43 web tests and TypeScript pass in the prepared app; relay race suite passes twice. Initial approval was confirmed by the user; retained-history browser/signing acceptance remains pending.
+- The accepted releases pass 337 web tests, production build and package smoke, plus 115 relay tests, 22 deployment verifiers, race detection and static analysis.
 
 ## Initial approval acceptance
 
@@ -20,13 +20,13 @@ Local app reads/writes `wss://relay-staging.bitcoinwalk.org` (organizer mode 0.3
 3. Inspect city UUID/organizer and any duplicate city names; click Register creator and approve. Approve grant, decision and relay-authentication prompts as needed.
 4. Open the approved city's link without a signer. The user confirmed initial approval succeeded. No existing Radom record is migrated from the legacy relay.
 
-## Retained-history acceptance (pending)
+## Retained-history acceptance (completed 29 September 2026)
 
-Approve revision A; use `/organizer` to submit edit B; verify A remains public. Reject B; verify A remains public. Approve edit C; verify C appears. These actions require human signatures; `/start` creates a new city, not an edit. Do not claim this test has passed on the VPS yet. See `organizer-editor.md` for the full test sequence. The editor and expanded review are locally active; 51 tests, TypeScript and changed-code lint pass.
+Norilsk revision A was public before and while organizer-signed revision B awaited review. The super-admin rejected B and A remained public. The organizer replaced only the test suffix and signed revision C; the super-admin approved C, making it the current city profile while retaining A, B and all three signed decisions. Because the first walk is an immutable signed occurrence, its original description remains unchanged; later city-profile edits affect defaults for future events rather than rewriting that signature. The test exposed a relay and web resolver bug that temporarily hid the first walk after C approval. Relay `0.8.53` and app `0.3.81` fixed the retained release linkage. Anonymous `/norilsk` again redirects to the exact valid `nevent` page.
 
 ## Still to verify
 
-- Human editor grant/removal and retained-history acceptance. Organizer content editing is available at `/organizer`, and editor management is implemented locally. Previously overwritten pre-upgrade records cannot be recovered automatically.
+- Human editor grant/removal and cross-account acceptance. Organizer content editing is available at `/organizer`, and editor management is implemented locally. Previously overwritten pre-upgrade records cannot be recovered automatically.
 - City-name uniqueness, pagination beyond the initial 500 records, and stronger read-failure reporting remain separate work.
-- The relay now advertises 0.6.0 with organizer occurrence policy markers. Organizer web publication is still awaiting release and signed acceptance; no automatic calendar publication was added.
-- Browser-signing acceptance has not been automated or claimed. Paid provisioning and production migration remain separate work. See [the current backlog](project-backlog.md) for later moderation and chat status.
+- Production relay/app migration remains separate. No automatic calendar publication was added.
+- Paid provisioning remains separate. See [the current backlog](project-backlog.md) for later moderation and chat status.
