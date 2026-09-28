@@ -79,6 +79,9 @@ try{
   for(const directory of ["node_modules",".next/server",".next/static"]){
     await requirePath(join(stage,directory),"directory");
   }
+  for(const worker of ["maplibre-gl-worker.mjs","maplibre-gl-shared.mjs"]){
+    await requirePath(join(stage,"public","maplibre",worker),"file");
+  }
   if(!(await readdir(join(stage,".next","static"))).length)throw new Error("Release static assets are empty.");
   await requireStagingRelays(join(stage,".next","static"));
   await rejectPrivateFiles(stage);

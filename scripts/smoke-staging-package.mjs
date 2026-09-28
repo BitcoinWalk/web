@@ -73,11 +73,17 @@ try{
   if(!asset.ok || (await asset.arrayBuffer()).byteLength===0){
     throw new Error(`Packaged static asset failed: ${staticFile} (HTTP ${asset.status})`);
   }
+  for(const worker of ["maplibre-gl-worker.mjs","maplibre-gl-shared.mjs"]){
+    const response=await fetch(`${base}/maplibre/${worker}`,{signal:AbortSignal.timeout(5000)});
+    if(!response.ok || (await response.arrayBuffer()).byteLength===0){
+      throw new Error(`Packaged MapLibre asset failed: ${worker} (HTTP ${response.status})`);
+    }
+  }
   for(const [path,label] of [["/admin","Your BitcoinWalk dashboard"],["/admin/walks","Welcome to your dashboard!"],["/admin/directory","Welcome to your dashboard!"],["/admin/hosting","Welcome to your dashboard!"],["/admin/approvals","Welcome to your dashboard!"],["/admin/cities","Welcome to your dashboard!"],["/admin/accept-invitation","Walk hosting invitation"],["/organizer/invitations","Dashboard moved"],["/organizer/events","Dashboard moved"],["/admin/calendar","Dashboard moved"]]){
     const page=await fetch(`${base}${path}`,{signal:AbortSignal.timeout(5000)});
     if(!page.ok || !(await page.text()).includes(label))throw new Error(`Packaged route failed: ${path}`);
   }
-  process.stdout.write(`Smoke passed: ${release} health, consolidated dashboard routes and ${staticFile}\n`);
+  process.stdout.write(`Smoke passed: ${release} health, MapLibre workers, consolidated dashboard routes and ${staticFile}\n`);
 }finally{
   if(child && child.exitCode===null && child.signalCode===null){
     child.kill("SIGTERM");

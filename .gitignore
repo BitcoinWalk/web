@@ -6,6 +6,7 @@ coverage/
 guide-build/
 release-build/
 public-backlog-dist/
+public/maplibre/
 *.tsbuildinfo
 next-env.d.ts
 *.sqlite

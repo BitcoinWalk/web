@@ -1,11 +1,12 @@
 "use client";
 
-import { Marker, MapContainer, TileLayer, useMap, useMapEvents } from "react-leaflet";
+import { Marker, MapContainer, useMap, useMapEvents } from "react-leaflet";
 import { Icon, type Marker as LeafletMarker } from "leaflet";
 import markerImage from "leaflet/dist/images/marker-icon.png";
 import markerRetinaImage from "leaflet/dist/images/marker-icon-2x.png";
 import markerShadow from "leaflet/dist/images/marker-shadow.png";
 import { useEffect, useRef, useState } from "react";
+import MapBasemap from "./map-basemap";
 
 const assetUrl = (asset: string | { src: string }) => typeof asset === "string" ? asset : asset.src;
 const meetingPin = new Icon({
@@ -15,6 +16,33 @@ const meetingPin = new Icon({
 
 export type LocationValue = { description: string; latitude: number; longitude: number };
 type SearchResult = { name: string; cityName: string; latitude: number; longitude: number };
+
+function ManualCoordinates({ cityName, value, onChange }: { cityName: string; value: LocationValue | null; onChange: (value: LocationValue) => void }) {
+  const [latitude, setLatitude] = useState(value ? String(value.latitude) : "");
+  const [longitude, setLongitude] = useState(value ? String(value.longitude) : "");
+  const [message, setMessage] = useState("");
+
+  function apply() {
+    const nextLatitude = Number(latitude);
+    const nextLongitude = Number(longitude);
+    if (!Number.isFinite(nextLatitude) || Math.abs(nextLatitude) > 90 || !Number.isFinite(nextLongitude) || Math.abs(nextLongitude) > 180) {
+      setMessage("Enter a latitude from −90 to 90 and longitude from −180 to 180.");
+      return;
+    }
+    onChange({ description: value?.description ?? cityName, latitude: nextLatitude, longitude: nextLongitude });
+    setMessage("Coordinates applied.");
+  }
+
+  return <details className="coordinate-fallback">
+    <summary>Map not loading? Enter coordinates manually</summary>
+    <div className="coordinate-fallback__fields">
+      <label>Latitude<input inputMode="decimal" value={latitude} onChange={event => setLatitude(event.target.value)} placeholder="51.123456" /></label>
+      <label>Longitude<input inputMode="decimal" value={longitude} onChange={event => setLongitude(event.target.value)} placeholder="21.123456" /></label>
+      <button type="button" onClick={apply}>Apply coordinates</button>
+    </div>
+    <p role="status">{message}</p>
+  </details>;
+}
 
 function MapClickHandler({ onPick }: { onPick: (latitude: number, longitude: number) => void }) {
   useMapEvents({ click: (event) => onPick(event.latlng.lat, event.latlng.lng) });
@@ -42,6 +70,7 @@ export default function LocationPicker({
 }) {
   const [results, setResults] = useState<SearchResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
+  const [mapUnavailable, setMapUnavailable] = useState(false);
   const [searchMessage,setSearchMessage]=useState("");
   const active=useRef<AbortController|null>(null);
   useEffect(()=>()=>active.current?.abort(),[]);
@@ -95,8 +124,8 @@ export default function LocationPicker({
       </div>
       <p>{cityLocked ? "Click the map or drag the pin to move the meeting point. The city and its URL stay unchanged." : isSearching ? "Finding cities…" : "Select a city, then click the map or drag the pin to place the meeting point precisely."}</p>
       <div className="map">
-        <MapContainer center={viewTarget.center} zoom={viewTarget.zoom} className="map" scrollWheelZoom>
-          <TileLayer attribution="© OpenStreetMap contributors" url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+        <MapContainer center={viewTarget.center} zoom={viewTarget.zoom} minZoom={1} className="map" scrollWheelZoom>
+          <MapBasemap onUnavailable={() => setMapUnavailable(true)} />
           <Recenter target={viewTarget} />
           {value && <Marker position={center} icon={meetingPin} draggable title="Meeting point" alt="Meeting-point pin" eventHandlers={{ dragend: event => {
             const position = (event.target as LeafletMarker).getLatLng();
@@ -105,6 +134,8 @@ export default function LocationPicker({
           <MapClickHandler onPick={placePin} />
         </MapContainer>
       </div>
+      {mapUnavailable && <p role="alert">The map background could not load. Your selected coordinates are still available, and you can enter them manually below.</p>}
+      <ManualCoordinates key={value ? `${value.latitude}:${value.longitude}` : "empty"} cityName={cityName} value={value} onChange={onChange} />
       {value && <p>Pin: {value.latitude.toFixed(6)}, {value.longitude.toFixed(6)}</p>}
     </section>
   );
