@@ -111,3 +111,26 @@ describe("directory outcome copy staging release",()=>{
     ])expect(installer).not.toContain(forbidden);
   });
 });
+
+describe("directory successor signing staging release",()=>{
+  it("upgrades only the app from accepted 0.3.74 with rollback and bundle checks",async()=>{
+    const installer=await readFile("deploy/install-city-directory-successors-0.3.75.sh","utf8");
+
+    for(const required of [
+      "app-staging-0.3.75.tar.gz",
+      "/opt/bitcoinwalk-app-staging/releases/0.3.74",
+      "/opt/bitcoinwalk-app-staging/releases/0.3.75",
+      "0.3.74 was restored",
+      "Manage signed directory",
+      "Review and sign successor",
+      "all configured directory transports",
+    ])expect(installer).toContain(required);
+
+    for(const forbidden of [
+      "systemctl restart bitcoinwalk-directory-staging",
+      "docker restart",
+      "/var/lib/bitcoinwalk-directory",
+      "/etc/caddy/Caddyfile",
+    ])expect(installer).not.toContain(forbidden);
+  });
+});
