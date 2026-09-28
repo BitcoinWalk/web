@@ -1,12 +1,13 @@
-# Public directory — 19 September 2026
+# Public directory — accepted 29 September 2026
 
 Local homepage: http://localhost:3000/ — staging only, not production deployed.
 
 Searchable approved city cards, list/map toggle with approved meeting-point pins,
 hero-image fallback, local date/time, city-page links and a featured paid-city section.
 Dates in the past are labeled as last published, not advertised as upcoming.
-The current public relay read returned four approved cities (including test cities).
-Browser confirmed that all four cards render. No signatures or relay writes made.
+The live staging public relay read returned ten approved cities (including test
+cities). Browser confirmed that all ten cards render. No signatures or relay
+writes were made during acceptance.
 
 The directory pages revision and super-admin decision history with inclusive
 timestamp boundaries, deduplicates IDs, and fails closed on stalled/oversized reads.
@@ -28,14 +29,23 @@ HTTPS images without URL credentials are displayed; browser requests use no-refe
 and have broken-image fallbacks. No sponsor claims are invented. Madeira/Trezor was
 the user's illustrative example; confirmation of real partnerships is pending.
 Sponsor entry/approval management, entitlement automation and separate paid-relay
-discovery/index replication remain future work. This directory reads the configured
+discovery/index replication remain BW-16/BW-17/BW-23 work. They do not block the
+public-directory acceptance: without a genuine entitlement the safe, expected state
+is the clearly labelled empty featured section. This directory reads the configured
 city-record relay; it does not discover arbitrary paid relays automatically.
 
-## Verification / outstanding
+## Verification
 
-72 tests pass, TypeScript and changed-code lint pass. Automated cases cover pending,
-rejected/revoked/missing revisions, trusted paid routing, search and URL sanitation.
-Browser showed four approved cards. Interactive map/search user acceptance and
-confirmed paid-city/sponsor content remain pending. Custom design is still a later
-stage; components and configuration are separated for restyling. Legacy site and
-chat remain untouched.
+Automated cases cover pending, rejected/revoked/missing revisions, trusted paid
+routing, search and URL sanitation. On 29 September, live app `0.3.81` browser
+acceptance showed ten approved cards; city-alias search (`Warsaw`) returned Warszawa;
+meeting-point search (`coffee shop`) returned Chicago and Memphis; and an unknown
+query produced the clear zero-result state. Map mode rendered ten pins, a Radom
+filter reduced the map to one pin, and the Chicago popup showed its meeting point
+and linked to `/chicago`. OpenFreeMap/OpenMapTiles/OpenStreetMap attribution was
+present and map imagery loaded. The empty featured-city state was also confirmed.
+
+Production revalidation is tracked under BW-53. Genuine paid-city and sponsor
+activation remains BW-16/BW-17/BW-23. Custom design is still a later stage;
+components and configuration are separated for restyling. Legacy site and chat
+remain untouched.
