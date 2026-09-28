@@ -56,8 +56,8 @@ The existing BitcoinWalk Guide npub remains a communication identity, not replic
 | Item | Deliverable | Depends on |
 | --- | --- | --- |
 | BW-59 🟢 | Reconciliation/backfill accepted: bounded gap detection, signed-history recovery, persisted cancellation/revocation state, aggregate non-repairing audit and restore without resurrecting events | BW-56 |
-| BW-60 🟠 | Portable city ownership and signed endpoint directory: real Memphis root, durable offline anchor, two separate-failure-domain public transports, bidirectional failover and the full owner/operator/rotation/recovery successor rehearsal are accepted; audited production replacement with non-staging hostnames remains | BW-59 |
-| BW-61 | Endpoint migration: add/verify/sync/switch/retire, owner domain or independently reachable endpoint, rollback and client discovery tests | BW-60 |
+| BW-60 🟢 | Portable city ownership and signed endpoint directory accepted: real Memphis root, durable offline anchor, two separate-failure-domain public transports, bidirectional failover and the full owner/operator/rotation/recovery successor rehearsal | BW-59 |
+| BW-61 🟠 | Endpoint migration: fail-closed read-only preflight implemented; add/verify/sync/switch/soak/retire, owner domain or independently reachable endpoint, rollback and client discovery acceptance remain | BW-60 |
 | BW-62 | Self-host package for Umbrel/Start9: relay plus dashboard, resource limits, encrypted backup/import/export, updates, no access to Bitcoin/Lightning credentials | BW-61 |
 | BW-63 | Independence acceptance: publish/read/manage with BitcoinWalk infrastructure unavailable; reconcile on recovery with explicit conflict and official-recognition rules | BW-62 |
 | BW-64 | Private NIP-29 chat migration: membership/bans, relay signing identity, history visibility and client compatibility; separate consent-controlled process | BW-61, BW-62 |
