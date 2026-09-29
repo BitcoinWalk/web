@@ -1,6 +1,6 @@
 "use client";
 import {useRef,useState} from "react";
-import {nip19,type Event} from "nostr-tools";
+import {type Event} from "nostr-tools";
 import {useDashboard,useDashboardAutoLoad} from "./dashboard-context";
 import {relayConfig} from "../lib/relay-config";
 import {queryAuthorizations,queryCalendarEvents} from "../nostr/city-records";
@@ -12,7 +12,7 @@ import {createEventModeration,latestEventModerations,moderationKey,queryEventMod
 
 export default function EventModerationPanel(){
  const dashboard=useDashboard(),lock=useRef(false);
- const [busy,setBusy]=useState(false),[cityId,setCityId]=useState(dashboard.selectedCity),[cities,setCities]=useState<{id:string;creator:string}[]>([]),[events,setEvents]=useState<Event[]>([]),[records,setRecords]=useState<EventModerationRecord[]>([]),[reason,setReason]=useState(""),[author,setAuthor]=useState(""),[message,setMessage]=useState("Load a city to moderate walks or publishing.");
+ const [busy,setBusy]=useState(false),[cityId,setCityId]=useState(dashboard.selectedCity),[cities,setCities]=useState<{id:string;creator:string}[]>([]),[events,setEvents]=useState<Event[]>([]),[records,setRecords]=useState<EventModerationRecord[]>([]),[reason,setReason]=useState(""),[message,setMessage]=useState("Load a city to moderate walks or publishing.");
  async function admin(){if(!isSuperAdmin(await getBrowserExtensionPubkey()))throw new Error("Connect the BitcoinWalk super-admin.");}
  async function run(action:()=>Promise<void>){if(lock.current)return;lock.current=true;setBusy(true);try{await admin();await action();}catch(e){setMessage(e instanceof Error?e.message:"Moderation failed.");}finally{lock.current=false;setBusy(false);}}
  async function load(id:string){setEvents([]);setRecords([]);await requireEventModerationRelay(relayConfig.writeRelays);const [walks,history]=await Promise.all([queryCalendarEvents(relayConfig.writeRelays,{cityId:id}),queryEventModerations(relayConfig.writeRelays,id)]);if(walks.length>=500)throw new Error("City walk read limit reached.");await admin();setEvents(walks);setRecords(history);setMessage("Loaded. Reasons are public signed audit records: do not include private information.");}
@@ -30,17 +30,13 @@ export default function EventModerationPanel(){
   const saved=latestEventModerations(await queryEventModerations(relayConfig.writeRelays,cityId)).find(r=>moderationKey(r.decision)===`${scope}:${target}`);if(saved?.event.id!==signed.id)throw new Error("Relay acknowledged but latest decision not confirmed. Reload before retrying.");
   await load(cityId);setReason("");setMessage(`${status}: signed decision confirmed by relay read-back. Existing cancellation and city disapproval still apply.`);
  });}
- function authorKey(){try{const d=nip19.decode(author.trim());if(d.type==="npub")return d.data;}catch{}throw new Error("Enter the organizer's public npub, not a private key.");}
  return <section><h2>Walk visibility and publishing</h2><p>These controls preserve signed events, ownership and history. Replicated cities are blocked until their receivers support these decisions. Do not use cancellation as a substitute for hide/unhide.</p>
- <label>City <select disabled={busy} value={cityId} onChange={e=>{const id=e.target.value;setCityId(id);setReason("");setAuthor("");if(id)void run(()=>load(id));else{setEvents([]);setRecords([]);}}}><option value="">Select a city</option>{cities.map(c=><option key={c.id} value={c.id}>{dashboard.cities.find(d=>d.id===c.id)?.name??c.id}</option>)}</select></label>
+ <label>City <select disabled={busy} value={cityId} onChange={e=>{const id=e.target.value;setCityId(id);setReason("");if(id)void run(()=>load(id));else{setEvents([]);setRecords([]);}}}><option value="">Select a city</option>{cities.map(c=><option key={c.id} value={c.id}>{dashboard.cities.find(d=>d.id===c.id)?.name??c.id}</option>)}</select></label>
  <button disabled={busy||!cityId} onClick={()=>run(()=>load(cityId))}>Refresh moderation</button><p role="status">{message}</p>
  {cityId&&<><h3>Publishing suspension</h3><p>City publishing: {head("city",cityId)?.decision.status??"active"}</p>
  <label><strong>Reason for the next moderation action</strong><textarea value={reason} maxLength={500} disabled={busy} onChange={e=>setReason(e.target.value)} placeholder="Required. This reason becomes part of the public signed audit history." aria-describedby="moderation-reason-help"/></label>
- <p id="moderation-reason-help"><small>Enter a public reason to enable the suspension, resume, hide or unhide buttons. Do not include private information.</small></p>
+ <p id="moderation-reason-help"><small>Enter a public reason to enable the city suspension, resume, hide or unhide buttons. Organizer-wide publishing access is managed in the Organizers module.</small></p>
  <button disabled={busy||!reason.trim()} onClick={()=>decide("city",cityId,head("city",cityId)?.decision.status==="suspended"?"active":"suspended")}>{head("city",cityId)?.decision.status==="suspended"?"Resume city publishing":"Suspend city publishing"}</button>
- <label>Organizer npub<input disabled={busy} value={author} onChange={e=>setAuthor(e.target.value)}/></label><button disabled={busy} onClick={()=>{const creator=cities.find(c=>c.id===cityId)?.creator;if(creator)setAuthor(nip19.npubEncode(creator));}}>Use city creator</button>
- <button disabled={busy||!reason.trim()||!author.trim()} onClick={()=>{try{const key=authorKey();void decide("author",key,head("author",key)?.decision.status==="suspended"?"active":"suspended");}catch(e){setMessage((e as Error).message);}}}>Toggle organizer publishing suspension</button>
- {heads.filter(r=>r.decision.scope==="author").map(r=><p key={r.event.id}>{nip19.npubEncode(r.decision.target)} — {r.decision.status}</p>)}
  <h3>Visible walks ({events.length})</h3>{events.map(event=><div key={event.id}><p>{event.tags.find(t=>t[0]==="title")?.[1]} — {new Date(Number(event.tags.find(t=>t[0]==="start")?.[1])*1000).toLocaleString()}<br/><small>{event.id}</small></p><button disabled={busy||!reason.trim()} onClick={()=>decide("event",walkAddress(event),"hidden",event.id)}>Hide this walk</button></div>)}
  <h3>Hidden walk addresses</h3>{heads.filter(r=>r.decision.scope==="event"&&r.decision.status==="hidden").map(r=><div key={r.event.id}><p style={{overflowWrap:"anywhere"}}>{r.decision.target}<br/>{r.decision.reason}</p><button disabled={busy||!reason.trim()} onClick={()=>decide("event",r.decision.target,"visible",r.decision.eventId)}>Unhide walk</button></div>)}
  <details><summary>Signed decision history ({records.length})</summary>{records.map(r=><p key={r.event.id} style={{overflowWrap:"anywhere"}}>{r.decision.scope}: {r.decision.status} — {r.decision.reason}<br/>{r.event.id}</p>)}</details></>}

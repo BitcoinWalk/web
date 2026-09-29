@@ -2,7 +2,7 @@ import {afterEach,describe,expect,it,vi} from "vitest";
 import {finalizeEvent,getPublicKey} from "nostr-tools";
 const key=new Uint8Array(32).fill(7);
 vi.mock("./authority",()=>({isSuperAdmin:(pubkey:string)=>pubkey===getPublicKey(new Uint8Array(32).fill(7)),SUPER_ADMIN_PUBKEY:getPublicKey(new Uint8Array(32).fill(7))}));
-import {createEventModeration,parseEventModeration,latestEventModerations,walkAddress,requireEventModerationRelay,type EventModeration} from "./event-moderation";
+import {createEventModeration,parseEventModeration,latestEventModerations,latestOrganizerModeration,walkAddress,requireEventModerationRelay,type EventModeration} from "./event-moderation";
 const cityId="66f137cb-2ac1-4eef-8358-7dd66b45922f";
 const input:EventModeration={cityId,scope:"event",target:`31923:${getPublicKey(key)}:${cityId}:2026-10-10`,eventId:"a".repeat(64),status:"hidden",reason:"Test hide"};
 afterEach(()=>vi.unstubAllGlobals());
@@ -19,6 +19,16 @@ describe("signed event moderation",()=>{
   for(const patch of [{scope:"city"},{status:"active"},{eventId:undefined},{target:"31923:bad:foo"},{reason:" "},{previous:"wrong"}])expect(()=>createEventModeration({...input,...patch} as EventModeration)).toThrow();
   expect(()=>createEventModeration({cityId,scope:"city",target:cityId,status:"suspended",reason:"Pause"})).not.toThrow();
   expect(()=>createEventModeration({cityId,scope:"author",target:getPublicKey(key),status:"active",reason:"Resume"})).not.toThrow();
+  expect(()=>createEventModeration({scope:"organizer",target:getPublicKey(key),status:"suspended",reason:"Global pause"})).not.toThrow();
+  expect(()=>createEventModeration({cityId,scope:"organizer",target:getPublicKey(key),status:"suspended",reason:"Bad scope"})).toThrow();
+ });
+ it("uses an explicit global organizer decision ahead of legacy city-scoped author state",()=>{
+  const target=getPublicKey(key);
+  const legacy=parseEventModeration(finalizeEvent({...createEventModeration({cityId,scope:"author",target,status:"suspended",reason:"Legacy pause"}),created_at:20},key))!;
+  const global=parseEventModeration(finalizeEvent({...createEventModeration({scope:"organizer",target,status:"active",reason:"Resume everywhere",previous:legacy.event.id}),created_at:21},key))!;
+  expect(global.decision.cityId).toBeUndefined();
+  expect(global.event.tags.some(tag=>tag[0]==="i")).toBe(false);
+  expect(latestOrganizerModeration([legacy,global],target)?.event.id).toBe(global.event.id);
  });
  it("binds the signed tags and distinguishes city and author scopes",()=>{
   const template=createEventModeration(input);template.tags[1]=["i","00000000-0000-4000-8000-000000000001"];
@@ -32,8 +42,10 @@ describe("signed event moderation",()=>{
  });
  it("requires capability on every write relay",async()=>{
   vi.stubGlobal("fetch",vi.fn().mockResolvedValue({ok:true,json:async()=>({version:"bitcoinwalk-organizers-0.8.55"})}));
-  await expect(requireEventModerationRelay(["wss://relay.example"])).rejects.toThrow("0.8.56");
+  await expect(requireEventModerationRelay(["wss://relay.example"])).rejects.toThrow("0.8.57");
   vi.stubGlobal("fetch",vi.fn().mockResolvedValue({ok:true,json:async()=>({version:"bitcoinwalk-organizers-0.8.56"})}));
+  await expect(requireEventModerationRelay(["wss://relay.example"])).rejects.toThrow("0.8.57");
+  vi.stubGlobal("fetch",vi.fn().mockResolvedValue({ok:true,json:async()=>({version:"bitcoinwalk-organizers-0.8.57"})}));
   await expect(requireEventModerationRelay(["wss://relay.example"])).resolves.toBeUndefined();
  });
 });

@@ -6,16 +6,18 @@ Activated on 29 September 2026 after operator relay installation. Relay backup: 
 
 App 0.3.90 moves the required public-reason field directly into the Publishing suspension section, labels it as applying to the next moderation action, and explains why action buttons remain disabled while it is blank.
 
+The next increment changes organizer suspension from a per-city author decision to an explicit global organizer publishing decision. Relay 0.8.57 treats an existing legacy author suspension as the migration fallback until the super-admin signs a new global decision. App 0.3.91 moves this control to **Admin → Organizers → Publishing access**, disables walk creation and editing for suspended organizers across all centrally managed cities, preserves existing walks and browser drafts, keeps cancellation available, and fails closed when suspension state cannot be verified.
+
 Super-admin controls are under **Admin → Walks → Moderation and suspension**. They apply to non-replicated cities only. The app checks the relay version before signing; the relay independently checks authority and scope on receipt and again under the storage lock.
 
 - **Hide/unhide** targets the stable `31923:author:d` address. Hiding suppresses anonymous lists, exact-ID reads and broadcasts; edited versions cannot bypass it. Original signed records remain stored. Unhide does not undo cancellation, city disapproval, or other existing read restrictions.
 - **Suspend/resume city publishing** blocks new calendar writes for that city without hiding published history or changing ownership.
-- **Suspend/resume organizer publishing** applies to one public key in one city, including its protected creator. It is not a global account ban. Resuming does not grant editor permissions.
+- **Suspend/resume organizer publishing** applies globally to one public key across all BitcoinWalk cities on the authoritative relay, including protected creators. Resuming does not grant editor permissions.
 - Each action requires a nonblank **public** reason and explicit confirmation/signature. Never put private information in the reason.
 
 ## Signed protocol
 
-Kind 30310 is reserved here for super-admin moderation. Content is strict JSON with `cityId`, `scope` (`event`, `city`, `author`), `target`, `status`, `reason`, optional `eventId` (required for event scope), and optional `previous` (the exact current decision ID). Event statuses are `hidden`/`visible`; publishing statuses are `suspended`/`active`.
+Kind 30310 is reserved here for super-admin moderation. Content is strict JSON with optional `cityId`, `scope` (`event`, `city`, legacy `author`, or global `organizer`), `target`, `status`, `reason`, optional `eventId` (required for event scope), and optional `previous` (the exact current decision ID). Global organizer decisions omit `cityId`; event/city decisions require it. Event statuses are `hidden`/`visible`; publishing statuses are `suspended`/`active`.
 
 Tags are exactly `d=cityId:decisionUUID`, `i=cityId`, `m=scope:target`, `status`, and `client=bitcoinwalk.org`. Unique retained addresses preserve history; the relay rejects changed content at an existing address, stale previous IDs, non-increasing decision timestamps, outsiders, and mismatched event/city/address targets. Retrying the exact stored decision cannot replace a newer state.
 
