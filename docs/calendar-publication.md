@@ -13,6 +13,13 @@ organizer-signed Memphis occurrence for 10 October 2026 was then published uncha
 to the candidates: Ditto and Primal both acknowledged it and returned the exact signed
 ID; Satlantis also accepted and returned that exact event during the failed client-discovery investigation; nos.lol failed to connect and is not a default; Bucket retains events for only 30 seconds; and nostr.land advertises payment-required writes. The old Memphis event had coordinates only in a `location` tag. App 0.3.83 adds a standard nine-character `g` geohash to every newly signed event so geographic indexes can place it. Existing signatures cannot be changed, so an organizer edit is required to replace an older event with the compatible payload.
 
+The first 0.3.83 Memphis edit correctly failed closed because staging relay 0.8.53
+did not yet allow `g`. Relay policy 0.8.54 validates that an optional single `g`
+tag exactly matches the signed coordinates and keeps pre-migration events without it
+readable. The web interface first reports the authoritative BitcoinWalk result (1/1);
+only after that succeeds does it publish and report the three public discovery relays
+(3/3).
+
 ## Human acceptance
 
 1. Connect an approved city organizer and open `/admin/walks`.
