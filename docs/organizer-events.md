@@ -24,6 +24,11 @@ history never manufactures absent event records. Pre-deployment read-only checks
 found all seven Memphis and one Norilsk public events visible, with five Memphis
 cancellation targets absent; neither current pilot required recovery of a missing
 row. The profile-change regression is exercised with signed automated fixtures.
+After deployment, both city redirects selected the expected exact event ID;
+both event pages returned HTTP 200 with city descriptions and hero images.
+All 357 tests, source lint (seven existing warnings), production build and
+packaged-server smoke passed. Rollback backup:
+`/home/bitcoinwalk/backups/bitcoinwalk-app-bw40-0.3.86.C8jwQH`.
 External-app discovery/cancellation is exclusively BW-10; suspension/hide/unhide
 is BW-39 and is not a prerequisite for this completed list/routing scope.
 
