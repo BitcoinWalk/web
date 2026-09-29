@@ -13,6 +13,7 @@ export const stagingApplicationRelays = ["wss://relay-staging.bitcoinwalk.org/"]
 export const stagingCalendarDiscoveryRelays = [
   "wss://relay.ditto.pub/",
   "wss://relay.primal.net/",
+  "wss://relay.satlantis.io/",
 ] as const;
 
 function configuredOrDefault(value:string|undefined,defaults:readonly string[]):string{

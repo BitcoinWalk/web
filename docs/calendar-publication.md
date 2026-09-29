@@ -6,13 +6,12 @@ read-back, stable occurrence addresses, updates and signed cancellations are alr
 deployed. The 29 September BW-10 increment adds bounded public discovery fanout without
 changing the signed event or treating a third-party relay as authoritative.
 
-The default discovery transports are `wss://relay.ditto.pub/` and
-`wss://relay.primal.net/`. A read-only audit found that the existing Memphis events
+The default discovery transports are `wss://relay.ditto.pub/`,
+`wss://relay.primal.net/` and `wss://relay.satlantis.io/`. A read-only audit found that the existing Memphis events
 were not present on Bucket, nos.lol, Ditto, Primal or nostr.land. The exact valid
 organizer-signed Memphis occurrence for 10 October 2026 was then published unchanged
 to the candidates: Ditto and Primal both acknowledged it and returned the exact signed
-ID; nos.lol failed to connect and is not a default; Bucket retains events for only
-30 seconds; and nostr.land advertises payment-required writes.
+ID; Satlantis also accepted and returned that exact event during the failed client-discovery investigation; nos.lol failed to connect and is not a default; Bucket retains events for only 30 seconds; and nostr.land advertises payment-required writes. The old Memphis event had coordinates only in a `location` tag. App 0.3.83 adds a standard nine-character `g` geohash to every newly signed event so geographic indexes can place it. Existing signatures cannot be changed, so an organizer edit is required to replace an older event with the compatible payload.
 
 ## Human acceptance
 
@@ -23,12 +22,12 @@ ID; nos.lol failed to connect and is not a default; Bucket retains events for on
 3. Expect exact BitcoinWalk-relay read-back plus a per-relay discovery result. One
    public relay failing must not conceal successful authoritative publication.
 4. Open the generated event link. Its `nevent` hints include the BitcoinWalk relay,
-   Ditto and Primal, while the BitcoinWalk server continues to ignore untrusted hints.
+   Ditto, Primal and Satlantis, while the BitcoinWalk server continues to ignore untrusted hints.
 5. Find the event in Satlantis and Club Orange. This human client check remains the
    final BW-10 acceptance gate because NIP-52 does not define global relay discovery.
 6. Edit the walk and verify clients select the replacement at the same NIP-52 address.
 7. Cancel it and verify the organizer-signed NIP-09 event is delivered and read back
-   on both discovery relays. Third-party clients may retain cached copies.
+   on all discovery relays. Third-party clients may retain cached copies.
 
 ## Scope and limitations
 
@@ -43,6 +42,6 @@ ID; nos.lol failed to connect and is not a default; Bucket retains events for on
 - This slice changes no chat service, DNS, Caddy, relay credentials or legacy website.
 
 Automated coverage now checks exact per-relay acknowledgement/read-back, partial
-failure reporting, retry safety, invalid configuration and multi-day `D` tags. The
-release package must contain the managed staging relay plus both discovery relays.
+failure reporting, retry safety, invalid configuration, geographic `g` tags and multi-day `D` tags. The
+release package must contain the managed staging relay plus all three discovery relays.
 Final staging acceptance still requires the organizer/client steps above.
