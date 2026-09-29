@@ -2,7 +2,7 @@ import type { Event } from "nostr-tools";
 import CoordinatesCopy from "./coordinates-copy";
 import WalkDelegation from "./walk-delegation";
 import CalendarShare from "./calendar-share";
-import { calendarImageOverride,calendarNevent, calendarOccurrence,calendarRoute, type CalendarWalk } from "../nostr/calendar-records";
+import { calendarImageOverride,calendarNevent, calendarOccurrence,calendarRoute,initialCalendarHero, type CalendarWalk } from "../nostr/calendar-records";
 import { relayConfig } from "../lib/relay-config";
 import CityChat, {cityChatDetails} from "./city-chat";
 import WalkWeather from "./walk-weather";
@@ -23,7 +23,7 @@ export default async function WalkEvent({event,walk}:{event:Event;walk:CalendarW
   const publicEvent:Event={kind:event.kind,id:event.id,pubkey:event.pubkey,created_at:event.created_at,tags:event.tags.map(tag=>[...tag]),content:event.content,sig:event.sig};
   return <main><p>BitcoinWalk / published event</p><h1>BitcoinWalk {city.cityName}</h1>
     <WalkWeather result={weather} timeZone={occurrence?.timeZone??null} chatUrl={chat.url}/>
-    <ResilientHero sources={[calendarImageOverride(event),forecastHero,city.heroImageUrl,walk.approval.approval.heroImageUrl]} alt={`BitcoinWalk ${city.cityName}`} forecast={!calendarImageOverride(event)&&!!forecastHero}/>
+    <ResilientHero sources={[calendarImageOverride(event),forecastHero,city.heroImageUrl,walk.approval.approval.heroImageUrl,initialCalendarHero(event,walk)]} alt={`BitcoinWalk ${city.cityName}`} forecast={!calendarImageOverride(event)&&!!forecastHero}/>
     <p>{new Intl.DateTimeFormat(undefined,{dateStyle:"full",timeStyle:"short",...(occurrence?.timeZone?{timeZone:occurrence.timeZone}:{})}).format(new Date(start))}</p>
     <MarkdownDescription value={event.content}/><p>{point.description}</p>
     {calendarRoute(event)&&<WalkRoute url={calendarRoute(event)!}/>}

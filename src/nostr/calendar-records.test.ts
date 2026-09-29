@@ -1,7 +1,7 @@
 import {describe,it,expect,vi} from "vitest";
 import {finalizeEvent,getPublicKey,nip19,type Event} from "nostr-tools";
 vi.mock("./authority",()=>({isSuperAdmin:(key:string)=>key===getPublicKey(new Uint8Array(32).fill(1)),SUPER_ADMIN_PUBKEY:getPublicKey(new Uint8Array(32).fill(1))}));
-import {approvedCalendarWalks,matchesCalendar,matchesInitialCalendar,matchesOrganizerCalendar,decodeCalendarLink,calendarNevent,type CalendarWalk} from "./calendar-records";
+import {approvedCalendarWalks,matchesCalendar,matchesInitialCalendar,matchesOrganizerCalendar,decodeCalendarLink,calendarNevent,initialCalendarHero,type CalendarWalk} from "./calendar-records";
 import {createApprovedCalendarEvent,createInitialCalendarProposal,createOrganizerCalendarEvent} from "./calendar-event";
 import type {ApprovalRecord} from "./city-records";
 const city={cityId:"66f137cb-2ac1-4eef-8358-7dd66b45922f",slug:"radom",cityName:"Radom",description:"Friday walk",startAt:"2026-10-02T15:00:00Z",meetingPoint:{description:"Square",latitude:51.4,longitude:21.1},heroImageUrl:"https://example.com/hero.jpg"};
@@ -10,6 +10,23 @@ const revision={event:event("a",1),city};
 const approval:ApprovalRecord={event:event("b",2),approval:{cityId:city.cityId,cityRevisionId:revision.event.id,status:"approved"}};
 const walk:CalendarWalk={revision,approval};
 describe("calendar approval selection",()=>{
+ it("recovers the first approval image after a later imageless profile approval without using pending images",()=>{
+  const key=new Uint8Array(32).fill(2),author=getPublicKey(key);
+  const noImage={...city,heroImageUrl:undefined};
+  const initial=finalizeEvent(createInitialCalendarProposal(noImage,"UTC"),key);
+  const firstRevision={event:{...event("c",1),pubkey:author},city:noImage};
+  const firstApproval:ApprovalRecord={event:event("d",2),approval:{cityId:city.cityId,cityRevisionId:firstRevision.event.id,initialEventId:initial.id,status:"approved",heroImageUrl:"https://example.com/approved.webp"}};
+  const currentRevision={event:{...event("e",3),pubkey:author},city:{...noImage,description:"Retention test C"}};
+  const currentApproval:ApprovalRecord={event:event("f",4),approval:{cityId:city.cityId,cityRevisionId:currentRevision.event.id,status:"approved"}};
+  const pendingRevision={event:event("9",5),city:{...city,heroImageUrl:"https://example.com/pending.webp"}};
+  const [selected]=approvedCalendarWalks([firstRevision,currentRevision,pendingRevision],[firstApproval,currentApproval]);
+  expect(initialCalendarHero(initial,selected)).toBe("https://example.com/approved.webp");
+  expect(selected.revision.city.heroImageUrl).toBeUndefined();
+  expect(selected.revision.city.description).toBe("Retention test C");
+  const other=finalizeEvent(createInitialCalendarProposal({...noImage,description:"Different walk"},"UTC"),key);
+  expect(initialCalendarHero(other,selected)).toBeUndefined();
+  expect(initialCalendarHero(initial,{...selected,initialRelease:undefined})).toBeUndefined();
+ });
  it("retains approval after rejection of another revision",()=>{
   const rejection:ApprovalRecord={event:event("c",3),approval:{...approval.approval,cityRevisionId:"d".repeat(64),status:"rejected"}};
   expect(approvedCalendarWalks([revision],[approval,rejection])).toEqual([walk]);

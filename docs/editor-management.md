@@ -1,6 +1,36 @@
 # City editor management — 19 September 2026
 
-Local URL: http://localhost:3000/admin/editors (linked from `/admin`).
+Current staging URL: https://app-staging.bitcoinwalk.org/admin/cities?tab=editors
+(Cities → Editors). The legacy `/admin/editors` route redirects to the unified dashboard.
+
+## BW-11 acceptance review — 29 September 2026
+
+Staging health reports `app-staging-0.3.83`. The four focused suites for editor
+management, organizer editing, organizer integration and city-tab routing pass
+(23 tests). The creator edit/reject/reapprove flow was accepted under BW-08.
+BW-11 still needs a real second identity's grant, city-scoped access and removal
+acceptance. Health and automated tests do not establish this signer-driven result.
+
+Choose one staging city and a second identity that is neither its creator nor
+the super-admin, and does not already hold an editor grant for that city. Record
+the original editor list before testing. Add only that identity; after verification,
+remove only the test grant. Retain any test revision in the normal review history.
+Use an unrelated city where the second identity has no grant as the isolation check.
+Keep the second identity's edit form open during removal so that submitting the
+stale form exercises the permission recheck. Then reload to confirm access is gone.
+Creator and super-admin access must remain, and the approved public page must
+remain unchanged while a test revision is pending or rejected.
+
+Human acceptance in progress: the user confirmed adding Norilsk's second editor,
+then submission of revision `0b878751153ade89d380e64818430f10b125da4dbd01e0cb68089a594686cd0c`
+to one relay. The public page retained its previous description. Removal, stale-form
+rejection and cross-city isolation are still pending. This test also exposed a
+first-event hero fallback regression: the original approval retained a working
+managed image, while the newer BW-08 profile approval had no image. App `0.3.84`
+adds the verified first-release image after current hero sources; it does not
+change signed events or approve the pending editor revision.
+
+The following implementation and initial verification notes are historical.
 
 Only the super-admin may sign add/remove operations. Enter public npubs; no hex,
 nsec or other Nostr identifier is accepted by the add field. Each operation has

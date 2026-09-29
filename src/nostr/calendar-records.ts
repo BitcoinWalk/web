@@ -8,6 +8,12 @@ import {encodeGeohash} from "../domain/geohash";
 
 export type CalendarSource={revision:CityRevision;approval:ApprovalRecord};
 export type CalendarWalk=CalendarSource&{initialRelease?:CalendarSource};
+/** A later profile approval must not discard the released first walk's image. */
+export function initialCalendarHero(event:Event,walk:CalendarWalk):string|undefined {
+  if(!matchesInitialCalendar(event,walk))return undefined;
+  const source=walk.initialRelease??walk;
+  return source.approval.approval.heroImageUrl??source.revision.city.heroImageUrl;
+}
 export function approvedCalendarWalks(revisions:CityRevision[],decisions:ApprovalRecord[]):CalendarWalk[] {
   const result:CalendarWalk[]=[];
   const initialReleases=new Map<string,CalendarSource>();
