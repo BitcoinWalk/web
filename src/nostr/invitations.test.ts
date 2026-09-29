@@ -1,10 +1,10 @@
 import {describe,it,expect,vi,afterEach} from "vitest";
-import {finalizeEvent,getPublicKey,nip19,nip44,type EventTemplate} from "nostr-tools";
+import {SimplePool,finalizeEvent,getPublicKey,nip19,nip44,type EventTemplate} from "nostr-tools";
 import {unwrapEvent} from "nostr-tools/nip59";
 vi.mock("./authority",()=>({isSuperAdmin:(key:string)=>key===getPublicKey(new Uint8Array(32).fill(1))}));
-import {inviteRecipient,publicInviteURL,invitationText,inboxRelays,prepareInvitation,preparePrivateInvitation} from "./invitations";
+import {inviteRecipient,publicInviteURL,invitationText,inboxRelays,prepareInvitation,preparePrivateInvitation,readInboxAnnouncements,discoverInvitationInboxes,invitationFailureMessage,inboxDiscoveryRelays} from "./invitations";
 const key=new Uint8Array(32).fill(2),pubkey=getPublicKey(key);
-afterEach(()=>vi.unstubAllGlobals());
+afterEach(()=>{vi.unstubAllGlobals();vi.restoreAllMocks();});
 describe("organizer invitations",()=>{
  it("makes a separate city identity optional and keeps key creation in the signer",()=>{
   const text=invitationText("https://example.com/start");
@@ -22,10 +22,48 @@ describe("organizer invitations",()=>{
  });
  it("uses verified inbox preferences, with no arbitrary relay fallback",()=>{
   const e=finalizeEvent({kind:10050,created_at:10,tags:[["relay","wss://inbox.example.com"]],content:""},key);
-  expect(inboxRelays([e],pubkey)).toEqual(["wss://inbox.example.com"]);
+  expect(inboxRelays([e],pubkey)).toEqual(["wss://inbox.example.com/"]);
   expect(()=>inboxRelays([e],"f".repeat(64))).toThrow();
   const latest=finalizeEvent({kind:10050,created_at:11,tags:[],content:""},key);expect(()=>inboxRelays([e,latest],pubkey)).toThrow();
   const tampered=JSON.parse(JSON.stringify(e));tampered.tags=[["relay","wss://evil.example.com"]];expect(()=>inboxRelays([tampered],pubkey)).toThrow();
+ });
+ it("finds signed settings on another discovery relay when the profile relays are unavailable",async()=>{
+  const inbox=finalizeEvent({kind:10050,created_at:10,tags:[["relay","wss://recipient.example.com"]],content:""},key);
+  vi.spyOn(SimplePool.prototype,"subscribeEose").mockImplementation((relays,_filter,handlers)=>{
+   queueMicrotask(()=>{if(relays[0].includes("ditto")){handlers.onevent?.(inbox);handlers.onclose?.([{url:relays[0],reason:"closed automatically on eose"}]);}else handlers.onclose?.([{url:relays[0],reason:"connection failed"}]);});
+   return {close:vi.fn()} as ReturnType<SimplePool["subscribeEose"]>;
+  });
+  const events=await readInboxAnnouncements(new SimplePool(),pubkey);
+  expect(inboxDiscoveryRelays).toContain("wss://relay.ditto.pub/");
+  expect(inboxDiscoveryRelays).toContain("wss://relay.primal.net/");
+  expect(inboxRelays(events,pubkey)).toEqual(["wss://recipient.example.com/"]);
+ });
+ it("distinguishes failed network discovery from a completed lookup with no inbox",async()=>{
+  vi.spyOn(SimplePool.prototype,"subscribeEose").mockImplementation((relays,_filter,handlers)=>{
+   queueMicrotask(()=>handlers.onclose?.([{url:relays[0],reason:"connection timed out"}]));
+   return {close:vi.fn()} as ReturnType<SimplePool["subscribeEose"]>;
+  });
+  await expect(readInboxAnnouncements(new SimplePool(),pubkey)).rejects.toThrow("no relay completed its read");
+  expect(()=>inboxRelays([],pubkey)).toThrow("No signed DM inbox announcement");
+ });
+ it("identifies the missing sender-copy inbox when the recipient has settings",async()=>{
+  const inbox=finalizeEvent({kind:10050,created_at:10,tags:[["relay","wss://recipient.example.com"]],content:""},key);
+  vi.spyOn(SimplePool.prototype,"subscribeEose").mockImplementation((relays,filter,handlers)=>{
+   queueMicrotask(()=>{if(filter.authors?.includes(pubkey))handlers.onevent?.(inbox);handlers.onclose?.([{url:relays[0],reason:"closed automatically on eose"}]);});
+   return {close:vi.fn()} as ReturnType<SimplePool["subscribeEose"]>;
+  });
+  await expect(discoverInvitationInboxes(pubkey,getPublicKey(new Uint8Array(32).fill(1)))).rejects.toThrow(/^Your sender-copy inbox:/);
+ });
+ it("honors the latest signed settings and normalizes equivalent relay URLs",()=>{
+  const old=finalizeEvent({kind:10050,created_at:10,tags:[["relay","wss://old.example.com"]],content:""},key);
+  const latest=finalizeEvent({kind:10050,created_at:11,tags:[["relay","wss://new.example.com"],["relay","wss://new.example.com/"]],content:""},key);
+  expect(inboxRelays([old,latest],pubkey)).toEqual(["wss://new.example.com/"]);
+ });
+ it("does not imply delivery or signed envelopes after a preview failure",()=>{
+  const message=invitationFailureMessage(new Error("Recipient inbox unavailable"),false,false);
+  expect(message).toContain("No invitation was sent.");expect(message).not.toContain("signed envelopes");
+  expect(invitationFailureMessage(new Error("Network error"),false,true)).toContain("Retry reuses the already signed envelopes");
+  expect(invitationFailureMessage(new Error("Sender copy failed"),true,true)).toContain("retry only completes the saved sender copy");
  });
  it("encrypts separate matching copies for recipient and sender without exporting the sender key",async()=>{
   const senderKey=new Uint8Array(32).fill(1),sender=getPublicKey(senderKey);
