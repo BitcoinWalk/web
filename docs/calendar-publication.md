@@ -20,6 +20,13 @@ readable. The web interface first reports the authoritative BitcoinWalk result (
 only after that succeeds does it publish and report the three public discovery relays
 (3/3).
 
+Staging acceptance on 29 September installed relay 0.8.54 and produced Memphis
+replacement event `dcf95bb77e935f2de5ec8ba73a137e6af55a5c088cdf52779fd2426af44f9cc2`
+with geohash `9ypzzjdhe`. Ditto acknowledged the first fanout before exact-ID read-back
+was available, so the UI correctly reported 2/3 and retained the failure reason. A
+manual retry reused the exact signature and reached 3/3; an independent query then
+verified that exact valid event and geohash on Ditto, Primal and Satlantis.
+
 ## Human acceptance
 
 1. Connect an approved city organizer and open `/admin/walks`.
