@@ -2,17 +2,17 @@ import type { Event } from "nostr-tools";
 import CoordinatesCopy from "./coordinates-copy";
 import WalkDelegation from "./walk-delegation";
 import CalendarShare from "./calendar-share";
-import { calendarImageOverride,calendarNevent, calendarOccurrence,calendarRoute,initialCalendarHero, type CalendarWalk } from "../nostr/calendar-records";
+import { calendarImageOverride,calendarNevent, calendarOccurrence,calendarRoute,initialCalendarHero, type CalendarWalk, type CalendarSource } from "../nostr/calendar-records";
 import { relayConfig } from "../lib/relay-config";
 import CityChat, {cityChatDetails} from "./city-chat";
 import WalkWeather from "./walk-weather";
 import {getWalkWeather} from "../domain/walk-weather";
 import {pilotWeatherHero} from "../domain/weather-hero";
 import ResilientHero from "./resilient-hero";
-import {MarkdownDescription} from "./rich-description";
+import WalkDescriptions from "./walk-descriptions";
 import WalkRoute from "./walk-route";
 
-export default async function WalkEvent({event,walk}:{event:Event;walk:CalendarWalk}) {
+export default async function WalkEvent({event,walk,currentProfile}:{event:Event;walk:CalendarWalk;currentProfile:CalendarSource}) {
   const city=walk.revision.city,occurrence=calendarOccurrence(event),point=occurrence?.meetingPoint??city.meetingPoint;
   const startSeconds=occurrence?.start??Math.floor(new Date(city.startAt).getTime()/1000),endSeconds=occurrence?.end??startSeconds+3600,start=startSeconds*1000;
   const chat=cityChatDetails({cityId:city.cityId,slug:city.slug});
@@ -25,7 +25,7 @@ export default async function WalkEvent({event,walk}:{event:Event;walk:CalendarW
     <WalkWeather result={weather} timeZone={occurrence?.timeZone??null} chatUrl={chat.url}/>
     <ResilientHero sources={[calendarImageOverride(event),forecastHero,city.heroImageUrl,walk.approval.approval.heroImageUrl,initialCalendarHero(event,walk)]} alt={`BitcoinWalk ${city.cityName}`} forecast={!calendarImageOverride(event)&&!!forecastHero}/>
     <p>{new Intl.DateTimeFormat(undefined,{dateStyle:"full",timeStyle:"short",...(occurrence?.timeZone?{timeZone:occurrence.timeZone}:{})}).format(new Date(start))}</p>
-    <MarkdownDescription value={event.content}/><p>{point.description}</p>
+    <WalkDescriptions cityName={currentProfile.revision.city.cityName} cityDescription={currentProfile.revision.city.description} eventDescription={event.content}/><p>{point.description}</p>
     {calendarRoute(event)&&<WalkRoute url={calendarRoute(event)!}/>}
     <CoordinatesCopy latitude={point.latitude} longitude={point.longitude}/>
     <WalkDelegation event={publicEvent} readOnly/>

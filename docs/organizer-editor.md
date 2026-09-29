@@ -1,5 +1,20 @@
 # Organizer editor — local staging slice, 19 September 2026
 
+## Approved descriptions on event pages — 29 September 2026
+
+App `0.3.85` displays the latest approved city description under **About BitcoinWalk
+<city>** on public event pages. When the signed event's description differs, it is
+also shown under **About this walk**. Equal descriptions are rendered once. This
+presentation was explicitly selected by the user under BW-72.
+
+Exact event resolution carries both the event's original approval provenance and
+the latest approved city profile. A pending or rejected revision cannot replace
+the public city text; revocation still prevents event resolution. Rendering never
+changes or republishes the signed event, so external Nostr clients retain its
+original content. The first-walk hero fallback introduced in `0.3.84` remains.
+
+The original implementation notes below describe the initial editor slice.
+
 URL: http://localhost:3000/organizer
 
 Connect a browser extension, load registered walks, and select a city. The creator,

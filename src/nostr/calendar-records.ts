@@ -92,12 +92,14 @@ export function decodeCalendarLink(value:string):string|null {
   if(value.length>2048||!value.startsWith("nevent1"))return null;
   try {const decoded=nip19.decode(value);if(decoded.type!=="nevent" || (decoded.data.kind!==undefined&&decoded.data.kind!==31923))return null;return decoded.data.id;}catch{return null;}
 }
-export async function resolveCalendarLink(value:string,relays:string[]):Promise<{event:Event;walk:CalendarWalk}|null> {
+export async function resolveCalendarLink(value:string,relays:string[]):Promise<{event:Event;walk:CalendarWalk;currentProfile:CalendarSource}|null> {
   const id=decodeCalendarLink(value);if(!id)return null;
   // Relay hints in user-controlled links are never used for network requests.
   const events=await queryCalendarEvents(relays,{ids:[id]});
   const event=events.find(e=>e.id===id);if(!event)return null;
   const walks=await loadCalendarWalks(relays);
+  const currentProfile=walks.find(w=>w.revision.city.cityId===one(event,"i"));
+  if(!currentProfile)return null;
   let walk=walks.find(w=>matchesCalendar(event,w)||matchesOrganizerCalendar(event,w)||matchesInitialCalendar(event,w));
   if(!walk){
     const revisionId=source(event,"city-revision"),approvalId=source(event,"city-approval"),cityId=one(event,"i");
@@ -109,5 +111,5 @@ export async function resolveCalendarLink(value:string,relays:string[]):Promise<
       if(revision&&approval){const historical={revision,approval};if(matchesOrganizerCalendar(event,historical))walk=historical;}
     }
   }
-  return walk?{event,walk}:null;
+  return walk?{event,walk,currentProfile}:null;
 }
