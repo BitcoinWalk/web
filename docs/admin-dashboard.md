@@ -64,6 +64,12 @@ The separate My hosting assignments navigation item is removed. `/admin/hosting`
 
 The super-admin sidebar has one Cities entry with four focused views: City list, Review requests, Profile, and Editors. The separate Approvals, City moderation, and City permissions navigation entries are gone. Old `/admin/approvals`, `/admin/moderation`, and `/admin/editors` links redirect to the matching Cities view; submission anchors and query parameters are preserved. Guide's older `/admin#submission-ID` links also route directly to Review requests.
 
+## App 0.3.90 — focused CMS modules
+
+The super-admin sidebar now exposes three adjacent, task-focused modules. **Cities** contains the city inventory, review requests, and city-profile editing. **Walks** contains occurrence scheduling plus walk/city/organizer publishing moderation. **Organizers** contains city-editor access and organizer invitations. This is an information-architecture change only: signer, role, city-editor, approval and relay-policy boundaries are unchanged.
+
+Old `/admin/moderation`, `/admin/editors`, `/admin/invitations`, and the corresponding former `?tab=moderation` or `?tab=editors` Cities links redirect to their new modules while preserving the selected city and fragment. Organizers retain their role-specific Cities and Walks entries; the new Organizers administration module remains super-admin-only.
+
 City list reads city state first and reads NIP-52 occurrences only for the selected city. It keeps approve/restore, disapprove, free-city archive and exact published-walk cancellation with existing confirmations and relay read-back. Review requests keeps approve/reject and the required creator-registration signature; paid requests remain preferences, not entitlements. Editors keeps signed city-wide add/remove with creator protection. Profile edits are limited to city description, hero image, and default meeting point; the legacy city start date is preserved but no longer editable in this screen because actual walks are managed per event in Walks. Redundant breadcrumbs and cross-links are removed. Relay policy, keys, records and published events are unchanged. Staging and cross-role human acceptance remain pending.
 
 For 0.3.17 acceptance: connect once, inspect overview counts, select a city and navigate between Walks/Cities/Hosting. Confirm the filter persists and each screen loads without a second connect click. Test All available cities, a host-only identity, and a relay outage. Refresh overview after signed changes; counts are not live.

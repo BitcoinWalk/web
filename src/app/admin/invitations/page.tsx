@@ -1,2 +1,2 @@
-import OrganizerInvitations from "../../../components/organizer-invitations";
-export default function InvitationsPage(){return <main><h1>Invite organizers</h1><OrganizerInvitations/></main>;}
+import DashboardRedirect from "../../../components/dashboard-redirect";
+export default function LegacyInvitations(){return <DashboardRedirect from="/admin/invitations"/>;}
