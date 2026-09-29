@@ -4,6 +4,7 @@ import type { CalendarWalk } from "./calendar-records";
 import { CALENDAR_EVENT_KIND } from "../domain/city";
 import {optionalAllTrailsRoute} from "../domain/walk-route";
 import {occurrenceDays} from "../domain/walk-schedule";
+import {encodeGeohash} from "../domain/geohash";
 
 export type UnsignedNostrEvent = {
   kind: number;
@@ -18,7 +19,7 @@ export type UnsignedNostrEvent = {
  */
 export function createCalendarEvent(
   city: CityDocument,
-  occurrence: { id: string; startUnixSeconds: number; endUnixSeconds?: number; geohash?: string },
+  occurrence: { id: string; startUnixSeconds: number; endUnixSeconds?: number },
 ): UnsignedNostrEvent {
   const days=occurrence.endUnixSeconds?occurrenceDays(occurrence.startUnixSeconds,occurrence.endUnixSeconds):[String(Math.floor(occurrence.startUnixSeconds/86_400))];
   const tags = [
@@ -37,7 +38,7 @@ export function createCalendarEvent(
   if (city.chatUrl) tags.push(["r", city.chatUrl]);
 
   if (occurrence.endUnixSeconds) tags.push(["end", String(occurrence.endUnixSeconds)]);
-  if (occurrence.geohash) tags.push(["g", occurrence.geohash]);
+  tags.push(["g", encodeGeohash(city.meetingPoint.latitude,city.meetingPoint.longitude)]);
 
   return {
     kind: CALENDAR_EVENT_KIND,

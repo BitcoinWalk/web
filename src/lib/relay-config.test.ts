@@ -36,11 +36,13 @@ describe("directory relay configuration",()=>{
     expect(relayConfig.calendarDiscoveryRelays).toEqual([
       "wss://relay.ditto.pub/",
       "wss://relay.primal.net/",
+      "wss://relay.satlantis.io/",
     ]);
     expect(relayConfig.calendarRelayHints).toEqual([
       "wss://relay-staging.bitcoinwalk.org/",
       "wss://relay.ditto.pub/",
       "wss://relay.primal.net/",
+      "wss://relay.satlantis.io/",
     ]);
   });
 
@@ -79,6 +81,6 @@ describe("directory relay configuration",()=>{
     expect(relayConfig.readRelays).toEqual(["wss://relay-staging.bitcoinwalk.org/"]);
     expect(relayConfig.writeRelays).toEqual(["wss://relay-staging.bitcoinwalk.org/"]);
     expect(relayConfig.directoryRelays).toHaveLength(2);
-    expect(relayConfig.calendarDiscoveryRelays).toHaveLength(2);
+    expect(relayConfig.calendarDiscoveryRelays).toHaveLength(3);
   });
 });

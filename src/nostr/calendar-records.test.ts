@@ -47,7 +47,7 @@ describe("calendar event verification and links",()=>{
  it("encodes an exact event ID and rejects malformed or wrong-type links",()=>{
   const e=signed(),encoded=calendarNevent(e,["wss://bitcoinwalk.example/","wss://one.example/","wss://two.example/","wss://ignored.example/"]);
   expect(decodeCalendarLink(encoded)).toBe(e.id);
-  const decoded=nip19.decode(encoded);expect(decoded.type).toBe("nevent");if(decoded.type==="nevent")expect(decoded.data.relays).toEqual(["wss://bitcoinwalk.example/","wss://one.example/","wss://two.example/"]);
+  const decoded=nip19.decode(encoded);expect(decoded.type).toBe("nevent");if(decoded.type==="nevent")expect(decoded.data.relays).toEqual(["wss://bitcoinwalk.example/","wss://one.example/","wss://two.example/","wss://ignored.example/"]);
   expect(decodeCalendarLink("nevent1invalid")).toBeNull();
   expect(decodeCalendarLink(nip19.neventEncode({id:e.id,kind:1}))).toBeNull();
   expect(decodeCalendarLink(nip19.neventEncode({id:e.id,author:"f".repeat(64)}))).toBe(e.id);

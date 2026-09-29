@@ -18,6 +18,7 @@ describe("NIP-52 calendar event", () => {
     expect(event.kind).toBe(31923);
     expect(event.tags).toContainEqual(["image", "https://example.com/hero.jpg"]);
     expect(event.tags).toContainEqual(["r", "https://example.com/chat"]);
+    expect(event.tags).toContainEqual(["g", "9v6kpvcxh"]);
   });
   it("marks a managed per-walk image override without changing the city template",()=>{
     const override="https://app-staging.bitcoinwalk.org/api/media/files/"+"a".repeat(64)+".webp";
