@@ -2,6 +2,8 @@
 
 ## First staging increment (app 0.3.89, relay 0.8.56)
 
+Activated on 29 September 2026 after operator relay installation. Relay backup: `/var/backups/bitcoinwalk-relay-moderation-0.8.56.1otPPT`; app backup: `/home/bitcoinwalk/backups/bitcoinwalk-app-bw39-0.3.89.dHUAAi`. App health checks passed. Source commits: web `2b76ec1`, relay `920fa64`. Signed human acceptance is still pending.
+
 Super-admin controls are under **Admin → Cities → Walk moderation**. They apply to non-replicated cities only. The app checks the relay version before signing; the relay independently checks authority and scope on receipt and again under the storage lock.
 
 - **Hide/unhide** targets the stable `31923:author:d` address. Hiding suppresses anonymous lists, exact-ID reads and broadcasts; edited versions cannot bypass it. Original signed records remain stored. Unhide does not undo cancellation, city disapproval, or other existing read restrictions.
