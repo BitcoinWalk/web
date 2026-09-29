@@ -12,6 +12,7 @@ describe("consolidated city administration",()=>{
     const hash=`#submission-${"a".repeat(64)}`;
     expect(cityTabFromLocation("?tab=manage",hash)).toBe("requests");
     expect(cityTabFromLocation("?tab=editors","")).toBe("editors");
+    expect(cityTabFromLocation("?tab=moderation","")).toBe("moderation");
     expect(cityTabFromLocation("?tab=unexpected","")).toBe("manage");
   });
 });

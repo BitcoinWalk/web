@@ -5,13 +5,15 @@ import CityModeration from "../../../components/city-moderation";
 import SubmissionApprovals from "../_approvals-screen";
 import CityProfile from "../../organizer/_screen";
 import CityEditors from "../editors/_screen";
+import EventModerationPanel from "../../../components/event-moderation";
 
-type CityTab="manage"|"requests"|"profile"|"editors";
+type CityTab="manage"|"requests"|"profile"|"editors"|"moderation";
 const tabs:{id:CityTab;label:string}[]=[
   {id:"manage",label:"City list"},
   {id:"requests",label:"Review requests"},
   {id:"profile",label:"Edit city"},
   {id:"editors",label:"Editors"},
+  {id:"moderation",label:"Walk moderation"},
 ];
 export function cityTabFromLocation(search:string,hash:string):CityTab{
   if(/^#submission-[0-9a-f]{64}$/.test(hash))return "requests";
@@ -41,7 +43,7 @@ export default function CitiesPage(){
       {tabs.map(item=><button key={item.id} type="button" role="tab" id={`city-tab-${item.id}`} aria-controls="city-panel" aria-selected={tab===item.id} style={{background:tab===item.id?"#f7931a":undefined,fontWeight:tab===item.id?700:undefined}} onClick={()=>select(item.id)}>{item.label}</button>)}
     </div>
     {tab&&<div role="tabpanel" id="city-panel" aria-labelledby={`city-tab-${tab}`}>
-      {tab==="manage"?<CityModeration/>:tab==="requests"?<SubmissionApprovals/>:tab==="profile"?<CityProfile/>:<CityEditors/>}
+      {tab==="manage"?<CityModeration/>:tab==="requests"?<SubmissionApprovals/>:tab==="profile"?<CityProfile/>:tab==="moderation"?<EventModerationPanel/>:<CityEditors/>}
     </div>}
   </main>;
 }
