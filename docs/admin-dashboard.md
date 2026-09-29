@@ -72,6 +72,14 @@ Old `/admin/moderation`, `/admin/editors`, `/admin/invitations`, and the corresp
 
 City list reads city state first and reads NIP-52 occurrences only for the selected city. It keeps approve/restore, disapprove, free-city archive and exact published-walk cancellation with existing confirmations and relay read-back. Review requests keeps approve/reject and the required creator-registration signature; paid requests remain preferences, not entitlements. Editors keeps signed city-wide add/remove with creator protection. Profile edits are limited to city description, hero image, and default meeting point; the legacy city start date is preserved but no longer editable in this screen because actual walks are managed per event in Walks. Redundant breadcrumbs and cross-links are removed. Relay policy, keys, records and published events are unchanged. Staging and cross-role human acceptance remain pending.
 
+## App 0.3.92 — reusable user identity and organizer directory
+
+The repeated identity display is now one reusable Nostr user component. It resolves signed kind-0 metadata across the configured public profile relays and shows a safe HTTPS avatar, username, npub, NIP-05 and `lud16`/`lud06` Lightning destination. NIP-05 is checked live against the identifier's well-known document; a displayed identifier is labelled **verified** only when it maps to the exact npub. Every available text value has a small copy control. Missing or unsafe profile fields remain visibly unavailable rather than being inferred.
+
+The dashboard header uses the compact version. **Organizers → All organizers** uses the full version and groups creators and added editors by city from the latest signed city grants; the super-admin is not presented as an ordinary organizer merely because it has global access. Profile lookup is batched for the directory. The invitation/editor/delegation identity surfaces reuse the same component. **Walks** now has only its module-level title.
+
+App 0.3.92 was activated on staging on 29 September 2026 through the non-root deployment helper. Artifact SHA-256: `d303edbd570fd5cec703df3a3c9e3ac8db69f31adc684282c959449c78dcac7d`; deployment evidence: `/home/bitcoinwalk/backups/app-staging-deploy.IAp7xc`; active release: `/opt/bitcoinwalk-app-staging/releases/0.3.92-d303edbd570f`. Packaged smoke, 380 tests, source lint, production build, public health and both changed route checks passed. Signer-connected profile, copy-control, city-grouping and responsive-layout acceptance remains under BW-74.
+
 For 0.3.17 acceptance: connect once, inspect overview counts, select a city and navigate between Walks/Cities/Hosting. Confirm the filter persists and each screen loads without a second connect click. Test All available cities, a host-only identity, and a relay outage. Refresh overview after signed changes; counts are not live.
 
 ## Content administration
