@@ -1,5 +1,9 @@
 # Unified dashboard
 
+## BW-25 restore regression — 29 September 2026
+
+Larnaca's signed history confirmed disapproval of its original submission. The restore button constructed an approval without that revision's initial-walk reference, which the relay requires. App 0.3.88 restores the exact reference from the signed revision and retains the same revision's previous approved hero image and slug. It does not create or sign a new occurrence, change editors, or bypass the relay's cancellation rules. Automated lifecycle tests cover disapproval and archive followed by restore, metadata preservation, and rejection of metadata from another revision. Feedback is also displayed beside the action buttons; hidden events are explained separately from archive/infrastructure warnings. User-signed restore and public-page acceptance remain pending; Larnaca was not restored automatically.
+
 App 0.3.16 consolidates organizer and super-admin screens under /admin. Relay 0.7.1 is unchanged. The left sidebar becomes a collapsible mobile menu; the right panel displays the selected section.
 
 Routes: /admin overview, /admin/walks, /admin/hosting, /admin/cities, /admin/approvals, /admin/moderation, /admin/editors, /admin/invitations, /admin/accept-invitation.

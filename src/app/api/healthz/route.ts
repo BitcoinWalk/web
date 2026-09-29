@@ -1,2 +1,2 @@
 export const dynamic="force-dynamic";
-export function GET(){return Response.json({status:"ok",app:"bitcoinwalk-web",release:"app-staging-0.3.87"},{headers:{"Cache-Control":"no-store"}});}
+export function GET(){return Response.json({status:"ok",app:"bitcoinwalk-web",release:"app-staging-0.3.88"},{headers:{"Cache-Control":"no-store"}});}
