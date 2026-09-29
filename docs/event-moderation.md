@@ -25,7 +25,9 @@ This release deliberately rejects moderation for cities in the source's replicat
 
 Automated relay tests cover unauthorized/cross-city actions, exact-ID/broadcast suppression, hidden-address edits, stale decisions, exact replay, hide/unhide, creator and city suspension, preserved public history, cancellation non-resurrection, restart persistence and replication safety gates. Web tests cover signed schema/tag validation, stable addresses, state resolution, version gating and admin tab routing.
 
-Human staging acceptance remains pending. After the operator installs relay 0.8.56, use a non-replicated test city:
+Human staging acceptance is partial. The user confirmed that a signed suspension blocked publication (`restricted: publishing suspended by BitcoinWalk super-admin`), resuming restored successful publication, and existing walks remained visible. The tested suspension scope (city or author) was not specified; do not infer both passed. Hide/unhide and moderation-specific role/stale-state checks have not yet been explicitly confirmed.
+
+Acceptance checklist for a non-replicated test city on the installed relay 0.8.56:
 
 1. Hide one walk with a test reason. Verify its exact public link is unavailable and other walks remain public.
 2. Unhide it with another reason. Verify the original event ID/page returns, without republishing.
