@@ -1,6 +1,6 @@
 import { describe,expect,it } from "vitest";
 import { finalizeEvent, generateSecretKey } from "nostr-tools";
-import { parsePublicProfile, safeProfilePicture } from "./profiles";
+import { parsePublicProfile, safeLnurl, safeNip05, safeProfilePicture } from "./profiles";
 const sk=generateSecretKey();
 const signed=(content:string,kind=0)=>finalizeEvent({kind,created_at:1,tags:[],content},sk);
 describe("public editor profiles",()=>{
@@ -21,5 +21,11 @@ describe("public editor profiles",()=>{
  it("bounds and cleans display names",()=>{
   const e=signed(JSON.stringify({display_name:"\u202e"+"x".repeat(200)}));
   expect(parsePublicProfile(e,new Set([e.pubkey]))?.name).toBe("x".repeat(100));
+ });
+ it("reads safe NIP-05 and Lightning metadata",()=>{
+  const e=signed(JSON.stringify({name:"Alice",nip05:"alice@example.org",lud16:"alice@getalby.com",lud06:"lnurl1dp68gurn8ghj7"}));
+  expect(parsePublicProfile(e,new Set([e.pubkey]))).toEqual({name:"Alice",nip05:"alice@example.org",lnurl:"alice@getalby.com"});
+  expect(safeNip05("not an identifier")).toBeUndefined();
+  expect(safeLnurl("bad value","lnurl1dp68gurn8ghj7")).toBe("lnurl1dp68gurn8ghj7");
  });
 });

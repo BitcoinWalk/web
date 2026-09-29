@@ -458,7 +458,6 @@ export default function OrganizerEventsPage() {
   const publishingBlocked=publishingAccess!=="active",publishingNotice=publishingAccessNotice(publishingAccess);
 
   return <main>
-    <h1>Walks</h1>
     {message&&<p role="status">{message}</p>}
     {hostingError&&<p role="alert">Hosting assignments could not be loaded: {hostingError}</p>}
     {!!owner && !!walks.length && <><button disabled={busy||publishingBlocked} onClick={openForm}>+ Add a walk</button>{publishingNotice&&<p role={publishingAccess==="suspended"?"alert":"status"}>{publishingNotice}</p>}</>}

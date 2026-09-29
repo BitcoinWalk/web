@@ -5,6 +5,7 @@ import {getBrowserExtensionPubkey,authenticateWithBrowserExtension} from "../nos
 import {isSuperAdmin} from "../nostr/authority";
 import {publishVerifiedEvent} from "../nostr/relay";
 import type {EventTemplate} from "nostr-tools";
+import NostrUser from "./nostr-user";
 
 type Preview={recipient:string;npub:string;url:string;text:string;to:string[];self:string[];author:string};
 export default function OrganizerInvitations(){
@@ -23,5 +24,5 @@ export default function OrganizerInvitations(){
   if(!senderAck.current){await publishVerifiedEvent(pending.current.sender,preview.self,1,auth);senderAck.current=true;}
   setSent(true);setMessage("Recipient inbox and sender-copy relays acknowledged the invitation. This confirms relay acceptance, not that the recipient has read it.");
  });}
- return <section><h2>Invite an organizer</h2><p>No npub or private key is placed in the registration link. The message is encrypted; your extension signs as super-admin. Localhost is not a usable invitation destination.</p><label>Recipient npub<input disabled={busy} value={npub} onChange={e=>{reset();setNpub(e.target.value);}} placeholder="npub1…" autoComplete="off"/></label><label>Public registration URL<input disabled={busy} value={url} onChange={e=>{reset();setURL(e.target.value);}} placeholder="https://your-deployed-site/start" type="url"/></label><button disabled={busy} onClick={prepare}>Preview invitation and check inboxes</button><p role="status">{message}</p>{preview&&<div><p style={{overflowWrap:"anywhere"}}>To: {preview.npub}</p><p style={{whiteSpace:"pre-wrap"}}>{preview.text}</p><p>Recipient relays: {preview.to.join(", ")}<br/>Sender-copy relays: {preview.self.join(", ")}</p><button disabled={busy||sent} onClick={send}>{sent?"Invitation acknowledged":"Sign and send invitation"}</button></div>}</section>;
+ return <section><h2>Invite an organizer</h2><p>No npub or private key is placed in the registration link. The message is encrypted; your extension signs as super-admin. Localhost is not a usable invitation destination.</p><label>Recipient npub<input disabled={busy} value={npub} onChange={e=>{reset();setNpub(e.target.value);}} placeholder="npub1…" autoComplete="off"/></label><label>Public registration URL<input disabled={busy} value={url} onChange={e=>{reset();setURL(e.target.value);}} placeholder="https://your-deployed-site/start" type="url"/></label><button disabled={busy} onClick={prepare}>Preview invitation and check inboxes</button><p role="status">{message}</p>{preview&&<div><p>Recipient</p><NostrUser pubkey={preview.recipient}/><p style={{whiteSpace:"pre-wrap"}}>{preview.text}</p><p>Recipient relays: {preview.to.join(", ")}<br/>Sender-copy relays: {preview.self.join(", ")}</p><button disabled={busy||sent} onClick={send}>{sent?"Invitation acknowledged":"Sign and send invitation"}</button></div>}</section>;
 }
