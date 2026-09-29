@@ -23,6 +23,7 @@ import { editDraftOccurrence, readRecurringPlan, saveRecurringPlan, upcomingDraf
 import { eventPageHref, managedCalendarEvents, type ManagedCalendarEvent } from "../../../domain/event-routing";
 import { reconcileOccurrences } from "../../../domain/recurrence-reconciliation";
 import { createOrganizerCancellation } from "../../../nostr/moderation";
+import {DEFAULT_WALK_LIST_STATUSES,groupWalkRows} from "../../../domain/walk-list";
 import {importCityImageURL} from "../../../lib/media-client";
 import {RichDescriptionEditor} from "../../../components/rich-description";
 import {calendarRoute} from "../../../nostr/calendar-records";
@@ -47,7 +48,7 @@ export default function OrganizerEventsPage() {
   const [showForm, setShowForm] = useState(false);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
-  const [visibleStatuses,setVisibleStatuses]=useState<Set<WalkListRow["kind"]>>(()=>new Set(["upcoming","draft"]));
+  const [visibleStatuses,setVisibleStatuses]=useState<Set<WalkListRow["kind"]>>(()=>new Set(DEFAULT_WALK_LIST_STATUSES));
   const [preview, setPreview] = useState<LocatedOccurrence[]>([]);
   const [coverage, setCoverage] = useState<{ planned: number; published: number; missing: number } | null>(null);
   const [meetingPoint, setMeetingPoint] = useState<LocationValue | null>(null);
@@ -440,16 +441,7 @@ export default function OrganizerEventsPage() {
   for(const {walk,item} of hosted){
     if(!rows.some(row=>row.key===`event:${item.event.id}`))rows.push({kind:item.status==="past"?"past":"upcoming",key:`event:${item.event.id}`,at:item.start,walk,item,hosted:true});
   }
-  const cityGroups=new Map<string,{name:string;rows:WalkListRow[]}>();
-  for(const row of rows){
-    if(!visibleStatuses.has(row.kind))continue;
-    const city=row.walk.revision.city;
-    const group=cityGroups.get(city.cityId)??{name:city.cityName,rows:[]};
-    group.rows.push(row);
-    cityGroups.set(city.cityId,group);
-  }
-  const cities=[...cityGroups.entries()].sort((a,b)=>a[1].name.localeCompare(b[1].name));
-  for(const [,city] of cities)city.rows.sort((a,b)=>a.at-b.at||a.key.localeCompare(b.key));
+  const cities=groupWalkRows(rows,visibleStatuses);
 
   return <main>
     <h1>Walks</h1>

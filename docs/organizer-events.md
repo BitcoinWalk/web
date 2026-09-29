@@ -1,5 +1,34 @@
 # Organizer events — staged implementation
 
+## BW-40 retained occurrence history — 29 September 2026
+
+App `0.3.86` uses a shared read resolver for the city redirect, exact event pages,
+organizer list, dashboard counts, hosted walks and the super-admin city list.
+Each currently approved city carries its retained approved revision/decision pairs.
+An organizer occurrence can match its original pair after a newer city profile is
+approved; pending revisions and mismatched/foreign-city references cannot supply
+that provenance. Revoked cities remain excluded. New publications still reference
+the current city approval; no signed event is rewritten by this change.
+
+The deployed unified list includes Draft, Upcoming, Past and Canceled filters,
+chronological grouping, contextual controls and hosted walks. Upcoming and Draft
+are selected initially. A shared grouping helper now has tests for every filter,
+combined/empty selection, chronology and preserved hosted context. Older canceled
+records still use the cancellation date with the existing explanatory notice.
+
+Regression coverage exercises scheduled events after profile/hero/meeting-point
+changes, active/grace/next routing, past visibility, duplicate-prevention coverage,
+missing/unapproved/mismatched provenance, invalid signatures and revocation.
+Cancellation remains enforced by managed-relay public reads; retained approval
+history never manufactures absent event records. Pre-deployment read-only checks
+found all seven Memphis and one Norilsk public events visible, with five Memphis
+cancellation targets absent; neither current pilot required recovery of a missing
+row. The profile-change regression is exercised with signed automated fixtures.
+External-app discovery/cancellation is exclusively BW-10; suspension/hide/unhide
+is BW-39 and is not a prerequisite for this completed list/routing scope.
+
+The dated implementation notes below are retained as history.
+
 Current staging state (21 September 2026): organizer NIP-52 batch publishing,
 read-back, exact event links, city redirects, the scheduled-walk list, and
 publication-aware recurrence preview are deployed. The user confirmed the

@@ -3,9 +3,9 @@ import {finalizeEvent,getPublicKey} from "nostr-tools";
 import {acceptedWalkIds,queryHostedWalks} from "./hosted-walks";
 import {delegationControl,delegationAcceptance,delegationState} from "./delegations";
 import {queryRelayEvents} from "./city-records";
-import {loadCalendarWalks,matchesCalendar,matchesInitialCalendar,matchesOrganizerCalendar} from "./calendar-records";
+import {loadCalendarWalks,calendarEventSource} from "./calendar-records";
 vi.mock("./city-records",()=>({queryRelayEvents:vi.fn()}));
-vi.mock("./calendar-records",()=>({loadCalendarWalks:vi.fn(),matchesCalendar:vi.fn(),matchesInitialCalendar:vi.fn(),matchesOrganizerCalendar:vi.fn()}));
+vi.mock("./calendar-records",()=>({loadCalendarWalks:vi.fn(),calendarEventSource:vi.fn()}));
 vi.mock("../domain/event-routing",()=>({managedCalendarEvents:(_walk:unknown,events:unknown[])=>events.map(event=>({event,start:10000,status:"upcoming"}))}));
 const creatorKey=new Uint8Array(32).fill(2),hostKey=new Uint8Array(32).fill(3),otherKey=new Uint8Array(32).fill(4);
 const creator=getPublicKey(creatorKey),host=getPublicKey(hostKey),other=getPublicKey(otherKey);
@@ -15,7 +15,7 @@ const pending=delegationState(event,[invite],101)!;
 const acceptance=finalizeEvent(delegationAcceptance(pending,host,102),hostKey);
 const active=delegationState(event,[invite,acceptance],103)!;
 beforeEach(()=>{
- vi.resetAllMocks();vi.mocked(loadCalendarWalks).mockResolvedValue([{} as never]);vi.mocked(matchesOrganizerCalendar).mockReturnValue(true);vi.mocked(matchesCalendar).mockReturnValue(false);vi.mocked(matchesInitialCalendar).mockReturnValue(false);
+ vi.resetAllMocks();vi.mocked(loadCalendarWalks).mockResolvedValue([{} as never]);vi.mocked(calendarEventSource).mockReturnValue({} as never);
  vi.mocked(queryRelayEvents).mockImplementation(async(_relays,kinds)=>kinds[0]===30306?[acceptance]:kinds[0]===31923?[event]:kinds[0]===30305?[invite]:[]);
 });
 describe("delegate dashboard",()=>{
@@ -42,9 +42,9 @@ describe("delegate dashboard",()=>{
   expect(await queryHostedWalks(["wss://example.com"],host)).toEqual([]);
  });
  it("excludes cancelled/unpublished walks and pending invitations",async()=>{
-  vi.mocked(matchesOrganizerCalendar).mockReturnValue(false);
+  vi.mocked(calendarEventSource).mockReturnValue(null);
   expect(await queryHostedWalks(["wss://example.com"],host)).toEqual([]);
-  vi.mocked(matchesOrganizerCalendar).mockReturnValue(true);
+  vi.mocked(calendarEventSource).mockReturnValue({} as never);
   vi.mocked(queryRelayEvents).mockImplementation(async(_relays,kinds,_auth,filter)=>kinds[0]===30306&&(filter as {authors?:string[]}).authors?[acceptance]:kinds[0]===31923?[event]:kinds[0]===30305?[invite]:[]);
   expect(await queryHostedWalks(["wss://example.com"],host)).toEqual([]);
  });

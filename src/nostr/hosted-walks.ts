@@ -1,7 +1,7 @@
 import {verifyEvent,type Event} from "nostr-tools";
 import {queryRelayEvents} from "./city-records";
 import {ACCEPTANCE_KIND,DELEGATION_KIND,delegationState} from "./delegations";
-import {loadCalendarWalks,matchesCalendar,matchesInitialCalendar,matchesOrganizerCalendar,type CalendarWalk} from "./calendar-records";
+import {loadCalendarWalks,calendarEventSource,type CalendarWalk} from "./calendar-records";
 import {managedCalendarEvents,type ManagedCalendarEvent} from "../domain/event-routing";
 
 export type HostedWalk={walk:CalendarWalk;item:ManagedCalendarEvent};
@@ -24,7 +24,7 @@ export async function queryHostedWalks(relays:string[],actor:string):Promise<Hos
  const events:Event[]=[];
  for(let offset=0;offset<ids.length;offset+=100)events.push(...await queryRelayEvents(relays,[31923],undefined,{ids:ids.slice(offset,offset+100),limit:100}));
  const walks=await loadCalendarWalks(relays);
- const resolved=events.flatMap(event=>{const walk=walks.find(candidate=>matchesCalendar(event,candidate)||matchesOrganizerCalendar(event,candidate)||matchesInitialCalendar(event,candidate));return walk?[{event,walk}]:[];});
+ const resolved=events.flatMap(event=>{const walk=walks.find(candidate=>calendarEventSource(event,candidate));return walk?[{event,walk}]:[];});
  const walkIds=resolved.map(entry=>entry.event.id),controls:Event[]=[];
  for(let offset=0;offset<walkIds.length;offset+=100)controls.push(...await queryRelayEvents(relays,[DELEGATION_KIND],undefined,{"#e":walkIds.slice(offset,offset+100),limit:500}));
  const invitationIds=controls.map(event=>event.id),acceptances:Event[]=[];

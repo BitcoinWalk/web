@@ -7,7 +7,7 @@ import {occurrenceDays} from "../domain/walk-schedule";
 import {encodeGeohash} from "../domain/geohash";
 
 export type CalendarSource={revision:CityRevision;approval:ApprovalRecord};
-export type CalendarWalk=CalendarSource&{initialRelease?:CalendarSource};
+export type CalendarWalk=CalendarSource&{initialRelease?:CalendarSource;approvedSources?:CalendarSource[]};
 /** A later profile approval must not discard the released first walk's image. */
 export function initialCalendarHero(event:Event,walk:CalendarWalk):string|undefined {
   if(!matchesInitialCalendar(event,walk))return undefined;
@@ -16,12 +16,17 @@ export function initialCalendarHero(event:Event,walk:CalendarWalk):string|undefi
 }
 export function approvedCalendarWalks(revisions:CityRevision[],decisions:ApprovalRecord[]):CalendarWalk[] {
   const result:CalendarWalk[]=[];
+  const approvedSources=new Map<string,CalendarSource[]>();
   const initialReleases=new Map<string,CalendarSource>();
   for(const record of [...decisions].sort((a,b)=>compareEvents(a.event,b.event))){
     const decision=record.approval;
-    if(initialReleases.has(decision.cityId)||decision.status!=="approved"||!decision.initialEventId)continue;
+    if(decision.status!=="approved")continue;
     const revision=revisions.find(item=>item.city.cityId===decision.cityId&&item.event.id===decision.cityRevisionId);
-    if(revision)initialReleases.set(decision.cityId,{revision,approval:record});
+    if(!revision)continue;
+    const source={revision,approval:record};
+    const sources=approvedSources.get(decision.cityId)??[];
+    sources.push(source);approvedSources.set(decision.cityId,sources);
+    if(!initialReleases.has(decision.cityId)&&decision.initialEventId)initialReleases.set(decision.cityId,source);
   }
   const finished=new Set<string>(),rejected=new Map<string,Set<string>>();
   for(const record of [...decisions].sort((a,b)=>compareEvents(a.event,b.event))) {
@@ -31,13 +36,25 @@ export function approvedCalendarWalks(revisions:CityRevision[],decisions:Approva
     finished.add(d.cityId);
     if(d.status!=="approved"||rejected.get(d.cityId)?.has(d.cityRevisionId))continue;
     const revision=revisions.find(r=>r.city.cityId===d.cityId&&r.event.id===d.cityRevisionId);
-    if(revision)result.push({revision:d.slug&&d.slug!==revision.city.slug?{...revision,city:{...revision.city,slug:d.slug}}:revision,approval:record,...(initialReleases.has(d.cityId)?{initialRelease:initialReleases.get(d.cityId)}:{})});
+    const historical=(approvedSources.get(d.cityId)??[]).filter(source=>source.approval.event.id!==record.event.id);
+    if(revision)result.push({revision:d.slug&&d.slug!==revision.city.slug?{...revision,city:{...revision.city,slug:d.slug}}:revision,approval:record,...(initialReleases.has(d.cityId)?{initialRelease:initialReleases.get(d.cityId)}:{}),...(historical.length?{approvedSources:historical}:{})});
   }
   return result.sort((a,b)=>a.revision.city.cityName.localeCompare(b.revision.city.cityName));
 }
 export async function loadCalendarWalks(relays:string[]):Promise<CalendarWalk[]> {
   const {revisions,approvals}=await queryDirectoryRecords(relays);
   return approvedCalendarWalks(revisions,approvals);
+}
+/** Read validation only: new publications must still reference the current approval.
+ * Sources are retained approved records, attached only to a currently public city.
+ * Event cancellation remains authoritative in the managed relay's public reads.
+ */
+export function calendarEventSource(event:Event,walk:CalendarWalk):CalendarWalk|null {
+  if(walk.approval.approval.status!=="approved")return null;
+  if(matchesCalendar(event,walk)||matchesOrganizerCalendar(event,walk)||matchesInitialCalendar(event,walk))return walk;
+  const revisionId=source(event,"city-revision"),approvalId=source(event,"city-approval");
+  const historical=walk.approvedSources?.find(candidate=>candidate.revision.city.cityId===walk.revision.city.cityId&&candidate.approval.approval.cityId===walk.revision.city.cityId&&candidate.approval.approval.status==="approved"&&candidate.approval.approval.cityRevisionId===candidate.revision.event.id&&candidate.revision.event.id===revisionId&&candidate.approval.event.id===approvalId);
+  return historical&&matchesOrganizerCalendar(event,historical)?historical:null;
 }
 const orderedTags=(tags:string[][])=>JSON.stringify(tags.map(t=>JSON.stringify(t)).sort());
 function matchesExpectedTags(event:Event,expected:string[][]):boolean {const actual=orderedTags(event.tags);if(actual===orderedTags(expected))return true;return one(event,"g")===null&&actual===orderedTags(expected.filter(tag=>tag[0]!=="g"));}
@@ -100,16 +117,6 @@ export async function resolveCalendarLink(value:string,relays:string[]):Promise<
   const walks=await loadCalendarWalks(relays);
   const currentProfile=walks.find(w=>w.revision.city.cityId===one(event,"i"));
   if(!currentProfile)return null;
-  let walk=walks.find(w=>matchesCalendar(event,w)||matchesOrganizerCalendar(event,w)||matchesInitialCalendar(event,w));
-  if(!walk){
-    const revisionId=source(event,"city-revision"),approvalId=source(event,"city-approval"),cityId=one(event,"i");
-    const current=cityId&&walks.some(w=>w.revision.city.cityId===cityId);
-    if(revisionId&&approvalId&&current){
-      const {revisions,approvals}=await queryDirectoryRecords(relays);
-      const revision=revisions.find(r=>r.event.id===revisionId&&r.city.cityId===cityId);
-      const approval=approvals.find(a=>a.event.id===approvalId&&a.approval.status==="approved"&&a.approval.cityId===cityId&&a.approval.cityRevisionId===revisionId);
-      if(revision&&approval){const historical={revision,approval};if(matchesOrganizerCalendar(event,historical))walk=historical;}
-    }
-  }
+  const walk=calendarEventSource(event,currentProfile);
   return walk?{event,walk,currentProfile}:null;
 }

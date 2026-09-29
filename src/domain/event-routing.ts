@@ -1,6 +1,6 @@
 import type { Event } from "nostr-tools";
 import type { CalendarWalk } from "../nostr/calendar-records";
-import { calendarOccurrence, matchesCalendar, matchesInitialCalendar, matchesOrganizerCalendar } from "../nostr/calendar-records";
+import { calendarOccurrence, calendarEventSource, matchesCalendar } from "../nostr/calendar-records";
 import type { PaidDirectoryCity } from "./directory";
 
 export const WALK_REDIRECT_GRACE_SECONDS=60*60;
@@ -26,12 +26,13 @@ function routableOccurrence(walk:CalendarWalk,event:Event){
 }
 
 /** Keep the active occurrence until its declared end, then rotate to the next.
- * Invalid, stale, foreign-city and unapproved events never enter the choice. */
+ * Retained approved occurrences survive profile edits; invalid, foreign-city and
+ * unapproved events never enter the choice. Input events come from public relay reads. */
 export function currentOrNextEvent(walk:CalendarWalk,events:Event[],now=Math.floor(Date.now()/1000)):Event|null {
   if(!Number.isSafeInteger(now)||now<0)return null;
   const candidates=events.flatMap(event=>{
-    if(!matchesCalendar(event,walk)&&!matchesOrganizerCalendar(event,walk)&&!matchesInitialCalendar(event,walk))return [];
-    const occurrence=routableOccurrence(walk,event);
+    const source=calendarEventSource(event,walk);if(!source)return [];
+    const occurrence=routableOccurrence(source,event);
     if(!occurrence)return [];
     return [{event,start:occurrence.start,end:occurrence.end}];
   });
@@ -44,8 +45,8 @@ export function managedCalendarEvents(walk:CalendarWalk,events:Event[],now=Math.
   if(!Number.isSafeInteger(now)||now<0)return [];
   const rank={active:0,grace:1,upcoming:2,past:3};
   return events.flatMap(event=>{
-    if(!matchesCalendar(event,walk)&&!matchesOrganizerCalendar(event,walk)&&!matchesInitialCalendar(event,walk))return [];
-    const occurrence=routableOccurrence(walk,event);if(!occurrence)return [];
+    const source=calendarEventSource(event,walk);if(!source)return [];
+    const occurrence=routableOccurrence(source,event);if(!occurrence)return [];
     const status=occurrence.start>now?"upcoming":occurrence.end>now?"active":occurrence.end+WALK_REDIRECT_GRACE_SECONDS>now?"grace":"past";
     return [{event,...occurrence,status} satisfies ManagedCalendarEvent];
   }).sort((a,b)=>rank[a.status]-rank[b.status]||(a.status==="past"?b.start-a.start:a.start-b.start));
