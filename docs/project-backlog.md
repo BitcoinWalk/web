@@ -52,7 +52,7 @@ The table above defines the full BitcoinWalk scope. The backlog below breaks tho
 | ID | Stage | Item | Status | Dependencies / acceptance |
 |---|---:|---|---|---|
 | BW-37 | 7 | Organizer NIP-52 occurrence publishing | 🟢 Done | Organizer-selected batch signing, relay ACK/read-back, and same-signature retries are deployed; the user reported eight Memphis walks published and exact public event links work. The later Memphis replacement also passed signed publication and 3/3 public-relay read-back. Scope consolidated on 29 September: external-app discovery and cancellation visibility are tracked only under BW-10; broader moderation/suspension remains BW-39. This closes the implemented publishing workflow, not external-client acceptance. |
-| BW-38 | 7 | Recurring walk schedules | 🟠 In progress | Saturday default (editable), eight rolling browser-local drafts, one-off/weekly/fortnightly preview, skip/pause/resume, city timezone/DST and event-specific map are deployed. Publication-aware comparison and missing-date proposals are active on app 0.3.11 and human-confirmed. Server persistence and unattended scheduling remain. |
+| BW-38 | 7 | Recurring walk schedules | 🟢 Done | User accepted completion on 29 September. Saturday default (editable), eight rolling browser-local drafts, one-off/weekly/fortnightly preview, skip/pause/resume, city timezone/DST and event-specific map are deployed. Publication-aware comparison and missing-date proposals are human-confirmed. Organizer review and explicit signing remain required. Cross-device plan storage and background draft preparation are future scope under BW-73; this item does not promise unattended publication. |
 | BW-39 | 7, 10 | Event moderation and publishing suspension | 🟠 In progress | Local address-scoped event routing/moderation checks and tests added. Relay enforcement, signed hide/unhide, city/author publishing suspension, replay and human acceptance remain. Existing city creator cannot be removed from grants; suspension must cover this case. |
 | BW-40 | 3, 7 | Next/upcoming/past city events and organizer deep links | 🟠 In progress | City and occurrence routes, current-or-next redirect with late-arrival grace, and organizer scheduled-walk list are deployed and human-tested. App 0.3.25 prepares one chronological list per city with Past, Draft, Upcoming and Canceled filters; only Upcoming and Draft are active initially. Contextual controls and hosted walks remain; staging acceptance remains. Existing tombstones lack the original event date, so historical cancellations are placed by cancellation date with a clear notice. External discovery, cancellation propagation and full historical-revision acceptance remain. Depends on BW-37/BW-39. |
 | BW-46 | 7 | Edit a walk in the “In review” draft list | 🟠 In progress | App 0.3.23 adds **Edit walk** per unsigned draft for date, local start time, description and map pin. A saved recurring plan retains per-draft edits in this browser; an unsaved one-off preview retains them for the current review. The draft keeps its original occurrence address, checks future/horizon and city-date conflicts, and never alters published walks. Tests/build passed; staging installation and human acceptance remain. Depends on BW-37/BW-38. |
@@ -151,6 +151,10 @@ Chat integration update (18 September): the separate Khatru staging chat and ext
 
 ## Future backlog
 
+| ID | Stage | Item | Status | Depends on | Notes |
+|---|---:|---|---|---|---|
+| BW-73 | 7 | Cross-device recurring plans and background draft preparation | ○ Future | BW-38, BW-41 | Persist recurring plans beyond browser-local storage and synchronize authorized devices/editors with conflict and permission handling. Prepare missing upcoming drafts while the organizer is away. Acceptance: plans survive clearing browser data, authorized devices see consistent changes, removed editors lose access, and background preparation avoids duplicates, respects skip/pause/resume and city timezone/DST, and leaves publication pending explicit organizer review/signing. No server-held user nsec, automatic signatures or guarantee of eight published events. |
+
 ### Austin dedicated-relay pilot — 18 September 2026
 
 - Implemented isolated `/pilot/austin` fixture with the verified dedicated channel `d8006bee1ddd5b5f` on `austin-staging.bitcoinwalk.org`. Synthetic city identity, not an approved walk or payment record; no production configuration or signed records changed.
@@ -191,7 +195,7 @@ Chat integration update (18 September): the separate Khatru staging chat and ext
 
 | ID | Stage | Item | Status | Remaining / acceptance |
 |---|---:|---|---|---|
-| BW-41 | 7 | Rolling eight upcoming walk drafts | 🟠 In progress | Browser-local saved recurrence, login/review catch-up, stable IDs, skip top-up and pause/resume are deployed. App 0.3.11 counts distinct future dates, filters already-published dates, flags conflicts and rechecks before signing; the user confirmed scheduled/missing preview. No automatic signatures, server persistence or eight-published-events guarantee. |
+| BW-41 | 7 | Rolling eight upcoming walk drafts | 🟢 Done | Consolidated with the accepted BW-38 scope on 29 September. Browser-local saved recurrence, login/review catch-up, stable IDs, skip top-up and pause/resume are deployed. App 0.3.11 counts distinct future dates, filters already-published dates, flags conflicts and rechecks before signing; the user confirmed scheduled/missing preview. Cross-device persistence and background preparation are tracked once under BW-73. No automatic signatures or eight-published-events guarantee. |
 
 ## Admin lifecycle and invitations — 19 September 2026
 
