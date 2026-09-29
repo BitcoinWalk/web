@@ -21,10 +21,12 @@ stale form exercises the permission recheck. Then reload to confirm access is go
 Creator and super-admin access must remain, and the approved public page must
 remain unchanged while a test revision is pending or rejected.
 
-Human acceptance in progress: the user confirmed adding Norilsk's second editor,
+Human acceptance: the user confirmed adding Norilsk's second editor,
 then submission of revision `0b878751153ade89d380e64818430f10b125da4dbd01e0cb68089a594686cd0c`
-to one relay. The public page retained its previous description. Removal, stale-form
-rejection and cross-city isolation are still pending. This test also exposed a
+to one relay. The public page retained its previous description. The user then
+confirmed rejection worked and explicitly accepted BW-11 as complete. Removal,
+stale-form rejection and cross-city isolation were not individually reported;
+retain those checks for production revalidation under BW-53. This test also exposed a
 first-event hero fallback regression: the original approval retained a working
 managed image, while the newer BW-08 profile approval had no image. App `0.3.84`
 adds the verified first-release image after current hero sources; it does not
