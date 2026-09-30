@@ -22,6 +22,7 @@
   "dependencies": {
     "@maplibre/maplibre-gl-leaflet": "0.1.4",
     "@photostructure/tz-lookup": "11.7.0",
+    "bolt11": "1.4.1",
     "leaflet": "latest",
     "maplibre-gl": "6.11.2",
     "next": "latest",

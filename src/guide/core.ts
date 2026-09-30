@@ -47,7 +47,7 @@ export function signTransportAuth(template: EventTemplate, secret: Uint8Array, a
 export function approvalAlert(revision: CityRevision, adminURL: string): string {
   // Plain text only: don't interpolate organizer-controlled links or line breaks.
   const city = revision.city.cityName.replace(/[\p{C}\p{Z}]+/gu, " ").trim();
-  const tier = revision.city.requestedTier === "paid" ? "Paid requested — payment not verified" : revision.city.requestedTier === "free" ? "Free" : "Not specified";
+  const tier = revision.city.requestedTier === "paid" ? "Pro requested — payment not verified" : revision.city.requestedTier === "free" ? "Basic" : "Not specified";
   return `New BitcoinWalk submission awaiting review\nCity: ${city}\nOrganizer: ${nip19.npubEncode(revision.event.pubkey)}\nRequested plan: ${tier}\nCity ID: ${revision.city.cityId}\nSubmission: ${revision.event.id}\n\nReview: ${adminURL}#submission-${revision.event.id}\n\nConnect your super-admin signer and load submissions. Status may have changed since this alert. Approve only in BitcoinWalk, never by replying here. BitcoinWalk Guide is automated; replies are not monitored.`;
 }
 

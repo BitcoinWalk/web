@@ -4,6 +4,7 @@ import dynamic from "next/dynamic";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import OrganizerIdentity from "../../components/organizer-identity";
 import RegistrationPlans from "../../components/registration-plans";
+import CityPayment from "../../components/city-payment";
 import type { LocationValue } from "../../components/location-picker";
 import { registrationDocument, registrationSlug, type RequestedTier } from "../../domain/registration";
 import { createCityUpdateEvent } from "../../nostr/city-event";
@@ -33,6 +34,7 @@ export default function StartWalkPage() {
   const [organizerKey, setOrganizerKey] = useState<string | null>(null);
   const [requestedTier, setRequestedTier] = useState<RequestedTier>("free");
   const [paidEnabled,setPaidEnabled]=useState(false);
+  const [checkout,setCheckout]=useState<{cityId:string;revisionId:string;owner:string}|null>(null);
   const cityId = useRef("");
   const submitting = useRef(false);
   const pendingSubmission = useRef<{ walk: Event; revision: Event; city: string } | null>(null);
@@ -82,8 +84,9 @@ export default function StartWalkPage() {
       setState({ kind: "working", message: "Sending your signed first walk and city submission…" });
       await publishVerifiedEvent(pendingSubmission.current.walk, relayConfig.writeRelays, 1, template => signForOrganizer(template, organizerKey));
       const publication = await publishVerifiedEvent(pendingSubmission.current.revision, relayConfig.writeRelays, 1, template => signForOrganizer(template, organizerKey));
+      if(candidate.requestedTier==="paid")setCheckout({cityId:candidate.cityId,revisionId:pendingSubmission.current.revision.id,owner:organizerKey});
       pendingSubmission.current = null;
-      setState({ kind: "success", message: `Thanks! Your BitcoinWalk in ${candidate.cityName} has been submitted for review. Reviews usually take several hours. BitcoinWalk Guide will send you a Nostr DM with your walk link once it is live. You can also check your dashboard for its status.${requestedTier === "paid" ? " Your Paid preference was recorded; no payment has been taken and paid benefits are not active yet." : " Your requested plan is Free."} Submitted to ${publication.accepted.length} relay(s).` });
+      setState({ kind: "success", message: `Thanks! Your BitcoinWalk in ${candidate.cityName} has been submitted for review. Reviews usually take several hours. BitcoinWalk Guide will send you a Nostr DM with your walk link once it is live. You can also check your dashboard for its status.${requestedTier === "paid" ? " Complete your Pro plan payment below." : " Your requested plan is Basic."} Submitted to ${publication.accepted.length} relay(s).` });
     } catch (error) { setState({ kind: "error", message: error instanceof Error ? error.message : "City submission failed." }); }
     finally { submitting.current = false; }
   }
@@ -119,7 +122,7 @@ export default function StartWalkPage() {
       <p><button className="start-account-step__back" type="button" disabled={locked} onClick={()=>{setState({kind:"idle"});setStep(2);}}>&lt; Back to your account</button></p>
       <h2 ref={planHeading} tabIndex={-1}>Step 3 of 3 — Choose your plan</h2>
       <form onSubmit={submit}>
-        <RegistrationPlans value={requestedTier} onChange={setRequestedTier} disabled={locked||step!==3} paidEnabled={paidEnabled} showHeading={false}/>
+        <RegistrationPlans value={requestedTier} onChange={setRequestedTier} disabled={locked||step!==3} paidEnabled={paidEnabled} showHeading={false} paidCheckout={checkout?<CityPayment key={checkout.cityId} {...checkout} autoCreate/>:undefined}/>
         <div className="start-account-step__submit"><button type="submit" disabled={!organizerKey||locked||step!==3}>{state.kind==="working"?"Submitting…":"Submit"}</button></div>
       </form>
     </div>
