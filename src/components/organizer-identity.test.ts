@@ -10,7 +10,11 @@ describe("OrganizerIdentity",()=>{
     expect(html).toContain("Private key or signer");
     expect(html).toContain("nsec1… or bunker://…");
     expect(html).toContain("Recommended on desktop");
-    expect(html).toContain("remote signer such as Amber");
+    expect(html).toContain("https://getalby.com/alby-extension");
+    expect(html).toContain("https://github.com/greenart7c3/Amber");
+    expect(html).toContain("Amber (Android)");
+    expect(html).toContain("https://testflight.apple.com/join/5Mx5AZx7");
+    expect(html).toContain("Clave (iOS via TestFlight)");
     expect(html).not.toContain("Connect remote signer");
     expect(html).not.toContain("Use key for this page");
     expect(html).not.toContain("Use a private key or remote signer");
