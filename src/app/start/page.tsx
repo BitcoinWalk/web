@@ -3,7 +3,7 @@
 import dynamic from "next/dynamic";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import OrganizerIdentity from "../../components/organizer-identity";
-import RegistrationPlans from "../../components/registration-plans";
+import RegistrationPlans,{registrationActionLabel} from "../../components/registration-plans";
 import CityPayment from "../../components/city-payment";
 import type { LocationValue } from "../../components/location-picker";
 import { registrationDocument, registrationSlug, type RequestedTier } from "../../domain/registration";
@@ -24,7 +24,7 @@ const DEFAULT_DESCRIPTION = "Join us for a friendly local BitcoinWalk: a relaxed
 type SubmissionState = { kind: "idle" | "working" | "success" | "error"; message?: string };
 
 export default function StartWalkPage() {
-  const [step, setStep] = useState<1 | 2 | 3>(1);
+  const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
   const [state, setState] = useState<SubmissionState>({ kind: "idle" });
   const [cityName, setCityName] = useState("");
   const [walkDate,setWalkDate]=useState(""),[walkHour,setWalkHour]=useState("10"),[walkMinute,setWalkMinute]=useState("00"),[meridiem,setMeridiem]=useState<Meridiem>("AM");
@@ -34,13 +34,13 @@ export default function StartWalkPage() {
   const [organizerKey, setOrganizerKey] = useState<string | null>(null);
   const [requestedTier, setRequestedTier] = useState<RequestedTier>("free");
   const [paidEnabled,setPaidEnabled]=useState(false);
-  const [checkout,setCheckout]=useState<{cityId:string;revisionId:string;owner:string}|null>(null);
+  const [checkout,setCheckout]=useState<{cityId:string;revisionId:string;owner:string;cityName:string;relayCount:number}|null>(null);
   const cityId = useRef("");
   const submitting = useRef(false);
   const pendingSubmission = useRef<{ walk: Event; revision: Event; city: string } | null>(null);
-  const detailsHeading=useRef<HTMLHeadingElement>(null),accountHeading=useRef<HTMLHeadingElement>(null),planHeading=useRef<HTMLHeadingElement>(null);
+  const detailsHeading=useRef<HTMLHeadingElement>(null),accountHeading=useRef<HTMLHeadingElement>(null),planHeading=useRef<HTMLHeadingElement>(null),paymentHeading=useRef<HTMLHeadingElement>(null);
   const locked = state.kind === "working" || state.kind === "success";
-  useEffect(()=>{({1:detailsHeading,2:accountHeading,3:planHeading} as const)[step].current?.focus();},[step]);
+  useEffect(()=>{({1:detailsHeading,2:accountHeading,3:planHeading,4:paymentHeading} as const)[step].current?.focus();},[step]);
   useEffect(()=>{let active=true;resolvedFeatureFlags(relayConfig.readRelays).then(flags=>{if(active){setPaidEnabled(flags.paidTierRegistration);if(!flags.paidTierRegistration)setRequestedTier("free");}}).catch(()=>{if(active){setPaidEnabled(false);setRequestedTier("free");}});return()=>{active=false;};},[]);
 
   function draft() {
@@ -84,9 +84,13 @@ export default function StartWalkPage() {
       setState({ kind: "working", message: "Sending your signed first walk and city submission…" });
       await publishVerifiedEvent(pendingSubmission.current.walk, relayConfig.writeRelays, 1, template => signForOrganizer(template, organizerKey));
       const publication = await publishVerifiedEvent(pendingSubmission.current.revision, relayConfig.writeRelays, 1, template => signForOrganizer(template, organizerKey));
-      if(candidate.requestedTier==="paid")setCheckout({cityId:candidate.cityId,revisionId:pendingSubmission.current.revision.id,owner:organizerKey});
+      const revisionId=pendingSubmission.current.revision.id;
       pendingSubmission.current = null;
-      setState({ kind: "success", message: `Thanks! Your BitcoinWalk in ${candidate.cityName} has been submitted for review. Reviews usually take several hours. BitcoinWalk Guide will send you a Nostr DM with your walk link once it is live. You can also check your dashboard for its status.${requestedTier === "paid" ? " Complete your Pro plan payment below." : " Your requested plan is Basic."} Submitted to ${publication.accepted.length} relay(s).` });
+      if(candidate.requestedTier==="paid"){
+        setCheckout({cityId:candidate.cityId,revisionId,owner:organizerKey,cityName:candidate.cityName,relayCount:publication.accepted.length});
+        setState({kind:"idle"});
+        setStep(4);
+      }else setState({ kind: "success", message: `Thanks! Your BitcoinWalk in ${candidate.cityName} has been submitted for review. Reviews usually take several hours. BitcoinWalk Guide will send you a Nostr DM with your walk link once it is live. You can also check your dashboard for its status. Your requested plan is Basic. Submitted to ${publication.accepted.length} relay(s).` });
     } catch (error) { setState({ kind: "error", message: error instanceof Error ? error.message : "City submission failed." }); }
     finally { submitting.current = false; }
   }
@@ -120,11 +124,23 @@ export default function StartWalkPage() {
     </div>
     <div hidden={step!==3} className="start-plan-step">
       <p><button className="start-account-step__back" type="button" disabled={locked} onClick={()=>{setState({kind:"idle"});setStep(2);}}>&lt; Back to your account</button></p>
-      <h2 ref={planHeading} tabIndex={-1}>Step 3 of 3 — Choose your plan</h2>
+      <h2 ref={planHeading} tabIndex={-1}>Step 3 of {requestedTier==="paid"?4:3} — Choose your plan</h2>
       <form onSubmit={submit}>
-        <RegistrationPlans value={requestedTier} onChange={setRequestedTier} disabled={locked||step!==3} paidEnabled={paidEnabled} showHeading={false} paidCheckout={checkout?<CityPayment key={checkout.cityId} {...checkout} autoCreate/>:undefined}/>
-        <div className="start-account-step__submit"><button type="submit" disabled={!organizerKey||locked||step!==3}>{state.kind==="working"?"Submitting…":"Submit"}</button></div>
+        <RegistrationPlans value={requestedTier} onChange={setRequestedTier} disabled={locked||step!==3} paidEnabled={paidEnabled} showHeading={false}/>
+        <div className="start-account-step__submit"><button type="submit" disabled={!organizerKey||locked||step!==3}>{registrationActionLabel(requestedTier,state.kind==="working")}</button></div>
       </form>
+    </div>
+    <div hidden={step!==4} className="start-plan-step">
+      <h2 ref={paymentHeading} tabIndex={-1}>Step 4 of 4 — Complete your Pro payment</h2>
+      {checkout&&<CityPayment
+        key={checkout.cityId}
+        cityId={checkout.cityId}
+        revisionId={checkout.revisionId}
+        owner={checkout.owner}
+        autoCreate
+        passive
+        onPaid={()=>setState({kind:"success",message:`Thanks! Your Pro payment for BitcoinWalk in ${checkout.cityName} is verified and the form has been submitted for review. BitcoinWalk Guide will send you a Nostr DM with your walk link once it is live. Submitted to ${checkout.relayCount} relay(s).`})}
+      />}
     </div>
     {state.message && <p role={state.kind === "error" ? "alert" : "status"}>{state.message}</p>}
   </main>;
