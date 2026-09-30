@@ -80,6 +80,8 @@ The dashboard header uses the compact version. **Organizers → All organizers**
 
 App 0.3.92 was activated on staging on 29 September 2026 through the non-root deployment helper. Artifact SHA-256: `d303edbd570fd5cec703df3a3c9e3ac8db69f31adc684282c959449c78dcac7d`; deployment evidence: `/home/bitcoinwalk/backups/app-staging-deploy.IAp7xc`; active release: `/opt/bitcoinwalk-app-staging/releases/0.3.92-d303edbd570f`. Packaged smoke, 380 tests, source lint, production build, public health and both changed route checks passed. Signer-connected profile, copy-control, city-grouping and responsive-layout acceptance remains under BW-74.
 
+App 0.3.93 tightens the component visually: the username is the larger bold primary value without a redundant label; NIP-05 and its verified, unverified or checking state share that line. Copy buttons now replace the copy glyph with visible **✓ Copied** feedback, or **! Retry** when clipboard access fails, then reset automatically. The same feedback remains announced to assistive technology.
+
 For 0.3.17 acceptance: connect once, inspect overview counts, select a city and navigate between Walks/Cities/Hosting. Confirm the filter persists and each screen loads without a second connect click. Test All available cities, a host-only identity, and a relay outage. Refresh overview after signed changes; counts are not live.
 
 ## Content administration
