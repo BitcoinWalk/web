@@ -100,6 +100,8 @@ App 0.3.108 was activated on staging on 30 September 2026 through the ordinary `
 
 The organizer **Relay directory** entry and direct role access are hidden while its task model and language are redesigned under BW-76. The existing implementation is retained for future rework; no relay records, defaults or policies are changed by hiding the screen.
 
+App 0.3.109 was activated on staging on 30 September 2026 through the ordinary `bitcoinwalk` deployment account. Artifact SHA-256: `daea42ea6816caafe2a71e522e15e803cd4f009b834e783ac1b8efc5108de405`; deployment evidence: `/home/bitcoinwalk/backups/app-staging-deploy.xVj9N5`; active release: `/opt/bitcoinwalk-app-staging/releases/0.3.109-daea42ea6816`. All 451 tests, source lint, production build, packaged smoke and public health/dashboard checks passed.
+
 For 0.3.17 acceptance: connect once, inspect overview counts, select a city and navigate between Walks/Cities/Hosting. Confirm the filter persists and each screen loads without a second connect click. Test All available cities, a host-only identity, and a relay outage. Refresh overview after signed changes; counts are not live.
 
 ## Content administration
