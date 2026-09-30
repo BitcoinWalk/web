@@ -25,8 +25,6 @@
     "leaflet": "latest",
     "maplibre-gl": "6.11.2",
     "next": "latest",
-    "nostr-login": "1.7.12",
-    "nostr-login-components": "1.0.1",
     "nostr-tools": "latest",
     "react": "latest",
     "react-dom": "latest",
