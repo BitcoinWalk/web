@@ -112,6 +112,8 @@ App 0.3.110 was activated on staging on 30 September 2026 through the ordinary `
 
 Each published occurrence in super-admin **Cities → City list** now displays its organizer npub with the shared Copy → ✓ Copied/! Retry feedback. The raw hexadecimal event ID is replaced by the exact `nevent` embedded in that occurrence's **Open event** URL, with the same copy behaviour. The clipboard control is extracted from the reusable Nostr identity component so both surfaces retain one implementation and the existing accessible live feedback.
 
+App 0.3.111 was activated on staging on 30 September 2026 through the ordinary `bitcoinwalk` deployment account. Artifact SHA-256: `3c501c28e1787ed8ff50c4a6bc0336a1e44a639a91044b2180b8c8c9a46a8610`; deployment evidence: `/home/bitcoinwalk/backups/app-staging-deploy.tlXXVw`; active release: `/opt/bitcoinwalk-app-staging/releases/0.3.111-3c501c28e178`. All 454 tests, source lint, production build, backlog generation, packaged smoke, public health and Cities route checks passed.
+
 For 0.3.17 acceptance: connect once, inspect overview counts, select a city and navigate between Walks/Cities/Hosting. Confirm the filter persists and each screen loads without a second connect click. Test All available cities, a host-only identity, and a relay outage. Refresh overview after signed changes; counts are not live.
 
 ## Content administration
