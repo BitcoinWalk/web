@@ -106,6 +106,8 @@ App 0.3.109 was activated on staging on 30 September 2026 through the ordinary `
 
 The super-admin City list replaces its fixed select control with a reusable searchable combobox. Focus opens the complete available inventory; typing filters without a network request by city name, slug, city ID or exact moderation state. Matching/total feedback, arrow-key navigation, Enter selection, Escape dismissal and a clear action are included. City management data and occurrences remain loaded only for the selected city. The shared component is intentionally suitable for later adoption by Walks, Organizers, Requests and edit-city screens under BW-77; pagination of genuinely large relay inventories remains BW-69.
 
+App 0.3.110 was activated on staging on 30 September 2026 through the ordinary `bitcoinwalk` deployment account. Artifact SHA-256: `796022e6d24d42b17e0c07478ac43f4bbbebb8b62ee0bea0e8390329b7fb61f8`; deployment evidence: `/home/bitcoinwalk/backups/app-staging-deploy.r4jeLB`; active release: `/opt/bitcoinwalk-app-staging/releases/0.3.110-796022e6d24d`. All 453 tests, source lint, production build, backlog generation, packaged smoke, public health and Cities route checks passed. Real-inventory keyboard, pointer and mobile acceptance remains under BW-77.
+
 For 0.3.17 acceptance: connect once, inspect overview counts, select a city and navigate between Walks/Cities/Hosting. Confirm the filter persists and each screen loads without a second connect click. Test All available cities, a host-only identity, and a relay outage. Refresh overview after signed changes; counts are not live.
 
 ## Content administration
