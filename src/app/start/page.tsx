@@ -16,7 +16,7 @@ import { resolveCityChat } from "../../domain/chat";
 import type { Event } from "nostr-tools";
 import {resolvedFeatureFlags} from "../../nostr/feature-flags";
 import {RichDescriptionEditor} from "../../components/rich-description";
-import {QUARTER_HOUR_OPTIONS,registrationLocalDateTime,type Meridiem} from "../../domain/registration-time";
+import {HOUR_OPTIONS,MINUTE_OPTIONS,registrationLocalDateTime,type Meridiem} from "../../domain/registration-time";
 
 const LocationPicker = dynamic(() => import("../../components/location-picker"), { ssr: false });
 const DEFAULT_DESCRIPTION = "Join us for a friendly local BitcoinWalk: a relaxed way to meet fellow Bitcoiners, share ideas, and explore the city together. Everyone is welcome, whether you are new to Bitcoin or have been following it for years. Bring your questions, good shoes, and curiosity. We often continue the conversation over coffee or food after the walk.";
@@ -26,7 +26,7 @@ export default function StartWalkPage() {
   const [step, setStep] = useState<1 | 2>(1);
   const [state, setState] = useState<SubmissionState>({ kind: "idle" });
   const [cityName, setCityName] = useState("");
-  const [walkDate,setWalkDate]=useState(""),[walkTime,setWalkTime]=useState(""),[meridiem,setMeridiem]=useState<Meridiem>("AM");
+  const [walkDate,setWalkDate]=useState(""),[walkHour,setWalkHour]=useState("10"),[walkMinute,setWalkMinute]=useState("00"),[meridiem,setMeridiem]=useState<Meridiem>("AM");
   const [description, setDescription] = useState(DEFAULT_DESCRIPTION);
   const [location, setLocation] = useState<LocationValue | null>(null);
   const [meetingDescription, setMeetingDescription] = useState("");
@@ -43,7 +43,7 @@ export default function StartWalkPage() {
 
   function draft() {
     if (!cityId.current) cityId.current = crypto.randomUUID();
-    const startAt=registrationLocalDateTime(walkDate,walkTime,meridiem);
+    const startAt=registrationLocalDateTime(walkDate,walkHour,walkMinute,meridiem);
     return registrationDocument({ cityId: cityId.current, cityName, startAt, description, location,
       meetingDescription, requestedTier:paidEnabled?requestedTier:"free",
       // Preference never grants paid routing: only verified operator configuration can do that.
@@ -97,7 +97,8 @@ export default function StartWalkPage() {
           <fieldset className="walk-datetime">
             <legend>Walk date and time</legend>
             <label>Date<input name="walkDate" type="date" value={walkDate} onChange={event=>setWalkDate(event.target.value)} required/></label>
-            <label>Time<select name="walkTime" value={walkTime} onChange={event=>setWalkTime(event.target.value)} required><option value="">Select time</option>{QUARTER_HOUR_OPTIONS.map(time=><option key={time} value={time}>{time}</option>)}</select></label>
+            <label>Hour<select name="walkHour" value={walkHour} onChange={event=>setWalkHour(event.target.value)} required>{HOUR_OPTIONS.map(hour=><option key={hour} value={hour}>{hour}</option>)}</select></label>
+            <label>Minutes<select name="walkMinute" value={walkMinute} onChange={event=>setWalkMinute(event.target.value)} required>{MINUTE_OPTIONS.map(minute=><option key={minute} value={minute}>{minute}</option>)}</select></label>
             <div className="walk-datetime__period"><span>AM / PM</span><div role="group" aria-label="Walk time period"><button type="button" aria-pressed={meridiem==="AM"} onClick={()=>setMeridiem("AM")}>AM</button><button type="button" aria-pressed={meridiem==="PM"} onClick={()=>setMeridiem("PM")}>PM</button></div></div>
           </fieldset>
           <RichDescriptionEditor value={description} onChange={setDescription}/>
