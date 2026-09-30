@@ -29,4 +29,11 @@ describe("OrganizerIdentity",()=>{
     expect(validSignerInput("bunker://"+"a".repeat(64)+"?relay=wss%3A%2F%2Frelay.example.com%2F&secret=test")).toBe(true);
     expect(validSignerInput(nip19.nsecEncode(new Uint8Array(32).fill(1)))).toBe(true);
   });
+
+  it("supports dashboard-specific heading and introductory copy",()=>{
+    const html=renderToStaticMarkup(createElement(OrganizerIdentity,{disabled:false,onIdentityChange:vi.fn(),heading:"Your account",intro:"Open your dashboard."}));
+    expect(html).toContain(">Your account</h2>");
+    expect(html).toContain("Open your dashboard.");
+    expect(html).not.toContain("Step 2 of 3");
+  });
 });

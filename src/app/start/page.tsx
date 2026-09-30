@@ -1,6 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import {useRouter} from "next/navigation";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import OrganizerIdentity from "../../components/organizer-identity";
 import RegistrationPlans,{registrationActionLabel} from "../../components/registration-plans";
@@ -19,12 +20,14 @@ import {resolvedFeatureFlags} from "../../nostr/feature-flags";
 import {RichDescriptionEditor} from "../../components/rich-description";
 import {HOUR_OPTIONS,MINUTE_OPTIONS,registrationLocalDateTime,type Meridiem} from "../../domain/registration-time";
 import {registrationSubmissionMessage} from "../../domain/registration-flow";
+import {registrationDashboardHref,setRegistrationHandoff} from "../../domain/registration-handoff";
 
 const LocationPicker = dynamic(() => import("../../components/location-picker"), { ssr: false });
 const DEFAULT_DESCRIPTION = "Join us for a friendly local BitcoinWalk: a relaxed way to meet fellow Bitcoiners, share ideas, and explore the city together. Everyone is welcome, whether you are new to Bitcoin or have been following it for years. Bring your questions, good shoes, and curiosity. We often continue the conversation over coffee or food after the walk.";
 type SubmissionState = { kind: "idle" | "working" | "success" | "error"; message?: string };
 
 export default function StartWalkPage() {
+  const router=useRouter();
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [state, setState] = useState<SubmissionState>({ kind: "idle" });
   const [cityName, setCityName] = useState("");
@@ -51,6 +54,11 @@ export default function StartWalkPage() {
       meetingDescription, requestedTier:paidEnabled?requestedTier:"free",
       // Preference never grants paid routing: only verified operator configuration can do that.
       chatUrl: resolveCityChat(undefined, registrationSlug(cityName), chatConfig).url ?? undefined });
+  }
+
+  function finishRegistration(candidate:ReturnType<typeof registrationDocument>,tier:"free"|"paid",paymentVerified:boolean){
+    setRegistrationHandoff({cityId:candidate.cityId,cityName:candidate.cityName,tier,paymentVerified});
+    router.push(registrationDashboardHref(candidate.cityId));
   }
 
   function next(event: FormEvent<HTMLFormElement>) {
@@ -90,7 +98,7 @@ export default function StartWalkPage() {
       if(candidate.requestedTier==="paid"){
         setCheckout({cityId:candidate.cityId,revisionId,owner:organizerKey,cityName:candidate.cityName,relayCount:publication.accepted.length});
         setState({kind:"idle"});
-      }else setState({ kind: "success", message: `Thanks! Your BitcoinWalk in ${candidate.cityName} has been submitted for review. Reviews usually take several hours. BitcoinWalk Guide will send you a Nostr DM with your walk link once it is live. You can also check your dashboard for its status. Your requested plan is Basic. Submitted to ${publication.accepted.length} relay(s).` });
+      }else finishRegistration(candidate,"free",false);
     } catch (error) { setState({ kind: "error", message: registrationSubmissionMessage(error) }); }
     finally { submitting.current = false; }
   }
@@ -137,7 +145,7 @@ export default function StartWalkPage() {
         owner={checkout.owner}
         autoCreate
         passive
-        onPaid={()=>setState({kind:"success",message:`Thanks! Your Pro payment for BitcoinWalk in ${checkout.cityName} is verified and the form has been submitted for review. BitcoinWalk Guide will send you a Nostr DM with your walk link once it is live. Submitted to ${checkout.relayCount} relay(s).`})}
+        onPaid={()=>finishRegistration(draft(),"paid",true)}
       />}
     </div>
     {state.message && <p role={state.kind === "error" ? "alert" : "status"}>{state.message}</p>}

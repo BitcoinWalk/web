@@ -79,7 +79,7 @@ try{
       throw new Error(`Packaged MapLibre asset failed: ${worker} (HTTP ${response.status})`);
     }
   }
-  for(const [path,label] of [["/admin","Your BitcoinWalk dashboard"],["/admin/walks","Welcome to your dashboard!"],["/admin/directory","Welcome to your dashboard!"],["/admin/hosting","Welcome to your dashboard!"],["/admin/approvals","Welcome to your dashboard!"],["/admin/cities","Welcome to your dashboard!"],["/admin/accept-invitation","Walk hosting invitation"],["/organizer/invitations","Dashboard moved"],["/organizer/events","Dashboard moved"],["/admin/calendar","Dashboard moved"]]){
+  for(const [path,label] of [["/admin","Your account"],["/admin/walks","Your account"],["/admin/directory","Your account"],["/admin/hosting","Your account"],["/admin/approvals","Your account"],["/admin/cities","Your account"],["/admin/accept-invitation","Your account"],["/organizer/invitations","Dashboard moved"],["/organizer/events","Dashboard moved"],["/admin/calendar","Your account"]]){
     const page=await fetch(`${base}${path}`,{signal:AbortSignal.timeout(5000)});
     if(!page.ok || !(await page.text()).includes(label))throw new Error(`Packaged route failed: ${path}`);
   }
