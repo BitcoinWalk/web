@@ -6,4 +6,17 @@ describe("explicit city search service",()=>{
  it("caches normalized queries and limits different queries globally",async()=>{let time=10000;const f=vi.fn(async()=>Response.json(data));const search=createCitySearch(f,()=>time);expect((await search("Funchal")).results[0].cityName).toBe("Funchal");expect((await search(" funchal ")).status).toBe(200);expect(f).toHaveBeenCalledTimes(1);expect((await search("Chicago")).status).toBe(429);time+=1100;expect((await search("Chicago")).status).toBe(200);});
  it("rejects concurrent upstream requests and releases lock after failure",async()=>{let finish!:(r:Response)=>void;let time=10000;const f=vi.fn(()=>new Promise<Response>(r=>{finish=r;}));const search=createCitySearch(f,()=>time);const first=search("Funchal");time+=2000;expect((await search("Chicago")).status).toBe(429);finish(new Response("",{status:503}));expect((await first).status).toBe(502);});
  it("does not cache upstream errors",async()=>{let time=10000;const f=vi.fn(async()=>new Response("",{status:503}));const search=createCitySearch(f,()=>time);expect((await search("Funchal")).status).toBe(502);time+=2000;await search("Funchal");expect(f).toHaveBeenCalledTimes(2);});
+ it("requests English name details and stores the Latin city name",async()=>{
+  const localized=[{display_name:"Երևան, Հայաստան",lat:"40.18",lon:"44.51",address:{city:"Երևան"},namedetails:{name:"Երևան","name:en":"Yerevan",int_name:"Yerevan"}}];
+  let requested="";const f=vi.fn(async(input:URL)=>{requested=String(input);return Response.json(localized);}) as unknown as typeof fetch,search=createCitySearch(f,()=>10000),result=await search("Երևան");
+  expect(result.results[0]).toMatchObject({name:"Yerevan",cityName:"Yerevan"});
+  const url=new URL(requested);
+  expect(url.searchParams.get("namedetails")).toBe("1");
+  expect(url.searchParams.get("accept-language")).toBe("en");
+ });
+ it("never returns a non-Latin city value when OSM has no Latin alias",async()=>{
+  const localized=[{display_name:"Երևան, Հայաստան",lat:"40.18",lon:"44.51",address:{city:"Երևան"},namedetails:{name:"Երևան"}}];
+  const search=createCitySearch(async()=>Response.json(localized),()=>10000);
+  expect((await search("Երևան")).results).toEqual([]);
+ });
 });
