@@ -16,7 +16,6 @@ import { resolveCityChat } from "../../domain/chat";
 import type { Event } from "nostr-tools";
 import {resolvedFeatureFlags} from "../../nostr/feature-flags";
 import {RichDescriptionEditor} from "../../components/rich-description";
-import {optionalAllTrailsRoute} from "../../domain/walk-route";
 import {QUARTER_HOUR_OPTIONS,registrationLocalDateTime,type Meridiem} from "../../domain/registration-time";
 
 const LocationPicker = dynamic(() => import("../../components/location-picker"), { ssr: false });
@@ -29,7 +28,6 @@ export default function StartWalkPage() {
   const [cityName, setCityName] = useState("");
   const [walkDate,setWalkDate]=useState(""),[walkTime,setWalkTime]=useState(""),[meridiem,setMeridiem]=useState<Meridiem>("AM");
   const [description, setDescription] = useState(DEFAULT_DESCRIPTION);
-  const [routeUrl,setRouteUrl]=useState("");
   const [location, setLocation] = useState<LocationValue | null>(null);
   const [meetingDescription, setMeetingDescription] = useState("");
   const [organizerKey, setOrganizerKey] = useState<string | null>(null);
@@ -54,7 +52,7 @@ export default function StartWalkPage() {
 
   function next(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    try { draft(); optionalAllTrailsRoute(routeUrl); setState({ kind: "idle" }); setStep(2); }
+    try { draft(); setState({ kind: "idle" }); setStep(2); }
     catch (error) { setState({ kind: "error", message: error instanceof Error ? error.message : "Check your walk details." }); }
   }
 
@@ -66,7 +64,7 @@ export default function StartWalkPage() {
     try {
       const candidate = draft();
       if (!relayConfig.writeRelays.length) throw new Error("City submissions are not connected yet.");
-      const submissionDraft=JSON.stringify({candidate,routeUrl:optionalAllTrailsRoute(routeUrl)});
+      const submissionDraft=JSON.stringify(candidate);
       if (pendingSubmission.current && (pendingSubmission.current.city !== submissionDraft || pendingSubmission.current.revision.pubkey !== organizerKey)) {
         pendingSubmission.current = null;
         throw new Error("Your walk details or signer changed after signing. Submit again to sign the updated request.");
@@ -74,7 +72,7 @@ export default function StartWalkPage() {
       if (!pendingSubmission.current) {
         setState({ kind: "working", message: "Please sign your first walk, followed by the city submission…" });
         const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-        const walk = await signForOrganizer(createInitialCalendarProposal(candidate, timeZone,routeUrl), organizerKey);
+        const walk = await signForOrganizer(createInitialCalendarProposal(candidate, timeZone), organizerKey);
         const revision = await signForOrganizer(createCityUpdateEvent(candidate, undefined, walk.id), organizerKey);
         if (walk.pubkey !== organizerKey || revision.pubkey !== organizerKey) throw new Error("Signer identity changed. Reconnect and submit again.");
         pendingSubmission.current = { walk, revision, city: submissionDraft };
@@ -103,7 +101,6 @@ export default function StartWalkPage() {
             <div className="walk-datetime__period"><span>AM / PM</span><div role="group" aria-label="Walk time period"><button type="button" aria-pressed={meridiem==="AM"} onClick={()=>setMeridiem("AM")}>AM</button><button type="button" aria-pressed={meridiem==="PM"} onClick={()=>setMeridiem("PM")}>PM</button></div></div>
           </fieldset>
           <RichDescriptionEditor value={description} onChange={setDescription}/>
-          <label>AllTrails route (optional) <input type="url" value={routeUrl} onChange={event=>setRouteUrl(event.target.value)} onBlur={()=>{try{setRouteUrl(optionalAllTrailsRoute(routeUrl)??"");}catch{}}} placeholder="https://www.alltrails.com/explore/trail/…"/></label>
           <label>Meeting-point description <input name="meetingDescription" value={meetingDescription} onChange={e => setMeetingDescription(e.target.value)} placeholder="e.g. In front of the coffee shop" maxLength={500} /></label>
           <div className="walk-details-frame__next"><button type="submit">Next</button></div>
         </fieldset>
