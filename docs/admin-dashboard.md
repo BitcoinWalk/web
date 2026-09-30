@@ -116,6 +116,8 @@ App 0.3.111 was activated on staging on 30 September 2026 through the ordinary `
 
 App 0.3.112 shortens the visible walk identifiers to `npub1abc...xyz` and `nevent1abc...xyz` form so long Bech32 values do not dominate each occurrence row. The copy controls continue to write the complete, unmodified npub and nevent to the clipboard.
 
+App 0.3.112 was activated on staging on 30 September 2026 through the ordinary `bitcoinwalk` deployment account. Artifact SHA-256: `771e9b37ed5a9abe39ba1d43d1c0854c1be0fe686f1ac83e1cd3f6d3afbee272`; deployment evidence: `/home/bitcoinwalk/backups/app-staging-deploy.RONDmc`; active release: `/opt/bitcoinwalk-app-staging/releases/0.3.112-771e9b37ed5a`. All 455 tests, source lint, production build, backlog generation, packaged smoke, public health and Cities route checks passed.
+
 For 0.3.17 acceptance: connect once, inspect overview counts, select a city and navigate between Walks/Cities/Hosting. Confirm the filter persists and each screen loads without a second connect click. Test All available cities, a host-only identity, and a relay outage. Refresh overview after signed changes; counts are not live.
 
 ## Content administration
