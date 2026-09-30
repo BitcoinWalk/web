@@ -96,6 +96,10 @@ App 0.3.108 extends the sidebar badges without changing permissions. Super-admin
 
 App 0.3.108 was activated on staging on 30 September 2026 through the ordinary `bitcoinwalk` deployment account. Artifact SHA-256: `6b1c83da55b0248c404bff4de783c24e19b4dd9299d46384b2f15dace0e90fef`; deployment evidence: `/home/bitcoinwalk/backups/app-staging-deploy.7nAcUt`; active release: `/opt/bitcoinwalk-app-staging/releases/0.3.108-6b1c83da55b0`. All 451 tests, source lint, production build, packaged smoke, public health and dashboard route checks passed. Signer-connected count acceptance remains under BW-75.
 
+## App 0.3.109 — relay directory deferred
+
+The organizer **Relay directory** entry and direct role access are hidden while its task model and language are redesigned under BW-76. The existing implementation is retained for future rework; no relay records, defaults or policies are changed by hiding the screen.
+
 For 0.3.17 acceptance: connect once, inspect overview counts, select a city and navigate between Walks/Cities/Hosting. Confirm the filter persists and each screen loads without a second connect click. Test All available cities, a host-only identity, and a relay outage. Refresh overview after signed changes; counts are not live.
 
 ## Content administration

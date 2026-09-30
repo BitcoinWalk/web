@@ -6,7 +6,6 @@ export const dashboardItems=[
  {href:"/admin/requests",label:"Requests",access:"admin"},
  {href:"/admin/walks",label:"Walks",access:"connected"},
  {href:"/admin/organizers",label:"Organizers",access:"admin"},
- {href:"/admin/directory",label:"Relay directory",access:"organizer"},
  {href:"/admin/content",label:"Content",access:"admin"},
  {href:"/admin/alerts",label:"Alerts",access:"admin"},
 ] as const;
