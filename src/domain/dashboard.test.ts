@@ -1,5 +1,5 @@
 import {describe,it,expect} from "vitest";
-import {dashboardNavigation,dashboardAccess,legacyDashboardHref} from "./dashboard";
+import {dashboardNavigation,dashboardAccess,dashboardMenuLabel,legacyDashboardHref} from "./dashboard";
 describe("dashboard navigation boundaries",()=>{
  it("shows only overview before connection",()=>{expect(dashboardNavigation("disconnected").map(i=>i.href)).toEqual(["/admin"]);});
  it("shows hosted walks to members without city administration",()=>{expect(dashboardAccess("/admin/walks","member")).toBe(true);expect(dashboardAccess("/admin/cities","member")).toBe(false);});
@@ -16,4 +16,11 @@ describe("dashboard navigation boundaries",()=>{
   expect(dashboardAccess("/admin/approvals","organizer")).toBe(true);
  });
  it("allows a nominee to review an invitation without admin permission",()=>{expect(dashboardAccess("/admin/accept-invitation","disconnected")).toBe(true);});
+ it("uses role-aware menu names and fail-closed counts",()=>{
+  expect(dashboardMenuLabel("/admin/cities","Cities","super-admin",{cities:12,walks:8,requests:2})).toBe("Cities (12)");
+  expect(dashboardMenuLabel("/admin/walks","Walks","super-admin",{cities:12,walks:8,requests:2})).toBe("Upcoming walks (8)");
+  expect(dashboardMenuLabel("/admin/walks","Walks","organizer",{cities:null,walks:3,requests:null})).toBe("My walks (3)");
+  expect(dashboardMenuLabel("/admin/walks","Walks","organizer",{cities:null,walks:null,requests:null})).toBe("My walks (?)");
+  expect(dashboardMenuLabel("/admin/walks","Walks","member",{cities:null,walks:null,requests:null})).toBe("Walks");
+ });
 });
