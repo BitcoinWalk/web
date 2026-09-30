@@ -14,12 +14,12 @@ describe("overview action cards",()=>{
  it("links a member's hosting preview to Walks without moderation controls",()=>{
   const html=renderToStaticMarkup(createElement(DashboardUpcoming,{role:"member",summary:empty}));
   expect(html).toContain("Next walks you’re hosting");
-  expect(html).not.toContain("/admin/cities?tab=requests");
+  expect(html).not.toContain("/admin/requests");
   expect(html).toContain("/admin/walks");
  });
  it("links pending revisions to their exact approval anchor",()=>{
   const id="a".repeat(64);
   const html=renderToStaticMarkup(createElement(DashboardUpcoming,{role:"super-admin",summary:{...empty,pending:{value:1},pendingReviews:[{event:{id},city:{cityName:"Memphis"}}] as never}}));
-  expect(html).toContain("/admin/cities?tab=requests#submission-"+id);
+  expect(html).toContain("/admin/requests#submission-"+id);
  });
 });

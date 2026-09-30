@@ -18,8 +18,12 @@ import { registrationSlug } from "../../domain/registration";
 import {generateCityImage,importCityImageURL} from "../../lib/media-client";
 import {cityFieldChanges} from "../../domain/city-diff";
 import {calendarDiscoverySummary,publishCalendarDiscoveryEvent} from "../../nostr/calendar-discovery";
+import {paymentFetch,signPayment} from "../../components/city-payment";
+import {paidPaymentForCity} from "../../payments/dashboard";
+import type {PaymentView} from "../../payments/service";
+import {announcePendingRequestCount} from "../../components/pending-request-count";
 
-type Submission = { eventId: string; initialEventId?: string; author: string; cityId: string; slug: string; cityName: string; startAt: string; meetingPoint: string; city: CityDocument; previous?: string; previousCity?:CityDocument };
+type Submission = { eventId: string; initialEventId?: string; author: string; cityId: string; slug: string; cityName: string; startAt: string; meetingPoint: string; city: CityDocument; previous?: string; previousCity?:CityDocument; paid:boolean };
 type State = { message: string; tone: "info" | "error" | "success"; approvedWalk?: { href: string; name: string } };
 type ImageState={status:"idle"|"waiting"|"working"|"ready"|"error";message:string};
 
@@ -48,7 +52,11 @@ export default function SubmissionApprovals() {
       const pubkey = await getBrowserExtensionPubkey();
       if (!isSuperAdmin(pubkey)) throw new Error("This Nostr identity is not the BitcoinWalk super-admin.");
       setState({ message: "Loading submissions…", tone: "info" });
-      const {revisions,approvals}=await queryDirectoryRecords(relayConfig.readRelays);
+      const [{revisions,approvals},paymentsResult]=await Promise.all([
+        queryDirectoryRecords(relayConfig.readRelays),
+        signPayment({action:"list"},pubkey).then(paymentFetch).catch(()=>null),
+      ]);
+      const payments:PaymentView[]|null=paymentsResult?.payments??null;
       if(await getBrowserExtensionPubkey()!==pubkey)throw new Error("Signer changed. Reconnect.");
       const pending = pendingCityRevisions(revisions, approvals).filter(r=>!dashboard.selectedCity||r.city.cityId===dashboard.selectedCity).map(({ event, city }) => {
         const previous=event.tags.find(tag=>tag[0]==="e" && tag[3]==="previous")?.[1];
@@ -64,9 +72,11 @@ export default function SubmissionApprovals() {
         city,
         previous,
         previousCity:previous?revisions.find(revision=>revision.event.id===previous)?.city:undefined,
+        paid:!!payments&&!!paidPaymentForCity(payments,city.cityId),
       });});
       setSubmissions(pending);
-      setState({ message: `${pending.length} pending submission(s).`, tone: "info" });
+      announcePendingRequestCount(pending.length);
+      setState({ message: `${pending.length} pending request(s).${payments===null?" Payment status could not be verified, so paid markers are hidden.":""}`, tone: "info" });
     } catch (error) {
       setState({ message: error instanceof Error ? error.message : "Could not load submissions.", tone: "error" });
     } finally {setBusy(false);}
@@ -119,7 +129,7 @@ export default function SubmissionApprovals() {
         const discovery=await publishCalendarDiscoveryEvent(first,relayConfig.calendarDiscoveryRelays);
         discoveryMessage=` ${calendarDiscoverySummary(discovery,relayConfig.calendarDiscoveryRelays.length)}`;
       }
-      setSubmissions((items) => items.filter((item) => item.eventId !== submission.eventId));
+      setSubmissions((items) => {const next=items.filter((item) => item.eventId !== submission.eventId);announcePendingRequestCount(next.length);return next;});
       setState({
         message: `${status === "approved" ? "Approved" : "Rejected"} on ${publication.accepted.length} BitcoinWalk relay(s).${discoveryMessage}`,
         tone: "success",
@@ -142,7 +152,7 @@ export default function SubmissionApprovals() {
 
   return (
     <section>
-      <h2>Review requests</h2>
+      <h2>City requests</h2>
       <p>First approval requires two signatures: creator registration, then one approval that releases the organizer&apos;s exact signed first walk. Check city-name duplicates before approving. Paid benefits are not activated by approval.</p>
       <p role="status">
         {state.message}
@@ -151,15 +161,18 @@ export default function SubmissionApprovals() {
       <button disabled={busy} type="button" onClick={loadSubmissions}>Refresh submissions</button>
       {submissions.map((submission) => (
         <article key={submission.eventId} id={`submission-${submission.eventId}`}>
-          <h2>{submission.cityName}</h2>
-          <p>City ID: {submission.cityId}</p><p>Organizer: {submission.author}</p>
-          <p>Revision: {submission.eventId}{submission.previous && <><br/>Based on: {submission.previous}</>}</p>
-          <p>Signed first walk: {submission.initialEventId ?? "Missing (older submission)"}</p>
-          <p>{new Date(submission.startAt).toLocaleString()} · {submission.meetingPoint}</p>
-          <p style={{whiteSpace:"pre-wrap"}}>{submission.city.description}</p>
-          <p>Meeting pin: {submission.city.meetingPoint.latitude}, {submission.city.meetingPoint.longitude}</p>
-          <p>Organizer image: {submission.city.heroImageUrl??"None — expected for a new submission"}</p>
-          <section aria-label={`Submitted changes for ${submission.cityName}`}>
+          <h2>{submission.paid&&<span role="img" aria-label="Verified Pro city" title="Verified Pro city">⚡</span>} {submission.cityName}</h2>
+          <p><strong>{submission.previous?"City change":"New city"}</strong> · {new Date(submission.startAt).toLocaleString()} · {submission.meetingPoint}</p>
+          <p>Plan: {submission.paid?"Pro — payment verified":submission.city.requestedTier==="paid"?"Pro requested — payment pending":"Basic"}</p>
+          <details>
+            <summary>Review submitted details and technical records</summary>
+            <p>City ID: {submission.cityId}</p><p>Organizer: {submission.author}</p>
+            <p>Revision: {submission.eventId}{submission.previous && <><br/>Based on: {submission.previous}</>}</p>
+            <p>Signed first walk: {submission.initialEventId ?? "Missing (older submission)"}</p>
+            <p style={{whiteSpace:"pre-wrap"}}>{submission.city.description}</p>
+            <p>Meeting pin: {submission.city.meetingPoint.latitude}, {submission.city.meetingPoint.longitude}</p>
+            <p>Organizer image: {submission.city.heroImageUrl??"None — expected for a new submission"}</p>
+            <section aria-label={`Submitted changes for ${submission.cityName}`}>
             <h3>{submission.previous?"Submitted changes":"Complete submitted city"}</h3>
             {submission.previous&&!submission.previousCity&&<p role="alert">The referenced previous revision could not be loaded, so a reliable field-by-field comparison is unavailable. Do not approve until the complete history loads.</p>}
             {submission.previous&&submission.previousCity&&cityFieldChanges(submission.previousCity,submission.city).length===0&&<p>No city-document fields changed.</p>}
@@ -168,11 +181,11 @@ export default function SubmissionApprovals() {
               {submission.previous&&<div><strong>Previous signed value</strong><p style={{whiteSpace:"pre-wrap"}}>{change.before}</p>{change.image&&change.before!=="Not set"&&<img src={change.before} alt={`Previous ${change.label.toLowerCase()}`} referrerPolicy="no-referrer" style={{maxWidth:"24rem",width:"100%",height:"auto"}}/>}</div>}
               <div><strong>{submission.previous?"Submitted value":"Submitted value"}</strong><p style={{whiteSpace:"pre-wrap"}}>{change.after}</p>{change.image&&change.after!=="Not set"&&<img src={change.after} alt={`Submitted ${change.label.toLowerCase()}`} referrerPolicy="no-referrer" style={{maxWidth:"24rem",width:"100%",height:"auto"}}/>}</div>
             </article>)}
-          </section>
+            </section>
+          </details>
           <label>Public city URL <span>https://bitcoinwalk.org/</span><input required minLength={2} maxLength={63} pattern="[a-z0-9]+(?:-[a-z0-9]+)*" value={slugs[submission.eventId]??(submission.previous?submission.slug:registrationSlug(submission.cityName))} onChange={event=>setSlugs(current=>({...current,[submission.eventId]:event.target.value.toLowerCase()}))}/></label>
           <p>Suggested from the city name. You can correct this before approval; use lowercase letters, numbers and hyphens.</p>
           {!submission.previous&&<><label>Initial landscape image URL <input type="url" required={false} placeholder="https://…" value={heroImages[submission.eventId]??""} onChange={event=>{setHeroImages(images=>({...images,[submission.eventId]:event.target.value}));setImageStates(current=>({...current,[submission.eventId]:{status:"idle",message:"Import this URL or generate a new landscape before approval."}}));}}/></label><p>The selected file is validated and stored by BitcoinWalk before approval. Public pages will not depend on an external URL.</p><button disabled={busy} type="button" onClick={()=>generateLandscape(submission)}>{imageStates[submission.eventId]?.status==="waiting"||imageStates[submission.eventId]?.status==="working"?"Generating landscape…":"Generate realistic city landscape"}</button>{" "}<button disabled={busy||!heroImages[submission.eventId]?.trim()||heroImages[submission.eventId]?.includes("/api/media/files/")} type="button" onClick={()=>importLandscape(submission)}>Import image URL</button><div aria-live="polite" role={imageStates[submission.eventId]?.status==="error"?"alert":"status"}><p>{imageStates[submission.eventId]?.message??"Generate a realistic landscape or import a PNG, JPEG or WebP URL. Approval stays disabled until a managed image is selected."}</p>{heroImages[submission.eventId]?.includes("/api/media/files/")&&<img src={heroImages[submission.eventId]} alt={`Selected landscape for ${submission.cityName}`} style={{maxWidth:"32rem",width:"100%",height:"auto"}}/>}</div><p>Generation is super-admin only, rate limited and never publishes automatically. Review the result before approval; you can regenerate it or replace it with an imported URL.</p></>}
-          <p>Requested tier: {submission.city.requestedTier === "paid" ? "Pro — 21,000 sats once, lifetime access (payment status is verified separately)" : submission.city.requestedTier === "free" ? "Basic" : "Not specified (older submission)"}. Approval does not itself activate Pro benefits.</p>
           <p><a href={`/${encodeURIComponent(submission.slug)}`} target="_blank" rel="noreferrer">Open current approved page</a> (if published)</p>
           <button disabled={busy || (!!submission.previous&&!submission.previousCity) || (!submission.previous && (!submission.initialEventId||!heroImages[submission.eventId]?.includes("/api/media/files/")))} type="button" onClick={() => decide(submission, "approved")}>{submission.initialEventId ? "Approve city and publish first walk" : "Approve revision"}</button>{" "}
           <button disabled={busy} type="button" onClick={() => decide(submission, "rejected")}>Reject</button>

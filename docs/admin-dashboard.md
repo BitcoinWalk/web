@@ -84,6 +84,12 @@ App 0.3.93 tightens the component visually: the username is the larger bold prim
 
 App 0.3.94 removes the global **City / All available cities** selector from the CMS header. City selection remains local to the modules that need it. The first header row now aligns **Welcome to your dashboard!**, Connect/Disconnect and the connection-status dot; the reusable identity component remains directly underneath. It was activated on staging on 30 September 2026 through the non-root helper. Artifact SHA-256: `045490f3297a160df000db27bb6ef161939fc17839953860ebf43e4388dc6644`; deployment evidence: `/home/bitcoinwalk/backups/app-staging-deploy.uj14ow`; active release: `/opt/bitcoinwalk-app-staging/releases/0.3.94-045490f3297a`. All 382 tests, production build, packaged smoke, public health and dashboard route checks passed.
 
+## App 0.3.107 — focused request queue
+
+**Requests** is now a separate super-admin sidebar module rather than a Cities tab. Its label includes the pending request count loaded from the signed relay directory during login and updates immediately after approval or rejection. Old `/admin/approvals`, `/admin#submission-ID`, and `/admin/cities?tab=requests` links continue into the same request and preserve submission anchors.
+
+Each city card opens with a compact new-city/change summary, date, meeting place and plan state. Full signed field changes and technical identifiers remain under a disclosure for audit. A ⚡ marker means the private payment service confirms durable Pro entitlement; a selected Pro plan or pending invoice is labelled pending and never receives the marker. If private payment lookup fails, request review remains available and markers fail closed rather than guessing.
+
 For 0.3.17 acceptance: connect once, inspect overview counts, select a city and navigate between Walks/Cities/Hosting. Confirm the filter persists and each screen loads without a second connect click. Test All available cities, a host-only identity, and a relay outage. Refresh overview after signed changes; counts are not live.
 
 ## Content administration
