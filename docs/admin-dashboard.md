@@ -142,6 +142,8 @@ The disconnected dashboard replaces the old header-only **Connect signer** actio
 
 A creator-owned city registration now appears in the connected identity's **My cities** finder before approval, with a visible **Pending approval** label. This visibility does not create an editor grant: selecting the city shows its review state while profile editing and walk publication remain unavailable. Once the signed approval and authorization records exist, the same city becomes the normal editable city entry. A creator with only a pending registration is classified for organizer navigation so **Cities** remains reachable; another identity's pending city is never included.
 
+App 0.3.116 was activated on staging on 30 September 2026 through the ordinary `bitcoinwalk` deployment account. Artifact SHA-256: `231c0838e95241cc9d7d050c7f457c49cd7419de007dda4d0881d52c83a351d5`; deployment evidence: `/home/bitcoinwalk/backups/app-staging-deploy.mMnYvQ`; active release: `/opt/bitcoinwalk-app-staging/releases/0.3.116-231c0838e952`. All 463 tests, source lint, type-check, production build, backlog generation, packaged smoke, public health and My cities route checks passed.
+
 For 0.3.17 acceptance: connect once, inspect overview counts, select a city and navigate between Walks/Cities/Hosting. Confirm the filter persists and each screen loads without a second connect click. Test All available cities, a host-only identity, and a relay outage. Refresh overview after signed changes; counts are not live.
 
 ## Content administration
