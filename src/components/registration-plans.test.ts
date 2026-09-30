@@ -16,13 +16,16 @@ describe("RegistrationPlans",()=>{
     expect(html).toContain("Basic — 0 sats");
     expect(html).toContain("Pro — 21,000 sats once");
     expect(html).not.toContain("<h2");
+    expect(html).not.toContain("Basic and Pro benefits");
+    expect(html).not.toContain("No recurring subscription");
+    expect(html).not.toContain("NIP-05 identifies");
+    expect(html).not.toContain("Node apps");
   });
 
   it("places the Pro checkout directly below the tier choices",()=>{
     const html=renderToStaticMarkup(createElement(RegistrationPlans,{value:"paid",onChange:vi.fn(),disabled:false,paidEnabled:true,showHeading:false,paidCheckout:createElement("div",{"data-testid":"checkout"},"Invoice QR")}));
     expect(html).toContain("Invoice QR");
-    expect(html.indexOf("</fieldset>")).toBeLessThan(html.indexOf("Invoice QR"));
-    expect(html.indexOf("Invoice QR")).toBeLessThan(html.indexOf("No recurring subscription"));
+    expect(html).toContain('</fieldset><div data-testid="checkout">Invoice QR</div>');
     expect(html).not.toContain("Paid activation is not connected yet");
   });
 });
