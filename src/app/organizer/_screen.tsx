@@ -16,6 +16,7 @@ import { authenticateWithBrowserExtension, getBrowserExtensionPubkey, signWithBr
 import { publishVerifiedEvent } from "../../nostr/relay";
 import {importCityImageURL} from "../../lib/media-client";
 import {cityAliases} from "../../domain/city";
+import CityFinder from "../../components/city-finder";
 
 const LocationPicker = dynamic(() => import("../../components/location-picker"), {ssr:false});
 
@@ -27,7 +28,7 @@ export default function OrganizerPage() {
   const [decisions,setDecisions] = useState<ApprovalRecord[]>([]);
   const [base,setBase] = useState<CityRevision|null>(null);
   const [pin,setPin] = useState<LocationValue|null>(null);
-  const [message,setMessage] = useState("Connect your organizer extension to load walks you can edit.");
+  const [message,setMessage] = useState("Connect your organizer extension to load cities you can edit.");
   const [submitted,setSubmitted] = useState(false);
   const [submittedImageUrl,setSubmittedImageUrl]=useState("");
 
@@ -49,7 +50,7 @@ export default function OrganizerPage() {
       const available=editableCityRevisions(key,grants,revisions,approvals).filter(r=>!dashboard.selectedCity||r.city.cityId===dashboard.selectedCity);
       if(dashboard.selectedCity&&available.length)select(available[0]);
       setIdentity(key);setCities(available);setDecisions([...approvals].sort((a,b)=>compareEvents(a.event,b.event)));
-      setMessage(available.length ? "Select a walk. The form starts from its latest available authorized revision, which may still be pending." : "No registered editable walks were returned. Check your signer account and relay connection; new cities must first be registered by the super-admin.");
+      setMessage(available.length ? "Select a city. The form starts from its latest available authorized revision, which may still be pending." : "No registered editable cities were returned. Check your signer account and relay connection; new cities must first be registered by the super-admin.");
     } catch(error) {setMessage(error instanceof Error ? error.message : "Could not load walks.");}
     finally {lock.current=false;setBusy(false);}
   }
@@ -91,6 +92,12 @@ export default function OrganizerPage() {
   }
 
   const status=base ? decisions.find(r=>r.approval.cityRevisionId===base.event.id)?.approval.status ?? "pending / no decision returned" : "";
+  const visibleCities=cities.filter(revision=>showCityInPicker(revision.city.cityName));
+  function chooseCity(cityId:string){
+    const next=cities.find(revision=>revision.city.cityId===cityId)??null;
+    if(base&&!submitted&&base.city.cityId!==next?.city.cityId&&!window.confirm("Switching cities discards unsent changes. Continue?"))return false;
+    select(next);return true;
+  }
   return <section>
     <h2>City profile</h2>
     <p>Edit the city description, hero image and default meeting point. Scheduled walks are managed separately in Walks. Pending edits are publicly readable; do not include private details.</p>
@@ -98,11 +105,7 @@ export default function OrganizerPage() {
     <p>Archived cities are hidden. A super-admin can restore them from the archived-city list.</p>
     {identity && <p>Connected public key: {identity}</p>}
     <p role="status" aria-live="polite">{message}</p>
-    {!!cities.length&&<section><h3>Your cities</h3>{cities.filter(r=>showCityInPicker(r.city.cityName)).map(revision=><p key={revision.city.cityId}><strong>{revision.city.cityName}</strong> <button type="button" disabled={busy} onClick={()=>select(revision)}>Edit city</button></p>)}</section>}
-    {!!cities.length && <label>City <select disabled={busy} value={base?.city.cityId ?? ""} onChange={e=>{
-      if(base && !submitted && !window.confirm("Switching walks discards unsent changes. Continue?")) return;
-      select(cities.find(r=>r.city.cityId===e.target.value) ?? null);
-    }}><option value="">Select a city</option>{cities.filter(r=>showCityInPicker(r.city.cityName)).map(r=><option key={r.city.cityId} value={r.city.cityId}>{r.city.cityName} — {r.city.cityId}</option>)}</select></label>}
+    {!!visibleCities.length&&<CityFinder disabled={busy} label="Your city" placeholder="Search your cities…" value={base?.city.cityId??""} onChange={chooseCity} items={visibleCities.map(revision=>({id:revision.city.cityId,name:revision.city.cityName,keywords:[revision.city.slug,revision.city.cityId,...(revision.city.aliases??[])]}))}/>}
     {base && <section>
       <p>City ID: {base.city.cityId}<br/>Editing revision: {base.event.id}<br/>Revision status: {submitted ? "New edit submitted" : status}</p>
       <p><a href={`/${encodeURIComponent(base.city.slug)}`} target="_blank" rel="noreferrer">Open approved public page</a> (only available if an approved revision is published).</p>
