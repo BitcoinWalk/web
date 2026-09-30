@@ -23,7 +23,7 @@ const DEFAULT_DESCRIPTION = "Join us for a friendly local BitcoinWalk: a relaxed
 type SubmissionState = { kind: "idle" | "working" | "success" | "error"; message?: string };
 
 export default function StartWalkPage() {
-  const [step, setStep] = useState<1 | 2>(1);
+  const [step, setStep] = useState<1 | 2 | 3>(1);
   const [state, setState] = useState<SubmissionState>({ kind: "idle" });
   const [cityName, setCityName] = useState("");
   const [walkDate,setWalkDate]=useState(""),[walkHour,setWalkHour]=useState("10"),[walkMinute,setWalkMinute]=useState("00"),[meridiem,setMeridiem]=useState<Meridiem>("AM");
@@ -36,9 +36,9 @@ export default function StartWalkPage() {
   const cityId = useRef("");
   const submitting = useRef(false);
   const pendingSubmission = useRef<{ walk: Event; revision: Event; city: string } | null>(null);
-  const stepHeading = useRef<HTMLHeadingElement>(null);
+  const detailsHeading=useRef<HTMLHeadingElement>(null),accountHeading=useRef<HTMLHeadingElement>(null),planHeading=useRef<HTMLHeadingElement>(null);
   const locked = state.kind === "working" || state.kind === "success";
-  useEffect(() => { stepHeading.current?.focus(); }, [step]);
+  useEffect(()=>{({1:detailsHeading,2:accountHeading,3:planHeading} as const)[step].current?.focus();},[step]);
   useEffect(()=>{let active=true;resolvedFeatureFlags(relayConfig.readRelays).then(flags=>{if(active){setPaidEnabled(flags.paidTierRegistration);if(!flags.paidTierRegistration)setRequestedTier("free");}}).catch(()=>{if(active){setPaidEnabled(false);setRequestedTier("free");}});return()=>{active=false;};},[]);
 
   function draft() {
@@ -56,9 +56,11 @@ export default function StartWalkPage() {
     catch (error) { setState({ kind: "error", message: error instanceof Error ? error.message : "Check your walk details." }); }
   }
 
+  function choosePlan(event:FormEvent<HTMLFormElement>){event.preventDefault();if(!organizerKey){setState({kind:"error",message:"Connect your chosen organizer identity first."});return;}setState({kind:"idle"});setStep(3);}
+
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (submitting.current || locked || step !== 2) return;
+    if (submitting.current || locked || step !== 3) return;
     if (!organizerKey) { setState({ kind: "error", message: "Connect your chosen organizer identity first." }); return; }
     submitting.current = true;
     try {
@@ -87,10 +89,9 @@ export default function StartWalkPage() {
   }
 
   return <main data-hide-site-footer>
-    {step===2&&<span tabIndex={-1} ref={stepHeading}/>}
-    {/* Keep both steps mounted so map, image choice, form inputs and signer state survive Back. */}
+    {/* Keep all steps mounted so map, form inputs and signer state survive Back. */}
     <div hidden={step !== 1} className="walk-details-frame">
-      <h2 tabIndex={-1} ref={stepHeading}>Step 1 of 2 — Your walk details</h2>
+      <h2 tabIndex={-1} ref={detailsHeading}>Step 1 of 3 — Your walk details</h2>
       <form onSubmit={next}>
         <fieldset disabled={locked || step !== 1} style={{ display: "grid", gap: "1rem" }}>
           <LocationPicker cityName={cityName} onCityNameChange={setCityName} value={location} onChange={setLocation} />
@@ -109,10 +110,17 @@ export default function StartWalkPage() {
     </div>
     <div hidden={step !== 2} className="start-account-step">
       <p><button className="start-account-step__back" type="button" disabled={locked} onClick={() => { setState({ kind: "idle" }); setStep(1); }}>&lt; Back to walk details</button></p>
+      <form onSubmit={choosePlan}>
+        <OrganizerIdentity disabled={locked || step !== 2} onIdentityChange={setOrganizerKey} headingRef={accountHeading}/>
+        <div className="start-account-step__submit"><button type="submit" disabled={!organizerKey || locked || step !== 2}>Next</button></div>
+      </form>
+    </div>
+    <div hidden={step!==3} className="start-plan-step">
+      <p><button className="start-account-step__back" type="button" disabled={locked} onClick={()=>{setState({kind:"idle"});setStep(2);}}>&lt; Back to your account</button></p>
+      <h2 ref={planHeading} tabIndex={-1}>Step 3 of 3 — Choose your plan</h2>
       <form onSubmit={submit}>
-        <OrganizerIdentity disabled={locked || step !== 2} onIdentityChange={setOrganizerKey} />
-        {paidEnabled&&<RegistrationPlans value={requestedTier} onChange={setRequestedTier} disabled={locked || step !== 2} paidEnabled/>}
-        <div className="start-account-step__submit"><button type="submit" disabled={!organizerKey || locked || step !== 2}>{state.kind === "working" ? "Submitting…" : "Submit"}</button></div>
+        <RegistrationPlans value={requestedTier} onChange={setRequestedTier} disabled={locked||step!==3} paidEnabled={paidEnabled} showHeading={false}/>
+        <div className="start-account-step__submit"><button type="submit" disabled={!organizerKey||locked||step!==3}>{state.kind==="working"?"Submitting…":"Submit"}</button></div>
       </form>
     </div>
     {state.message && <p role={state.kind === "error" ? "alert" : "status"}>{state.message}</p>}
