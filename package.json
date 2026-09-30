@@ -26,6 +26,7 @@
     "maplibre-gl": "6.11.2",
     "next": "latest",
     "nostr-tools": "latest",
+    "qrcode.react": "^4.2.0",
     "react": "latest",
     "react-dom": "latest",
     "react-leaflet": "latest",
