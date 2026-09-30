@@ -94,6 +94,8 @@ App 0.3.107 was activated on staging on 30 September 2026 through the ordinary `
 
 App 0.3.108 extends the sidebar badges without changing permissions. Super-admin sees **Cities (n)** for currently approved cities and **Upcoming walks (n)** for unique active/grace/upcoming public occurrences. Organizer sees **My walks (n)** for the unique future occurrences visible on that page, including accepted hosting assignments without double-counting. A failed or incomplete relay read shows `?`; it is never converted to zero. Approving or rejecting a city request triggers a fresh menu inventory read.
 
+App 0.3.108 was activated on staging on 30 September 2026 through the ordinary `bitcoinwalk` deployment account. Artifact SHA-256: `6b1c83da55b0248c404bff4de783c24e19b4dd9299d46384b2f15dace0e90fef`; deployment evidence: `/home/bitcoinwalk/backups/app-staging-deploy.7nAcUt`; active release: `/opt/bitcoinwalk-app-staging/releases/0.3.108-6b1c83da55b0`. All 451 tests, source lint, production build, packaged smoke, public health and dashboard route checks passed. Signer-connected count acceptance remains under BW-75.
+
 For 0.3.17 acceptance: connect once, inspect overview counts, select a city and navigate between Walks/Cities/Hosting. Confirm the filter persists and each screen loads without a second connect click. Test All available cities, a host-only identity, and a relay outage. Refresh overview after signed changes; counts are not live.
 
 ## Content administration
