@@ -1,6 +1,13 @@
 .home { max-width: 72rem; margin: 0 auto; padding: 1.5rem; color: #22251e; }
-.nav { display:flex; justify-content:space-between; align-items:center; gap:1rem; padding:1rem 0; border-bottom:1px solid #ddd; }
-.nav>a {font-weight:800;font-size:1.35rem;}
+.nav {position:sticky;top:0;z-index:30;display:flex;justify-content:space-between;align-items:center;gap:1rem;padding:.8rem 0;border-bottom:1px solid #ddd;background:rgba(255,255,255,.94);backdrop-filter:blur(12px);transition:box-shadow .25s ease;}
+.nav[data-compact=true]{box-shadow:0 8px 20px rgba(34,37,30,.08);}
+.brand{display:block;flex:0 0 auto;width:14.25rem;overflow:hidden;transition:width .3s cubic-bezier(.2,.75,.25,1);}
+.brand[data-compact=true]{width:2.64rem;}
+.brand span{position:relative;display:block;width:14.25rem;height:2.64rem;}
+.brand img{display:block;width:auto;height:2.64rem;max-width:none;transition:opacity .16s ease;}
+.icon{position:absolute;inset:0 auto auto 0;opacity:0;}
+.brand[data-compact=true] .wordmark{opacity:0;}
+.brand[data-compact=true] .icon{opacity:1;}
 .nav div {display:flex;gap:1.25rem;}
 .nav a {color:inherit;}
 .hero {padding:4rem 0 3rem;max-width:52rem;}
@@ -28,4 +35,5 @@
 .sponsor img,.sponsor .placeholder {width:5rem;height:3rem;object-fit:contain;margin-bottom:.5rem;}
 .footer {margin-top:4rem;padding:2rem;background:#f7f0e4;border-radius:.8rem;}
 .home a:focus-visible,.home button:focus-visible {outline:3px solid #9b4d00;outline-offset:3px;}
-@media(max-width:480px){.nav {align-items:start;}.nav div {flex-direction:column;gap:.5rem;}.hero {padding-top:2rem;}}
+@media(max-width:480px){.nav div{gap:.75rem;font-size:.9rem}.brand{width:10.8rem}.brand span{width:10.8rem;height:2rem}.brand img{height:2rem}.brand[data-compact=true]{width:2rem}.hero {padding-top:2rem;}}
+@media(prefers-reduced-motion:reduce){.brand,.nav{transition:none;}}

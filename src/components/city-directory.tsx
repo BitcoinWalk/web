@@ -1,5 +1,6 @@
 "use client";
 import dynamic from "next/dynamic";
+import Image from "next/image";
 import Link from "next/link";
 import {useEffect,useState} from "react";
 import {queryDirectoryRecords} from "../nostr/city-records";
@@ -10,6 +11,7 @@ import {DEFAULT_HOME_PAGE,HOME_PAGE_ID,type ContentPage} from "../domain/content
 import {latestContentPages,queryContentRevisions} from "../nostr/content-records";
 import styles from "./city-directory.module.css";
 const Map=dynamic(()=>import("./directory-map"),{ssr:false,loading:()=> <p>Loading map…</p>});
+export const compactHomepageBrand=(scrollY:number)=>scrollY>72;
 function Photo({src,alt}:{src?:string;alt:string}) {
   const [failed,setFailed]=useState(false);
   // Browser-loaded public images, not server-side URL fetches.
@@ -43,6 +45,8 @@ export default function CityDirectory() {
   const [error,setError]=useState("");
   const [attempt,setAttempt]=useState(0);
   const [content,setContent]=useState<ContentPage>(DEFAULT_HOME_PAGE);
+  const [compactBrand,setCompactBrand]=useState(false);
+  useEffect(()=>{const update=()=>setCompactBrand(compactHomepageBrand(window.scrollY));update();window.addEventListener("scroll",update,{passive:true});return()=>window.removeEventListener("scroll",update);},[]);
   useEffect(()=>{
     let active=true;
     Promise.allSettled([queryDirectoryRecords(relayConfig.readRelays),queryContentRevisions(relayConfig.readRelays)]).then(([directory,contentResult])=>{
@@ -52,7 +56,7 @@ export default function CityDirectory() {
   },[attempt]);
   const filtered=filterDirectory(rows,query),featured=rows.filter(row=>row.featured);
   return <main className={styles.home}>
-    <nav className={styles.nav}><Link href="/">BitcoinWalk</Link><div><Link href="/admin">Dashboard</Link><Link href="/start">Start a walk</Link></div></nav>
+    <nav className={styles.nav} data-compact={compactBrand}><Link className={styles.brand} data-compact={compactBrand} href="/" aria-label="BitcoinWalk homepage"><span><Image className={styles.wordmark} src="/brand/bitcoinwalk-horizontal.png" width={1690} height={312} priority alt="BitcoinWalk"/><Image className={styles.icon} src="/brand/bitcoinwalk-icon.png" width={312} height={312} priority alt="" aria-hidden="true"/></span></Link><div><Link href="/admin">Dashboard</Link><Link href="/start">Start a walk</Link></div></nav>
     <header className={styles.hero}>{content.eyebrow&&<p className={styles.eyebrow}>{content.eyebrow}</p>}<h1>{content.title}</h1>{content.intro&&<p>{content.intro}</p>}{content.ctaLabel&&content.ctaHref&&<a className={styles.link} href={content.ctaHref}>{content.ctaLabel}</a>}</header>
     {content.body&&<section>{content.body.split(/\n\s*\n/).map((paragraph,index)=><p key={index} style={{whiteSpace:"pre-wrap"}}>{paragraph}</p>)}</section>}
     <p className={styles.muted}>Staging preview · Approved cities from the staging relay. This is not the legacy production directory.</p>

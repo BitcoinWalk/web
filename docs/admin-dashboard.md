@@ -144,6 +144,10 @@ A creator-owned city registration now appears in the connected identity's **My c
 
 App 0.3.116 was activated on staging on 30 September 2026 through the ordinary `bitcoinwalk` deployment account. Artifact SHA-256: `231c0838e95241cc9d7d050c7f457c49cd7419de007dda4d0881d52c83a351d5`; deployment evidence: `/home/bitcoinwalk/backups/app-staging-deploy.mMnYvQ`; active release: `/opt/bitcoinwalk-app-staging/releases/0.3.116-231c0838e952`. All 463 tests, source lint, type-check, production build, backlog generation, packaged smoke, public health and My cities route checks passed.
 
+## App 0.3.117 — responsive homepage brand header
+
+The homepage uses the supplied transparent BitcoinWalk horizontal logo in its sticky top-left brand link. After the visitor scrolls beyond the hero threshold, the wordmark width collapses and cross-fades to an exact icon-only crop from the same supplied artwork. Dashboard and Start navigation remain available, the link retains its full accessible name, mobile sizing is bounded, and `prefers-reduced-motion` removes the transition.
+
 For 0.3.17 acceptance: connect once, inspect overview counts, select a city and navigate between Walks/Cities/Hosting. Confirm the filter persists and each screen loads without a second connect click. Test All available cities, a host-only identity, and a relay outage. Refresh overview after signed changes; counts are not live.
 
 ## Content administration
