@@ -1,0 +1,7 @@
+.copyValue{display:inline-flex;align-items:center;gap:.3rem;max-width:100%}
+.copyValue>span{overflow-wrap:anywhere}
+.copy{padding:0 .2rem!important;min-width:1.25rem;min-height:1.25rem;border:0!important;background:transparent!important;color:#5b626a;font-size:.78rem;line-height:1;white-space:nowrap}
+.copy:hover{color:#111}
+.copy[data-feedback=copied]{color:#1b7138;font-weight:700}
+.copy[data-feedback=failed]{color:#9a3a2b;font-weight:700}
+.missing{color:#747b83;font-style:italic}

@@ -1,8 +1,9 @@
 "use client";
 
-import {useEffect,useRef,useState} from "react";
+import {useEffect,useState} from "react";
 import {nip19} from "nostr-tools";
 import {verifyNip05,watchPublicProfiles,type PublicProfile} from "../nostr/profiles";
+import CopyValue from "./copy-value";
 import styles from "./nostr-user.module.css";
 
 type Props={
@@ -13,16 +14,6 @@ type Props={
  createdCities?:string[];
  editorCities?:string[];
 };
-
-function CopyValue({label,value}:{label:string;value?:string}){
- const [feedback,setFeedback]=useState<""|"copied"|"failed">(""),timer=useRef<ReturnType<typeof setTimeout>|undefined>(undefined);
- useEffect(()=>()=>{if(timer.current)clearTimeout(timer.current);},[]);
- if(!value)return <span className={styles.missing}>Not provided</span>;
- function resetAfterDelay(){if(timer.current)clearTimeout(timer.current);timer.current=setTimeout(()=>setFeedback(""),1800);}
- function copy(){void navigator.clipboard.writeText(value!).then(()=>{setFeedback("copied");resetAfterDelay();}).catch(()=>{setFeedback("failed");resetAfterDelay();});}
- const buttonText=feedback==="copied"?"✓ Copied":feedback==="failed"?"! Retry":"⧉";
- return <span className={styles.copyValue}><span dir="auto">{value}</span><button className={styles.copy} data-feedback={feedback||undefined} type="button" title={feedback==="copied"?`${label} copied`:`Copy ${label}`} aria-label={feedback==="copied"?`${label} copied to clipboard`:feedback==="failed"?`Copy ${label} failed; retry`:`Copy ${label}`} aria-live="polite" onClick={copy}>{buttonText}</button></span>;
-}
 
 export default function NostrUser({pubkey,profile:provided,variant="card",resolveProfile=true,createdCities=[],editorCities=[]}:Props){
  const [resolved,setResolved]=useState<{pubkey:string;profile:PublicProfile}>(),[failed,setFailed]=useState<string>();

@@ -14,6 +14,7 @@ import {eventPageHref,managedCalendarEvents,type ManagedCalendarEvent} from "../
 import {publishVerifiedEvent} from "../nostr/relay";
 import {requireOccurrenceCancellationRelay} from "../nostr/relay-capabilities";
 import CityFinder from "./city-finder";
+import WalkIdentifiers from "./walk-identifiers";
 
 export default function CityModeration(){
  const dashboard=useDashboard();
@@ -52,7 +53,7 @@ export default function CityModeration(){
   if(!tombstones.some(e=>e.id===signed.id)||remaining.length)throw new Error("Deletion acknowledged but exact removal not confirmed. Reload before retrying.");
   await reload();setMessage(`${city.cityName}: occurrence removed and tombstone verified. The city URL will select the next eligible walk. External copies may remain.`);
  });}
- function eventRow(row:ManagedCity,item:ManagedCalendarEvent){const city=row.revision.city,nevent=calendarNevent(item.event,relayConfig.calendarRelayHints),href=eventPageHref(city.slug,nevent),when=new Intl.DateTimeFormat(undefined,{dateStyle:"full",timeStyle:"short",...(item.timeZone?{timeZone:item.timeZone}:{})}).format(new Date(item.start*1000));return <li key={item.event.id}><p><strong>{item.status==="active"?"Active":item.status==="grace"?"Late-arrival grace":item.status==="upcoming"?"Upcoming":"Past"}</strong> — {when}<br/>{item.meetingPoint.description}<br/><small>Organizer: {nip19.npubEncode(item.event.pubkey)}<br/>Event: {item.event.id}</small></p><p><a href={href} target="_blank" rel="noreferrer">Open event ↗</a>{" "}<button disabled={busy} onClick={()=>removeEvent(row,item)}>Cancel this walk</button></p></li>;}
+ function eventRow(row:ManagedCity,item:ManagedCalendarEvent){const city=row.revision.city,nevent=calendarNevent(item.event,relayConfig.calendarRelayHints),href=eventPageHref(city.slug,nevent),when=new Intl.DateTimeFormat(undefined,{dateStyle:"full",timeStyle:"short",...(item.timeZone?{timeZone:item.timeZone}:{})}).format(new Date(item.start*1000));return <li key={item.event.id}><p><strong>{item.status==="active"?"Active":item.status==="grace"?"Late-arrival grace":item.status==="upcoming"?"Upcoming":"Past"}</strong> — {when}<br/>{item.meetingPoint.description}<br/><WalkIdentifiers organizerNpub={nip19.npubEncode(item.event.pubkey)} nevent={nevent}/></p><p><a href={href} target="_blank" rel="noreferrer">Open event ↗</a>{" "}<button disabled={busy} onClick={()=>removeEvent(row,item)}>Cancel this walk</button></p></li>;}
  const available=visibleManagedCities(rows,showArchived).filter(row=>!dashboard.selectedCity||row.revision.city.cityId===dashboard.selectedCity);
  function selectCity(id:string){setSelectedId(id);void run(async()=>{await reload(id);setMessage(id?"City state and walks loaded.":"City list loaded.");});}
  return <section>
