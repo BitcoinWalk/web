@@ -138,6 +138,10 @@ Basic registration opens the dashboard only after the signed submission is ackno
 
 The disconnected dashboard replaces the old header-only **Connect signer** action with the full reusable account module in the main content area. Existing compact profile and Disconnect controls return after connection, and protected deep links retain their route while the user connects. App 0.3.115 was activated on staging on 30 September 2026 through the ordinary `bitcoinwalk` deployment account. Artifact SHA-256: `decf65e093c73160ba70c44e1e8e0286eac7dbd2aaff6fde71c7cc18341bd6b8`; deployment evidence: `/home/bitcoinwalk/backups/app-staging-deploy.W9IQfv`; active release: `/opt/bitcoinwalk-app-staging/releases/0.3.115-decf65e093c7`. All 461 tests, focused source lint, type-check, production build, backlog generation, packaged smoke, local accessibility-tree inspection, public health and registration/dashboard route checks passed.
 
+## App 0.3.116 — pending registrations in My cities
+
+A creator-owned city registration now appears in the connected identity's **My cities** finder before approval, with a visible **Pending approval** label. This visibility does not create an editor grant: selecting the city shows its review state while profile editing and walk publication remain unavailable. Once the signed approval and authorization records exist, the same city becomes the normal editable city entry. A creator with only a pending registration is classified for organizer navigation so **Cities** remains reachable; another identity's pending city is never included.
+
 For 0.3.17 acceptance: connect once, inspect overview counts, select a city and navigate between Walks/Cities/Hosting. Confirm the filter persists and each screen loads without a second connect click. Test All available cities, a host-only identity, and a relay outage. Refresh overview after signed changes; counts are not live.
 
 ## Content administration

@@ -18,6 +18,7 @@ import {importCityImageURL} from "../../lib/media-client";
 import {cityAliases} from "../../domain/city";
 import CityFinder from "../../components/city-finder";
 import {organizerDirectorySnapshot} from "../../nostr/dashboard-snapshot";
+import {organizerCityInventory,type OrganizerCityInventoryItem} from "../../domain/organizer-city-inventory";
 
 const LocationPicker = dynamic(() => import("../../components/location-picker"), {ssr:false});
 
@@ -25,7 +26,7 @@ export default function OrganizerPage() {
   const lock = useRef(false);
   const [busy,setBusy] = useState(false);
   const [identity,setIdentity] = useState("");
-  const [cities,setCities] = useState<CityRevision[]>([]);
+  const [cities,setCities] = useState<OrganizerCityInventoryItem[]>([]);
   const [decisions,setDecisions] = useState<ApprovalRecord[]>([]);
   const [base,setBase] = useState<CityRevision|null>(null);
   const [pin,setPin] = useState<LocationValue|null>(null);
@@ -52,10 +53,10 @@ export default function OrganizerPage() {
       else {const [grants,directory]=await Promise.all([queryAuthorizations(relayConfig.readRelays),queryDirectoryRecords(relayConfig.readRelays)]);loaded={grants,...directory};}
       const {grants,revisions,approvals}=loaded;
       if(await getBrowserExtensionPubkey()!==key) throw new Error("Signer account changed. Reconnect with the intended account.");
-      const available=editableCityRevisions(key,grants,revisions,approvals).filter(r=>!dashboard.selectedCity||r.city.cityId===dashboard.selectedCity);
-      if(dashboard.selectedCity&&available.length)select(available[0]);
+      const available=organizerCityInventory(key,grants,revisions,approvals).filter(item=>!dashboard.selectedCity||item.revision.city.cityId===dashboard.selectedCity);
+      if(dashboard.selectedCity&&available.length)select(available[0].revision);
       setIdentity(key);setCities(available);setDecisions([...approvals].sort((a,b)=>compareEvents(a.event,b.event)));
-      setMessage(available.length ? "Select a city. The form starts from its latest available authorized revision, which may still be pending." : "No registered editable cities were returned. Check your signer account and relay connection; new cities must first be registered by the super-admin.");
+      setMessage(available.length ? "Select a city. Pending registrations are visible here, but editing remains locked until approval grants permission." : "No cities were returned for this identity. Check your signer account and relay connection.");
     } catch(error) {setMessage(error instanceof Error ? error.message : "Could not load walks.");}
     finally {lock.current=false;setBusy(false);}
   }
@@ -79,7 +80,7 @@ export default function OrganizerPage() {
       if(key!==identity) throw new Error("Signer account changed. Connect and load your walks again before editing.");
       setMessage("Checking current permission and revision…");
       const [grants,{revisions,approvals}]=await Promise.all([queryAuthorizations(relayConfig.writeRelays),queryDirectoryRecords(relayConfig.writeRelays)]);
-      if(archivedCityIds(approvals).has(base.city.cityId)) {setCities(items=>items.filter(r=>r.city.cityId!==base.city.cityId));select(null);throw new Error("This city has been archived and removed from your editable walks. An admin must restore it first. Nothing was signed.");}
+      if(archivedCityIds(approvals).has(base.city.cityId)) {setCities(items=>items.filter(item=>item.revision.city.cityId!==base.city.cityId));select(null);throw new Error("This city has been archived and removed from your editable walks. An admin must restore it first. Nothing was signed.");}
       const current=editableCityRevisions(key,grants,revisions,approvals).find(r=>r.city.cityId===base.city.cityId);
       if(!current) throw new Error("Could not confirm your current editor permission. Reload your walks; nothing was signed.");
       if(current.event.id!==base.event.id) throw new Error("A newer revision is available. Copy your unsent changes, then reload before submitting.");
@@ -87,7 +88,7 @@ export default function OrganizerPage() {
       const signed=await signWithBrowserExtension(createCityUpdateEvent(candidate,base.event.id));
       if(signed.pubkey!==key || await getBrowserExtensionPubkey()!==key) throw new Error("Signer identity changed; revision was not published.");
       const afterSigning=await queryDirectoryRecords(relayConfig.writeRelays);
-      if(archivedCityIds(afterSigning.approvals).has(base.city.cityId)) {setCities(items=>items.filter(r=>r.city.cityId!==base.city.cityId));select(null);throw new Error("This city was archived while signing. The edit was not published.");}
+      if(archivedCityIds(afterSigning.approvals).has(base.city.cityId)) {setCities(items=>items.filter(item=>item.revision.city.cityId!==base.city.cityId));select(null);throw new Error("This city was archived while signing. The edit was not published.");}
       const publication=await publishVerifiedEvent(signed,relayConfig.writeRelays,1,authenticateWithBrowserExtension);
       setSubmittedImageUrl(heroImageUrl??"");
       setSubmitted(true);
@@ -97,10 +98,11 @@ export default function OrganizerPage() {
   }
 
   const status=base ? decisions.find(r=>r.approval.cityRevisionId===base.event.id)?.approval.status ?? "pending / no decision returned" : "";
-  const visibleCities=cities.filter(revision=>showCityInPicker(revision.city.cityName));
+  const visibleCities=cities.filter(item=>showCityInPicker(item.revision.city.cityName));
+  const selectedCity=base?cities.find(item=>item.revision.city.cityId===base.city.cityId):undefined;
   function chooseCity(cityId:string){
-    const next=cities.find(revision=>revision.city.cityId===cityId)??null;
-    if(base&&!submitted&&base.city.cityId!==next?.city.cityId&&!window.confirm("Switching cities discards unsent changes. Continue?"))return false;
+    const next=cities.find(item=>item.revision.city.cityId===cityId)?.revision??null;
+    if(base&&!submitted&&selectedCity?.editable&&base.city.cityId!==next?.city.cityId&&!window.confirm("Switching cities discards unsent changes. Continue?"))return false;
     select(next);return true;
   }
   return <section>
@@ -110,8 +112,9 @@ export default function OrganizerPage() {
     <p>Archived cities are hidden. A super-admin can restore them from the archived-city list.</p>
     {identity && <p>Connected public key: {identity}</p>}
     <p role="status" aria-live="polite">{message}</p>
-    {!!visibleCities.length&&<CityFinder disabled={busy} label="Your city" placeholder="Search your cities…" value={base?.city.cityId??""} onChange={chooseCity} items={visibleCities.map(revision=>({id:revision.city.cityId,name:revision.city.cityName,keywords:[revision.city.slug,revision.city.cityId,...(revision.city.aliases??[])]}))}/>}
-    {base && <section>
+    {!!visibleCities.length&&<CityFinder disabled={busy} label="Your city" placeholder="Search your cities…" value={base?.city.cityId??""} onChange={chooseCity} items={visibleCities.map(item=>({id:item.revision.city.cityId,name:item.revision.city.cityName,meta:item.status==="awaiting-approval"?"Pending approval":item.status==="needs-changes"?"Needs changes":undefined,keywords:[item.revision.city.slug,item.revision.city.cityId,...(item.revision.city.aliases??[])]}))}/>}
+    {base && selectedCity&&!selectedCity.editable&&<section><h3>{base.city.cityName} — {selectedCity.status==="needs-changes"?"Needs changes":"Pending approval"}</h3><p>This city belongs to your connected identity, but it cannot be edited or used to publish walks until a super-admin approves it.</p></section>}
+    {base && selectedCity?.editable && <section>
       <p>City ID: {base.city.cityId}<br/>Editing revision: {base.event.id}<br/>Revision status: {submitted ? "New edit submitted" : status}</p>
       <p><a href={`/${encodeURIComponent(base.city.slug)}`} target="_blank" rel="noreferrer">Open approved public page</a> (only available if an approved revision is published).</p>
       <form key={base.event.id} onSubmit={submit}>

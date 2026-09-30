@@ -17,6 +17,7 @@ import {activeSignerIdentity,disconnectSignerSession} from "../nostr/signer-sess
 import styles from "./dashboard-shell.module.css";
 import {dashboardMenuRefreshEvent,pendingRequestCountEvent,pendingRequestCountFromEvent} from "./pending-request-count";
 import {loadDashboardMenuCounts,resolveDashboardMenuCounts,type DashboardMenuCounts} from "../nostr/dashboard-menu";
+import {creatorSubmissions} from "../domain/creator-submissions";
 export default function DashboardShell({children}:{children:ReactNode}){
  const path=usePathname(),[session,setSession]=useState(blank),[error,setError]=useState(""),[busy,setBusy]=useState(false),[open,setOpen]=useState(false),[epoch,setEpoch]=useState(0),[pendingCount,setPendingCount]=useState<number|null>(null),[menuCounts,setMenuCounts]=useState<DashboardMenuCounts>({cities:null,walks:null});
  const generation=useRef(0),connecting=useRef(false);
@@ -29,7 +30,8 @@ export default function DashboardShell({children}:{children:ReactNode}){
  if(request!==generation.current)return;if(await getBrowserExtensionPubkey()!==pubkey)throw new Error("Signer changed. Connect again.");
  const cityCount=records.filter(r=>r.grant.creatorPubkey===pubkey||r.grant.editorPubkeys.includes(pubkey)).length;
  const cities=dashboardCities(pubkey,records,directory.status==="fulfilled"?directory.value.revisions:[],hosting.status==="fulfilled"?hosting.value:[]);
- const role=isSuperAdmin(pubkey)?"super-admin":cityCount?"organizer":"member";
+ const ownsCitySubmission=directory.status==="fulfilled"&&creatorSubmissions(pubkey,directory.value.revisions,directory.value.approvals).length>0;
+ const role=isSuperAdmin(pubkey)?"super-admin":cityCount||ownsCitySubmission?"organizer":"member";
  const counts=directory.status==="fulfilled"?await resolveDashboardMenuCounts(relayConfig.readRelays,pubkey,role,records,directory.value,hosting.status==="fulfilled"?hosting.value:null):{cities:null,walks:null};
  if(await getBrowserExtensionPubkey()!==pubkey)throw new Error("Signer changed. Connect again.");
  if(request!==generation.current)return;setDashboardSigningIdentity(pubkey);setSession({pubkey,role,cityCount,cities,selectedCity:"",grants:records,directory:directory.status==="fulfilled"?directory.value:null});
