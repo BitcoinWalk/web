@@ -11,8 +11,10 @@ describe("dashboard header",()=>{
     expect(html).toContain("Welcome to your dashboard!");
     expect(html).toContain("Connect signer");
     expect(html).toContain('data-status="disconnected"');
+    expect(html).toMatch(/Welcome to your dashboard!<\/strong><div class="[^"]*actions[^"]*"><button[^>]*>Connect signer<\/button><\/div><div class="[^"]*connection/);
     expect(html).not.toContain("Refresh / switch identity");
     expect(html).not.toContain("Public site");
     expect(html).not.toContain("All available cities");
+    expect(html).not.toContain("<select");
   });
 });
