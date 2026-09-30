@@ -114,6 +114,8 @@ Each published occurrence in super-admin **Cities → City list** now displays i
 
 App 0.3.111 was activated on staging on 30 September 2026 through the ordinary `bitcoinwalk` deployment account. Artifact SHA-256: `3c501c28e1787ed8ff50c4a6bc0336a1e44a639a91044b2180b8c8c9a46a8610`; deployment evidence: `/home/bitcoinwalk/backups/app-staging-deploy.tlXXVw`; active release: `/opt/bitcoinwalk-app-staging/releases/0.3.111-3c501c28e178`. All 454 tests, source lint, production build, backlog generation, packaged smoke, public health and Cities route checks passed.
 
+App 0.3.112 shortens the visible walk identifiers to `npub1abc...xyz` and `nevent1abc...xyz` form so long Bech32 values do not dominate each occurrence row. The copy controls continue to write the complete, unmodified npub and nevent to the clipboard.
+
 For 0.3.17 acceptance: connect once, inspect overview counts, select a city and navigate between Walks/Cities/Hosting. Confirm the filter persists and each screen loads without a second connect click. Test All available cities, a host-only identity, and a relay outage. Refresh overview after signed changes; counts are not live.
 
 ## Content administration
