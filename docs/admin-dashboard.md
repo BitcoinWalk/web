@@ -122,6 +122,8 @@ App 0.3.112 was activated on staging on 30 September 2026 through the ordinary `
 
 Organizer **My cities** now uses the shared City finder instead of a duplicated city list plus fixed select menu. It searches the connected organizer's editable cities by display name, URL slug, city ID and aliases, with the same complete-inventory, keyboard, matching-count and clear behaviour as the super-admin City list. Selecting or clearing a city still warns before discarding an unsent profile edit; permissions and signed revision handling are unchanged.
 
+App 0.3.113 was activated on staging on 30 September 2026 through the ordinary `bitcoinwalk` deployment account. Artifact SHA-256: `3d02faaa502daa1a56491e93eb03385141c62360c35849facff6636bef058c2f`; deployment evidence: `/home/bitcoinwalk/backups/app-staging-deploy.hUaXJQ`; active release: `/opt/bitcoinwalk-app-staging/releases/0.3.113-3d02faaa502d`. All 455 tests, source lint, production build, backlog generation, packaged smoke, public health and organizer My cities route checks passed.
+
 For 0.3.17 acceptance: connect once, inspect overview counts, select a city and navigate between Walks/Cities/Hosting. Confirm the filter persists and each screen loads without a second connect click. Test All available cities, a host-only identity, and a relay outage. Refresh overview after signed changes; counts are not live.
 
 ## Content administration
