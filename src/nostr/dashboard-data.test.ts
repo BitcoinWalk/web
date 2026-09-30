@@ -59,7 +59,12 @@ describe("shared dashboard data",()=>{
   expect(result.cities.value).toBe(1);expect(result.walks.value).toBe(1);expect(result.hosting.value).toBe(1);
   expect(result.nextWalks?.map(h=>h.walk.revision.city.cityId)).toEqual(["b"]);
   expect(result.nextHosting?.map(h=>h.walk.revision.city.cityId)).toEqual(["b"]);
-  expect(queryCalendarEvents).toHaveBeenCalledExactlyOnceWith(["wss://relay"],{cityId:"b"});
+  expect(queryCalendarEvents).toHaveBeenCalledExactlyOnceWith(["wss://relay"],{cityIds:["b"]});
+ });
+ it("batches multiple city schedules into one relay read",async()=>{
+  vi.mocked(approvedCalendarWalks).mockReturnValue([{revision:{city:{cityId:"a"}}},{revision:{city:{cityId:"b"}}}] as never);
+  await loadDashboardSummary(["wss://relay"],"admin","");
+  expect(queryCalendarEvents).toHaveBeenCalledExactlyOnceWith(["wss://relay"],{cityIds:["a","b"]});
  });
  it("does not display a truncated calendar read as a complete count",async()=>{
   vi.mocked(approvedCalendarWalks).mockReturnValue([{revision:{city:{cityId:"a"}}}] as never);

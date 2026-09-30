@@ -31,8 +31,9 @@ export function parseAuthorizationRecord(event: Event): AuthorizationRecord | nu
   } catch { return null; }
 }
 
-export async function queryCalendarEvents(relays:string[], filter:{ids?:string[];cityId?:string;authors?:string[]}={}):Promise<Event[]> {
-  return queryRelayEvents(relays,[31923],undefined,{...(filter.authors?{authors:filter.authors}:{}),...(filter.ids?{ids:filter.ids}:{}),...(filter.cityId?{"#i":[filter.cityId]}:{})});
+export async function queryCalendarEvents(relays:string[], filter:{ids?:string[];cityId?:string;cityIds?:string[];authors?:string[]}={}):Promise<Event[]> {
+  const cityIds=filter.cityIds??(filter.cityId?[filter.cityId]:undefined);
+  return queryRelayEvents(relays,[31923],undefined,{...(filter.authors?{authors:filter.authors}:{}),...(filter.ids?{ids:filter.ids}:{}),...(cityIds?.length?{"#i":cityIds}:{})});
 }
 
 export async function queryCalendarDeletion(relays:string[], id:string,author=SUPER_ADMIN_PUBKEY):Promise<Event[]> {

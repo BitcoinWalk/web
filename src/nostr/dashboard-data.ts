@@ -36,10 +36,10 @@ export async function loadDashboardSummary(relays:string[],actor:string,selected
  result.cities={value:cities.length};
  try{
   const scheduled:HostedWalk[]=[],unscheduled:DashboardCity[]=[];
+  const records=cities.length?await queryCalendarEvents(relays,{cityIds:cities.map(walk=>walk.revision.city.cityId)}):[];
+  if(records.length>=500)throw new Error("The event inventory reached the read limit; the total cannot be confirmed.");
   for(const walk of cities){
-   const events=await queryCalendarEvents(relays,{cityId:walk.revision.city.cityId});
-   if(events.length>=500)throw new Error("A city reached the event read limit; the total cannot be confirmed.");
-   const items=managedCalendarEvents(walk,events).filter(e=>e.status!=="past");
+   const items=managedCalendarEvents(walk,records).filter(e=>e.status!=="past");
    scheduled.push(...items.map(item=>({walk,item})));
    if(!items.length)unscheduled.push({id:walk.revision.city.cityId,name:walk.revision.city.cityName});
   }

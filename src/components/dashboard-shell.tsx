@@ -29,7 +29,7 @@ export default function DashboardShell({children}:{children:ReactNode}){
  const role=isSuperAdmin(pubkey)?"super-admin":cityCount?"organizer":"member";
  const counts=directory.status==="fulfilled"?await resolveDashboardMenuCounts(relayConfig.readRelays,pubkey,role,records,directory.value,hosting.status==="fulfilled"?hosting.value:null):{cities:null,walks:null};
  if(await getBrowserExtensionPubkey()!==pubkey)throw new Error("Signer changed. Connect again.");
- if(request!==generation.current)return;setDashboardSigningIdentity(pubkey);setSession({pubkey,role,cityCount,cities,selectedCity:""});
+ if(request!==generation.current)return;setDashboardSigningIdentity(pubkey);setSession({pubkey,role,cityCount,cities,selectedCity:"",grants:records,directory:directory.status==="fulfilled"?directory.value:null});
  setMenuCounts(counts);
  setPendingCount(role==="super-admin"&&directory.status==="fulfilled"?pendingCityRevisions(directory.value.revisions,directory.value.approvals).length:null);
  setError(directory.status==="rejected"||hosting.status==="rejected"?"City discovery is incomplete. Disconnect and reconnect to retry; missing cities do not mean missing permissions.":"");

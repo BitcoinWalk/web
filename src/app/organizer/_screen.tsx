@@ -8,7 +8,7 @@ import type { LocationValue } from "../../components/location-picker";
 import { relayConfig } from "../../lib/relay-config";
 import { showCityInPicker } from "../../domain/city-picker";
 import { createCityUpdateEvent } from "../../nostr/city-event";
-import { queryDirectoryRecords, type ApprovalRecord, type CityRevision } from "../../nostr/city-records";
+import { queryDirectoryRecords, type ApprovalRecord, type AuthorizationRecord, type CityRevision } from "../../nostr/city-records";
 import { queryAuthorizations } from "../../nostr/city-records";
 import { archivedCityIds } from "../../nostr/moderation";
 import { editableCityRevisions, editedCity } from "../../nostr/organizer-edit";
@@ -17,6 +17,7 @@ import { publishVerifiedEvent } from "../../nostr/relay";
 import {importCityImageURL} from "../../lib/media-client";
 import {cityAliases} from "../../domain/city";
 import CityFinder from "../../components/city-finder";
+import {organizerDirectorySnapshot} from "../../nostr/dashboard-snapshot";
 
 const LocationPicker = dynamic(() => import("../../components/location-picker"), {ssr:false});
 
@@ -45,7 +46,11 @@ export default function OrganizerPage() {
     try {
       if (!relayConfig.readRelays.length) throw new Error("No read relay configured.");
       const key=await getBrowserExtensionPubkey();
-      const [grants,{revisions,approvals}]=await Promise.all([queryAuthorizations(relayConfig.readRelays),queryDirectoryRecords(relayConfig.readRelays)]);
+      let loaded:{grants:AuthorizationRecord[];revisions:CityRevision[];approvals:ApprovalRecord[]};
+      const snapshot=organizerDirectorySnapshot(dashboard,key);
+      if(snapshot)loaded=snapshot;
+      else {const [grants,directory]=await Promise.all([queryAuthorizations(relayConfig.readRelays),queryDirectoryRecords(relayConfig.readRelays)]);loaded={grants,...directory};}
+      const {grants,revisions,approvals}=loaded;
       if(await getBrowserExtensionPubkey()!==key) throw new Error("Signer account changed. Reconnect with the intended account.");
       const available=editableCityRevisions(key,grants,revisions,approvals).filter(r=>!dashboard.selectedCity||r.city.cityId===dashboard.selectedCity);
       if(dashboard.selectedCity&&available.length)select(available[0]);
