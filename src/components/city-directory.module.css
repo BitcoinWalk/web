@@ -10,6 +10,9 @@
 .brand[data-compact=true] .icon{opacity:1;}
 .nav div {display:flex;gap:1.25rem;}
 .nav a {color:inherit;}
+.startButton {display:inline-block;padding:.65rem 1rem;border-radius:.4rem;background:#f7931a;color:#231400!important;text-decoration:none;font-weight:700;}
+.connectLink {display:grid;place-items:center;width:2.65rem;height:2.65rem;border:1px solid #aaa;border-radius:.4rem;text-decoration:none;}
+.connectLink svg {width:1.35rem;height:1.35rem;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;}
 .hero {padding:4rem 0 3rem;max-width:52rem;}
 .hero h1 {font-size:clamp(2.7rem,7vw,5.2rem);line-height:1.04;letter-spacing:-.04em;margin:1.2rem 0;}
 .hero>p:not(.eyebrow) {font-size:1.2rem;max-width:38rem;line-height:1.6;}
@@ -35,5 +38,5 @@
 .sponsor img,.sponsor .placeholder {width:5rem;height:3rem;object-fit:contain;margin-bottom:.5rem;}
 .footer {margin-top:4rem;padding:2rem;background:#f7f0e4;border-radius:.8rem;}
 .home a:focus-visible,.home button:focus-visible {outline:3px solid #9b4d00;outline-offset:3px;}
-@media(max-width:480px){.nav div{gap:.75rem;font-size:.9rem}.brand{width:10.8rem}.brand span{width:10.8rem;height:2rem}.brand img{height:2rem}.brand[data-compact=true]{width:2rem}.hero {padding-top:2rem;}}
+@media(max-width:480px){.nav div{gap:.75rem;font-size:.9rem}.startButton{padding:.6rem .75rem}.connectLink{width:2.35rem;height:2.35rem}.brand{width:10.8rem}.brand span{width:10.8rem;height:2rem}.brand img{height:2rem}.brand[data-compact=true]{width:2rem}.hero {padding-top:2rem;}}
 @media(prefers-reduced-motion:reduce){.brand,.nav{transition:none;}}
