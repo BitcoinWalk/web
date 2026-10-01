@@ -41,12 +41,17 @@ export async function queryCalendarDeletion(relays:string[], id:string,author=SU
 }
 
 /** Public NIP-09 records remain readable after their calendar targets are hidden. */
-export async function queryCityCalendarCancellations(relays:string[],cityId:string):Promise<Event[]> {
-  const events=await queryRelayEvents(relays,[5],undefined,{"#i":[cityId]});
+export async function queryCitiesCalendarCancellations(relays:string[],cityIds:string[]):Promise<Event[]> {
+  const requested=new Set(cityIds);
+  if(!requested.size)return [];
+  const events=await queryRelayEvents(relays,[5],undefined,{"#i":[...requested]});
   if(events.length>=500)throw new Error("Cancellation history reached the relay read limit. The walk list may be incomplete.");
-  const valid=events.filter(event=>event.kind===5&&verifyEvent(event)&&event.tags.length===3&&event.tags.filter(tag=>tag[0]==="i"&&tag[1]===cityId&&tag.length===2).length===1&&event.tags.filter(tag=>tag[0]==="k"&&tag[1]==="31923"&&tag.length===2).length===1&&event.tags.filter(tag=>tag[0]==="e"&&/^[0-9a-f]{64}$/.test(tag[1]??"")&&tag.length===2).length===1).sort(compareEvents);
+  const valid=events.filter(event=>event.kind===5&&verifyEvent(event)&&event.tags.length===3&&event.tags.filter(tag=>tag[0]==="i"&&requested.has(tag[1])&&tag.length===2).length===1&&event.tags.filter(tag=>tag[0]==="k"&&tag[1]==="31923"&&tag.length===2).length===1&&event.tags.filter(tag=>tag[0]==="e"&&/^[0-9a-f]{64}$/.test(tag[1]??"")&&tag.length===2).length===1).sort(compareEvents);
   const seen=new Set<string>();
   return valid.filter(event=>{const target=event.tags.find(tag=>tag[0]==="e")![1];if(seen.has(target))return false;seen.add(target);return true;});
+}
+export async function queryCityCalendarCancellations(relays:string[],cityId:string):Promise<Event[]> {
+  return queryCitiesCalendarCancellations(relays,[cityId]);
 }
 
 export async function queryAuthorizations(relays: string[]): Promise<AuthorizationRecord[]> {

@@ -7,8 +7,8 @@ import { withEventMeetingPoint, type LocatedOccurrence } from "../../../domain/e
 import { useRef, useState, type FormEvent } from "react";
 import { verifyEvent, type Event } from "nostr-tools";
 import { DEFAULT_OCCURRENCES, DEFAULT_WEEKDAY, WEEKDAYS, scheduleOccurrences, type WalkSchedule } from "../../../domain/walk-schedule";
-import { calendarNevent, loadCalendarWalks, type CalendarWalk } from "../../../nostr/calendar-records";
-import { queryCalendarDeletion, queryCalendarEvents, queryCityCalendarCancellations } from "../../../nostr/city-records";
+import { approvedCalendarWalks, calendarNevent, loadCalendarWalks, type CalendarWalk } from "../../../nostr/calendar-records";
+import { queryCalendarDeletion, queryCalendarEvents, queryCitiesCalendarCancellations, queryCityCalendarCancellations } from "../../../nostr/city-records";
 import { queryAuthorizations } from "../../../nostr/city-records";
 import WalkDelegation from "../../../components/walk-delegation";
 import {queryHostedWalks,type HostedWalk} from "../../../nostr/hosted-walks";
@@ -79,9 +79,11 @@ export default function OrganizerEventsPage() {
   const lock = useRef(false);
   const scheduleForm = useRef<HTMLFormElement>(null);
 
-  async function completeCityEvents(relays:string[],id:string){
-    const events=await queryCalendarEvents(relays,{cityId:id});
-    if(events.length>=500)throw new Error("This city has reached the bounded relay read limit. No walk was signed; ask an administrator to review the event history.");
+  async function completeCityEvents(relays:string[],ids:string|string[]){
+    const cityIds=Array.isArray(ids)?ids:[ids];
+    if(!cityIds.length)return [];
+    const events=await queryCalendarEvents(relays,{cityIds});
+    if(events.length>=500)throw new Error("The selected cities have reached the bounded relay read limit. No walk was signed; ask an administrator to review the event history.");
     return events;
   }
 
@@ -108,23 +110,25 @@ export default function OrganizerEventsPage() {
     try {
       const key = await getBrowserExtensionPubkey();
       let access:OrganizerPublishingAccess="checking";
-      try{access=await organizerPublishingStatus(relayConfig.readRelays,key);}catch{access="unverified";}
+      if(dashboard.role==="super-admin")access="active";
+      else try{access=await organizerPublishingStatus(relayConfig.readRelays,key);}catch{access="unverified";}
       setPublishingAccess(access);
       let available:CalendarWalk[]=[];
       let published:Record<string,Event[]>={};
       let canceled:Record<string,Event[]>={};
       let cityError="";
       try {
-        const [approved, grants] = await Promise.all([loadCalendarWalks(relayConfig.readRelays), queryAuthorizations(relayConfig.readRelays)]);
+        const [approved, grants] = dashboard.pubkey===key&&dashboard.directory
+          ? [approvedCalendarWalks(dashboard.directory.revisions,dashboard.directory.approvals),dashboard.grants]
+          : await Promise.all([loadCalendarWalks(relayConfig.readRelays), queryAuthorizations(relayConfig.readRelays)]);
         if (await getBrowserExtensionPubkey() !== key) throw new Error("Signer changed. Connect again.");
         available = approved.filter(walk => {
           const latest = grants.find(record => record.grant.cityId === walk.revision.city.cityId);
           return (!dashboard.selectedCity||walk.revision.city.cityId===dashboard.selectedCity) && latest && canEditCity(key, latest.grant);
         });
-        for (const walk of available) {
-          const id=walk.revision.city.cityId;
-          [published[id],canceled[id]]=await Promise.all([completeCityEvents(relayConfig.readRelays,id),queryCityCalendarCancellations(relayConfig.readRelays,id)]);
-        }
+        const ids=available.map(walk=>walk.revision.city.cityId);
+        const [allPublished,allCanceled]=await Promise.all([completeCityEvents(relayConfig.readRelays,ids),queryCitiesCalendarCancellations(relayConfig.readRelays,ids)]);
+        for(const id of ids){published[id]=allPublished.filter(event=>event.tags.some(tag=>tag[0]==="i"&&tag[1]===id));canceled[id]=allCanceled.filter(event=>event.tags.some(tag=>tag[0]==="i"&&tag[1]===id));}
       } catch (error) {
         available=[];published={};canceled={};
         cityError=`City walks could not be loaded: ${error instanceof Error?error.message:"Relay data unavailable."} Your hosting assignments are loaded separately.`;
@@ -136,9 +140,12 @@ export default function OrganizerEventsPage() {
       setOwner(key);
       let hostingCount=0;
       try{
+        if(dashboard.role==="super-admin"){setHosted([]);hostingCount=0;}
+        else {
         const assigned=(await queryHostedWalks(relayConfig.readRelays,key)).filter(h=>!dashboard.selectedCity||h.walk.revision.city.cityId===dashboard.selectedCity);
         if(await getBrowserExtensionPubkey()!==key)throw new Error("Signer changed. Reconnect to load your hosting list.");
         setHosted(assigned);hostingCount=assigned.length;
+        }
       }catch(error){setHostingError(error instanceof Error?error.message:"Could not load delegated walks. Refresh to retry.");}
       if(await getBrowserExtensionPubkey()!==key){setWalks([]);setPublishedByCity({});setOwner("");setHosted([]);throw new Error("Signer changed. Connect again.");}
       const saved: Record<string, RecurringPlan> = {};
