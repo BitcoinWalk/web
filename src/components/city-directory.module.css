@@ -12,6 +12,7 @@
 .nav a {color:inherit;}
 .startButton {display:inline-block;padding:.65rem 1rem;border-radius:.4rem;background:#f7931a;color:#231400!important;text-decoration:none;font-weight:700;}
 .connectLink {display:grid;place-items:center;width:2.65rem;height:2.65rem;border:1px solid #aaa;border-radius:.4rem;text-decoration:none;}
+.connectLink {color:#666;}
 .connectLink svg {width:1.35rem;height:1.35rem;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;}
 .hero {padding:4rem 0 3rem;max-width:52rem;}
 .hero h1 {font-size:clamp(2.7rem,7vw,5.2rem);line-height:1.04;letter-spacing:-.04em;margin:1.2rem 0;}
