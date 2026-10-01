@@ -174,6 +174,8 @@ App 0.3.121 was activated on staging on 1 October 2026 through the ordinary `bit
 
 App 0.3.122 replaces the homepage connection glyph with a plug icon while preserving the accessible **Connect to your dashboard** label. It was activated on staging on 1 October 2026 through the ordinary `bitcoinwalk` deployment account. Artifact SHA-256: `9ca3ca1ae50ba36108520e524119930ef64d6be2a6c21f9b956da2287e61b737`; deployment evidence: `/home/bitcoinwalk/backups/app-staging-deploy.DB2K3T`; active release: `/opt/bitcoinwalk-app-staging/releases/0.3.122-9ca3ca1ae50b`. All 464 tests, focused source lint, type-check, production build, packaged smoke and live health checks passed.
 
+App 0.3.123 refines that icon to a grey plug with a curved cord and no bottom crossbar. It was activated on staging on 1 October 2026 through the ordinary `bitcoinwalk` deployment account. Artifact SHA-256: `4ce14ac6923d1ae0b2707a0556d19d5abb581e60ecd10dda62e3166a828bf332`; deployment evidence: `/home/bitcoinwalk/backups/app-staging-deploy.y1giSg`; active release: `/opt/bitcoinwalk-app-staging/releases/0.3.123-4ce14ac6923d`. Type-check, focused source lint, production build, packaged smoke and live health checks passed.
+
 For 0.3.17 acceptance: connect once, inspect overview counts, select a city and navigate between Walks/Cities/Hosting. Confirm the filter persists and each screen loads without a second connect click. Test All available cities, a host-only identity, and a relay outage. Refresh overview after signed changes; counts are not live.
 
 ## Content administration
