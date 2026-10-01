@@ -172,6 +172,8 @@ The homepage header now leads with **Start a walk** as the primary orange button
 
 App 0.3.121 was activated on staging on 1 October 2026 through the ordinary `bitcoinwalk` deployment account. Artifact SHA-256: `832de7e72c9122b10d60cd39ed195e804818ab6ef7e9fb35afdcb6d19724aec3`; deployment evidence: `/home/bitcoinwalk/backups/app-staging-deploy.bOGXRl`; active release: `/opt/bitcoinwalk-app-staging/releases/0.3.121-832de7e72c91`. All 464 tests, source lint (7 existing warnings), type-check, production build, backlog generation, packaged smoke and live navigation/health checks passed.
 
+App 0.3.122 replaces the homepage connection glyph with a plug icon while preserving the accessible **Connect to your dashboard** label. It was activated on staging on 1 October 2026 through the ordinary `bitcoinwalk` deployment account. Artifact SHA-256: `9ca3ca1ae50ba36108520e524119930ef64d6be2a6c21f9b956da2287e61b737`; deployment evidence: `/home/bitcoinwalk/backups/app-staging-deploy.DB2K3T`; active release: `/opt/bitcoinwalk-app-staging/releases/0.3.122-9ca3ca1ae50b`. All 464 tests, focused source lint, type-check, production build, packaged smoke and live health checks passed.
+
 For 0.3.17 acceptance: connect once, inspect overview counts, select a city and navigate between Walks/Cities/Hosting. Confirm the filter persists and each screen loads without a second connect click. Test All available cities, a host-only identity, and a relay outage. Refresh overview after signed changes; counts are not live.
 
 ## Content administration
