@@ -9,6 +9,8 @@ import {directoryConfig} from "../lib/directory-config";
 import {approvedDirectory,filterDirectory,directoryImage,type DirectoryCity} from "../domain/directory";
 import {DEFAULT_HOME_PAGE,HOME_PAGE_ID,type ContentPage} from "../domain/content";
 import {latestContentPages,queryContentRevisions} from "../nostr/content-records";
+import {DEFAULT_FEATURE_FLAGS} from "../domain/feature-flags";
+import {latestFeatureFlags,queryFeatureFlags} from "../nostr/feature-flags";
 import styles from "./city-directory.module.css";
 const Map=dynamic(()=>import("./directory-map"),{ssr:false,loading:()=> <p>Loading map…</p>});
 export const compactHomepageBrand=(scrollY:number)=>scrollY>72;
@@ -45,12 +47,13 @@ export default function CityDirectory() {
   const [error,setError]=useState("");
   const [attempt,setAttempt]=useState(0);
   const [content,setContent]=useState<ContentPage>(DEFAULT_HOME_PAGE);
+  const [showFeatured,setShowFeatured]=useState(DEFAULT_FEATURE_FLAGS.featuredCityWalks);
   const [compactBrand,setCompactBrand]=useState(false);
   useEffect(()=>{const update=()=>setCompactBrand(compactHomepageBrand(window.scrollY));update();window.addEventListener("scroll",update,{passive:true});return()=>window.removeEventListener("scroll",update);},[]);
   useEffect(()=>{
     let active=true;
-    Promise.allSettled([queryDirectoryRecords(relayConfig.readRelays),queryContentRevisions(relayConfig.readRelays)]).then(([directory,contentResult])=>{
-      if(!active)return;if(directory.status==="rejected"){setError("We couldn’t load the approved walks. The relay may be temporarily unavailable or rate-limited. Please try again in a few minutes.");setStatus("error");return;}const {revisions,approvals}=directory.value;setRows(approvedDirectory(revisions,approvals,directoryConfig.paidCities));if(contentResult.status==="fulfilled"){const home=latestContentPages(contentResult.value).find(row=>row.page.pageId===HOME_PAGE_ID&&row.page.published);setContent(home?.page??DEFAULT_HOME_PAGE);}setStatus("ready");
+    Promise.allSettled([queryDirectoryRecords(relayConfig.readRelays),queryContentRevisions(relayConfig.readRelays),queryFeatureFlags(relayConfig.readRelays)]).then(([directory,contentResult,featureFlags])=>{
+      if(!active)return;if(directory.status==="rejected"){setError("We couldn’t load the approved walks. The relay may be temporarily unavailable or rate-limited. Please try again in a few minutes.");setStatus("error");return;}const {revisions,approvals}=directory.value;setRows(approvedDirectory(revisions,approvals,directoryConfig.paidCities));if(contentResult.status==="fulfilled"){const home=latestContentPages(contentResult.value).find(row=>row.page.pageId===HOME_PAGE_ID&&row.page.published);setContent(home?.page??DEFAULT_HOME_PAGE);}setShowFeatured(featureFlags.status==="fulfilled"?(latestFeatureFlags(featureFlags.value)?.flags.featuredCityWalks??DEFAULT_FEATURE_FLAGS.featuredCityWalks):DEFAULT_FEATURE_FLAGS.featuredCityWalks);setStatus("ready");
     });
     return ()=>{active=false;};
   },[attempt]);
@@ -60,9 +63,9 @@ export default function CityDirectory() {
     <header className={styles.hero}>{content.eyebrow&&<p className={styles.eyebrow}>{content.eyebrow}</p>}<h1>{content.title==="Good company. One walk at a time."?<>Good company.<br/>One walk at a time.</>:content.title}</h1>{content.intro&&<p>{content.intro}</p>}{content.ctaLabel&&content.ctaHref&&<a className={styles.link} href={content.ctaHref}>{content.ctaLabel}</a>}</header>
     {content.body&&<section>{content.body.split(/\n\s*\n/).map((paragraph,index)=><p key={index} style={{whiteSpace:"pre-wrap"}}>{paragraph}</p>)}</section>}
     <p className={styles.muted}>Staging preview · Approved cities from the staging relay. This is not the legacy production directory.</p>
-    <section aria-labelledby="featured-title"><h2 id="featured-title">Featured city walks</h2><p>Local communities with dedicated relays, supported by their partners.</p>
+    {showFeatured&&<section aria-labelledby="featured-title"><h2 id="featured-title">Featured city walks</h2><p>Local communities with dedicated relays, supported by their partners.</p>
       {featured.length>0?<div className={styles.grid}>{featured.map(row=><Card key={row.city.cityId} row={row} featured/>)}</div>:<div className={styles.featurePlaceholder}><strong>Featured cities and sponsors will appear here.</strong><p>Only confirmed paid cities and approved sponsor details are displayed. No paid cities are configured for this preview yet.</p></div>}
-    </section>
+    </section>}
     <section id="find-walk" aria-labelledby="directory-title"><h2 id="directory-title">Find your city</h2>
       <div className={styles.controls}><label>Search cities or meeting points<input type="search" value={query} onChange={e=>setQuery(e.target.value)} placeholder="Try Radom…" /></label><div><button aria-pressed={view==="list"} onClick={()=>setView("list")}>List</button><button aria-pressed={view==="map"} onClick={()=>setView("map")}>Map</button></div></div>
       {status==="loading"&&<p role="status">Loading approved walks…</p>}
