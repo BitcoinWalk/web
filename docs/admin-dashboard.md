@@ -196,6 +196,12 @@ App 0.3.126 was activated on staging on 1 October 2026 through the ordinary `bit
 
 App 0.3.127 was activated on staging on 1 October 2026 through the ordinary `bitcoinwalk` deployment account. Artifact SHA-256: `0e058abec282ebbfd2bd27b057de4501225b1baf14989b260302f6dbf0687d44`; deployment evidence: `/home/bitcoinwalk/backups/app-staging-deploy.1XRWtf`; active release: `/opt/bitcoinwalk-app-staging/releases/0.3.127-0e058abec282`. All 465 tests, focused source lint, type-check, production build, backlog generation and packaged smoke passed.
 
+## App 0.3.128 — bounded super-admin Walks reads
+
+The super-admin Walks screen now reuses the directory and permission snapshot already loaded by the dashboard instead of immediately reading both histories again. Published occurrences and cancellation records are fetched in two city-batched subscriptions rather than two subscriptions per city. Super-admin loading also omits organizer-only suspension and personal-hosting reads; enforcement is still rechecked before signed publication actions. This removes the request fan-out that triggered the relay's client-bug rate limit while retaining fail-closed completeness limits.
+
+App 0.3.128 was activated on staging on 1 October 2026 through the ordinary `bitcoinwalk` deployment account. Artifact SHA-256: `ca0287e1da28f36c38c6955ca05314b22fa48171daca36034174f0da154cf275`; deployment evidence: `/home/bitcoinwalk/backups/app-staging-deploy.LPzApu`; active release: `/opt/bitcoinwalk-app-staging/releases/0.3.128-ca0287e1da28`. All 465 tests, focused source lint, type-check, production build, backlog generation and packaged smoke passed.
+
 For 0.3.17 acceptance: connect once, inspect overview counts, select a city and navigate between Walks/Cities/Hosting. Confirm the filter persists and each screen loads without a second connect click. Test All available cities, a host-only identity, and a relay outage. Refresh overview after signed changes; counts are not live.
 
 ## Content administration
