@@ -184,6 +184,12 @@ The Content CMS now includes a signed **Show Featured city walks on the homepage
 
 App 0.3.125 was activated on staging on 1 October 2026 through the ordinary `bitcoinwalk` deployment account. Artifact SHA-256: `f74b51799e47293eb9aef7f81d0aafd38f5b8287565916a0182baf7d67e42b2b`; deployment evidence: `/home/bitcoinwalk/backups/app-staging-deploy.0Nobl7`; active release: `/opt/bitcoinwalk-app-staging/releases/0.3.125-f74b51799e47`. All 464 tests, focused source lint, type-check, production build, packaged smoke and live homepage/health checks passed.
 
+## App 0.3.126 — archived city visibility
+
+A city-wide archive now resolves to **Archived**, independently of revision rejection, instead of appearing as **Needs changes**. Organizer city profiles and dashboard submissions keep archived cities out of their active lists and show them in a read-only **Archived cities** section with restoration guidance. The super-admin City list also has a permanent **Archived cities** finder; selecting an archived city exposes its retained record and **Approve / Restore** action. Restoration returns the city to the active finder without recreating it.
+
+App 0.3.126 was activated on staging on 1 October 2026 through the ordinary `bitcoinwalk` deployment account. Artifact SHA-256: `8854caa82b558cfac7e02c4635014d8589d3bfaf7acee75c25ca706a4dbb177f`; deployment evidence: `/home/bitcoinwalk/backups/app-staging-deploy.8GFrP4`; active release: `/opt/bitcoinwalk-app-staging/releases/0.3.126-8854caa82b55`. All 466 tests, focused source lint, type-check, production build, backlog generation and packaged smoke passed.
+
 For 0.3.17 acceptance: connect once, inspect overview counts, select a city and navigate between Walks/Cities/Hosting. Confirm the filter persists and each screen loads without a second connect click. Test All available cities, a host-only identity, and a relay outage. Refresh overview after signed changes; counts are not live.
 
 ## Content administration
