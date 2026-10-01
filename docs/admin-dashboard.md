@@ -150,6 +150,10 @@ The homepage uses the supplied transparent BitcoinWalk horizontal logo in its st
 
 App 0.3.117 was activated on staging on 1 October 2026 through the ordinary `bitcoinwalk` deployment account. Artifact SHA-256: `c020b1b4da82be43e1e9a41c67f4c1e2963cc35bdfbfa08dee70f4f0828d2f44`; deployment evidence: `/home/bitcoinwalk/backups/app-staging-deploy.JQweYj`; active release: `/opt/bitcoinwalk-app-staging/releases/0.3.117-c020b1b4da82`. All 464 tests, source lint, type-check, production build, backlog generation, packaged smoke, public health/asset checks and live full-wordmark/icon-only visual checks passed.
 
+## App 0.3.118 — focused signed-out dashboard entry
+
+Before identity verification, `/admin` and its protected deep links render only the shared account connection module. The CMS sidebar, **Welcome to your dashboard!** header, connection status and global weather footer are absent. The account module retains inline connection errors, and successful identity verification atomically reveals the normal dashboard navigation, profile header, status and footer. Disconnect returns to the same clean entry screen without retaining identity-specific dashboard content.
+
 For 0.3.17 acceptance: connect once, inspect overview counts, select a city and navigate between Walks/Cities/Hosting. Confirm the filter persists and each screen loads without a second connect click. Test All available cities, a host-only identity, and a relay outage. Refresh overview after signed changes; counts are not live.
 
 ## Content administration

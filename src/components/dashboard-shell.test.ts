@@ -5,14 +5,16 @@ import DashboardShell from "./dashboard-shell";
 
 vi.mock("next/navigation",()=>({usePathname:()=>"/admin"}));
 
-describe("dashboard header",()=>{
-  it("shows the welcome, disconnected status and shared account module without removed links",()=>{
+describe("dashboard entry",()=>{
+  it("shows only the shared account module while disconnected",()=>{
     const html=renderToStaticMarkup(createElement(DashboardShell,null,createElement("p",null,"Dashboard content")));
-    expect(html).toContain("Welcome to your dashboard!");
     expect(html).toContain("Create new account");
     expect(html).toContain("Connect with browser extension");
     expect(html).toContain("Private key or signer");
-    expect(html).toContain('data-status="disconnected"');
+    expect(html).toContain("data-hide-site-footer");
+    expect(html).not.toContain("Welcome to your dashboard!");
+    expect(html).not.toContain('aria-label="Dashboard"');
+    expect(html).not.toContain('data-status="disconnected"');
     expect(html).not.toContain("Connect signer");
     expect(html).not.toContain("Refresh / switch identity");
     expect(html).not.toContain("Public site");
