@@ -176,6 +176,14 @@ App 0.3.122 replaces the homepage connection glyph with a plug icon while preser
 
 App 0.3.123 refines that icon to a grey plug with a curved cord and no bottom crossbar. It was activated on staging on 1 October 2026 through the ordinary `bitcoinwalk` deployment account. Artifact SHA-256: `4ce14ac6923d1ae0b2707a0556d19d5abb581e60ecd10dda62e3166a828bf332`; deployment evidence: `/home/bitcoinwalk/backups/app-staging-deploy.y1giSg`; active release: `/opt/bitcoinwalk-app-staging/releases/0.3.123-4ce14ac6923d`. Type-check, focused source lint, production build, packaged smoke and live health checks passed.
 
+App 0.3.124 gives the homepage hero the deliberate two-line treatment **Good company. / One walk at a time.** so “One” is never left orphaned. It was activated on staging on 1 October 2026 through the ordinary `bitcoinwalk` deployment account. Artifact SHA-256: `e8fd26a7e8e88ffe11c399c7dc2a09e41faba75d101fe3f79cf30042d5bf6247`; deployment evidence: `/home/bitcoinwalk/backups/app-staging-deploy.Wx4Dj7`; active release: `/opt/bitcoinwalk-app-staging/releases/0.3.124-e8fd26a7e8e8`. Type-check, focused source lint, production build, packaged smoke and live hero/health checks passed.
+
+## App 0.3.125 — homepage featured-walks flag
+
+The Content CMS now includes a signed **Show Featured city walks on the homepage** flag. It defaults off and fails closed when no valid feature-flag revision can be read, hiding the Featured city walks section until the super-admin enables it. Existing feature-flag revisions remain compatible.
+
+App 0.3.125 was activated on staging on 1 October 2026 through the ordinary `bitcoinwalk` deployment account. Artifact SHA-256: `f74b51799e47293eb9aef7f81d0aafd38f5b8287565916a0182baf7d67e42b2b`; deployment evidence: `/home/bitcoinwalk/backups/app-staging-deploy.0Nobl7`; active release: `/opt/bitcoinwalk-app-staging/releases/0.3.125-f74b51799e47`. All 464 tests, focused source lint, type-check, production build, packaged smoke and live homepage/health checks passed.
+
 For 0.3.17 acceptance: connect once, inspect overview counts, select a city and navigate between Walks/Cities/Hosting. Confirm the filter persists and each screen loads without a second connect click. Test All available cities, a host-only identity, and a relay outage. Refresh overview after signed changes; counts are not live.
 
 ## Content administration
