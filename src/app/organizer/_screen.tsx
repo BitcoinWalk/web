@@ -54,9 +54,10 @@ export default function OrganizerPage() {
       const {grants,revisions,approvals}=loaded;
       if(await getBrowserExtensionPubkey()!==key) throw new Error("Signer account changed. Reconnect with the intended account.");
       const available=organizerCityInventory(key,grants,revisions,approvals).filter(item=>!dashboard.selectedCity||item.revision.city.cityId===dashboard.selectedCity);
-      if(dashboard.selectedCity&&available.length)select(available[0].revision);
+      const active=available.filter(item=>item.status!=="archived");
+      if(dashboard.selectedCity&&active.length)select(active[0].revision);
       setIdentity(key);setCities(available);setDecisions([...approvals].sort((a,b)=>compareEvents(a.event,b.event)));
-      setMessage(available.length ? "Select a city. Pending registrations are visible here, but editing remains locked until approval grants permission." : "No cities were returned for this identity. Check your signer account and relay connection.");
+      setMessage(active.length ? "Select a city. Pending registrations are visible here, but editing remains locked until approval grants permission." : available.length ? "Your cities are archived. Contact BitcoinWalk if one should be restored." : "No cities were returned for this identity. Check your signer account and relay connection.");
     } catch(error) {setMessage(error instanceof Error ? error.message : "Could not load walks.");}
     finally {lock.current=false;setBusy(false);}
   }
@@ -98,7 +99,8 @@ export default function OrganizerPage() {
   }
 
   const status=base ? decisions.find(r=>r.approval.cityRevisionId===base.event.id)?.approval.status ?? "pending / no decision returned" : "";
-  const visibleCities=cities.filter(item=>showCityInPicker(item.revision.city.cityName));
+  const visibleCities=cities.filter(item=>item.status!=="archived"&&showCityInPicker(item.revision.city.cityName));
+  const archivedCities=cities.filter(item=>item.status==="archived"&&showCityInPicker(item.revision.city.cityName));
   const selectedCity=base?cities.find(item=>item.revision.city.cityId===base.city.cityId):undefined;
   function chooseCity(cityId:string){
     const next=cities.find(item=>item.revision.city.cityId===cityId)?.revision??null;
@@ -109,10 +111,11 @@ export default function OrganizerPage() {
     <h2>City profile</h2>
     <p>Edit the city description, hero image and default meeting point. Scheduled walks are managed separately in Walks. Pending edits are publicly readable; do not include private details.</p>
     <button type="button" disabled={busy} onClick={load}>{busy?"Loading cities…":"Refresh cities"}</button>
-    <p>Archived cities are hidden. A super-admin can restore them from the archived-city list.</p>
+    <p>Active, pending and rejected cities appear below. Archived cities are kept separately and can only be restored by a super-admin.</p>
     {identity && <p>Connected public key: {identity}</p>}
     <p role="status" aria-live="polite">{message}</p>
-    {!!visibleCities.length&&<CityFinder disabled={busy} label="Your city" placeholder="Search your cities…" value={base?.city.cityId??""} onChange={chooseCity} items={visibleCities.map(item=>({id:item.revision.city.cityId,name:item.revision.city.cityName,meta:item.status==="awaiting-approval"?"Pending approval":item.status==="needs-changes"?"Needs changes":undefined,keywords:[item.revision.city.slug,item.revision.city.cityId,...(item.revision.city.aliases??[])]}))}/>}
+    {!!visibleCities.length&&<CityFinder disabled={busy} label="Your city" placeholder="Search your cities…" value={base?.city.cityId??""} onChange={chooseCity} items={visibleCities.map(item=>({id:item.revision.city.cityId,name:item.revision.city.cityName,meta:item.status==="awaiting-approval"?"Pending approval":item.status==="needs-changes"?"Needs changes":undefined,keywords:[item.revision.city.slug,item.revision.city.cityId,...(item.revision.city.aliases??[])]}))}/>} 
+    <section><h3>Archived cities</h3>{archivedCities.length?<><p>These cities are read-only and hidden from public and active organizer views. Contact BitcoinWalk to request restoration.</p><ul>{archivedCities.map(item=><li key={item.revision.city.cityId}><strong>{item.revision.city.cityName}</strong> — Archived</li>)}</ul></>:<p>No archived cities.</p>}</section>
     {base && selectedCity&&!selectedCity.editable&&<section><h3>{base.city.cityName} — {selectedCity.status==="needs-changes"?"Needs changes":"Pending approval"}</h3><p>This city belongs to your connected identity, but it cannot be edited or used to publish walks until a super-admin approves it.</p></section>}
     {base && selectedCity?.editable && <section>
       <p>City ID: {base.city.cityId}<br/>Editing revision: {base.event.id}<br/>Revision status: {submitted ? "New edit submitted" : status}</p>
