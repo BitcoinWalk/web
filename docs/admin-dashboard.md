@@ -190,6 +190,12 @@ A city-wide archive now resolves to **Archived**, independently of revision reje
 
 App 0.3.126 was activated on staging on 1 October 2026 through the ordinary `bitcoinwalk` deployment account. Artifact SHA-256: `8854caa82b558cfac7e02c4635014d8589d3bfaf7acee75c25ca706a4dbb177f`; deployment evidence: `/home/bitcoinwalk/backups/app-staging-deploy.8GFrP4`; active release: `/opt/bitcoinwalk-app-staging/releases/0.3.126-8854caa82b55`. All 466 tests, focused source lint, type-check, production build, backlog generation and packaged smoke passed.
 
+## App 0.3.127 — compact super-admin Cities layout
+
+`/admin/cities` now opens City list directly, without the duplicate **Cities** heading or City list/Edit city tab bar. Legacy links for requests, editors and walk moderation continue to redirect to their consolidated modules. **Archived cities** is a native collapsed disclosure with a chevron and no nested bordered panel; its count remains visible while the finder and restoration guidance stay hidden until expanded.
+
+App 0.3.127 was activated on staging on 1 October 2026 through the ordinary `bitcoinwalk` deployment account. Artifact SHA-256: `0e058abec282ebbfd2bd27b057de4501225b1baf14989b260302f6dbf0687d44`; deployment evidence: `/home/bitcoinwalk/backups/app-staging-deploy.1XRWtf`; active release: `/opt/bitcoinwalk-app-staging/releases/0.3.127-0e058abec282`. All 465 tests, focused source lint, type-check, production build, backlog generation and packaged smoke passed.
+
 For 0.3.17 acceptance: connect once, inspect overview counts, select a city and navigate between Walks/Cities/Hosting. Confirm the filter persists and each screen loads without a second connect click. Test All available cities, a host-only identity, and a relay outage. Refresh overview after signed changes; counts are not live.
 
 ## Content administration
