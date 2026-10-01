@@ -166,6 +166,12 @@ The Open-Meteo attribution is now rendered inside the reusable weather widget. T
 
 App 0.3.120 was activated on staging on 1 October 2026 through the ordinary `bitcoinwalk` deployment account. Artifact SHA-256: `74b5b87ace8a5f830f4391b9d3d7d66b6d75c11863eca2bdc2938530b14a4838`; deployment evidence: `/home/bitcoinwalk/backups/app-staging-deploy.IRKf1Y`; active release: `/opt/bitcoinwalk-app-staging/releases/0.3.120-74b5b87ace8a`. All 464 tests, source lint (7 existing warnings), type-check, production build, backlog generation, packaged smoke and live health/homepage/CMS copy checks passed.
 
+## App 0.3.121 — homepage navigation actions
+
+The homepage header now leads with **Start a walk** as the primary orange button. The former Dashboard text link is now a compact connect icon linking to `/admin`, with an accessible name and tooltip for screen readers and pointer users. The layout remains responsive on narrow screens.
+
+App 0.3.121 was activated on staging on 1 October 2026 through the ordinary `bitcoinwalk` deployment account. Artifact SHA-256: `832de7e72c9122b10d60cd39ed195e804818ab6ef7e9fb35afdcb6d19724aec3`; deployment evidence: `/home/bitcoinwalk/backups/app-staging-deploy.bOGXRl`; active release: `/opt/bitcoinwalk-app-staging/releases/0.3.121-832de7e72c91`. All 464 tests, source lint (7 existing warnings), type-check, production build, backlog generation, packaged smoke and live navigation/health checks passed.
+
 For 0.3.17 acceptance: connect once, inspect overview counts, select a city and navigate between Walks/Cities/Hosting. Confirm the filter persists and each screen loads without a second connect click. Test All available cities, a host-only identity, and a relay outage. Refresh overview after signed changes; counts are not live.
 
 ## Content administration
