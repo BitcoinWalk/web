@@ -11,6 +11,8 @@ describe("dashboard entry",()=>{
     expect(html).toContain("Create new account");
     expect(html).toContain("Connect with browser extension");
     expect(html).toContain("Private key or signer");
+    expect(html).toContain("Create a new Nostr identity, or connect one you already use.");
+    expect(html).not.toContain("open your dashboard");
     expect(html).toContain("data-hide-site-footer");
     expect(html).not.toContain("Welcome to your dashboard!");
     expect(html).not.toContain('aria-label="Dashboard"');

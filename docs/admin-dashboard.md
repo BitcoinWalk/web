@@ -156,6 +156,8 @@ Before identity verification, `/admin` and its protected deep links render only 
 
 App 0.3.118 was activated on staging on 1 October 2026 through the ordinary `bitcoinwalk` deployment account. Artifact SHA-256: `3e1f62f1edb75c62eb75a46415fc9391d50522451b03233ffdae272e34e1bcc1`; deployment evidence: `/home/bitcoinwalk/backups/app-staging-deploy.PLrqo5`; active release: `/opt/bitcoinwalk-app-staging/releases/0.3.118-3e1f62f1edb7`. All 464 tests, source lint, type-check, production build, backlog generation, packaged smoke, public health/markup checks and live signed-out visual/accessibility-tree checks passed.
 
+App 0.3.119 refines that entry screen: its explanation is now **Create a new Nostr identity, or connect one you already use.**, held to one line at normal desktop widths, and the page's top margin is reduced from four rem to two rem. Narrow screens retain wrapping to prevent clipping.
+
 For 0.3.17 acceptance: connect once, inspect overview counts, select a city and navigate between Walks/Cities/Hosting. Confirm the filter persists and each screen loads without a second connect click. Test All available cities, a host-only identity, and a relay outage. Refresh overview after signed changes; counts are not live.
 
 ## Content administration
