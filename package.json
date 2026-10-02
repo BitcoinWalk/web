@@ -25,7 +25,7 @@
     "bolt11": "1.4.1",
     "leaflet": "latest",
     "maplibre-gl": "6.11.2",
-    "next": "latest",
+    "next": "16.3.8",
     "nostr-tools": "latest",
     "qrcode.react": "^4.2.0",
     "react": "latest",
@@ -44,7 +44,7 @@
     "@types/react-dom": "latest",
     "esbuild": "0.28.2",
     "eslint": "^9.0.0",
-    "eslint-config-next": "latest",
+    "eslint-config-next": "16.3.8",
     "typescript": "^5.7.0",
     "typescript-eslint": "latest",
     "vitest": "latest"

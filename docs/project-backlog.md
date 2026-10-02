@@ -1,6 +1,8 @@
 # BitcoinWalk delivery backlog
 
 Last reviewed: 2 October 2026
+Preproduction housekeeping: 2–3 October 2026. See `preproduction-review-2026-10-02.md`
+and `development-handover.md` for current evidence and operating context.
 Tracking rule: keep this file current whenever an item changes status, scope, dependency, or verification result. The file is the maintained source; a separate Plan task is not automatically synchronized.
 
 25 September acceptance update: the user confirmed generated-image preview, new-city approval and first-walk publication on the pinned image model, then confirmed the requested managed-media resilience/Alerts checks. BW-51 staging acceptance is complete; production backup/restore verification is tracked in BW-53. BW-50 remains deferred until production canonical URLs are live.
@@ -23,6 +25,15 @@ approvals in lists, counts, hosted views and next-event routing; all four list
 filters remain correct and canceled events stay excluded from active public reads.
 
 ## Status key
+
+BW-53 additional launch gates identified by source review: implement a reviewed
+production package/configuration path (the existing packager requires staging
+hosts); remove the staging-only payments DB path assumption through validated
+configuration and tests; deploy/revalidate the patched Next.js candidate 0.3.130;
+triage remaining low-severity invoice-decoder dependency advisories and Go
+dependency findings against the actual production toolchain. The housekeeping
+backup is source plus staging app state, not a new complete two-VPS disaster
+recovery snapshot or a substitute for the selective production restore rehearsal.
 
 🟢 `Done` — implemented and verified.  
 🟠 `In progress` — active work has begun.  
@@ -164,7 +175,7 @@ Chat integration update (18 September): the separate Khatru staging chat and ext
 | BW-56 | 7, 9 | Replicate paid-city events across shared and city relays | 🟢 Done | BW-12, BW-24 | Two public-cert staging receivers and the shared source passed exact delivery, restart/outage recovery, replay, create/edit/cancel, negative receiver policy, first-walk approval gating, signed revocation, source-outage reads, restore and verified compaction. Source `0.8.28` adds the provider-neutral signed kind-30305 entitlement ledger, separate-authority enforcement, exact evidence commitments, owner-only non-mutating planner and confirmation-gated apply with revocation recheck. Operator `0.8.32` accepted staging authority `15950ef2…6d05`, an explicitly synthetic additive entitlement, two gated restarts and revoked fail-closed startup; Memphis remained exact 7/7 and Nashville exact 0/0, with no rehearsal data installed live. Full relay suite is 86/86 with race/vet green; web/Guide suite is 283/283. Accepted backup: `/var/backups/bitcoinwalk-replica-entitlement-rehearsal.Bpw5vC`. Real payment verification and production paid activation remain BW-17/BW-18/BW-23 gates. See [implementation sequence](relay-replication.md). |
 | BW-59 | 7, 9 | Public replica reconciliation and recovery | 🟢 Done | BW-56 | Existing bounded startup recovery closes the source-store/journal crash gap, backfills exact signed history idempotently, restores missing outbox work and preserves cancellation/revocation suppression. Operator `0.8.33` adds an aggregate-only reconciliation audit for source, journal and outbox gaps, malformed records, blocked public events, pending removals and unsafe suppressed rows. Unit tests prove the audit detects a three-record gap without repairing it, becomes healthy after normal recovery, accepts safe cancellation and detects a simulated resurrection state. On 27 September 2026 the backup-first VPS rehearsal ran twice against isolated consistent copies with identical reports and unchanged logical database digests; Memphis remained exact 7/7, Nashville exact 0/0 and Guide state was unchanged. Nothing was installed live. Relay suite: 89/89 with race/vet green. Backup: `/var/backups/bitcoinwalk-replica-reconciliation-audit.2QlWTN`. |
 | BW-60 | 9 | Portable city ownership and endpoint discovery | 🟢 Done | BW-59 | Memphis root `d16d969d…b21a79` is pinned in an offline-verifiable bundle and served by two BitcoinWalk transports in separate VPS failure domains. Both return identical canonical state; controlled live failover passed in both directions. App `0.3.75` adds role-limited, confirmation-gated successor signing and passed 320/320 tests, build, package smoke, checksums and CI. Isolated operator rehearsal `0.8.42` accepted owner update, operator endpoint update, rotation and recovery in sequence; escalation, rotated-owner writes and competing successors failed closed, while live Memphis remained unchanged. Evidence is recoverable from `/var/backups/bitcoinwalk-city-directory-successors.TrHjdM` and `/var/backups/bitcoinwalk-city-directory-successors.0ItkKs`. See [directory design](city-endpoint-directory.md). |
-| BW-61 | 9 | Owner-controlled relay endpoint migration | 🟠 In progress | BW-60 | Add, verify/sync, switch, soak and retire with rollback; BitcoinWalk domain remains optional. The first tested slice is a non-mutating, fail-closed preflight contract covering exact public state, signatures, private-wrapper exclusion, TLS/NIP-11, receiver policy, directory consensus, failure-domain evidence, rollback digests and production hostname hygiene. It cannot sign or publish. Next: package the live evidence collector, then provision the candidate without changing the registry or Memphis chain. See [migration design](city-endpoint-migration.md). |
+| BW-61 | 9 | Owner-controlled relay endpoint migration | 🟠 In progress | BW-60. Paused by user. Candidate at `wss://replica.bitcoinwalk.org/` passed exact Memphis visible-state backfill acceptance 0.8.51 and post-backfill backup/repeated restart 0.8.52 (7/7); hidden historical rows stayed excluded. Registry, live destination and signed directory chain remain unchanged. On explicit resumption: fresh read-only preflight, reviewed switch, soak and rollback/retirement acceptance. Do not repeat initial provisioning or reset/backfill. See [migration design](city-endpoint-migration.md). |
 | BW-62 | 9 | Umbrel/Start9 self-host package | ⚪ Planned | BW-61 | Relay and dashboard, quotas, backups, import/export and updates; isolated from Bitcoin/Lightning keys. |
 | BW-63 | 9 | Operate independently of BitcoinWalk infrastructure | ⚪ Planned | BW-62 | Outage acceptance, independent publishing and recovery reconciliation; distinguish node ownership from official recognition. |
 | BW-64 | 9 | Portable private community chat | ⚪ Planned | BW-61, BW-62 | Separate NIP-29 migration preserving membership, bans, identity and privacy; never broad public replication. |

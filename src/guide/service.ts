@@ -5,7 +5,7 @@ import { DatabaseSync } from "node:sqlite";
 import { SimplePool, finalizeEvent, type Event } from "nostr-tools";
 import { configSchema, assertBotKey, selectInbox, guideProfile, signTransportAuth } from "./core";
 import { Outbox } from "./outbox";
-import { history, publishIdempotent, readAnyComplete, readComplete } from "./transport";
+import { history, publishIdempotent, readAnyComplete } from "./transport";
 import { SUPER_ADMIN_PUBKEY } from "../nostr/authority";
 import { parseCityRevision, parseApprovalRecord, pendingCityRevisions, type CityRevision, type ApprovalRecord } from "../nostr/city-records";
 import {managedCities} from "../nostr/moderation";

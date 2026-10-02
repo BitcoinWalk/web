@@ -1,5 +1,9 @@
 # BitcoinWalk web
 
+Start new development with [the compact handover](docs/development-handover.md),
+the [maintained backlog](docs/project-backlog.md), and the
+[current non-root deployment runbook](docs/app-staging-runbook.md).
+
 The BitcoinWalk web client renders verified Nostr city data. Nostr events remain the source of truth;
 server-side caching exists only for resilient discovery, page rendering, and link previews.
 

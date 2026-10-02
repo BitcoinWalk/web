@@ -2,6 +2,16 @@
 
 Status: 🟠 in progress. BW-60 established who controls the signed directory and how clients resolve it. BW-61 changes an endpoint without weakening that trust chain, silently redirecting the replication registry or making the old endpoint unavailable before rollback is proven.
 
+Checkpoint reconciled 2 October 2026: **paused by the user**, not awaiting initial
+candidate provisioning. Candidate 0.8.48 at `wss://replica.bitcoinwalk.org/`
+passed visible-state backfill acceptance 0.8.51 (exact Memphis 7/7, hidden history
+excluded), then 0.8.52 backup and repeated restart with read-only root, hardened
+tmpfs and no published host ports. Evidence: source
+`/var/backups/bitcoinwalk-replica-visible-acceptance-complete.tPPqL1`; candidate
+`/var/backups/bitcoinwalk-replica-candidate-post-backfill.xTOlEI`.
+Registry and signed directory remain unchanged. Resume with fresh read-only
+preflight and explicit migration review, not another empty reset or backfill.
+
 The expected BitcoinWalk production candidate is `wss://replica.bitcoinwalk.org/`. That name is not considered active merely because DNS or TLS exists. An owner-operated domain may replace or accompany it; BitcoinWalk naming is optional and does not confer ownership.
 
 ## Safety boundary
