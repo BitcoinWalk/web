@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "backlog:build": "node scripts/build-public-backlog.mjs",
-    "backlog:check": "node scripts/build-public-backlog.mjs && test -f public-backlog-dist/index.html && grep -q 'BitcoinWalk backlog' public-backlog-dist/index.html && test ! -e public-backlog-dist/CNAME",
+    "backlog:check": "node scripts/build-public-backlog.mjs && test -f public-backlog-dist/index.html && grep -q 'BitcoinWalk backlog' public-backlog-dist/index.html && grep -q 'brand/bitcoinwalk-horizontal.png' public-backlog-dist/index.html && cmp public/brand/bitcoinwalk-horizontal.png public-backlog-dist/brand/bitcoinwalk-horizontal.png && test ! -e public-backlog-dist/CNAME",
     "prebuild": "node scripts/copy-maplibre-worker.mjs",
     "predev": "node scripts/copy-maplibre-worker.mjs",
     "guide:build": "tsc -p tsconfig.guide.json && esbuild src/guide/service.ts --bundle --platform=node --target=node24 --format=cjs --outfile=guide-build/guide.cjs && esbuild src/guide/init-key.ts --bundle --platform=node --target=node24 --format=cjs --outfile=guide-build/guide-key.cjs",

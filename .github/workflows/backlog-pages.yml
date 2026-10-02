@@ -6,6 +6,7 @@ name: Publish public backlog
     paths:
       - docs/project-backlog.md
       - scripts/build-public-backlog.mjs
+      - public/brand/bitcoinwalk-horizontal.png
       - .github/workflows/backlog-pages.yml
   workflow_dispatch:
 

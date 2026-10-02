@@ -1,10 +1,12 @@
-import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { copyFile, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
 
 const root = process.cwd();
 const sourcePath = path.join(root, "docs", "project-backlog.md");
 const outputDir = path.join(root, "public-backlog-dist");
+const brandSourcePath = path.join(root, "public", "brand", "bitcoinwalk-horizontal.png");
+const brandOutputDir = path.join(outputDir, "brand");
 const source = await readFile(sourcePath, "utf8");
 
 const statusOrder = ["🟠 In progress", "⚪ Planned", "○ Future", "🟢 Done", "🔴 Blocked"];
@@ -159,8 +161,8 @@ const html = `<!doctype html>
     button,input,select { font:inherit; }
     .wrap { width:min(1180px,calc(100% - 32px)); margin:auto; }
     header { padding:64px 0 34px; border-bottom:1px solid var(--line); }
-    .brand { display:flex; gap:13px; align-items:center; color:var(--orange); font-weight:800; letter-spacing:.05em; text-transform:uppercase; }
-    .coin { display:grid; place-items:center; width:34px; height:34px; border-radius:50%; background:var(--orange); color:#111; font-size:22px; }
+    .brand { display:inline-flex; align-items:center; }
+    .brand img { display:block; width:min(228px,70vw); height:auto; }
     h1 { max-width:800px; margin:30px 0 14px; font-size:clamp(2.7rem,7vw,5.5rem); line-height:.94; letter-spacing:-.055em; }
     .lede { max-width:680px; margin:0; color:#c4cad2; font-size:1.16rem; }
     .updated { display:inline-flex; margin-top:24px; padding:8px 12px; border:1px solid var(--line); border-radius:999px; color:var(--muted); font-size:.88rem; }
@@ -203,12 +205,12 @@ const html = `<!doctype html>
     footer .wrap { display:flex; justify-content:space-between; gap:20px; }
     footer a { color:#cbd1d8; }
     @media (max-width:850px) { .counts { grid-template-columns:repeat(2,1fr); } .stages { grid-template-columns:repeat(2,1fr); } .backlog-row { grid-template-columns:82px 1fr; } .backlog-row > :last-child { grid-column:2; } }
-    @media (max-width:570px) { header { padding-top:38px; } .wrap { width:min(100% - 22px,1180px); } .counts,.stages { grid-template-columns:1fr; } .section-head { display:block; } .section-head p { margin-top:8px; } .toolbar { grid-template-columns:1fr 1fr; } .toolbar input { grid-column:1/-1; } .results { text-align:right; } .backlog-row { grid-template-columns:1fr; gap:11px; } .backlog-row > :last-child { grid-column:auto; } footer .wrap { display:block; } }
+    @media (max-width:570px) { header { padding-top:38px; } .wrap { width:min(100% - 22px,1180px); } .brand img { width:min(196px,70vw); } .counts,.stages { grid-template-columns:1fr; } .section-head { display:block; } .section-head p { margin-top:8px; } .toolbar { grid-template-columns:1fr 1fr; } .toolbar input { grid-column:1/-1; } .results { text-align:right; } .backlog-row { grid-template-columns:1fr; gap:11px; } .backlog-row > :last-child { grid-column:auto; } footer .wrap { display:block; } }
   </style>
 </head>
 <body>
   <header><div class="wrap">
-    <div class="brand"><span class="coin">₿</span><span>BitcoinWalk</span></div>
+    <a class="brand" href="https://app-staging.bitcoinwalk.org/" aria-label="BitcoinWalk staging app"><img src="brand/bitcoinwalk-horizontal.png" width="1690" height="312" alt="BitcoinWalk"></a>
     <h1>Open work.<br>Visible progress.</h1>
     <p class="lede">The live, colour-coded delivery backlog for BitcoinWalk. This public view is rebuilt automatically from the maintained project tracker.</p>
     <span class="updated">Last reviewed ${escapeHtml(reviewed)}</span>
@@ -273,9 +275,11 @@ for (const pattern of forbidden) {
 
 await rm(outputDir, { recursive: true, force: true });
 await mkdir(outputDir, { recursive: true });
+await mkdir(brandOutputDir, { recursive: true });
 await Promise.all([
   writeFile(path.join(outputDir, "index.html"), html),
   writeFile(path.join(outputDir, ".nojekyll"), ""),
+  copyFile(brandSourcePath, path.join(brandOutputDir, "bitcoinwalk-horizontal.png")),
 ]);
 
 console.log(`Built public backlog: ${items.length} items across ${stages.length} stages.`);
