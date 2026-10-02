@@ -202,6 +202,12 @@ The super-admin Walks screen now reuses the directory and permission snapshot al
 
 App 0.3.128 was activated on staging on 1 October 2026 through the ordinary `bitcoinwalk` deployment account. Artifact SHA-256: `ca0287e1da28f36c38c6955ca05314b22fa48171daca36034174f0da154cf275`; deployment evidence: `/home/bitcoinwalk/backups/app-staging-deploy.LPzApu`; active release: `/opt/bitcoinwalk-app-staging/releases/0.3.128-ca0287e1da28`. All 465 tests, focused source lint, type-check, production build, backlog generation and packaged smoke passed.
 
+## App 0.3.129 — signed-in dashboard brand navigation
+
+The signed-in dashboard sidebar uses the supplied white BitcoinWalk horizontal artwork instead of the text placeholder. On mobile, the separate Menu control is replaced by the logo itself: the collapsed button shows an exact square crop of the artwork's Bitcoin/walking icon, while expansion reveals the full wordmark and dashboard navigation. Both states use the same source image so the icon cannot drift; accessible open/close labels, keyboard focus and reduced-motion behaviour are retained. The signed-out account-entry screen is unchanged.
+
+App 0.3.129 was activated on staging on 2 October 2026 through the ordinary `bitcoinwalk` deployment account. Artifact SHA-256: `0a491f467b821893a8a393637443e00ee1e2e96dedcd84f52801d7b4d7895bf1`; deployment evidence: `/home/bitcoinwalk/backups/app-staging-deploy.tME1oP`; active release: `/opt/bitcoinwalk-app-staging/releases/0.3.129-0a491f467b82`. All 466 tests, source lint (7 existing warnings), type-check, production build, backlog generation, packaged smoke, public health, exact public-asset digest and admin-route checks passed. Signed-in desktop/mobile visual acceptance remains.
+
 For 0.3.17 acceptance: connect once, inspect overview counts, select a city and navigate between Walks/Cities/Hosting. Confirm the filter persists and each screen loads without a second connect click. Test All available cities, a host-only identity, and a relay outage. Refresh overview after signed changes; counts are not live.
 
 ## Content administration
