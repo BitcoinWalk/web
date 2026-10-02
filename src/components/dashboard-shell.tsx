@@ -1,4 +1,5 @@
 "use client";
+import Image from "next/image";
 import Link from "next/link";
 import {usePathname} from "next/navigation";
 import {useCallback,useEffect,useRef,useState,type ReactNode} from "react";
@@ -18,6 +19,18 @@ import styles from "./dashboard-shell.module.css";
 import {dashboardMenuRefreshEvent,pendingRequestCountEvent,pendingRequestCountFromEvent} from "./pending-request-count";
 import {loadDashboardMenuCounts,resolveDashboardMenuCounts,type DashboardMenuCounts} from "../nostr/dashboard-menu";
 import {creatorSubmissions} from "../domain/creator-submissions";
+
+const dashboardLogo="/brand/bitcoinwalk-horizontal-white.png";
+
+export function DashboardBrand({open,onToggle}:{open:boolean;onToggle:()=>void}){
+ return <div className={styles.brandRow}>
+  <Link href="/admin" className={styles.brand} aria-label="BitcoinWalk dashboard"><Image src={dashboardLogo} width={2000} height={368} priority alt="BitcoinWalk"/></Link>
+  <button type="button" className={styles.mobileBrand} onClick={onToggle} aria-label={open?"Close dashboard menu":"Open dashboard menu"} aria-expanded={open} aria-controls="dashboard-navigation">
+   <span className={styles.mobileBrandViewport} data-open={open}><Image src={dashboardLogo} width={2000} height={368} priority alt="" aria-hidden="true"/></span>
+  </button>
+ </div>;
+}
+
 export default function DashboardShell({children}:{children:ReactNode}){
  const path=usePathname(),[session,setSession]=useState(blank),[error,setError]=useState(""),[busy,setBusy]=useState(false),[open,setOpen]=useState(false),[epoch,setEpoch]=useState(0),[pendingCount,setPendingCount]=useState<number|null>(null),[menuCounts,setMenuCounts]=useState<DashboardMenuCounts>({cities:null,walks:null});
  const generation=useRef(0),connecting=useRef(false);
@@ -49,5 +62,5 @@ export default function DashboardShell({children}:{children:ReactNode}){
  if(!session.pubkey)return <DashboardContext.Provider value={session}><main className={styles.entry} data-hide-site-footer><OrganizerIdentity disabled={busy} heading="Your account" intro="Create a new Nostr identity, or connect one you already use." onIdentityChange={accountChanged}/>{error&&<p role="alert">{error}</p>}</main></DashboardContext.Provider>;
  const allowed=dashboardAccess(path,session.role)||path==="/admin/calendar";
  const status=busy?"connecting":error?"error":session.pubkey?"connected":"disconnected";
- return <DashboardContext.Provider value={session}><div className={styles.shell}><aside className={styles.sidebar}><Link href="/admin" className={styles.brand}>₿ BitcoinWalk</Link><button className={styles.menu} onClick={()=>setOpen(!open)} aria-expanded={open} aria-controls="dashboard-navigation">Menu</button><nav id="dashboard-navigation" className={styles.nav} data-open={open} aria-label="Dashboard">{dashboardNavigation(session.role).map(item=><Link key={item.href} href={item.href} aria-current={path===item.href?"page":undefined} onClick={()=>setOpen(false)}>{dashboardMenuLabel(item.href,item.label,session.role,{...menuCounts,requests:pendingCount})}</Link>)}</nav></aside><div className={styles.content}><header className={styles.topbar}><div className={styles.welcome}><div className={styles.headline}><strong>Welcome to your dashboard!</strong><div className={styles.actions}><button onClick={()=>void disconnect()}>Disconnect</button></div><div className={styles.connection} role="status" aria-live="polite"><span className={styles.statusDot} data-status={status} role="img" aria-label={`${status} status`}/>{error&&<span role="alert">{error}</span>}</div></div><NostrUser pubkey={session.pubkey} variant="compact"/></div></header><div className={styles.body} key={`${epoch}:${session.selectedCity}`}>{allowed?children:<main><h1>Section unavailable</h1><p>This section is not available for the connected identity. Choose a section from the menu.</p></main>}</div></div></div></DashboardContext.Provider>;
+ return <DashboardContext.Provider value={session}><div className={styles.shell}><aside className={styles.sidebar}><DashboardBrand open={open} onToggle={()=>setOpen(value=>!value)}/><nav id="dashboard-navigation" className={styles.nav} data-open={open} aria-label="Dashboard">{dashboardNavigation(session.role).map(item=><Link key={item.href} href={item.href} aria-current={path===item.href?"page":undefined} onClick={()=>setOpen(false)}>{dashboardMenuLabel(item.href,item.label,session.role,{...menuCounts,requests:pendingCount})}</Link>)}</nav></aside><div className={styles.content}><header className={styles.topbar}><div className={styles.welcome}><div className={styles.headline}><strong>Welcome to your dashboard!</strong><div className={styles.actions}><button onClick={()=>void disconnect()}>Disconnect</button></div><div className={styles.connection} role="status" aria-live="polite"><span className={styles.statusDot} data-status={status} role="img" aria-label={`${status} status`}/>{error&&<span role="alert">{error}</span>}</div></div><NostrUser pubkey={session.pubkey} variant="compact"/></div></header><div className={styles.body} key={`${epoch}:${session.selectedCity}`}>{allowed?children:<main><h1>Section unavailable</h1><p>This section is not available for the connected identity. Choose a section from the menu.</p></main>}</div></div></div></DashboardContext.Provider>;
 }

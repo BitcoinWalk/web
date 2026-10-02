@@ -1,7 +1,7 @@
 import {createElement} from "react";
 import {renderToStaticMarkup} from "react-dom/server";
 import {describe,expect,it,vi} from "vitest";
-import DashboardShell from "./dashboard-shell";
+import DashboardShell,{DashboardBrand} from "./dashboard-shell";
 
 vi.mock("next/navigation",()=>({usePathname:()=>"/admin"}));
 
@@ -22,5 +22,20 @@ describe("dashboard entry",()=>{
     expect(html).not.toContain("Public site");
     expect(html).not.toContain("All available cities");
     expect(html).not.toContain("<select");
+  });
+});
+
+describe("signed-in dashboard brand",()=>{
+  it("uses the supplied white wordmark and exposes its icon crop as the collapsed mobile menu",()=>{
+    const collapsed=renderToStaticMarkup(createElement(DashboardBrand,{open:false,onToggle:()=>{}}));
+    expect(collapsed).toContain("bitcoinwalk-horizontal-white.png");
+    expect(collapsed).toContain('aria-label="Open dashboard menu"');
+    expect(collapsed).toContain('aria-expanded="false"');
+    expect(collapsed).toContain('data-open="false"');
+
+    const expanded=renderToStaticMarkup(createElement(DashboardBrand,{open:true,onToggle:()=>{}}));
+    expect(expanded).toContain('aria-label="Close dashboard menu"');
+    expect(expanded).toContain('aria-expanded="true"');
+    expect(expanded).toContain('data-open="true"');
   });
 });
