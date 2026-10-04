@@ -6,8 +6,8 @@ separate under BW-89.
 
 ## Signed model
 
-Sponsorship assignments are retained, super-admin-signed records in the existing
-approved admin-record kind, isolated by the `bitcoinwalk-sponsorship` namespace.
+Sponsorship assignments are retained, super-admin-signed kind-30311 records,
+isolated by the `bitcoinwalk-sponsorship` namespace.
 They target either a city UUID or a city UUID plus stable NIP-52 occurrence
 address. Each revision links to its predecessor and records one explicit mode:
 

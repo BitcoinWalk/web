@@ -1,7 +1,5 @@
 import {z} from "zod";
-import {FEATURE_FLAGS_KIND} from "./feature-flags";
-
-export const SPONSORSHIP_KIND=FEATURE_FLAGS_KIND;
+export const SPONSORSHIP_KIND=30311;
 export const SPONSORSHIP_ID="bitcoinwalk-sponsorship";
 const hex64=z.string().regex(/^[0-9a-f]{64}$/);
 const httpsUrl=z.string().max(2048).url().refine(value=>{const url=new URL(value);return url.protocol==="https:"&&!url.username&&!url.password&&(!url.port||url.port==="443")&&url.hostname.includes(".")&&!/^[\d.]+$/.test(url.hostname)&&!url.hostname.includes(":")&&!/(?:^|\.)(localhost|local|internal|test|invalid)$/.test(url.hostname);},"Sponsor website must be a public HTTPS URL.");
