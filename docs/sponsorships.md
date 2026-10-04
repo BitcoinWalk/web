@@ -50,3 +50,22 @@ Patron slot, and prepaid 3/6/12-walk series discounts. Optional directory and
 post-walk acknowledgements require independent placement flags. BitcoinWalk
 will not use behavioural targeting, tracking pixels, takeover ads, sponsor
 control over editorial content, or any sponsor private key.
+
+BW-16 is the accepted presentation and control baseline, not a frozen
+commercial model. Its signed assignment payload is explicitly `version: 1`.
+Later sponsorship capabilities must use an explicit compatible extension or a
+new schema version and must never reinterpret an already signed v1 assignment.
+Payment evidence, packages, discounts and new placements remain independently
+reviewable under BW-89 and BW-90.
+
+## Staging acceptance — 4 October 2026
+
+- App `0.3.142` and relay policy `0.8.58` passed the automated suites and were
+  accepted by the user on staging.
+- Public relay read-back verified enabled feature-flags event
+  `f8f54c7ab428cabb5cac9d011100ceef81c5d43556a23b34065a8af7108ec4de`.
+- Public relay read-back verified the dedicated kind-30311 city assignment
+  `9a71c9f27f70751d6f49bf7532b4e3ce0c218676f5092acc116340cf742bf2c4`
+  in invitation (`empty`) mode.
+- The earlier kind collision was corrected: kind 30308 remains reserved for
+  feature flags and sponsorship assignments use kind 30311.
