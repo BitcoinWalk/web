@@ -1,0 +1,6 @@
+#!/bin/sh
+set -eu
+tool_root=$(CDPATH= cd -- "$(dirname -- "$(readlink -f -- "$0")")/.." && pwd)
+cd "$tool_root"
+export FONTCONFIG_FILE="$tool_root/design/city-logo-templates/v1/fonts/fonts.conf"
+exec /opt/bitcoinwalk-app-staging/runtime/bin/node "$tool_root/renderer.mjs" "$@"

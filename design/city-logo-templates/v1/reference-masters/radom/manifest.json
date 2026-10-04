@@ -1,0 +1,90 @@
+{
+  "schemaVersion": 1,
+  "status": "reference-preserved",
+  "cityId": "52c6c6c2-ece9-4780-8364-6d3c00638f42",
+  "cityName": "Radom",
+  "slug": "radom",
+  "source": "https://www.figma.com/design/4Plc48s7zBJXhx2aG9lKHv",
+  "files": [
+    {
+      "variant": "bitcoinwalk-vertical-on-black",
+      "svg": "bitcoinwalk-vertical-on-black.svg",
+      "sourcePng": "radom-bitcoinwalk-vertical-on-black.png",
+      "sourceSha256": "b5a390f67ed0b11adede6d3db1de480ee774c97e25f831302879a4952ce7af50",
+      "width": 714,
+      "height": 625
+    },
+    {
+      "variant": "bitcoinwalk-on-black",
+      "svg": "bitcoinwalk-on-black.svg",
+      "sourcePng": "radom-bitcoinwalk-on-black.png",
+      "sourceSha256": "995e0593fff7dc7218b8c74b5ced9fbbb2db6e3cb4a83a95e20c41e98cf8272a",
+      "width": 775,
+      "height": 604
+    },
+    {
+      "variant": "bitcoinwalk-horizontal-on-black",
+      "svg": "bitcoinwalk-horizontal-on-black.svg",
+      "sourcePng": "radom-bitcoinwalk-horizontal-on-black.png",
+      "sourceSha256": "b00f8d498f6e740844e1e58df1872e4e23841297af1409ded3f2adb3c5534ef1",
+      "width": 1895,
+      "height": 351
+    },
+    {
+      "variant": "satsman-on-black",
+      "svg": "satsman-on-black.svg",
+      "sourcePng": "radom-satsman-on-black.png",
+      "sourceSha256": "882f1d549c2a68afe9662d9ecfc776641800d4f3b9732a9af55362bc3505aa7e",
+      "width": 499,
+      "height": 486
+    },
+    {
+      "variant": "satsman-vertical-on-black",
+      "svg": "satsman-vertical-on-black.svg",
+      "sourcePng": "radom-satsman-vertical-on-black.png",
+      "sourceSha256": "7d42c7f4a61a440a9f1092ea0eace27cd0b76dbd928be4d75d514f200762f083",
+      "width": 490,
+      "height": 558
+    },
+    {
+      "variant": "bitcoinwalk-vertical-on-white",
+      "svg": "bitcoinwalk-vertical-on-white.svg",
+      "sourcePng": "radom-bitcoinwalk-vertical-on-white.png",
+      "sourceSha256": "92779dca44a216d0909ba262f14232b2b1ff72f9fcb68d148eab211c982e502b",
+      "width": 714,
+      "height": 631
+    },
+    {
+      "variant": "bitcoinwalk-on-white",
+      "svg": "bitcoinwalk-on-white.svg",
+      "sourcePng": "radom-bitcoinwalk-on-white.png",
+      "sourceSha256": "2577496df279883e17e31e21b7966a8db35148cd343e85840947039b1c0b3e95",
+      "width": 775,
+      "height": 604
+    },
+    {
+      "variant": "bitcoinwalk-horizontal-on-white",
+      "svg": "bitcoinwalk-horizontal-on-white.svg",
+      "sourcePng": "radom-bitcoinwalk-horizontal-on-white.png",
+      "sourceSha256": "821ea5aeebcca7a40b99e23abbdbb167beaf137dbdda75720aeb1a3dc15c1799",
+      "width": 1895,
+      "height": 351
+    },
+    {
+      "variant": "satsman-on-white",
+      "svg": "satsman-on-white.svg",
+      "sourcePng": "radom-satsman-on-white.png",
+      "sourceSha256": "92d959a590a0b3a7cd462793526da0600cb30306a33a0668a8ab8958543116d5",
+      "width": 499,
+      "height": 478
+    },
+    {
+      "variant": "satsman-vertical-on-white",
+      "svg": "satsman-vertical-on-white.svg",
+      "sourcePng": "radom-satsman-vertical-on-white.png",
+      "sourceSha256": "947bcd3969ee22321d9c90b38d264fae3c63a75c90780a84c47ba87048f6f916",
+      "width": 490,
+      "height": 558
+    }
+  ]
+}

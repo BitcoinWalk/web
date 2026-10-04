@@ -1,19 +1,22 @@
 import {beforeEach,afterEach,describe,expect,it,vi} from "vitest";
 import {finalizeEvent,generateSecretKey} from "nostr-tools";
 import {paymentRequest} from "../../../payments/auth";
-import {POST} from "./route";
+import {POST,visibleLogoPacks} from "./route";
 const service=vi.hoisted(()=>({create:vi.fn(),status:vi.fn(),list:vi.fn(()=>[])}));
 vi.mock("../../../payments/runtime",()=>({getPaymentRuntime:()=>({service})}));
+const logo=vi.hoisted(()=>({statuses:vi.fn<()=>Array<Record<string,unknown>>>(()=>[])}));
+vi.mock("../../../logos/runtime",()=>({getLogoCatalog:()=>logo}));
 const origin="https://app-staging.bitcoinwalk.org";
-beforeEach(()=>{vi.clearAllMocks();service.list.mockReturnValue([]);vi.stubEnv("BITCOINWALK_PAYMENT_APP_ORIGIN",origin);});
+beforeEach(()=>{vi.clearAllMocks();service.list.mockReturnValue([]);logo.statuses.mockReturnValue([]);vi.stubEnv("BITCOINWALK_PAYMENT_APP_ORIGIN",origin);});
 afterEach(()=>{vi.unstubAllEnvs();vi.unstubAllGlobals();});
 const request=(event:unknown,source=origin)=>new Request(`${origin}/api/payments`,{method:"POST",headers:{Origin:source},body:JSON.stringify({event})});
 describe("direct app payment API",()=>{
  it("rejects unsigned requests before accessing payment state",async()=>{expect((await POST(request({}))).status).toBe(403);expect(service.list).not.toHaveBeenCalled();});
  it("rejects foreign origins",async()=>{expect((await POST(request({},"https://other.example"))).status).toBe(403);});
  it("handles a validated signed request inside the web app",async()=>{const event=finalizeEvent(paymentRequest({action:"list"},origin),generateSecretKey());const result=await POST(request(event));expect(result.status).toBe(200);expect(service.list).toHaveBeenCalledOnce();expect(result.headers.get("Cache-Control")).toBe("no-store");});
+ it("exposes only paid ready logo links to an organizer",async()=>{const key=generateSecretKey(),event=finalizeEvent(paymentRequest({action:"list"},origin),key),pubkey=event.pubkey;service.list.mockReturnValue([{cityId:"paid",owner:pubkey}] as never);logo.statuses.mockReturnValue([{cityId:"paid",revisionId:"r",slug:"paid",cityName:"Paid",state:"ready",attempts:1,updatedAt:1,publiclyListed:true,ready:true},{cityId:"free",revisionId:"r",slug:"free",cityName:"Free",state:"ready",attempts:1,updatedAt:1,publiclyListed:false,ready:true},{cityId:"pending",revisionId:"r",slug:"pending",cityName:"Pending",state:"failed",attempts:2,updatedAt:1,publiclyListed:true,ready:false}]);const body=await (await POST(request(event))).json();expect(body.logoPacks).toEqual([expect.objectContaining({cityId:"paid",href:"/paid/logo"})]);});
+ it("shows every durable state to super-admin but never invents a link for an incomplete pack",()=>{const statuses=[{cityId:"free",revisionId:"r",slug:"free",cityName:"Free",state:"ready",attempts:1,updatedAt:1,publiclyListed:false,ready:true},{cityId:"failed",revisionId:"r",slug:"failed",cityName:"Failed",state:"failed",attempts:3,updatedAt:1,publiclyListed:true,ready:false}] as never;expect(visibleLogoPacks(statuses,[],"admin","admin")).toEqual([expect.objectContaining({cityId:"free",href:"/free/logo"}),expect.not.objectContaining({href:expect.anything()})]);});
  it("fails closed when unconfigured",async()=>{vi.stubEnv("BITCOINWALK_PAYMENT_APP_ORIGIN","");expect((await POST(request({}))).status).toBe(503);});
  it("suppresses wallet and database exception text",async()=>{service.list.mockImplementationOnce(()=>{throw new Error("nostr+walletconnect://private-key fixture");});const event=finalizeEvent(paymentRequest({action:"list"},origin),generateSecretKey());const result=await POST(request(event));expect(result.status).toBe(503);expect(await result.text()).not.toContain("private-key");});
  it("rejects oversized requests before accessing payment state",async()=>{const result=await POST(new Request(`${origin}/api/payments`,{method:"POST",headers:{Origin:origin},body:"x".repeat(32769)}));expect(result.status).toBe(503);expect(service.list).not.toHaveBeenCalled();});
 });
-

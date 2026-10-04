@@ -1,0 +1,94 @@
+{
+  "version": 1,
+  "cityId": "52c6c6c2-ece9-4780-8364-6d3c00638f42",
+  "slug": "radom",
+  "cityName": "Radom",
+  "source": "https://www.figma.com/design/4Plc48s7zBJXhx2aG9lKHv",
+  "templateVersion": "city-logo-pilots-1",
+  "files": [
+    {
+      "name": "radom-bitcoinwalk-vertical-on-black.png",
+      "label": "bitcoinwalk vertical · dark background",
+      "background": "dark",
+      "width": 714,
+      "height": 625,
+      "sha256": "b5a390f67ed0b11adede6d3db1de480ee774c97e25f831302879a4952ce7af50"
+    },
+    {
+      "name": "radom-bitcoinwalk-on-black.png",
+      "label": "bitcoinwalk · dark background",
+      "background": "dark",
+      "width": 775,
+      "height": 604,
+      "sha256": "995e0593fff7dc7218b8c74b5ced9fbbb2db6e3cb4a83a95e20c41e98cf8272a"
+    },
+    {
+      "name": "radom-bitcoinwalk-horizontal-on-black.png",
+      "label": "bitcoinwalk horizontal · dark background",
+      "background": "dark",
+      "width": 1895,
+      "height": 351,
+      "sha256": "b00f8d498f6e740844e1e58df1872e4e23841297af1409ded3f2adb3c5534ef1"
+    },
+    {
+      "name": "radom-satsman-on-black.png",
+      "label": "satsman · dark background",
+      "background": "dark",
+      "width": 499,
+      "height": 486,
+      "sha256": "882f1d549c2a68afe9662d9ecfc776641800d4f3b9732a9af55362bc3505aa7e"
+    },
+    {
+      "name": "radom-satsman-vertical-on-black.png",
+      "label": "satsman vertical · dark background",
+      "background": "dark",
+      "width": 490,
+      "height": 558,
+      "sha256": "7d42c7f4a61a440a9f1092ea0eace27cd0b76dbd928be4d75d514f200762f083"
+    },
+    {
+      "name": "radom-bitcoinwalk-vertical-on-white.png",
+      "label": "bitcoinwalk vertical · light background",
+      "background": "light",
+      "width": 714,
+      "height": 631,
+      "sha256": "92779dca44a216d0909ba262f14232b2b1ff72f9fcb68d148eab211c982e502b"
+    },
+    {
+      "name": "radom-bitcoinwalk-on-white.png",
+      "label": "bitcoinwalk · light background",
+      "background": "light",
+      "width": 775,
+      "height": 604,
+      "sha256": "2577496df279883e17e31e21b7966a8db35148cd343e85840947039b1c0b3e95"
+    },
+    {
+      "name": "radom-bitcoinwalk-horizontal-on-white.png",
+      "label": "bitcoinwalk horizontal · light background",
+      "background": "light",
+      "width": 1895,
+      "height": 351,
+      "sha256": "821ea5aeebcca7a40b99e23abbdbb167beaf137dbdda75720aeb1a3dc15c1799"
+    },
+    {
+      "name": "radom-satsman-on-white.png",
+      "label": "satsman · light background",
+      "background": "light",
+      "width": 499,
+      "height": 478,
+      "sha256": "92d959a590a0b3a7cd462793526da0600cb30306a33a0668a8ab8958543116d5"
+    },
+    {
+      "name": "radom-satsman-vertical-on-white.png",
+      "label": "satsman vertical · light background",
+      "background": "light",
+      "width": 490,
+      "height": 558,
+      "sha256": "947bcd3969ee22321d9c90b38d264fae3c63a75c90780a84c47ba87048f6f916"
+    }
+  ],
+  "archive": {
+    "name": "radom-logos.zip",
+    "sha256": "08648818aedd948b85ef5f4157e6f71728d241316d9eb9c622e6f1e2d212bf1a"
+  }
+}

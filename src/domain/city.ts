@@ -39,6 +39,10 @@ export const cityDocumentSchema = z.object({
   cityId: z.string().uuid(),
   slug: citySlugSchema,
   cityName: z.string().min(1).max(100),
+  /** Optional BCP-47 casing locale for deterministic localized brand assets. */
+  locale: z.string().min(2).max(35).refine(value => {
+    try { new Intl.Locale(value); return true; } catch { return false; }
+  }, "Use a valid language locale").optional(),
   /** Search-only localized and conventional names. Never routes or display titles. */
   aliases: cityAliasesSchema.optional(),
   // Organizer preference only. Never proof of payment or paid-relay entitlement.

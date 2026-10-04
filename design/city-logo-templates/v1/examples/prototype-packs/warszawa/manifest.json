@@ -1,0 +1,94 @@
+{
+  "version": 1,
+  "cityId": "032d98ea-f5da-4826-95bd-c4cf9286716e",
+  "slug": "warszawa",
+  "cityName": "Warszawa",
+  "source": "https://www.figma.com/design/4Plc48s7zBJXhx2aG9lKHv",
+  "templateVersion": "city-logo-pilots-1",
+  "files": [
+    {
+      "name": "warszawa-bitcoinwalk-vertical-on-black.png",
+      "label": "bitcoinwalk vertical · dark background",
+      "background": "dark",
+      "width": 714,
+      "height": 625,
+      "sha256": "85e9414c744985470279c4283005047ef1c186985926eec70e3a6cad9c90a1ba"
+    },
+    {
+      "name": "warszawa-bitcoinwalk-on-black.png",
+      "label": "bitcoinwalk · dark background",
+      "background": "dark",
+      "width": 775,
+      "height": 604,
+      "sha256": "ad28a5e32b65ef320f303ffd94b5211a14fad2361bec29d4c22741e57416fba4"
+    },
+    {
+      "name": "warszawa-bitcoinwalk-horizontal-on-black.png",
+      "label": "bitcoinwalk horizontal · dark background",
+      "background": "dark",
+      "width": 1895,
+      "height": 351,
+      "sha256": "8ee939100b0d7f28fba52fe500b8afeaf2c74886a999d58fc2aed5f7488f8d26"
+    },
+    {
+      "name": "warszawa-satsman-on-black.png",
+      "label": "satsman · dark background",
+      "background": "dark",
+      "width": 499,
+      "height": 486,
+      "sha256": "9f00d6ca9d770095a2e36525bbf85dae82c9ce683447536ddaa61e9006a99c7a"
+    },
+    {
+      "name": "warszawa-satsman-vertical-on-black.png",
+      "label": "satsman vertical · dark background",
+      "background": "dark",
+      "width": 490,
+      "height": 558,
+      "sha256": "975f826900fd6dbad390156f9454fe6de96167ea01b6631aa3dbe675369eeced"
+    },
+    {
+      "name": "warszawa-bitcoinwalk-vertical-on-white.png",
+      "label": "bitcoinwalk vertical · light background",
+      "background": "light",
+      "width": 714,
+      "height": 631,
+      "sha256": "6386ea63bc531f1ff62914fd5e63944c7dc53a075fe689f6436b434334f31b63"
+    },
+    {
+      "name": "warszawa-bitcoinwalk-on-white.png",
+      "label": "bitcoinwalk · light background",
+      "background": "light",
+      "width": 775,
+      "height": 604,
+      "sha256": "4e8fc6c57025220d3d96ee4e4ccdd5f8f4b1404bf9a4ebef828045ef110ce961"
+    },
+    {
+      "name": "warszawa-bitcoinwalk-horizontal-on-white.png",
+      "label": "bitcoinwalk horizontal · light background",
+      "background": "light",
+      "width": 1895,
+      "height": 351,
+      "sha256": "e2f4dc8197c97ed22af1666e4b643e5fd1800776fe4377173b2d912072d4c6be"
+    },
+    {
+      "name": "warszawa-satsman-on-white.png",
+      "label": "satsman · light background",
+      "background": "light",
+      "width": 499,
+      "height": 478,
+      "sha256": "39e321370d135a0600153d005d18ac3d83b2e1978f9b5cbd75d4b51be0dbbe8a"
+    },
+    {
+      "name": "warszawa-satsman-vertical-on-white.png",
+      "label": "satsman vertical · light background",
+      "background": "light",
+      "width": 490,
+      "height": 558,
+      "sha256": "680c8737dd8ad6c7c11927fd3730bb38f37970aa8580f43a98ffd34724db976e"
+    }
+  ],
+  "archive": {
+    "name": "warszawa-logos.zip",
+    "sha256": "7ce298b11c954a45d998c753e55cc8d89e4e099baba1a0088f40a97b10436d0f"
+  }
+}

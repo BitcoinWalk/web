@@ -19,6 +19,7 @@ import {cityAliases} from "../../domain/city";
 import CityFinder from "../../components/city-finder";
 import {organizerDirectorySnapshot} from "../../nostr/dashboard-snapshot";
 import {organizerCityInventory,type OrganizerCityInventoryItem} from "../../domain/organizer-city-inventory";
+import {paymentFetch,signPayment,type LogoPackView} from "../../components/city-payment";
 
 const LocationPicker = dynamic(() => import("../../components/location-picker"), {ssr:false});
 
@@ -27,6 +28,7 @@ export default function OrganizerPage() {
   const [busy,setBusy] = useState(false);
   const [identity,setIdentity] = useState("");
   const [cities,setCities] = useState<OrganizerCityInventoryItem[]>([]);
+  const [logoPacks,setLogoPacks]=useState<LogoPackView[]>([]);
   const [decisions,setDecisions] = useState<ApprovalRecord[]>([]);
   const [base,setBase] = useState<CityRevision|null>(null);
   const [pin,setPin] = useState<LocationValue|null>(null);
@@ -49,6 +51,7 @@ export default function OrganizerPage() {
       const key=await getBrowserExtensionPubkey();
       let loaded:{grants:AuthorizationRecord[];revisions:CityRevision[];approvals:ApprovalRecord[]};
       const snapshot=organizerDirectorySnapshot(dashboard,key);
+      const logoResult=await signPayment({action:"list"},key).then(paymentFetch).catch(()=>null);
       if(snapshot)loaded=snapshot;
       else {const [grants,directory]=await Promise.all([queryAuthorizations(relayConfig.readRelays),queryDirectoryRecords(relayConfig.readRelays)]);loaded={grants,...directory};}
       const {grants,revisions,approvals}=loaded;
@@ -57,6 +60,7 @@ export default function OrganizerPage() {
       const active=available.filter(item=>item.status!=="archived");
       if(dashboard.selectedCity&&active.length)select(active[0].revision);
       setIdentity(key);setCities(available);setDecisions([...approvals].sort((a,b)=>compareEvents(a.event,b.event)));
+      setLogoPacks(logoResult?.logoPacks??[]);
       setMessage(active.length ? "Select a city. Pending registrations are visible here, but editing remains locked until approval grants permission." : available.length ? "Your cities are archived. Contact BitcoinWalk if one should be restored." : "No cities were returned for this identity. Check your signer account and relay connection.");
     } catch(error) {setMessage(error instanceof Error ? error.message : "Could not load walks.");}
     finally {lock.current=false;setBusy(false);}
@@ -102,6 +106,7 @@ export default function OrganizerPage() {
   const visibleCities=cities.filter(item=>item.status!=="archived"&&showCityInPicker(item.revision.city.cityName));
   const archivedCities=cities.filter(item=>item.status==="archived"&&showCityInPicker(item.revision.city.cityName));
   const selectedCity=base?cities.find(item=>item.revision.city.cityId===base.city.cityId):undefined;
+  const selectedLogo=base?logoPacks.find(pack=>pack.cityId===base.city.cityId&&pack.revisionId===base.event.id&&pack.ready&&pack.publiclyListed):undefined;
   function chooseCity(cityId:string){
     const next=cities.find(item=>item.revision.city.cityId===cityId)?.revision??null;
     if(base&&!submitted&&selectedCity?.editable&&base.city.cityId!==next?.city.cityId&&!window.confirm("Switching cities discards unsent changes. Continue?"))return false;
@@ -120,6 +125,7 @@ export default function OrganizerPage() {
     {base && selectedCity?.editable && <section>
       <p>City ID: {base.city.cityId}<br/>Editing revision: {base.event.id}<br/>Revision status: {submitted ? "New edit submitted" : status}</p>
       <p><a href={`/${encodeURIComponent(base.city.slug)}`} target="_blank" rel="noreferrer">Open approved public page</a> (only available if an approved revision is published).</p>
+      {selectedLogo?.href&&<p><a href={selectedLogo.href} target="_blank" rel="noreferrer">Download your Pro city logo pack</a></p>}
       <form key={base.event.id} onSubmit={submit}>
         <fieldset disabled={busy || submitted}>
           <legend>Walk details</legend>

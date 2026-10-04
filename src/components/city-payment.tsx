@@ -5,11 +5,12 @@ import type {Event} from "nostr-tools";
 import {paymentRequest,type PaymentCommand} from "../payments/auth";
 import type {PaymentView} from "../payments/service";
 import {signForOrganizer} from "../nostr/organizer-identity";
+export type LogoPackView={cityId:string;revisionId:string;slug:string;cityName:string;state:"queued"|"rendering"|"failed"|"ready"|"obsolete";attempts:number;updatedAt:number;publiclyListed:boolean;ready:boolean;href?:string};
 
 export async function paymentFetch(event:Event){
  const response=await fetch("/api/payments",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({event}),signal:AbortSignal.timeout(60000),cache:"no-store"});
  const result=await response.json();if(!response.ok)throw new Error(result.error??"Payment service unavailable.");
- return result as {payment?:PaymentView|null;payments?:PaymentView[]};
+ return result as {payment?:PaymentView|null;payments?:PaymentView[];logoPacks?:LogoPackView[]};
 }
 export function signPayment(command:PaymentCommand,owner:string){return signForOrganizer(paymentRequest(command,window.location.origin),owner);}
 

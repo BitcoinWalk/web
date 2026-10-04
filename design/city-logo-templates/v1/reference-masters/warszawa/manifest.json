@@ -1,0 +1,90 @@
+{
+  "schemaVersion": 1,
+  "status": "reference-preserved",
+  "cityId": "032d98ea-f5da-4826-95bd-c4cf9286716e",
+  "cityName": "Warszawa",
+  "slug": "warszawa",
+  "source": "https://www.figma.com/design/4Plc48s7zBJXhx2aG9lKHv",
+  "files": [
+    {
+      "variant": "bitcoinwalk-vertical-on-black",
+      "svg": "bitcoinwalk-vertical-on-black.svg",
+      "sourcePng": "warszawa-bitcoinwalk-vertical-on-black.png",
+      "sourceSha256": "85e9414c744985470279c4283005047ef1c186985926eec70e3a6cad9c90a1ba",
+      "width": 714,
+      "height": 625
+    },
+    {
+      "variant": "bitcoinwalk-on-black",
+      "svg": "bitcoinwalk-on-black.svg",
+      "sourcePng": "warszawa-bitcoinwalk-on-black.png",
+      "sourceSha256": "ad28a5e32b65ef320f303ffd94b5211a14fad2361bec29d4c22741e57416fba4",
+      "width": 775,
+      "height": 604
+    },
+    {
+      "variant": "bitcoinwalk-horizontal-on-black",
+      "svg": "bitcoinwalk-horizontal-on-black.svg",
+      "sourcePng": "warszawa-bitcoinwalk-horizontal-on-black.png",
+      "sourceSha256": "8ee939100b0d7f28fba52fe500b8afeaf2c74886a999d58fc2aed5f7488f8d26",
+      "width": 1895,
+      "height": 351
+    },
+    {
+      "variant": "satsman-on-black",
+      "svg": "satsman-on-black.svg",
+      "sourcePng": "warszawa-satsman-on-black.png",
+      "sourceSha256": "9f00d6ca9d770095a2e36525bbf85dae82c9ce683447536ddaa61e9006a99c7a",
+      "width": 499,
+      "height": 486
+    },
+    {
+      "variant": "satsman-vertical-on-black",
+      "svg": "satsman-vertical-on-black.svg",
+      "sourcePng": "warszawa-satsman-vertical-on-black.png",
+      "sourceSha256": "975f826900fd6dbad390156f9454fe6de96167ea01b6631aa3dbe675369eeced",
+      "width": 490,
+      "height": 558
+    },
+    {
+      "variant": "bitcoinwalk-vertical-on-white",
+      "svg": "bitcoinwalk-vertical-on-white.svg",
+      "sourcePng": "warszawa-bitcoinwalk-vertical-on-white.png",
+      "sourceSha256": "6386ea63bc531f1ff62914fd5e63944c7dc53a075fe689f6436b434334f31b63",
+      "width": 714,
+      "height": 631
+    },
+    {
+      "variant": "bitcoinwalk-on-white",
+      "svg": "bitcoinwalk-on-white.svg",
+      "sourcePng": "warszawa-bitcoinwalk-on-white.png",
+      "sourceSha256": "4e8fc6c57025220d3d96ee4e4ccdd5f8f4b1404bf9a4ebef828045ef110ce961",
+      "width": 775,
+      "height": 604
+    },
+    {
+      "variant": "bitcoinwalk-horizontal-on-white",
+      "svg": "bitcoinwalk-horizontal-on-white.svg",
+      "sourcePng": "warszawa-bitcoinwalk-horizontal-on-white.png",
+      "sourceSha256": "e2f4dc8197c97ed22af1666e4b643e5fd1800776fe4377173b2d912072d4c6be",
+      "width": 1895,
+      "height": 351
+    },
+    {
+      "variant": "satsman-on-white",
+      "svg": "satsman-on-white.svg",
+      "sourcePng": "warszawa-satsman-on-white.png",
+      "sourceSha256": "39e321370d135a0600153d005d18ac3d83b2e1978f9b5cbd75d4b51be0dbbe8a",
+      "width": 499,
+      "height": 478
+    },
+    {
+      "variant": "satsman-vertical-on-white",
+      "svg": "satsman-vertical-on-white.svg",
+      "sourcePng": "warszawa-satsman-vertical-on-white.png",
+      "sourceSha256": "680c8737dd8ad6c7c11927fd3730bb38f37970aa8580f43a98ffd34724db976e",
+      "width": 490,
+      "height": 558
+    }
+  ]
+}

@@ -1,0 +1,90 @@
+{
+  "schemaVersion": 1,
+  "status": "reference-preserved",
+  "cityId": "e64cbf2b-4e46-4364-98c0-580c73e8dc24",
+  "cityName": "Szydłowiec",
+  "slug": "szydlowiec",
+  "source": "https://www.figma.com/design/4Plc48s7zBJXhx2aG9lKHv",
+  "files": [
+    {
+      "variant": "bitcoinwalk-vertical-on-black",
+      "svg": "bitcoinwalk-vertical-on-black.svg",
+      "sourcePng": "szydlowiec-bitcoinwalk-vertical-on-black.png",
+      "sourceSha256": "38b2b4e3b20cc411353c37bddffdc4f97bdd75cc5513c326da447c92808f3936",
+      "width": 714,
+      "height": 625
+    },
+    {
+      "variant": "bitcoinwalk-on-black",
+      "svg": "bitcoinwalk-on-black.svg",
+      "sourcePng": "szydlowiec-bitcoinwalk-on-black.png",
+      "sourceSha256": "830e4e4a3da060ca2f3942583e3aa05f409f9665dfa54fe312765949cad43262",
+      "width": 775,
+      "height": 604
+    },
+    {
+      "variant": "bitcoinwalk-horizontal-on-black",
+      "svg": "bitcoinwalk-horizontal-on-black.svg",
+      "sourcePng": "szydlowiec-bitcoinwalk-horizontal-on-black.png",
+      "sourceSha256": "9aa9f0b6d605ba2992184da36f70a78243ec683bc05d095bc5d269461851fad9",
+      "width": 1895,
+      "height": 351
+    },
+    {
+      "variant": "satsman-on-black",
+      "svg": "satsman-on-black.svg",
+      "sourcePng": "szydlowiec-satsman-on-black.png",
+      "sourceSha256": "b6557e94b4bfd310640df6e3598224be3fc6da0efd68bc7f21aeeb4a8a1d16a6",
+      "width": 499,
+      "height": 486
+    },
+    {
+      "variant": "satsman-vertical-on-black",
+      "svg": "satsman-vertical-on-black.svg",
+      "sourcePng": "szydlowiec-satsman-vertical-on-black.png",
+      "sourceSha256": "d030dd3506f51c0c2647563d78f902250fd441a065d678650edf4757b1e3bf3a",
+      "width": 490,
+      "height": 558
+    },
+    {
+      "variant": "bitcoinwalk-vertical-on-white",
+      "svg": "bitcoinwalk-vertical-on-white.svg",
+      "sourcePng": "szydlowiec-bitcoinwalk-vertical-on-white.png",
+      "sourceSha256": "9ffe7f9527e298304b232e46e79fdcc86e6f349b6a0ec30dbe69dedacc36491f",
+      "width": 714,
+      "height": 631
+    },
+    {
+      "variant": "bitcoinwalk-on-white",
+      "svg": "bitcoinwalk-on-white.svg",
+      "sourcePng": "szydlowiec-bitcoinwalk-on-white.png",
+      "sourceSha256": "ab1dffc049c452cd0c60e0ebf5829aff49e9588453a5b01b579102309b8d4aa1",
+      "width": 775,
+      "height": 604
+    },
+    {
+      "variant": "bitcoinwalk-horizontal-on-white",
+      "svg": "bitcoinwalk-horizontal-on-white.svg",
+      "sourcePng": "szydlowiec-bitcoinwalk-horizontal-on-white.png",
+      "sourceSha256": "daa6748e5b6f1a53826d213b447dda78c7a7f25aa3aa69c935e71344947d558b",
+      "width": 1895,
+      "height": 351
+    },
+    {
+      "variant": "satsman-on-white",
+      "svg": "satsman-on-white.svg",
+      "sourcePng": "szydlowiec-satsman-on-white.png",
+      "sourceSha256": "3652af6ead93bd0c71ad73afcd35bc82ea66e53e44b913c635ff5b468993d057",
+      "width": 499,
+      "height": 478
+    },
+    {
+      "variant": "satsman-vertical-on-white",
+      "svg": "satsman-vertical-on-white.svg",
+      "sourcePng": "szydlowiec-satsman-vertical-on-white.png",
+      "sourceSha256": "c811a90b855e9ce15d77ec9a589f17266b63ede3d238ba5a41e737fe3006c290",
+      "width": 490,
+      "height": 558
+    }
+  ]
+}
