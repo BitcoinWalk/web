@@ -1,6 +1,6 @@
 import { nip05, SimplePool, verifyEvent, type Event } from "nostr-tools";
 
-export type PublicProfile = { name?: string; picture?: string; nip05?: string; lnurl?: string };
+export type PublicProfile = { name?: string; picture?: string; nip05?: string; lnurl?: string; website?: string };
 export const profileRelays = [...new Set((process.env.NEXT_PUBLIC_PROFILE_RELAYS ?? "wss://relay.damus.io,wss://nos.lol,wss://relay.primal.net,wss://relay.ditto.pub,wss://bucket.coracle.social").split(",").map(s=>s.trim()).filter(s=>{
   try {const u=new URL(s);return u.protocol==="wss:"&&!u.username&&!u.password;} catch{return false;}
 }))];
@@ -12,6 +12,11 @@ export function safeProfilePicture(value: unknown): string|undefined {
     if(u.protocol!=="https:" || u.username || u.password || (u.port && u.port!=="443") || !u.hostname.includes(".") || /^[\d.]+$/.test(u.hostname) || u.hostname.includes(":") || /(?:^|\.)(localhost|local|internal|test|invalid)$/.test(u.hostname)) return;
     return u.href;
   } catch {return;}
+}
+
+export function safeProfileWebsite(value:unknown):string|undefined{
+ if(typeof value!=="string"||value.length>2048)return;
+ try{const u=new URL(value);if(u.protocol!=="https:"||u.username||u.password||(u.port&&u.port!=="443")||!u.hostname.includes(".")||/^[\d.]+$/.test(u.hostname)||u.hostname.includes(":")||/(?:^|\.)(localhost|local|internal|test|invalid)$/.test(u.hostname))return;return u.href;}catch{return;}
 }
 
 function safeProfileText(value:unknown,max:number):string|undefined {
@@ -38,8 +43,8 @@ export function parsePublicProfile(event: Event, requested: Set<string>): Public
     const data=JSON.parse(event.content);
     if(!data || typeof data!=="object" || Array.isArray(data)) return null;
     const name=safeProfileText(data.display_name,100)??safeProfileText(data.name,100);
-    const picture=safeProfilePicture(data.picture),identifier=safeNip05(data.nip05),lnurl=safeLnurl(data.lud16,data.lud06);
-    return {...(name?{name}:{}),...(picture?{picture}:{}),...(identifier?{nip05:identifier}:{}),...(lnurl?{lnurl}:{})};
+    const picture=safeProfilePicture(data.picture),identifier=safeNip05(data.nip05),lnurl=safeLnurl(data.lud16,data.lud06),website=safeProfileWebsite(data.website);
+    return {...(name?{name}:{}),...(picture?{picture}:{}),...(identifier?{nip05:identifier}:{}),...(lnurl?{lnurl}:{}),...(website?{website}:{})};
   } catch {return null;}
 }
 

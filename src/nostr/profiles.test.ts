@@ -1,6 +1,6 @@
 import { describe,expect,it } from "vitest";
 import { finalizeEvent, generateSecretKey } from "nostr-tools";
-import { parsePublicProfile, safeLnurl, safeNip05, safeProfilePicture } from "./profiles";
+import { parsePublicProfile, safeLnurl, safeNip05, safeProfilePicture, safeProfileWebsite } from "./profiles";
 const sk=generateSecretKey();
 const signed=(content:string,kind=0)=>finalizeEvent({kind,created_at:1,tags:[],content},sk);
 describe("public editor profiles",()=>{
@@ -27,5 +27,10 @@ describe("public editor profiles",()=>{
   expect(parsePublicProfile(e,new Set([e.pubkey]))).toEqual({name:"Alice",nip05:"alice@example.org",lnurl:"alice@getalby.com"});
   expect(safeNip05("not an identifier")).toBeUndefined();
   expect(safeLnurl("bad value","lnurl1dp68gurn8ghj7")).toBe("lnurl1dp68gurn8ghj7");
+ });
+ it("reads a public HTTPS website and rejects local or credentialed URLs",()=>{
+  const e=signed(JSON.stringify({name:"Sponsor",website:"https://sponsor.example/about"}));
+  expect(parsePublicProfile(e,new Set([e.pubkey]))?.website).toBe("https://sponsor.example/about");
+  for(const value of ["http://sponsor.example","https://localhost/about","https://user:pass@sponsor.example/"])expect(safeProfileWebsite(value)).toBeUndefined();
  });
 });

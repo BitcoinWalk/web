@@ -7,6 +7,7 @@ export const dashboardItems=[
  {href:"/admin/walks",label:"Walks",access:"connected"},
  {href:"/admin/organizers",label:"Organizers",access:"admin"},
  {href:"/admin/content",label:"Content",access:"admin"},
+ {href:"/admin/sponsors",label:"Sponsors",access:"admin"},
  {href:"/admin/monitoring/alerts",label:"Monitoring",access:"admin"},
 ] as const;
 export function dashboardNavigation(role:DashboardRole){return dashboardItems.filter(item=>item.access==="all"||item.access==="connected"&&role!=="disconnected"||item.access==="organizer"&&role==="organizer"||item.access==="admin"&&role==="super-admin");}
