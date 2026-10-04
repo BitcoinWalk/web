@@ -13,6 +13,7 @@ import WalkDescriptions from "./walk-descriptions";
 import WalkRoute from "./walk-route";
 import CityWalkTitle from "./city-walk-title";
 import type {LogoVariantAsset} from "../logos/catalog";
+import WalkHost from "./walk-host";
 
 export default async function WalkEvent({event,walk,currentProfile,logoHref,titleLogo}:{event:Event;walk:CalendarWalk;currentProfile:CalendarSource;logoHref?:string;titleLogo?:LogoVariantAsset}) {
   const city=walk.revision.city,occurrence=calendarOccurrence(event),point=occurrence?.meetingPoint??city.meetingPoint;
@@ -31,6 +32,7 @@ export default async function WalkEvent({event,walk,currentProfile,logoHref,titl
     {calendarRoute(event)&&<WalkRoute url={calendarRoute(event)!}/>}
     <CoordinatesCopy latitude={point.latitude} longitude={point.longitude}/>
     <WalkDelegation event={publicEvent} readOnly/>
+    <WalkHost pubkey={event.pubkey}/>
     <CalendarShare nevent={calendarNevent(event,relayConfig.calendarRelayHints)}/>
     <CityChat cityId={city.cityId} slug={city.slug}/>
     {logoHref&&<p><a href={logoHref}>Download the official BitcoinWalk {city.cityName} logo pack</a></p>}

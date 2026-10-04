@@ -12,7 +12,7 @@ The service working directory is `/opt/bitcoinwalk-app-staging/current`.
 The app listens on `127.0.0.1:3338` behind the existing Caddy host.
 Configuration is `/home/bitcoinwalk/.config/bitcoinwalk/app.env`, owned by
 bitcoinwalk and mode 0600. It must never enter a build artifact or Git.
-Verified live baseline: app 0.3.139; relay NIP-11 reports 0.8.57.
+Verified live baseline: app 0.3.140; relay NIP-11 reports 0.8.57.
 
 ## Prepare and activate
 
