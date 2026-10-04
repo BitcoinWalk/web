@@ -2,7 +2,9 @@
 
 Start new development with [the compact handover](docs/development-handover.md),
 the [maintained backlog](docs/project-backlog.md), and the
-[current non-root deployment runbook](docs/app-staging-runbook.md).
+[current non-root deployment runbook](docs/app-staging-runbook.md). The
+[documentation index](docs/README.md) separates user-facing guidance from
+operator and development material.
 
 The BitcoinWalk web client renders verified Nostr city data. Nostr events remain the source of truth;
 server-side caching exists only for resilient discovery, page rendering, and link previews.

@@ -56,8 +56,10 @@ Reviewed 2 October 2026. Read this first, then the specific design document and
   passed exact Memphis 7/7 visible-state backfill and repeated restart in 0.8.51/52.
   It is not the live replication destination or a signed directory endpoint.
   Do not repeat backfill/reset or sign a successor without resuming this workstream.
-- BW-81 is planned: super-admin Monitoring with Alerts and Relays, bounded status
-  checks and explicit stale/unknown/failed states.
+- BW-81 is accepted: super-admin Monitoring combines Alerts and Relays with
+  bounded checks, accessible RAG states and explicit stale/unknown/failed
+  evidence. Live staging acceptance on 4 October 2026 confirmed desktop/mobile
+  presentation, Alerts interaction and signature-free relay refresh.
 - BW-53 is the production gate: selective restore/dependency closure, production
   artifact and hostname rehearsal, credentials/storage separation, final promotion
   manifest and controlled cutover remain. Existing manifest selects Warszawa and
