@@ -1,6 +1,6 @@
 # BitcoinWalk delivery backlog
 
-Last reviewed: 3 October 2026
+Last reviewed: 5 October 2026
 Preproduction housekeeping: 2–3 October 2026. See `preproduction-review-2026-10-02.md`
 and `development-handover.md` for current evidence and operating context.
 Tracking rule: keep this file current whenever an item changes status, scope, dependency, or verification result. The file is the maintained source; a separate Plan task is not automatically synchronized.
@@ -29,9 +29,10 @@ filters remain correct and canceled events stay excluded from active public read
 BW-53 additional launch gates identified by source review: implement a reviewed
 production package/configuration path (the existing packager requires staging
 hosts); remove the staging-only payments DB path assumption through validated
-configuration and tests; deploy/revalidate the patched Next.js candidate 0.3.130;
-triage remaining low-severity invoice-decoder dependency advisories and Go
-dependency findings against the actual production toolchain. The housekeeping
+configuration and tests; triage remaining low-severity invoice-decoder dependency
+advisories and Go dependency findings against the actual production toolchain.
+The patched Next.js candidate was deployed and superseded by accepted staging
+releases through app 0.3.158. The housekeeping
 backup is source plus staging app state, not a new complete two-VPS disaster
 recovery snapshot or a substitute for the selective production restore rehearsal.
 
@@ -53,9 +54,9 @@ recovery snapshot or a substitute for the selective production restore rehearsal
 | 5. Organizer editing + permissions | 🟠 In progress | BW-11 organizer editing and editor allow-list testing is accepted by the user on staging. Signed content/feature controls and wider moderation acceptance remain. Approved city-description display on exact event pages is tracked separately under BW-72. |
 | 6. Discovery | 🟢 Done | Homepage approved-city cards, city/alias/meeting-point search, list/map switching, filtered pins and city links passed live staging acceptance. Featured cards fail closed until a genuine paid entitlement exists; real sponsor and paid-city activation remain BW-16/BW-17/BW-23 scope. |
 | 7. Nostr interoperability | 🟠 In progress | Organizer NIP-52 publishing, exact pages, cancellation and delegation are accepted on staging. App 0.3.83 and relay 0.8.54 passed signed Memphis publication and exact-event read-back on Ditto, Primal and Satlantis (3/3 after retry), including geographic `g` tags and discovery-aware `nevent` hints. Satlantis and Club Orange app discovery and cancellation visibility remain unverified; relay acceptance does not establish app indexing, and supported external import paths need confirmation. The Memphis/Nashville replica pilot preserves exact IDs/signatures through approval, retry, cancellation, revocation and isolated recovery/compaction. Address-scoped moderation and production migration remain. |
-| 8. Media + sharing | 🟠 In progress | Hero-image URL and meeting-pin weather work on staging. Managed media ingestion, fallback/integrity alerts and guarded GPT Image generation passed staging acceptance. The supplied horizontal BitcoinWalk logo and icon-only scroll state are deployed under BW-80; staging visual acceptance remains. Sponsor support, the separate transparent overlay asset needed for generated OG images, OG generation and production migration remain. |
+| 8. Media + sharing | 🟠 In progress | Hero images, meeting-pin weather, managed media, resilient fallbacks, integrity alerts and guarded GPT Image generation passed staging acceptance. Signed city/walk sponsorship presentation is accepted under BW-16, relay-backed share previews are active under BW-15, and automatic Inkscape city-logo generation is delivered through BW-83–BW-86 with end-to-end approval acceptance remaining in BW-87. External social-preview acceptance, remaining sponsor artwork checks and production migration remain. |
 | 9. Pro city bundle | 🟠 In progress | Basic/Pro plan requests and the genuine creator-authorized 21,000-sat NWC checkout are live. The isolated public-replica foundation passed two-city staging acceptance, and relay source `0.8.28` adds a tested fail-closed signed-entitlement provisioning boundary. Live Pro activation, NIP-05, LNURL 79/21 split, automated dedicated-relay deployment and ownership portability remain. |
-| 10. Security + launch | 🟠 In progress | Khatru staging and production global chat are working; the user confirmed the obsolete Zooid service is off, completing BW-24. Encrypted backup verification and authenticated replication Alerts with human-confirmed Guide degraded/recovered DMs also passed. Selective restore rehearsal, production relay/DNS/app cutover and monitoring remain. |
+| 10. Security + launch | 🟠 In progress | Khatru staging and production global chat are working; the obsolete Zooid service is off. Encrypted backup verification, authenticated replication Alerts, human-confirmed Guide degraded/recovered DMs and super-admin relay monitoring under BW-81 passed staging acceptance. Selective restore rehearsal, production relay/DNS/app cutover and broader launch operations remain. |
 
 The table above defines the full BitcoinWalk scope. The backlog below breaks those stages into trackable work without narrowing the project to only the unpaid-walk flow.
 
