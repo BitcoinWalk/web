@@ -1,0 +1,25 @@
+import {beforeEach,describe,expect,it,vi} from "vitest";
+import {createHash} from "node:crypto";
+vi.mock("../../../../domain/media-request",()=>({parseMediaRequest:vi.fn()}));
+vi.mock("../../../../nostr/authority",()=>({isSuperAdmin:vi.fn()}));
+vi.mock("../../../../nostr/sponsorships",()=>({querySponsorships:vi.fn(),latestSponsorships:(rows:unknown)=>rows}));
+vi.mock("../../../../lib/server-relay-config",()=>({serverReadRelays:()=>[]}));
+vi.mock("../../../../server/sponsor-logo-store",()=>({storePendingSponsorLogo:vi.fn()}));
+import {parseMediaRequest} from "../../../../domain/media-request";
+import {isSuperAdmin} from "../../../../nostr/authority";
+import {querySponsorships} from "../../../../nostr/sponsorships";
+import {storePendingSponsorLogo} from "../../../../server/sponsor-logo-store";
+import {POST} from "./route";
+const pubkey="a".repeat(64),cityId="00000000-0000-4000-8000-000000000001",bytes=Buffer.from("test"),hash=createHash("sha256").update(bytes).digest("hex");
+const command={action:"upload-sponsor-logo" as const,cityId,sponsorPubkey:pubkey,sha256:hash,mime:"image/png" as const};
+const request=(body:unknown)=>new Request("https://app-staging.bitcoinwalk.org/api/sponsors/logo",{method:"POST",body:JSON.stringify(body)});
+beforeEach(()=>{vi.resetAllMocks();vi.mocked(isSuperAdmin).mockReturnValue(true);vi.mocked(parseMediaRequest).mockReturnValue(command);vi.mocked(querySponsorships).mockResolvedValue([{sponsorship:{mode:"sponsor",scope:{cityId},sponsorPubkey:pubkey}}] as never);vi.mocked(storePendingSponsorLogo).mockResolvedValue({status:"pending",hash} as never);});
+describe("private sponsor upload endpoint",()=>{
+ it("requires a signed request",async()=>expect((await POST(request({}))).status).toBe(401));
+ it("rejects expired or invalid authorization",async()=>{vi.mocked(parseMediaRequest).mockReturnValue(null);expect((await POST(request({event:{pubkey}}))).status).toBe(401);});
+ it("rejects non-admins even when they are the assigned sponsor",async()=>{vi.mocked(isSuperAdmin).mockReturnValue(false);expect((await POST(request({event:{pubkey}}))).status).toBe(403);expect(storePendingSponsorLogo).not.toHaveBeenCalled();});
+ it("requires an existing assignment",async()=>{vi.mocked(querySponsorships).mockResolvedValue([]);expect((await POST(request({event:{pubkey}}))).status).toBe(403);});
+ it("binds authorization to the exact file",async()=>{expect((await POST(request({event:{pubkey},base64:Buffer.from("other").toString("base64")}))).status).toBe(400);expect(storePendingSponsorLogo).not.toHaveBeenCalled();});
+ it("rejects oversized declared bodies",async()=>{const response=await POST(new Request("https://example.com",{method:"POST",headers:{"content-length":"9000000"},body:"x"}));expect(response.status).toBe(413);});
+ it("stores privately without granting approval or publishing",async()=>{const response=await POST(request({event:{pubkey,id:"b".repeat(64)},base64:bytes.toString("base64")}));expect(response.status).toBe(200);expect(await response.json()).toMatchObject({status:"pending",hash});expect(storePendingSponsorLogo).toHaveBeenCalledOnce();});
+});

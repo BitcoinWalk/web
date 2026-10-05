@@ -5,7 +5,7 @@ import {directoryConfig} from "../../lib/directory-config";
 import {relayConfig} from "../../lib/relay-config";
 import {serverReadRelays} from "../../lib/server-relay-config";
 import {currentOrNextEvent,paidCityForHost} from "../../domain/event-routing";
-import {calendarNevent,loadCalendarWalks,resolveCalendarLink} from "../../nostr/calendar-records";
+import {calendarNevent,resolveCalendarLink} from "../../nostr/calendar-records";
 import {queryCalendarEvents} from "../../nostr/city-records";
 import {contentRoute,queryContentRevisions} from "../../nostr/content-records";
 import StaticContentPage from "../../components/static-content-page";
@@ -15,8 +15,20 @@ import type {SponsorshipPresentation} from "../../domain/sponsorship";
 import {resolvedFeatureFlags} from "../../nostr/feature-flags";
 import {querySponsorships,resolveSponsorship} from "../../nostr/sponsorships";
 import {DEFAULT_FEATURE_FLAGS} from "../../domain/feature-flags";
+import {cityShareMetadata,loadSharedCities} from "../../server/share-preview";
+import {previewText} from "../../domain/share-preview";
 
 export const dynamic="force-dynamic";
+
+export async function generateMetadata({params}:{params:Promise<{city:string}>}) {
+  const {city}=await params;
+  if(city.startsWith("nevent1"))return {};
+  try {
+    const route=contentRoute(await queryContentRevisions(serverReadRelays()),city);
+    if(route)return "page" in route?{title:previewText(route.page.page.title,65),description:previewText(route.page.page.intro,160)}:{};
+  }catch{return {};}
+  return cityShareMetadata(city);
+}
 
 export default async function CityOrEventPage({params}:{params:Promise<{city:string}>}) {
   const {city}=await params;
@@ -34,7 +46,7 @@ export default async function CityOrEventPage({params}:{params:Promise<{city:str
   if(staticRoute){if("redirect" in staticRoute)redirect(staticRoute.redirect);return <StaticContentPage page={staticRoute.page.page}/>;}
   let outcome: {state:"unavailable"}|{state:"missing"}|{state:"ready";cityName:string;eventHref?:string;logoHref?:string;sponsorship:SponsorshipPresentation};
   try{
-    const walks=await loadCalendarWalks(serverReadRelays()),[flagResult,sponsorshipResult]=await Promise.allSettled([resolvedFeatureFlags(serverReadRelays()),querySponsorships(serverReadRelays())]),flags=flagResult.status==="fulfilled"?flagResult.value:DEFAULT_FEATURE_FLAGS,sponsorships=sponsorshipResult.status==="fulfilled"?sponsorshipResult.value:[];
+    const walks=await loadSharedCities(),[flagResult,sponsorshipResult]=await Promise.allSettled([resolvedFeatureFlags(serverReadRelays()),querySponsorships(serverReadRelays())]),flags=flagResult.status==="fulfilled"?flagResult.value:DEFAULT_FEATURE_FLAGS,sponsorships=sponsorshipResult.status==="fulfilled"?sponsorshipResult.value:[];
     const walk=walks.find(item=>item.revision.city.slug===city);
     if(!walk)outcome={state:"missing"};
     else{

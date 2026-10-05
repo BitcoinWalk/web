@@ -83,7 +83,21 @@ try{
     const page=await fetch(`${base}${path}`,{signal:AbortSignal.timeout(5000)});
     if(!page.ok || !(await page.text()).includes(label))throw new Error(`Packaged route failed: ${path}`);
   }
-  process.stdout.write(`Smoke passed: ${release} health, MapLibre workers, consolidated dashboard routes and ${staticFile}\n`);
+  for(const [path,label] of [["/admin/sponsors/upload","Your account"],["/admin/sponsors/logos","Your account"]]){
+    const page=await fetch(`${base}${path}`,{signal:AbortSignal.timeout(5000)});
+    if(!page.ok||!(await page.text()).includes(label))throw new Error(`Sponsor route failed: ${path}`);
+  }
+  for(const path of ["/sponsor/logo","/admin/sponsors/upload","/admin/sponsors/logos"]){
+    const legacy=await fetch(`${base}${path}`,{redirect:"manual",signal:AbortSignal.timeout(5000)});
+    if(legacy.status!==307||legacy.headers.get("location")!=="/admin/sponsors")throw new Error("Old sponsor URL did not redirect into the unified page.");
+  }
+  for(const [path,status] of [["/api/sponsors/logo",401],["/api/sponsors/logo/review",403],["/api/sponsors/assets",403]]){
+    const response=await fetch(`${base}${path}`,{method:"POST",headers:{"Content-Type":"application/json"},body:"{}",signal:AbortSignal.timeout(5000)});
+    if(response.status!==status)throw new Error(`Sponsor authorization check failed: ${path} (${response.status})`);
+  }
+  const fallback=await fetch(`${base}/brand/bitcoinwalk-share-fallback.jpg`,{signal:AbortSignal.timeout(5000)});
+  if(!fallback.ok||(await fallback.arrayBuffer()).byteLength===0)throw new Error("Missing packaged OG fallback.");
+  process.stdout.write(`Smoke passed: ${release} health, MapLibre workers, dashboard/sponsor routes, denied unsigned uploads/reviews, OG fallback and ${staticFile}\n`);
 }finally{
   if(child && child.exitCode===null && child.signalCode===null){
     child.kill("SIGTERM");

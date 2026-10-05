@@ -1,0 +1,21 @@
+import {afterEach,describe,expect,it,vi} from "vitest";
+import {mkdtemp,rm,writeFile,readFile} from "node:fs/promises";
+import {tmpdir} from "node:os";
+import {join} from "node:path";
+import {createHash} from "node:crypto";
+import sharp from "sharp";
+vi.mock("./media-store",()=>({readMedia:vi.fn()}));
+import {readMedia} from "./media-store";
+import {ensureShareImage,managedBackground,bundledCityBackground,readShareImage,renderShareImage} from "./share-image";
+let directory:string|undefined;
+afterEach(async()=>{vi.unstubAllEnvs();vi.clearAllMocks();if(directory)await rm(directory,{recursive:true,force:true});directory=undefined;});
+describe("share image storage",()=>{
+ it("preserves the city background behind sponsor overlays without a rectangle",async()=>{const icon=await readFile("public/brand/bitcoinwalk-share-icon.png"),logo=await sharp({create:{width:200,height:80,channels:4,background:{r:255,g:255,b:255,alpha:0}}}).png().toBuffer();const plain=await renderShareImage(null,icon),sponsored=await renderShareImage(null,icon,logo);const sample=async(bytes:Buffer)=>sharp(bytes).extract({left:405,top:420,width:1,height:1}).raw().toBuffer();const a=await sample(plain),b=await sample(sponsored);expect([...a].every((value,i)=>Math.abs(value-b[i])<8)).toBe(true);});
+ it("packages visible Powered by lettering with a transparent background",async()=>{const {data,info}=await sharp("public/brand/bitcoinwalk-powered-by.png").ensureAlpha().raw().toBuffer({resolveWithObject:true});let opaque=0,clear=0;for(let i=3;i<data.length;i+=4){if(data[i]===0)clear++;if(data[i]>128)opaque++;}expect(info.width).toBeGreaterThan(80);expect(info.height).toBeGreaterThan(12);expect(opaque).toBeGreaterThan(100);expect(clear).toBeGreaterThan(100);});
+ it("uses only explicitly bundled city fallbacks",async()=>{expect(await bundledCityBackground("warszawa")).not.toBeNull();expect(await bundledCityBackground("../../etc/passwd")).toBeNull();expect(await bundledCityBackground("unknown-city")).toBeNull();});
+ it("creates distinct images for approved artwork and removal",async()=>{directory=await mkdtemp(join(tmpdir(),"bw-og-sponsored-test-"));vi.stubEnv("BITCOINWALK_MEDIA_ROOT",directory);const logo=await sharp({create:{width:200,height:80,channels:4,background:"white"}}).png().toBuffer();const plain=await ensureShareImage(null),sponsored=await ensureShareImage(null,logo);expect(sponsored).not.toBe(plain);expect(await ensureShareImage(null)).toBe(plain);expect(await sharp((await readShareImage(sponsored))!).metadata()).toMatchObject({width:1200,height:630,format:"jpeg"});});
+ it("renders a 1200 by 630 JPEG from the existing white brand mark",async()=>{const bytes=await renderShareImage(null,await readFile("public/brand/bitcoinwalk-share-icon.png"));const info=await sharp(bytes).metadata();expect(info).toMatchObject({width:1200,height:630,format:"jpeg"});expect(bytes.length).toBeLessThan(300000);});
+ it("coalesces identical work and stores content-addressed images",async()=>{directory=await mkdtemp(join(tmpdir(),"bw-og-test-"));vi.stubEnv("BITCOINWALK_MEDIA_ROOT",directory);const [a,b]=await Promise.all([ensureShareImage(null),ensureShareImage(null)]);expect(a).toBe(b);expect(await ensureShareImage(null)).toBe(a);expect(await readShareImage(a)).not.toBeNull();await writeFile(join(directory,"og",a+".jpg"),"corrupt");expect(await readShareImage(a)).toBeNull();expect(await ensureShareImage(null)).toBe(a);expect(await readShareImage(a)).not.toBeNull();});
+ it("rejects traversal and external background URLs without reading files",async()=>{expect(await readShareImage("../secret")).toBeNull();expect(await managedBackground(["http://127.0.0.1/admin","https://evil.example/image.webp"])).toBeNull();expect(readMedia).not.toHaveBeenCalled();});
+ it("accepts only integrity-checked managed background bytes",async()=>{const body=Buffer.from("managed"),hash=createHash("sha256").update(body).digest("hex");vi.mocked(readMedia).mockResolvedValue(body);expect(await managedBackground([`https://bitcoinwalk.org/api/media/files/${hash}.webp`])).toEqual(body);vi.mocked(readMedia).mockResolvedValue(Buffer.from("changed"));expect(await managedBackground([`https://bitcoinwalk.org/api/media/files/${hash}.webp`])).toBeNull();});
+});

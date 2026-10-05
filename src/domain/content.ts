@@ -2,7 +2,7 @@ import {z} from "zod";
 
 export const CONTENT_PAGE_KIND=30307;
 export const HOME_PAGE_ID="00000000-0000-4000-8000-000000000001";
-export const RESERVED_CONTENT_SLUGS=new Set(["admin","api","organizer","pilot","preview","start"]);
+export const RESERVED_CONTENT_SLUGS=new Set(["admin","api","organizer","pilot","preview","start","sponsor"]);
 
 const optionalText=(max:number)=>z.string().trim().max(max).optional().default("");
 export const contentSlugSchema=z.string().regex(/^(?:[a-z0-9]+(?:-[a-z0-9]+)*)?$/,"Use lowercase words separated by hyphens").max(80);

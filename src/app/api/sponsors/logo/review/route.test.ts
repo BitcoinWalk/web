@@ -1,0 +1,14 @@
+import {beforeEach,it,expect,vi} from "vitest";
+vi.mock("../../../../../domain/media-request",()=>({parseMediaRequest:vi.fn()}));
+vi.mock("../../../../../nostr/authority",()=>({isSuperAdmin:vi.fn()}));
+vi.mock("../../../../../server/sponsor-logo-store",()=>({reviewPendingSponsorLogo:vi.fn()}));
+import {parseMediaRequest} from "../../../../../domain/media-request";
+import {isSuperAdmin} from "../../../../../nostr/authority";
+import {reviewPendingSponsorLogo} from "../../../../../server/sponsor-logo-store";
+import {POST} from "./route";
+const command={action:"review-sponsor-logo" as const,cityId:"00000000-0000-4000-8000-000000000001",sponsorPubkey:"a".repeat(64)};
+const request=()=>new Request("https://example.com/api/sponsors/logo/review",{method:"POST",body:JSON.stringify({event:{pubkey:"b".repeat(64)}})});
+beforeEach(()=>{vi.resetAllMocks();vi.mocked(parseMediaRequest).mockReturnValue(command);});
+it("never exposes pending logos to a non-admin",async()=>{expect((await POST(request())).status).toBe(403);expect(reviewPendingSponsorLogo).not.toHaveBeenCalled();});
+it("requires valid signed review authorization even for admin",async()=>{vi.mocked(isSuperAdmin).mockReturnValue(true);vi.mocked(parseMediaRequest).mockReturnValue(null);expect((await POST(request())).status).toBe(403);expect(reviewPendingSponsorLogo).not.toHaveBeenCalled();});
+it("returns private no-store preview only to authorized admin",async()=>{vi.mocked(isSuperAdmin).mockReturnValue(true);vi.mocked(reviewPendingSponsorLogo).mockResolvedValue({hash:"c".repeat(64),base64:"cG5n",actor:"a".repeat(64),uploadedAt:1});const response=await POST(request());expect(response.status).toBe(200);expect(response.headers.get("cache-control")).toBe("no-store");expect(reviewPendingSponsorLogo).toHaveBeenCalledWith(command.cityId,command.sponsorPubkey);});
