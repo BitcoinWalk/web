@@ -1,0 +1,13 @@
+import {beforeEach,expect,it,vi} from "vitest";
+vi.mock("../../../../../../server/sponsor-logo-store",()=>({readSponsorLogoAsset:vi.fn()}));
+vi.mock("../../../../../../nostr/sponsorships",()=>({querySponsorships:vi.fn(),latestSponsorships:vi.fn()}));
+vi.mock("../../../../../../lib/server-relay-config",()=>({serverReadRelays:vi.fn(()=>["wss://relay.example"])}));
+import {readSponsorLogoAsset} from "../../../../../../server/sponsor-logo-store";
+import {querySponsorships,latestSponsorships} from "../../../../../../nostr/sponsorships";
+import {GET} from "./route";
+const hash="b".repeat(64),call=(value=hash)=>GET(new Request("https://example.com"),{params:Promise.resolve({hash:value})});
+beforeEach(()=>{vi.resetAllMocks();vi.mocked(querySponsorships).mockResolvedValue([]);vi.mocked(latestSponsorships).mockReturnValue([]);});
+it("rejects invalid hashes without relay or disk reads",async()=>{expect((await call("../secret")).status).toBe(404);expect(querySponsorships).not.toHaveBeenCalled();expect(readSponsorLogoAsset).not.toHaveBeenCalled();});
+it("keeps pending and obsolete logos private",async()=>{expect((await call()).status).toBe(404);expect(readSponsorLogoAsset).not.toHaveBeenCalled();});
+it("serves only an intact logo referenced by a current signed assignment",async()=>{vi.mocked(latestSponsorships).mockReturnValue([{sponsorship:{mode:"sponsor",logoHash:hash}}] as never);vi.mocked(readSponsorLogoAsset).mockResolvedValue(Buffer.from("png"));const response=await call();expect(response.status).toBe(200);expect(response.headers.get("content-type")).toBe("image/png");expect(response.headers.get("cache-control")).toBe("no-store");expect(response.headers.get("x-content-type-options")).toBe("nosniff");expect(Buffer.from(await response.arrayBuffer())).toEqual(Buffer.from("png"));});
+it("fails closed when the approved file is missing or relay reads fail",async()=>{vi.mocked(latestSponsorships).mockReturnValue([{sponsorship:{mode:"sponsor",logoHash:hash}}] as never);expect((await call()).status).toBe(404);vi.mocked(querySponsorships).mockRejectedValue(new Error("offline"));expect((await call()).status).toBe(503);});

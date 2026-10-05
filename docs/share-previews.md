@@ -1,5 +1,11 @@
 # BW-15: link previews
 
+## Automatic approved-logo preview: 0.3.151
+
+Sponsor selection now renders a current approved logo without attempting an unsolicited background Nostr signature. The read-only content-addressed endpoint serves an intact PNG only while its hash is referenced by a current, signature-verified sponsor assignment; invalid, pending, obsolete, missing and unreferenced hashes fail closed. Responses are no-store and `nosniff`. Trezor's live asset `4c061d…cc3a` was read back with a matching SHA-256, while an unapproved hash returned 404. The visible **Upload and replace logo** action remains alongside the preview and retains explicit upload/review signatures.
+
+Deployed non-root on 5 October 2026 with backup `/home/bitcoinwalk/backups/app-staging-deploy.GROCck`. 645 tests, production build, package smoke, live approved read-back and unapproved denial passed. Interactive selection/replacement acceptance remains with the user.
+
 ## Reusable sponsor replacement and merged preview: 0.3.150
 
 Removed the requirement to save a new target assignment before replacing an existing sponsor's artwork. Catalogue selection retains the exact source assignment, so the super-admin can preview and upload/review a replacement immediately; logo approval still signs a successor to that source assignment and is never inferred from upload. **Create merged image** composes the currently selected approved city's managed hero with the BitcoinWalk mark, pinned Powered by label and exact integrity-checked sponsor logo. It requires signed super-admin authorization, returns a content-addressed 1200×630 JPEG, and does not publish or modify a sponsorship assignment.
