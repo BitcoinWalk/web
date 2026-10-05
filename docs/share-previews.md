@@ -1,5 +1,9 @@
 # BW-15: link previews
 
+## Selected sponsor logo placement: 0.3.152
+
+The Sponsors assignment form now places the selected sponsor's approved logo directly below its saved website, replacing the previous explanatory sentence. Sponsors without approved artwork show a concise empty state; **Upload and replace logo** remains available. Deployed non-root on 5 October 2026 with evidence `/home/bitcoinwalk/backups/app-staging-deploy.RIjXCX`. All 646 tests, the production build, packaged smoke test, live health check, exact Trezor logo read-back and unapproved-hash rejection passed.
+
 ## Automatic approved-logo preview: 0.3.151
 
 Sponsor selection now renders a current approved logo without attempting an unsolicited background Nostr signature. The read-only content-addressed endpoint serves an intact PNG only while its hash is referenced by a current, signature-verified sponsor assignment; invalid, pending, obsolete, missing and unreferenced hashes fail closed. Responses are no-store and `nosniff`. Trezor's live asset `4c061d…cc3a` was read back with a matching SHA-256, while an unapproved hash returned 404. The visible **Upload and replace logo** action remains alongside the preview and retains explicit upload/review signatures.
