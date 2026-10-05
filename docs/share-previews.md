@@ -1,5 +1,50 @@
 # BW-15: link previews
 
+## New-city logo and sponsor-invitation approval: 0.3.158
+
+The super-admin Requests workflow now prepares and verifies the exact pending
+new city's ten localized logo files before approval. Readiness is bound to the
+pending city ID, revision and chosen public slug; changing the slug invalidates
+the visible confirmation and disables approval until the assets are rebuilt.
+Preparation creates only deterministic media artifacts. It cannot approve a
+city or create a durable approved-city job, and the normal post-approval worker
+reuses the same verified artifact key.
+
+New-city requests also default to **Show the “Sponsor this BitcoinWalk”
+invitation after approval**. The super-admin may deselect it. Approval publishes
+the invitation choice as a separate signed sponsorship assignment before the
+final signed city decision: selected produces the empty invitation state and
+deselected produces the hidden state when needed. Existing assigned sponsors
+are preserved, and retries use signed predecessors rather than competing
+records. Existing-city revisions are unaffected. The invitation is rendered
+only while the global Sponsorships feature is enabled.
+
+Deployed non-root on 5 October 2026 with evidence
+`/home/bitcoinwalk/backups/app-staging-deploy.ZsWDIC`. All 663 tests, type
+checks, production build, package smoke and public health passed; lint has zero
+errors and six retained image-optimization warnings. Interactive acceptance
+still requires a genuine pending new city and the super-admin's signatures.
+
+## Explicit upload-to-approval wording: 0.3.157
+
+Because sponsor artwork upload is already restricted to the super-admin, the successful-upload message no longer says that the asset is pending a super-admin. It now directs the same administrator to review the image below and sign approval of that exact asset, while explaining that upload and approval remain separate signed actions. Deployed non-root on 5 October 2026 with evidence `/home/bitcoinwalk/backups/app-staging-deploy.aGco1Y`. All 654 tests, type checks, production build, package smoke and live health passed.
+
+## Empty sponsor city selection: 0.3.156
+
+The Sponsors assignment form no longer defaults its City lookup to the first approved city (previously Augsburg). It preserves an existing valid selection but otherwise remains blank until the administrator explicitly chooses a city. Deployed non-root on 5 October 2026 with evidence `/home/bitcoinwalk/backups/app-staging-deploy.XeHOGn`. All 653 tests, type checks, production build, package smoke and live health passed.
+
+## Sponsor upload accordion: 0.3.155
+
+The replacement button and separate upload heading were replaced with a collapsed **What logo format and size should I use?** accordion. Its guidance precedes the always-visible file chooser and signed upload action. Assignment discovery now uses the authenticated dashboard session without an automatic extension identity request; the redundant connection/assignment refresh control was removed. Deployed non-root on 5 October 2026 with evidence `/home/bitcoinwalk/backups/app-staging-deploy.wv0DQv`. All 652 tests, type checks, production build, lint, package smoke and live health passed.
+
+## Sponsor artwork dimensions: 0.3.154
+
+The upload section now recommends a transparent, tightly cropped 4:1 horizontal logo: ideally 1024×256 pixels, with 640×160 as the practical raster minimum. It explains that the final sponsor slot is 320×80 pixels, so square and vertical marks render smaller, and reminds SVG contributors to outline text and use a similarly wide viewBox. Deployed non-root on 5 October 2026 with evidence `/home/bitcoinwalk/backups/app-staging-deploy.LiTaEX`. All 651 tests, type checks, production build, package smoke and live health passed.
+
+## Sponsor catalogue preview repair: 0.3.153
+
+Selecting an existing sponsor now explicitly maps the catalogue's `logoHash` into preview state, fixing the missing approved artwork after choosing Trezor. Sponsor-logo uploads now preserve safe, actionable validation feedback for format/content mismatches, SVG restrictions, dimensions, processing contention and the one-minute replacement limit; relay-read failure is distinguished from an absent assignment. Deployed non-root on 5 October 2026 with evidence `/home/bitcoinwalk/backups/app-staging-deploy.4tFqpJ`. All 650 tests, type checks, production build, package smoke, live health and exact Trezor asset read-back passed.
+
 ## Selected sponsor logo placement: 0.3.152
 
 The Sponsors assignment form now places the selected sponsor's approved logo directly below its saved website, replacing the previous explanatory sentence. Sponsors without approved artwork show a concise empty state; **Upload and replace logo** remains available. Deployed non-root on 5 October 2026 with evidence `/home/bitcoinwalk/backups/app-staging-deploy.RIjXCX`. All 646 tests, the production build, packaged smoke test, live health check, exact Trezor logo read-back and unapproved-hash rejection passed.

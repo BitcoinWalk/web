@@ -1,6 +1,6 @@
 import {createHash, randomUUID} from "node:crypto";
 import {DatabaseSync} from "node:sqlite";
-import type {ApprovalRecord, CityRevision} from "../nostr/city-records";
+import {pendingCityRevisions,type ApprovalRecord,type CityRevision} from "../nostr/city-records";
 import {managedCities} from "../nostr/moderation";
 import {cityLogoTemplateVersion} from "./city-logo-renderer";
 
@@ -38,6 +38,14 @@ export function approvedLogoCandidates(snapshot: LogoApprovalSnapshot): LogoCand
     };
     return {...candidate, jobKey: keyFor(candidate)};
   });
+}
+
+export function pendingLogoCandidate(snapshot:LogoApprovalSnapshot,cityId:string,revisionId:string,slug:string):LogoCandidate|null{
+  if(!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug))return null;
+  const revision=pendingCityRevisions(snapshot.revisions,snapshot.approvals).find(row=>row.event.id===revisionId&&row.city.cityId===cityId);
+  if(!revision||revision.event.tags.some(tag=>tag[0]==="e"&&tag[3]==="previous"))return null;
+  const candidate={cityId,revisionId,approvalId:"0".repeat(64),decisionAt:0,cityName:revision.city.cityName.normalize("NFC"),slug,locale:revision.city.locale??"und",templateVersion:cityLogoTemplateVersion};
+  return {...candidate,jobKey:keyFor(candidate)};
 }
 
 export class LogoJobStore {
@@ -132,6 +140,19 @@ export class LogoJobService {
   async reconcile(): Promise<void> {
     const snapshot = await this.readSnapshot();
     this.store.reconcile(approvedLogoCandidates(snapshot), this.now());
+  }
+  async preparePending(cityId:string,revisionId:string,slug:string):Promise<LogoCandidate>{
+    if(this.busy)throw new Error("Logo generation is busy. Try again shortly.");
+    this.busy=true;
+    try{
+      const candidate=pendingLogoCandidate(await this.readSnapshot(),cityId,revisionId,slug);
+      if(!candidate)throw new Error("The pending new-city revision could not be verified.");
+      const now=this.now(),job:LogoJob={...candidate,state:"rendering",attempts:1,nextAttemptAt:now,leaseUntil:now+300,leaseToken:"preview",lastError:null,artifactPath:null,createdAt:now,updatedAt:now};
+      await this.render(job);
+      const after=pendingLogoCandidate(await this.readSnapshot(),cityId,revisionId,slug);
+      if(after?.jobKey!==candidate.jobKey)throw new Error("The city request changed while its logos were generated. Refresh and retry.");
+      return candidate;
+    }finally{this.busy=false;}
   }
   async runOne(): Promise<boolean> {
     if (this.busy) return false;

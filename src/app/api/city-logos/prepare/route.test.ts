@@ -1,0 +1,14 @@
+import {beforeEach,expect,it,vi} from "vitest";
+vi.mock("../../../../domain/media-request",()=>({parseMediaRequest:vi.fn()}));
+vi.mock("../../../../nostr/authority",()=>({isSuperAdmin:vi.fn()}));
+const preparePending=vi.fn();
+vi.mock("../../../../logos/runtime",()=>({getLogoRuntime:()=>({service:{preparePending}})}));
+import {parseMediaRequest} from "../../../../domain/media-request";
+import {isSuperAdmin} from "../../../../nostr/authority";
+import {POST} from "./route";
+const command={action:"prepare-city-logo" as const,cityId:"66f137cb-2ac1-4eef-8358-7dd66b45922f",revisionId:"a".repeat(64),slug:"new-city"};
+const request=()=>new Request("https://app-staging.bitcoinwalk.org/api/city-logos/prepare",{method:"POST",body:JSON.stringify({event:{pubkey:"b".repeat(64)}})});
+beforeEach(()=>{vi.resetAllMocks();vi.mocked(parseMediaRequest).mockReturnValue(command);vi.mocked(isSuperAdmin).mockReturnValue(true);preparePending.mockResolvedValue({...command,jobKey:"c".repeat(64)});});
+it("requires an exact signed super-admin request",async()=>{vi.mocked(isSuperAdmin).mockReturnValue(false);expect((await POST(request())).status).toBe(403);expect(preparePending).not.toHaveBeenCalled();});
+it("creates and confirms all ten localized files for the pending revision",async()=>{const response=await POST(request());expect(response.status).toBe(200);expect(await response.json()).toEqual({status:"ready",jobKey:"c".repeat(64),files:10});expect(preparePending).toHaveBeenCalledWith(command.cityId,command.revisionId,command.slug);});
+it("keeps changed requests pending instead of claiming readiness",async()=>{preparePending.mockRejectedValue(new Error("The pending new-city revision could not be verified."));const response=await POST(request());expect(response.status).toBe(409);expect(await response.json()).toEqual({error:"The pending new-city revision could not be verified."});});

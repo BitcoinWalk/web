@@ -3,7 +3,7 @@ import {afterEach, describe, expect, it, vi} from "vitest";
 import {finalizeEvent} from "nostr-tools";
 import {parseApprovalRecord, type ApprovalRecord, type CityRevision} from "../nostr/city-records";
 import {SUPER_ADMIN_PUBKEY} from "../nostr/authority";
-import {LogoJobService, LogoJobStore, approvedLogoCandidates, type LogoApprovalSnapshot} from "./approval-worker";
+import {LogoJobService, LogoJobStore, approvedLogoCandidates,pendingLogoCandidate,type LogoApprovalSnapshot} from "./approval-worker";
 
 const warsawId = "032d98ea-f5da-4826-95bd-c4cf9286716e";
 const barcelonaId = "d336673e-f18e-415c-b501-70d7bf19a32b";
@@ -65,6 +65,21 @@ describe("verified approval to durable logo job", () => {
     expect(first.jobKey).toBe(duplicate.jobKey);
     expect(first.jobKey).not.toBe(renamed.jobKey);
     expect(first).toMatchObject({cityId: warsawId, revisionId, cityName: "Warszawa", locale: "pl-PL", templateVersion: "city-logo-inkscape-v1.2"});
+  });
+
+  it("prepares an exact pending new-city logo pack without creating an approved job",async()=>{
+    const {service,store,render,setSnapshot}=setup();setSnapshot(snapshot([revision()],[]));
+    const pending=pendingLogoCandidate(snapshot([revision()],[]),warsawId,revisionId,"warszawa");
+    expect(pending).toMatchObject({cityId:warsawId,revisionId,slug:"warszawa",approvalId:"0".repeat(64)});
+    const result=await service.preparePending(warsawId,revisionId,"warszawa");
+    expect(result.jobKey).toBe(pending?.jobKey);expect(render).toHaveBeenCalledOnce();expect(store.rows()).toEqual([]);
+  });
+
+  it("rejects logo preparation for revisions that are approved, changed or not new",async()=>{
+    const {service,setSnapshot}=setup();
+    await expect(service.preparePending(warsawId,revisionId,"warszawa")).rejects.toThrow("pending new-city");
+    const changed=revision();changed.event.tags=[["e","f".repeat(64),"","previous"]];setSnapshot(snapshot([changed],[]));
+    await expect(service.preparePending(warsawId,revisionId,"warszawa")).rejects.toThrow("pending new-city");
   });
 
   it("adds isolated tables without changing payment data", () => {

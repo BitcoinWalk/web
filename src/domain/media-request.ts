@@ -5,6 +5,7 @@ export const mediaRequestSchema=z.discriminatedUnion("action",[
  z.object({action:z.literal("list-sponsor-assets")}).strict(),
  z.object({action:z.literal("preview-sponsor-asset"),cityId:z.string().uuid(),sponsorPubkey:z.string().regex(/^[0-9a-f]{64}$/),hash:z.string().regex(/^[0-9a-f]{64}$/)}).strict(),
  z.object({action:z.literal("generate-sponsor-composite"),targetCityId:z.string().uuid(),sourceCityId:z.string().uuid(),sponsorPubkey:z.string().regex(/^[0-9a-f]{64}$/),hash:z.string().regex(/^[0-9a-f]{64}$/)}).strict(),
+ z.object({action:z.literal("prepare-city-logo"),cityId:z.string().uuid(),revisionId:z.string().regex(/^[0-9a-f]{64}$/),slug:z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)}).strict(),
  z.object({action:z.literal("review-sponsor-logo"),cityId:z.string().uuid(),sponsorPubkey:z.string().regex(/^[0-9a-f]{64}$/)}).strict(),
  z.object({action:z.literal("upload-sponsor-logo"),cityId:z.string().uuid(),sponsorPubkey:z.string().regex(/^[0-9a-f]{64}$/),sha256:z.string().regex(/^[0-9a-f]{64}$/),mime:z.enum(["image/png","image/webp","image/svg+xml"])}).strict(),
  z.object({action:z.literal("import-city-image"),cityId:z.string().uuid(),sourceUrl:z.url()}),
