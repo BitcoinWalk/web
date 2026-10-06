@@ -91,5 +91,5 @@ variable. An authenticated request from the staging IP returned five results,
 and the live same-origin route returned Warsaw first with five bounded results.
 The public page contains the required attribution and neither it nor the API
 response exposes the token. All 739 tests, typecheck, build, packaged smoke and
-lint (four pre-existing image warnings) passed. Final human search acceptance
-remains before closing BW-31.
+lint (four pre-existing image warnings) passed. The user completed final human
+search acceptance on staging on 6 October 2026; BW-31 is closed.
