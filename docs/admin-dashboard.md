@@ -130,6 +130,12 @@ The organizer connection sequence already verifies city permissions and the comp
 
 App 0.3.114 was activated on staging on 30 September 2026 through the ordinary `bitcoinwalk` deployment account. Artifact SHA-256: `99ebd24d74c911391802c0b6c44a485a5cda1745122bca3c97ce3ed14171cdb4`; deployment evidence: `/home/bitcoinwalk/backups/app-staging-deploy.jGRE7X`; active release: `/opt/bitcoinwalk-app-staging/releases/0.3.114-99ebd24d74c9`. All 457 tests, source lint, production build, backlog generation, packaged smoke, public health and organizer My cities route checks passed.
 
+## App 0.3.185 — City finder completion
+
+The shared City finder now replaces the remaining fixed city dropdown in **Organizers → City editors** and adds local pending-city filtering to **Requests**. Both controls search only their already-loaded, signature-verified snapshots by city name, slug, ID and aliases; Requests also accepts organizer public keys as search terms. They add no relay subscriptions. Refresh preserves the selected editor city when it remains authorized, while clearing or selecting a different city resets unsent editor input and feedback.
+
+App 0.3.185 was activated on staging on 6 October 2026 through the ordinary `bitcoinwalk` deployment account. Artifact SHA-256: `509a621ea8feb1d4b157c85c5cf74f3ef7b60aaa4b16721a4fcc2ca86c5a3876`; deployment evidence: `/home/bitcoinwalk/backups/app-staging-deploy.YhyOaS`; active release: `/opt/bitcoinwalk-app-staging/releases/0.3.185-509a621ea8fe`. All 741 tests, type-check, source lint with four existing image warnings, production build, packaged smoke, non-root service health and both changed public routes passed. Real-inventory keyboard, pointer and mobile acceptance remains before BW-77 can close.
+
 ## App 0.3.115 — registration handoff and shared account entry
 
 The registration account connection now belongs to an in-memory client session rather than the `/start` route. A browser extension, locally generated/imported private key or bunker session therefore survives client navigation into `/admin` without a second connection. Disconnect and signer-change detection close the remote session, restore the original browser signer and clear identity-bound dashboard data. No private key, bunker secret or credential enters the handoff URL or persistent browser storage; a hard refresh still requires reconnection.

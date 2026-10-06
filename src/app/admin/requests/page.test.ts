@@ -8,5 +8,7 @@ describe("request administration",()=>{
   const html=renderToStaticMarkup(createElement(RequestsPage));
   expect(html).toContain("<h1>Requests</h1>");
   expect(html).toContain("<h2>Requests</h2>");
+  expect(html).toContain('role="combobox"');
+  expect(html).toContain("Search pending city requests…");
  });
 });

@@ -23,6 +23,7 @@ import {paidPaymentForCity} from "../../payments/dashboard";
 import type {PaymentView} from "../../payments/service";
 import {announcePendingRequestCount} from "../../components/pending-request-count";
 import {createSponsorshipRevision,latestSponsorships,querySponsorships,sponsorshipKey} from "../../nostr/sponsorships";
+import CityFinder from "../../components/city-finder";
 
 type Submission = { eventId: string; initialEventIds: string[]; author: string; cityId: string; slug: string; cityName: string; startAt: string; meetingPoint: string; city: CityDocument; previous?: string; previousCity?:CityDocument; paid:boolean };
 type State = { message: string; tone: "info" | "error" | "success"; approvedWalk?: { href: string; name: string } };
@@ -67,6 +68,7 @@ export default function SubmissionApprovals() {
   const [inviteSponsors,setInviteSponsors]=useState<Record<string,boolean>>({});
   const [slugs,setSlugs]=useState<Record<string,string>>({});
   const [aliases,setAliases]=useState<Record<string,string>>({});
+  const [selectedCity,setSelectedCity]=useState("");
   const [busy, setBusy] = useState(false);
   const [state, setState] = useState<State>({ message: "Connect the BitcoinWalk super-admin signer to load submissions.", tone: "info" });
   useEffect(() => {
@@ -209,6 +211,9 @@ export default function SubmissionApprovals() {
 
   async function importLandscape(submission:Submission){const source=heroImages[submission.eventId]?.trim();if(!source||source.includes("/api/media/files/"))return;if(busy)return;setBusy(true);setImageStates(current=>({...current,[submission.eventId]:{status:"waiting",message:"Waiting for your signer. Approve importing this image…"}}));try{const result=await importCityImageURL(submission.cityId,source);setHeroImages(images=>({...images,[submission.eventId]:result.url}));setImageStates(current=>({...current,[submission.eventId]:{status:"ready",message:"The image is secured in BitcoinWalk storage and selected for this city."}}));}catch(error){setImageStates(current=>({...current,[submission.eventId]:{status:"error",message:error instanceof Error?error.message:"Could not import the landscape."}}));}finally{setBusy(false);}}
 
+  const requestCities=[...new Map(submissions.map(submission=>[submission.cityId,{id:submission.cityId,name:submission.cityName,meta:submission.paid?"Pro — paid":submission.city.requestedTier==="paid"?"Pro — payment pending":"Basic",keywords:[submission.slug,submission.cityId,submission.author,...(submission.city.aliases??[])]}])).values()];
+  const visibleSubmissions=selectedCity?submissions.filter(submission=>submission.cityId===selectedCity):submissions;
+
   return (
     <section>
       <h2>Requests</h2>
@@ -217,7 +222,9 @@ export default function SubmissionApprovals() {
         {state.approvedWalk && <>{" "}<Link prefetch={false} href={state.approvedWalk.href}>View BitcoinWalk {state.approvedWalk.name} →</Link></>}
       </p>
       <button disabled={busy} type="button" onClick={loadSubmissions}>Refresh</button>
-      {submissions.map((submission) => (
+      <CityFinder disabled={busy||!submissions.length} label="Find request by city" placeholder="Search pending city requests…" value={selectedCity} onChange={setSelectedCity} items={requestCities}/>
+      {!!submissions.length&&<p>{visibleSubmissions.length} of {submissions.length} pending request(s) shown.</p>}
+      {visibleSubmissions.map((submission) => (
         <article key={submission.eventId} id={`submission-${submission.eventId}`}>
           <h2>{submission.paid&&<span role="img" aria-label="Verified Pro city" title="Verified Pro city">⚡</span>} {submission.cityName}</h2>
           <p><strong>{submission.previous?"City change":"New city"}</strong> · {submission.paid?"Pro — paid":submission.city.requestedTier==="paid"?"Pro — payment pending":"Basic"} · {new Date(submission.startAt).toLocaleString()}</p>

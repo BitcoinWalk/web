@@ -12,6 +12,7 @@ import { authenticateWithBrowserExtension, getBrowserExtensionPubkey, signWithBr
 import { publishVerifiedEvent } from "../../../nostr/relay";
 import EditorIdentity from "../../../components/editor-identity";
 import { watchPublicProfiles, type PublicProfile } from "../../../nostr/profiles";
+import CityFinder from "../../../components/city-finder";
 
 export default function EditorsScreen() {
   const lock=useRef(false);
@@ -23,6 +24,7 @@ export default function EditorsScreen() {
   const [busy,setBusy]=useState(false);
   const [records,setRecords]=useState<AuthorizationRecord[]>([]);
   const [names,setNames]=useState<Record<string,string>>({});
+  const [keywords,setKeywords]=useState<Record<string,string[]>>({});
   const [selected,setSelected]=useState("");
   const [npub,setNpub]=useState("");
   const [message,setMessage]=useState("Connect the BitcoinWalk super-admin to manage city editors.");
@@ -41,7 +43,7 @@ export default function EditorsScreen() {
   useDashboardAutoLoad(load);
   async function load() {
     if(lock.current) return;
-    lock.current=true;setBusy(true);setRecords([]);setSelected("");setNpub("");setFeedback(null);
+    lock.current=true;setBusy(true);setRecords([]);setNpub("");setFeedback(null);
     setMessage("Loading registered cities from the relay…");
     try {
       if(!relayConfig.readRelays.length) throw new Error("No read relay configured.");
@@ -49,9 +51,14 @@ export default function EditorsScreen() {
       const [grants,revisions]=await Promise.all([queryAuthorizations(relayConfig.readRelays),queryCityRevisions(relayConfig.readRelays)]);
       await adminIdentity();
       const cities=latestCityGrants(grants).filter(r=>!dashboard.selectedCity||r.grant.cityId===dashboard.selectedCity);
-      const labels:Record<string,string>={};
-      for(const revision of revisions) labels[revision.city.cityId]=revision.city.cityName;
-      setNames(labels);setRecords(cities);if(dashboard.selectedCity&&cities.length)setSelected(dashboard.selectedCity);
+      const labels:Record<string,string>={},search:Record<string,string[]>={},timestamps:Record<string,number>={};
+      for(const revision of revisions) if((timestamps[revision.city.cityId]??-1)<=revision.event.created_at){
+        timestamps[revision.city.cityId]=revision.event.created_at;
+        labels[revision.city.cityId]=revision.city.cityName;
+        search[revision.city.cityId]=[revision.city.slug,revision.city.cityId,...(revision.city.aliases??[])];
+      }
+      setNames(labels);setKeywords(search);setRecords(cities);
+      setSelected(current=>dashboard.selectedCity&&cities.some(item=>item.grant.cityId===dashboard.selectedCity)?dashboard.selectedCity:cities.some(item=>item.grant.cityId===current)?current:"");
       setMessage(cities.length ? `${cities.length} registered cities loaded. Select a city to manage its editors.` : "The relay completed the read but returned no registered cities. Check the staging relay selection before creating anything new.");
     } catch(error) {
       const detail=error instanceof Error ? error.message : "Could not load editors.";
@@ -105,7 +112,7 @@ export default function EditorsScreen() {
     <p>Enter public npubs only; never paste an nsec. These permissions apply to a whole city, not to hosting one walk.</p>
     <button disabled={busy} onClick={load}>{busy?"Loading editors…":"Refresh city editors"}</button>
     <p role="status" aria-live="polite">{message}</p>
-    {!!records.length && <label>City <select disabled={busy} value={selected} onChange={e=>{setSelected(e.target.value);setNpub("");setFeedback(null);}}><option value="">Select a city</option>{records.map(r=><option key={r.grant.cityId} value={r.grant.cityId}>{names[r.grant.cityId] ?? "City"} — {r.grant.cityId}</option>)}</select></label>}
+    <CityFinder disabled={busy||!records.length} label="City" placeholder="Search cities to manage editors…" value={selected} onChange={cityId=>{setSelected(cityId);setNpub("");setFeedback(null);}} items={records.map(item=>({id:item.grant.cityId,name:names[item.grant.cityId]??"City",keywords:keywords[item.grant.cityId]??[item.grant.cityId]}))}/>
     {feedback && <div ref={feedbackRef} tabIndex={-1} role={feedback.kind==="success" ? "status" : "alert"} aria-atomic="true" className={`${styles.feedback} ${feedback.kind==="success" ? styles.success : styles.error}`}>
       <strong>{feedback.kind==="success" ? "✓ " : "! "}{feedback.title}</strong>
       <p>{feedback.detail}</p>
