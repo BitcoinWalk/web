@@ -37,7 +37,7 @@ showed OpenFreeMap/OpenMapTiles/OpenStreetMap attribution, and populated the
 manual-coordinate fallback. The packaged and live same-origin MapLibre worker
 and shared-module assets were also verified.
 
-## Photon autocomplete (BW-31)
+## LocationIQ autocomplete with Photon fallback (BW-31)
 
 The new-city City field searches after 650ms without typing (minimum two
 characters). Stale requests and pending retries are aborted; selecting a result
@@ -47,20 +47,28 @@ IME composition is not submitted until complete. English/Latin names retain
 diacritics; labels include county, region and country. Only cities, towns,
 villages and hamlets are accepted, not businesses or street addresses.
 
-The server defaults to `https://photon.komoot.io/api/`. Override with the
-server-only `PHOTON_SEARCH_URL` environment variable for a compatible HTTPS
-Photon endpoint. The old `GEOCODE_SEARCH_URL` is deliberately ignored to avoid
-accidentally sending autocomplete traffic to public Nominatim. No Nominatim
-fallback is used. A single app process enforces 1.1-second global spacing,
-one upstream request at a time and a bounded 24-hour cache. The browser retries
-a 429 once after two seconds; no unlimited retry/queue is created. Share the
-limiter/cache before running multiple app replicas.
+Set the server-only `LOCATIONIQ_ACCESS_TOKEN` environment variable to use
+LocationIQ's Autocomplete API as the primary provider. The token is used only by
+the same-origin server route and is never returned to, or requested by, browser
+code. Requests are restricted to city/town/village/hamlet records, English
+labels, deduplication and five results. Photon remains a best-effort fallback;
+override its default `https://photon.komoot.io/api/` endpoint with the
+server-only `PHOTON_SEARCH_URL` environment variable when needed. The old
+`GEOCODE_SEARCH_URL` is deliberately ignored and no public Nominatim fallback
+is used.
 
-This is a modest-usage staging trial on Photon's public demo, not an SLA-backed
-production dependency. No Photon database was installed on either VPS.
-Production needs a separate hosting/capacity decision. Display attribution to
-Photon and OpenStreetMap; only the typed city query is sent upstream.
-Reference: https://github.com/komoot/photon and its docs/api-v1.md.
+A single app process enforces 1.1-second global spacing, one upstream request at
+a time and a bounded 24-hour cache, staying below LocationIQ Free's 2 requests
+per second, 60 requests per minute and 48-hour cache ceiling. The browser
+retries a 429 once after two seconds; no unlimited retry/queue is created. Share
+the limiter/cache before running multiple app replicas. Footer attribution
+links to LocationIQ, Photon and OpenStreetMap.
+
+Without `LOCATIONIQ_ACCESS_TOKEN`, the deployment continues to use Photon's
+public demo alone. That service is not an SLA-backed production dependency. No
+Photon database is installed on either VPS. Only the typed city query is sent
+upstream. References: https://docs.locationiq.com/docs/autocomplete and
+https://github.com/komoot/photon/blob/master/docs/api-v1.md.
 
 0.3.176 refines this into an anchored input dropdown, not separate result
 buttons. At most five compact rows show city and region/country. Existing
@@ -75,3 +83,13 @@ along with type-check/build, lint (four existing warnings), packaged smoke and
 backlog checks. Live browser acceptance: Piaseczno suggestions appeared without
 Search, Down/Enter selected the city at 52.074738, 21.027089, map tiles rendered,
 and clicking the map updated the pin to 52.073932, 21.034388. No city was submitted.
+
+0.3.179 activates LocationIQ as the primary provider with Photon fallback.
+Evidence: `/home/bitcoinwalk/backups/app-staging-deploy.nSmZpw`. The credential
+file is owned by `bitcoinwalk` with mode 0600; the non-root process loaded the
+variable. An authenticated request from the staging IP returned five results,
+and the live same-origin route returned Warsaw first with five bounded results.
+The public page contains the required attribution and neither it nor the API
+response exposes the token. All 739 tests, typecheck, build, packaged smoke and
+lint (four pre-existing image warnings) passed. Final human search acceptance
+remains before closing BW-31.

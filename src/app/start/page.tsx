@@ -165,6 +165,6 @@ export default function StartWalkPage() {
       />}
     </div>
     {state.message && <p role={state.kind === "error" ? "alert" : "status"}>{state.message}</p>}
-    <footer style={{marginTop:"2rem",fontSize:".75rem",color:"#646b65",textAlign:"center"}}>City search by <a href="https://photon.komoot.io/" target="_blank" rel="noreferrer">Photon</a> · © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap contributors</a></footer>
+    <footer style={{marginTop:"2rem",fontSize:".75rem",color:"#646b65",textAlign:"center"}}>Search by <a href="https://locationiq.com" target="_blank" rel="noreferrer">LocationIQ.com</a> · Fallback by <a href="https://photon.komoot.io/" target="_blank" rel="noreferrer">Photon</a> · © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap contributors</a></footer>
   </main>;
 }
