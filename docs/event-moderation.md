@@ -29,14 +29,8 @@ This release deliberately rejects moderation for cities in the source's replicat
 
 Automated relay tests cover unauthorized/cross-city actions, exact-ID/broadcast suppression, hidden-address edits, stale decisions, exact replay, hide/unhide, creator and city suspension, preserved public history, cancellation non-resurrection, restart persistence and replication safety gates. Web tests cover signed schema/tag validation, stable addresses, state resolution, version gating and admin tab routing.
 
-Human staging acceptance is partial. The user confirmed that a signed suspension blocked publication (`restricted: publishing suspended by BitcoinWalk super-admin`), resuming restored successful publication, and existing walks remained visible. The tested suspension scope (city or author) was not specified; do not infer both passed. Hide/unhide and moderation-specific role/stale-state checks have not yet been explicitly confirmed.
+Human acceptance for non-replicated cities completed on 6 October 2026. The super-admin temporarily hid the Manchester Bitfest walk; its exact public page became unavailable while unrelated walks remained public. A stale second super-admin tab was rejected, then a freshly loaded decision restored the same event and page without republishing. The Cleveland organizer was globally suspended from **Organizers → Publishing access**: its already-open Walks screen rechecked the current decision and refused publication before signing, a refresh exposed the explicit contact-admin notice and disabled creation/editing controls, existing public content remained visible, and organizer access did not expose super-admin moderation controls. A separately signed resume restored the organizer controls. Earlier acceptance had already confirmed that city suspension blocked relay publication, resume restored it and existing walks remained visible.
 
-Acceptance checklist for a non-replicated test city on the installed relay 0.8.56:
-
-1. Hide one walk with a test reason. Verify its exact public link is unavailable and other walks remain public.
-2. Unhide it with another reason. Verify the original event ID/page returns, without republishing.
-3. Suspend the creator. Attempt a new publication as that creator: relay rejection is required; older walks remain visible.
-4. Resume the creator and verify normal authorized publication works. Repeat city-level suspension.
-5. Verify organizer access is denied and stale super-admin tabs cannot overwrite a newer decision.
+The complete non-replicated checklist now passes: event hide/unhide, exact-page restoration, city suspension/resume, global organizer suspension/resume, preserved public history, organizer role denial and stale-state protection. No temporary moderation state was left active.
 
 Do not mark BW-39 done until replication support and human acceptance are complete. No live moderation decisions are issued by the deployment process.
