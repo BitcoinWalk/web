@@ -166,6 +166,8 @@ App 0.3.119 refines that entry screen: its explanation is now **Create a new Nos
 
 App 0.3.119 was activated on staging on 1 October 2026 through the ordinary `bitcoinwalk` deployment account. Artifact SHA-256: `26c4f2fa1f8da5cdfe458b37ee4a4c5945f5fe35ca1aba9fa2fa1e10e66b31a6`; deployment evidence: `/home/bitcoinwalk/backups/app-staging-deploy.78w7am`; active release: `/opt/bitcoinwalk-app-staging/releases/0.3.119-26c4f2fa1f8d`. All 464 tests, source lint, type-check, production build, backlog generation, packaged smoke, public health/copy checks and local desktop visual verification passed.
 
+The complete registration-to-dashboard journey received user acceptance on 6 October 2026. Basic and verified Pro completion, browser-extension/local-key and bunker/QR sessions, same-identity client navigation, direct dashboard entry, hard-refresh reconnection, duplicate-free recovery, account switching, identity isolation and mobile/accessibility behavior all worked as intended. Payment remained distinct from signed approval. Automatic Pro approval is not part of this completed BW-79 scope and remains future BW-78 work.
+
 ## App 0.3.120 — scoped weather attribution
 
 The Open-Meteo attribution is now rendered inside the reusable weather widget. The global layout no longer adds a weather footer, so the homepage, CMS, onboarding and other non-weather pages do not display weather-provider copy. Forecast, delayed-forecast and unavailable-forecast states retain the attribution; past walks, which do not render a widget, do not.
