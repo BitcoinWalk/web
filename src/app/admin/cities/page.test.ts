@@ -17,7 +17,7 @@ describe("focused city administration",()=>{
   });
   it("preserves old combined-Cities links by sending moved tools to their modules",()=>{
     expect(movedCityTabHref("?tab=editors&city=memphis")).toBe("/admin/organizers?tab=editors&city=memphis");
-    expect(movedCityTabHref("?tab=moderation")).toBe("/admin/walks?tab=moderation");
+    expect(movedCityTabHref("?tab=moderation")).toBe("/admin/cities");
     expect(movedCityTabHref("?tab=requests")).toBe("/admin/requests");
     expect(movedCityTabHref("?tab=manage",`#submission-${"a".repeat(64)}`)).toBe("/admin/requests");
   });

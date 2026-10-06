@@ -6,9 +6,9 @@ export function movedCityTabHref(search:string,hash=""):string|null{
   const params=new URLSearchParams(search),value=params.get("tab");
   if(value==="requests"||/^#submission-[0-9a-f]{64}$/.test(hash)){params.delete("tab");const query=params.toString();return `/admin/requests${query?`?${query}`:""}`;}
   if(value!=="editors"&&value!=="moderation")return null;
-  const path=value==="editors"?"/admin/organizers":"/admin/walks";
-  params.set("tab",value==="editors"?"editors":"moderation");
-  return `${path}?${params.toString()}`;
+  if(value==="editors"){params.set("tab","editors");return `/admin/organizers?${params.toString()}`;}
+  params.delete("tab");
+  const query=params.toString();return `/admin/cities${query?`?${query}`:""}`;
 }
 
 export default function CitiesPage(){
