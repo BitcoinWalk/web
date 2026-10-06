@@ -22,7 +22,7 @@ import { showCityInPicker } from "../../../domain/city-picker";
 import { editDraftOccurrence, readRecurringPlan, saveRecurringPlan, upcomingDrafts, type RecurringPlan } from "../../../domain/rolling-drafts";
 import { eventPageHref, managedCalendarEvents, type ManagedCalendarEvent } from "../../../domain/event-routing";
 import { reconcileOccurrences } from "../../../domain/recurrence-reconciliation";
-import { createOrganizerCancellation } from "../../../nostr/moderation";
+import { assertExactSigned,createOrganizerCancellation } from "../../../nostr/moderation";
 import {DEFAULT_WALK_LIST_STATUSES,groupWalkRows} from "../../../domain/walk-list";
 import {importCityImageURL} from "../../../lib/media-client";
 import {RichDescriptionEditor} from "../../../components/rich-description";
@@ -30,8 +30,9 @@ import {calendarRoute} from "../../../nostr/calendar-records";
 import {optionalAllTrailsRoute} from "../../../domain/walk-route";
 import {requireOccurrenceCancellationRelay} from "../../../nostr/relay-capabilities";
 import {calendarDiscoverySummary,publishCalendarDiscoveryEvent,type CalendarDiscoveryReport} from "../../../nostr/calendar-discovery";
-import {organizerPublishingStatus} from "../../../nostr/event-moderation";
+import {createEventModeration,latestEventModerations,moderationKey,organizerPublishingStatus,queryEventModerations,queryEventModerationsForCities,requireEventModerationRelay,walkAddress,type EventModerationRecord} from "../../../nostr/event-moderation";
 import {publishingAccessNotice,type OrganizerPublishingAccess} from "../../../domain/publishing-access";
+import {isSuperAdmin} from "../../../nostr/authority";
 
 const LocationPicker = dynamic(() => import("../../../components/location-picker"), { ssr: false });
 
@@ -40,7 +41,7 @@ type WalkListRow=
   | {kind:"upcoming"|"past";key:string;at:number;walk:CalendarWalk;item:ManagedCalendarEvent;hosted:boolean}
   | {kind:"canceled";key:string;at:number;walk:CalendarWalk;deletion:Event;targetId:string};
 
-export default function OrganizerEventsPage() {
+export default function OrganizerEventsPage({canModerate=false}:{canModerate?:boolean}={}) {
   const [hosted,setHosted]=useState<HostedWalk[]>([]);
   const [hostingError,setHostingError]=useState("");
   const [walks, setWalks] = useState<CalendarWalk[]>([]);
@@ -74,6 +75,9 @@ export default function OrganizerEventsPage() {
   const [editRouteUrl,setEditRouteUrl]=useState("");
   const [discoveryByEvent,setDiscoveryByEvent]=useState<Record<string,CalendarDiscoveryReport>>({});
   const [publishingAccess,setPublishingAccess]=useState<OrganizerPublishingAccess>("checking");
+  const [moderations,setModerations]=useState<EventModerationRecord[]>([]);
+  const [moderating,setModerating]=useState<{cityId:string;event:Event;hidden:boolean}|null>(null);
+  const [moderationReason,setModerationReason]=useState("");
   const signedRetries = useRef<Record<string, Event>>({});
   const seriesId = useRef("");
   const lock = useRef(false);
@@ -106,7 +110,7 @@ export default function OrganizerEventsPage() {
   async function load() {
     if (lock.current) return;
     setHosted([]);setHostingError("");
-    lock.current = true; setBusy(true); setWalks([]); setPublishedByCity({}); setCanceledByCity({}); setCityId(""); setShowForm(false); setPreview([]); setCoverage(null); setMeetingPoint(null); setOwner(""); setPlans({}); setReviewing(false); setSelected(new Set()); setResults({}); setEditingId(""); setDiscoveryByEvent({});setPublishingAccess("checking"); signedRetries.current={};
+    lock.current = true; setBusy(true); setWalks([]); setPublishedByCity({}); setCanceledByCity({}); setModerations([]);setModerating(null);setModerationReason("");setCityId(""); setShowForm(false); setPreview([]); setCoverage(null); setMeetingPoint(null); setOwner(""); setPlans({}); setReviewing(false); setSelected(new Set()); setResults({}); setEditingId(""); setDiscoveryByEvent({});setPublishingAccess("checking"); signedRetries.current={};
     try {
       const key = await getBrowserExtensionPubkey();
       let access:OrganizerPublishingAccess="checking";
@@ -127,7 +131,8 @@ export default function OrganizerEventsPage() {
           return (!dashboard.selectedCity||walk.revision.city.cityId===dashboard.selectedCity) && latest && canEditCity(key, latest.grant);
         });
         const ids=available.map(walk=>walk.revision.city.cityId);
-        const [allPublished,allCanceled]=await Promise.all([completeCityEvents(relayConfig.readRelays,ids),queryCitiesCalendarCancellations(relayConfig.readRelays,ids)]);
+        const [allPublished,allCanceled,moderationHistory]=await Promise.all([completeCityEvents(relayConfig.readRelays,ids),queryCitiesCalendarCancellations(relayConfig.readRelays,ids),canModerate?queryEventModerationsForCities(relayConfig.readRelays,ids):Promise.resolve([])]);
+        setModerations(moderationHistory);
         for(const id of ids){published[id]=allPublished.filter(event=>event.tags.some(tag=>tag[0]==="i"&&tag[1]===id));canceled[id]=allCanceled.filter(event=>event.tags.some(tag=>tag[0]==="i"&&tag[1]===id));}
       } catch (error) {
         available=[];published={};canceled={};
@@ -415,6 +420,32 @@ export default function OrganizerEventsPage() {
     finally { lock.current = false; setBusy(false); }
   }
 
+  async function moderateWalk(cityId:string,event:Event,hidden:boolean){
+    if(lock.current||!canModerate)return;
+    const reason=moderationReason.trim();if(!reason){setMessage("Add a public reason before signing.");return;}
+    lock.current=true;setBusy(true);
+    try{
+      const key=await getBrowserExtensionPubkey();if(!isSuperAdmin(key))throw new Error("Connect the BitcoinWalk super-admin.");
+      await requireEventModerationRelay(relayConfig.writeRelays);
+      const target=walkAddress(event),expected=latestEventModerations(moderations).find(row=>moderationKey(row.decision)===`event:${target}`);
+      const current=latestEventModerations(await queryEventModerations(relayConfig.writeRelays,cityId)).find(row=>moderationKey(row.decision)===`event:${target}`);
+      if(current?.event.id!==expected?.event.id)throw new Error("Walk visibility changed. Refresh walks before continuing.");
+      const status=hidden?"visible":"hidden";
+      const template=createEventModeration({cityId,scope:"event",target,eventId:event.id,status,reason,...(current?{previous:current.event.id}:{})});
+      setMessage(`Review and sign the ${hidden?"unhide":"hide"} decision…`);
+      const signed=await signWithBrowserExtension(template);assertExactSigned(signed,template);
+      if(!isSuperAdmin(await getBrowserExtensionPubkey()))throw new Error("Signer identity changed. Nothing published.");
+      const recheck=latestEventModerations(await queryEventModerations(relayConfig.writeRelays,cityId)).find(row=>moderationKey(row.decision)===`event:${target}`);
+      if(recheck?.event.id!==current?.event.id)throw new Error("Walk visibility changed while signing. Nothing published; refresh walks.");
+      await publishVerifiedEvent(signed,relayConfig.writeRelays,1,authenticateWithBrowserExtension);
+      const updated=await queryEventModerations(relayConfig.writeRelays,cityId),saved=latestEventModerations(updated).find(row=>moderationKey(row.decision)===`event:${target}`);
+      if(saved?.event.id!==signed.id)throw new Error("Relay acknowledged the decision but exact read-back failed. Refresh before retrying.");
+      setModerations(previous=>[...previous.filter(row=>row.decision.cityId!==cityId),...updated]);setModerating(null);setModerationReason("");
+      setMessage(`${hidden?"Unhidden":"Hidden"}: signed decision confirmed by relay read-back. This changes BitcoinWalk visibility, not cancellation; external copies may remain.`);
+    }catch(error){setMessage(error instanceof Error?error.message:"Could not change walk visibility.");}
+    finally{lock.current=false;setBusy(false);}
+  }
+
   function publishedHref(walk:CalendarWalk,event:Event){
     const city=walk.revision.city;
     return eventPageHref(city.slug,calendarNevent(event,relayConfig.calendarRelayHints));
@@ -435,6 +466,12 @@ export default function OrganizerEventsPage() {
       const result=reconcile(plan.cityId,upcomingDrafts(plan),plan.timeZone);
       return `${result.covered.length} of ${DEFAULT_OCCURRENCES} upcoming dates published · ${result.missing.length} need review${result.multipleDates.length?` · Multiple walks on ${result.multipleDates.join(", ")}`:""}`;
     }catch{return "Plan needs attention — review before signing";}
+  }
+
+  function walkModerationControls(cityId:string,event:Event){
+    if(!canModerate)return null;
+    const target=walkAddress(event),decision=latestEventModerations(moderations).find(row=>moderationKey(row.decision)===`event:${target}`),hidden=decision?.decision.status==="hidden",open=moderating?.event.id===event.id;
+    return <div style={{marginTop:"0.75rem"}}>{hidden&&<p><strong>Hidden from BitcoinWalk</strong>{decision?.decision.reason?` — ${decision.decision.reason}`:""}</p>}<button type="button" disabled={busy||!!moderating&&!open} onClick={()=>{setModerating({cityId,event,hidden});setModerationReason("");setMessage(`Add a public reason, then sign to ${hidden?"unhide":"hide"} this walk.`);}}>{hidden?"Unhide this walk":"Hide this walk"}</button>{open&&<div style={{margin:"0.75rem 0 1rem",padding:"1rem",background:"#fff4d6",borderLeft:"4px solid #f7931a"}}><label><strong>Reason</strong><textarea autoFocus value={moderationReason} maxLength={500} disabled={busy} onChange={change=>setModerationReason(change.target.value)} placeholder="Required. This becomes part of the public signed audit history." style={{display:"block",width:"100%",marginTop:"0.5rem"}}/></label><button type="button" disabled={busy||!moderationReason.trim()} onClick={()=>void moderateWalk(cityId,event,hidden)} style={{display:"block",marginTop:"0.75rem",background:"#f7931a",color:"#111",fontWeight:700}}>Sign and {hidden?"unhide":"hide"} this walk</button><button type="button" disabled={busy} onClick={()=>{setModerating(null);setModerationReason("");}} style={{marginTop:"0.5rem"}}>Cancel</button></div>}</div>;
   }
 
   const rows:WalkListRow[]=[];
@@ -511,7 +548,7 @@ export default function OrganizerEventsPage() {
           {new Intl.DateTimeFormat("en-GB",{dateStyle:"full",timeStyle:"short",timeZone:row.draft.timeZone}).format(new Date(row.at*1000))} ({row.draft.timeZone})<br/>{row.draft.meetingPoint.description}<br/><small>Meeting pin: {row.draft.meetingPoint.latitude.toFixed(6)}, {row.draft.meetingPoint.longitude.toFixed(6)}</small>
           {row.inReview?<><p><label><input type="checkbox" disabled={busy||publishingBlocked||results[row.draft.id]?.status==="published"} checked={selected.has(row.draft.id)} onChange={e=>setSelected(previous=>{const next=new Set(previous);if(e.target.checked)next.add(row.draft.id);else next.delete(row.draft.id);return next;})}/> Select for signing</label> <button type="button" disabled={busy||publishingBlocked} onClick={()=>beginEdit(row.draft)}>Edit walk</button>{reviewing&&plans[row.walk.revision.city.cityId]&&!results[row.draft.id]&&<> <button type="button" disabled={busy||publishingBlocked} onClick={()=>updateSaved({skippedDates:[...new Set([...plans[row.walk.revision.city.cityId].skippedDates,row.draft.id.split(":").at(-1)!])]})}>Skip this draft</button></>}</p>{results[row.draft.id]&&<p role="status">{results[row.draft.id].status}: {results[row.draft.id].detail??""}</p>}</>:<p><button type="button" disabled={busy||publishingBlocked} onClick={()=>{const plan=plans[row.walk.revision.city.cityId];if(plan){review(plan);beginEdit(row.draft);}}}>Edit walk</button> <button type="button" disabled={busy||publishingBlocked} onClick={()=>{const plan=plans[row.walk.revision.city.cityId];if(plan)review(plan);}}>Review for publishing</button></p>}
           {editingId===row.draft.id&&<form onSubmit={event=>{event.preventDefault();saveDraftEdit(row.draft);}}><fieldset disabled={busy}><legend>Edit this walk draft</legend><label>Date <input type="date" required min="2000-01-01" max="2099-12-31" value={editDate} onChange={event=>setEditDate(event.target.value)}/></label><label>Local start time <input type="time" required value={editTime} onChange={event=>setEditTime(event.target.value)}/></label><RichDescriptionEditor value={editDescription} onChange={setEditDescription} disabled={busy}/><label>AllTrails route (optional) <input type="url" value={editRouteUrl} onChange={event=>setEditRouteUrl(event.target.value)} placeholder="https://www.alltrails.com/explore/trail/…"/></label><label>Meeting-point description <input required maxLength={500} value={editMeetingPoint?.description??""} onChange={event=>setEditMeetingPoint(point=>point?{...point,description:event.target.value}:null)}/></label><LocationPicker key={`edit-${row.draft.id}`} cityName={row.walk.revision.city.cityName} onCityNameChange={()=>{}} cityLocked value={editMeetingPoint} onChange={point=>setEditMeetingPoint({...point})}/><button type="submit">Save this draft</button> <button type="button" onClick={()=>setEditingId("")}>Discard changes</button></fieldset></form>}
-        </>:<>{new Intl.DateTimeFormat("en-GB",{dateStyle:"full",timeStyle:"short",...(row.item.timeZone?{timeZone:row.item.timeZone}:{})}).format(new Date(row.at*1000))}{row.item.timeZone?` (${row.item.timeZone})`:""}<br/>{row.item.meetingPoint.description}<br/><a href={publishedHref(row.walk,row.item.event)} target="_blank" rel="noreferrer">Open walk event ↗</a>{row.hosted&&<> — You’re hosting</>}{row.item.event.pubkey===owner&&<> <button type="button" disabled={busy} onClick={()=>void retryPublicDiscovery(row.item.event,`${row.walk.revision.city.cityName} walk`)}>Retry public discovery</button></>}{discoveryByEvent[row.item.event.id]&&<p role="status">{calendarDiscoverySummary(discoveryByEvent[row.item.event.id],relayConfig.calendarDiscoveryRelays.length)}</p>}{row.kind==="upcoming"&&!row.hosted&&<>{row.item.event.pubkey===owner&&<> {row.item.status==="upcoming"&&<button disabled={busy||publishingBlocked} onClick={()=>beginPublishedEdit(row.item.event,row.item)}>Edit walk</button>} <button disabled={busy} onClick={()=>cancelWalk(row.walk,row.item.event)}>Cancel this walk</button></>} <WalkDelegation event={row.item.event} actor={owner} cityName={row.walk.revision.city.cityName} disabled={busy}/></>}{editingId===`published:${row.item.event.id}`&&<form onSubmit={event=>{event.preventDefault();void savePublishedEdit(row.walk,row.item);}}><fieldset disabled={busy||publishingBlocked}><legend>Edit this published walk</legend><label>Date <input type="date" required min="2000-01-01" max="2099-12-31" value={editDate} onChange={event=>setEditDate(event.target.value)}/></label><label>Local start time <input type="time" required value={editTime} onChange={event=>setEditTime(event.target.value)}/></label><RichDescriptionEditor value={editDescription} onChange={setEditDescription} disabled={busy||publishingBlocked}/><label>AllTrails route (optional) <input type="url" value={editRouteUrl} onChange={event=>setEditRouteUrl(event.target.value)} placeholder="https://www.alltrails.com/explore/trail/…"/></label><label>Meeting-point description <input required maxLength={500} value={editMeetingPoint?.description??""} onChange={event=>setEditMeetingPoint(point=>point?{...point,description:event.target.value}:null)}/></label><LocationPicker key={`published-edit-${row.item.event.id}`} cityName={row.walk.revision.city.cityName} onCityNameChange={()=>{}} cityLocked value={editMeetingPoint} onChange={point=>setEditMeetingPoint({...point})}/><h3>Walk photo</h3><label>Landscape image override (optional) <input type="url" value={editHeroImageUrl} onChange={event=>setEditHeroImageUrl(event.target.value)} placeholder="https://… (.png, .jpg or .webp content)"/></label><p>Leave blank to inherit the city template. A supplied image applies only to this walk and does not require super-admin approval.</p><button type="submit">{busy?"Saving…":"Sign and save changes"}</button> <button type="button" onClick={()=>{setEditingId("");setEditHeroImageUrl("");}}>Discard changes</button></fieldset></form>}</>}
+        </>:<>{new Intl.DateTimeFormat("en-GB",{dateStyle:"full",timeStyle:"short",...(row.item.timeZone?{timeZone:row.item.timeZone}:{})}).format(new Date(row.at*1000))}{row.item.timeZone?` (${row.item.timeZone})`:""}<br/>{row.item.meetingPoint.description}<br/><a href={publishedHref(row.walk,row.item.event)} target="_blank" rel="noreferrer">Open walk event ↗</a>{row.hosted&&<> — You’re hosting</>}{row.item.event.pubkey===owner&&<> <button type="button" disabled={busy} onClick={()=>void retryPublicDiscovery(row.item.event,`${row.walk.revision.city.cityName} walk`)}>Retry public discovery</button></>}{discoveryByEvent[row.item.event.id]&&<p role="status">{calendarDiscoverySummary(discoveryByEvent[row.item.event.id],relayConfig.calendarDiscoveryRelays.length)}</p>}{row.kind==="upcoming"&&!row.hosted&&<>{row.item.event.pubkey===owner&&<> {row.item.status==="upcoming"&&<button disabled={busy||publishingBlocked} onClick={()=>beginPublishedEdit(row.item.event,row.item)}>Edit walk</button>} <button disabled={busy} onClick={()=>cancelWalk(row.walk,row.item.event)}>Cancel this walk</button></>} <WalkDelegation event={row.item.event} actor={owner} cityName={row.walk.revision.city.cityName} disabled={busy}/></>}{walkModerationControls(row.walk.revision.city.cityId,row.item.event)}{editingId===`published:${row.item.event.id}`&&<form onSubmit={event=>{event.preventDefault();void savePublishedEdit(row.walk,row.item);}}><fieldset disabled={busy||publishingBlocked}><legend>Edit this published walk</legend><label>Date <input type="date" required min="2000-01-01" max="2099-12-31" value={editDate} onChange={event=>setEditDate(event.target.value)}/></label><label>Local start time <input type="time" required value={editTime} onChange={event=>setEditTime(event.target.value)}/></label><RichDescriptionEditor value={editDescription} onChange={setEditDescription} disabled={busy||publishingBlocked}/><label>AllTrails route (optional) <input type="url" value={editRouteUrl} onChange={event=>setEditRouteUrl(event.target.value)} placeholder="https://www.alltrails.com/explore/trail/…"/></label><label>Meeting-point description <input required maxLength={500} value={editMeetingPoint?.description??""} onChange={event=>setEditMeetingPoint(point=>point?{...point,description:event.target.value}:null)}/></label><LocationPicker key={`published-edit-${row.item.event.id}`} cityName={row.walk.revision.city.cityName} onCityNameChange={()=>{}} cityLocked value={editMeetingPoint} onChange={point=>setEditMeetingPoint({...point})}/><h3>Walk photo</h3><label>Landscape image override (optional) <input type="url" value={editHeroImageUrl} onChange={event=>setEditHeroImageUrl(event.target.value)} placeholder="https://… (.png, .jpg or .webp content)"/></label><p>Leave blank to inherit the city template. A supplied image applies only to this walk and does not require super-admin approval.</p><button type="submit">{busy?"Saving…":"Sign and save changes"}</button> <button type="button" onClick={()=>{setEditingId("");setEditHeroImageUrl("");}}>Discard changes</button></fieldset></form>}</>}
       </li>)}</ol></section>)}
       {!!preview.length&&<p><button disabled={busy||publishingBlocked||!!editingId||!preview.some(draft=>selected.has(draft.id)&&results[draft.id]?.status!=="published")} onClick={publishSelected}>Sign and publish selected walks</button></p>}
       {!!Object.keys(plans).length&&<section><h3>Recurring plan controls</h3>{Object.values(plans).map(plan=><p key={plan.cityId}>{walks.find(w=>w.revision.city.cityId===plan.cityId)?.revision.city.cityName} — {planSummary(plan)} <button disabled={busy||publishingBlocked} onClick={()=>review(plan)}>Review missing dates</button></p>)}</section>}

@@ -32,10 +32,14 @@ export function parseEventModeration(event:Event):EventModerationRecord|null{
  }catch{return null;}
 }
 export function latestEventModerations(records:EventModerationRecord[]){const seen=new Set<string>();return [...records].sort((a,b)=>compareEvents(a.event,b.event)).filter(r=>{const k=(r.decision.cityId??"global")+":"+moderationKey(r.decision);if(seen.has(k))return false;seen.add(k);return true;});}
-export async function queryEventModerations(relays:string[],cityId:string):Promise<EventModerationRecord[]>{
- const events=await queryRelayEvents(relays,[EVENT_MODERATION_KIND],undefined,{authors:[SUPER_ADMIN_PUBKEY],"#i":[cityId]});
+export async function queryEventModerationsForCities(relays:string[],cityIds:string[]):Promise<EventModerationRecord[]>{
+ const ids=[...new Set(cityIds)];if(!ids.length)return [];
+ const events=await queryRelayEvents(relays,[EVENT_MODERATION_KIND],undefined,{authors:[SUPER_ADMIN_PUBKEY],"#i":ids});
  if(events.length>=500)throw new Error("Moderation history reached its safe read limit. No change may be signed.");
- return events.map(parseEventModeration).filter((r):r is EventModerationRecord=>!!r&&r.decision.cityId===cityId);
+ const allowed=new Set(ids);return events.map(parseEventModeration).filter((r):r is EventModerationRecord=>!!r&&!!r.decision.cityId&&allowed.has(r.decision.cityId));
+}
+export async function queryEventModerations(relays:string[],cityId:string):Promise<EventModerationRecord[]>{
+ return (await queryEventModerationsForCities(relays,[cityId])).filter(r=>r.decision.cityId===cityId);
 }
 export async function queryOrganizerModerations(relays:string[],target:string):Promise<EventModerationRecord[]>{
  if(!hex.safeParse(target).success)throw new Error("Enter the organizer's public npub, not a private key.");
