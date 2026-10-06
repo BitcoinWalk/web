@@ -38,6 +38,7 @@ allowlist is reviewed, use the repository copy as the maintained source.
 - [Staging runbook](app-staging-runbook.md)
 - [Production migration](production-migration.md)
 - [Production free relay](production-free-relay.md)
+- [Remote signing transport](remote-signing.md)
 
 Operational documents may contain internal topology and recovery detail. Do
 not publish them to `docs.bitcoinwalk.org` merely because they are linked here;
