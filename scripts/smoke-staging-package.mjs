@@ -83,7 +83,7 @@ try{
     const page=await fetch(`${base}${path}`,{signal:AbortSignal.timeout(5000)});
     if(!page.ok || !(await page.text()).includes(label))throw new Error(`Packaged route failed: ${path}`);
   }
-  for(const [path,label] of [["/admin/sponsors/upload","Your account"],["/admin/sponsors/logos","Your account"]]){
+  for(const [path,label] of [["/sponsor?city=Warszawa","Choose the city and the walk"],["/admin/sponsors/payments","Your account"],["/admin/sponsors/upload","Your account"],["/admin/sponsors/logos","Your account"]]){
     const page=await fetch(`${base}${path}`,{signal:AbortSignal.timeout(5000)});
     if(!page.ok||!(await page.text()).includes(label))throw new Error(`Sponsor route failed: ${path}`);
   }

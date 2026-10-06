@@ -1,0 +1,8 @@
+.finder { position: relative; z-index: 1100; }
+.finder input { width: 100%; box-sizing: border-box; }
+.suggestions { position: absolute; top: 100%; left: 0; right: 0; margin: 0; padding: 0; list-style: none; background: #fff; color: #202520; border: 1px solid #aeb6bf; border-top: 0; border-radius: 0 0 .4rem .4rem; box-shadow: 0 6px 14px #0002; overflow: hidden; }
+.suggestions li { display: flex; align-items: center; gap: .65rem; padding: .65rem .8rem; min-height: 2.75rem; box-sizing: border-box; cursor: pointer; border-top: 1px solid #eee; }
+.suggestions li:hover, .suggestions li[aria-selected=true] { background: #fff0dc; }
+.suggestions svg { width: 1.1rem; height: 1.1rem; flex-shrink: 0; color: #656b66; }
+.suggestions small { display: block; color: #656b66; font-size: .8rem; }
+.status { font-size: .85rem; margin: .35rem 0; }

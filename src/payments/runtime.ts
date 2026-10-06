@@ -3,8 +3,10 @@ import {dirname} from "node:path";
 import {PaymentService,PaymentStore} from "./service";
 import {NwcWallet} from "./nwc";
 import {verifyPurchasableCity} from "./cities";
+import {SponsorService} from "./sponsor-service";
+import {sponsorshipCatalog} from "./sponsor-catalog";
 
-type PaymentRuntime={service:PaymentService;store:PaymentStore;timer:NodeJS.Timeout};
+type PaymentRuntime={service:PaymentService;sponsors:SponsorService;store:PaymentStore;timer:NodeJS.Timeout};
 const runtimeKey=Symbol.for("bitcoinwalk.payment-runtime");
 type RuntimeGlobal=typeof globalThis&{[runtimeKey]?:PaymentRuntime};
 
@@ -27,11 +29,11 @@ export function getPaymentRuntime():PaymentRuntime{
  if(!database.startsWith("/var/lib/bitcoinwalk-app-staging/")&&process.env.NODE_ENV==="production")throw new Error("Application database must be inside the app state directory");
  mkdirSync(dirname(database),{recursive:true,mode:0o700});
  const store=new PaymentStore(database);
- const service=new PaymentService(store,new NwcWallet(required("BITCOINWALK_NWC_URL")),(city,revision)=>verifyPurchasableCity([sourceRelay()],city,revision));
+ const wallet=new NwcWallet(required("BITCOINWALK_NWC_URL")),service=new PaymentService(store,wallet,(city,revision)=>verifyPurchasableCity([sourceRelay()],city,revision)),sponsors=new SponsorService(store.db,wallet,sponsorshipCatalog);
  let busy=false;
- const reconcile=async()=>{if(busy)return;busy=true;try{await service.reconcile();}catch{console.warn("Payment reconciliation deferred; durable state was retained.");}finally{busy=false;}};
+ const reconcile=async()=>{if(busy)return;busy=true;try{await service.reconcile();await sponsors.reconcile();}catch{console.warn("Payment reconciliation deferred; durable state was retained.");}finally{busy=false;}};
  const timer=setInterval(()=>void reconcile(),15_000);timer.unref();
- shared[runtimeKey]={service,store,timer};
+ shared[runtimeKey]={service,sponsors,store,timer};
  setTimeout(()=>void reconcile(),1_000).unref();
  return shared[runtimeKey];
 }
@@ -40,4 +42,3 @@ export function startPaymentRuntime():void{
  try{getPaymentRuntime();console.log("BitcoinWalk app payment reconciliation ready.");}
  catch{console.warn("BitcoinWalk app payment reconciliation is not configured.");}
 }
-

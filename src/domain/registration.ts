@@ -17,6 +17,7 @@ export function registrationDocument(input: {
   cityId: string; cityName: string; startAt: string; description: string;
   location: { latitude: number; longitude: number; description: string } | null;
   meetingDescription: string; requestedTier: RequestedTier; chatUrl?: string;
+  initialWalkStarts?: string[];
 }) {
   const date = new Date(input.startAt);
   if (!input.location || Number.isNaN(date.getTime())) {
@@ -25,6 +26,7 @@ export function registrationDocument(input: {
   const result = cityDocumentSchema.safeParse({
     cityId: input.cityId, cityName: input.cityName.trim(), slug: registrationSlug(input.cityName),
     startAt: date.toISOString(), description: input.description.trim(),
+    ...(input.initialWalkStarts?{initialWalkStarts:input.initialWalkStarts}:{}),
     meetingPoint: { ...input.location, description: input.meetingDescription.trim() || input.location.description },
     requestedTier: input.requestedTier, chatUrl: input.chatUrl,
   });

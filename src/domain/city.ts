@@ -48,6 +48,9 @@ export const cityDocumentSchema = z.object({
   // Organizer preference only. Never proof of payment or paid-relay entitlement.
   requestedTier: z.enum(["free", "paid"]).optional(),
   startAt: z.string().datetime(),
+  /** Exact organizer-signed starts submitted with a new city. The first entry
+   * equals startAt; approval releases only the referenced signed events. */
+  initialWalkStarts: z.array(z.string().datetime()).min(1).max(8).optional(),
   description: z.string().min(1).max(5000),
   meetingPoint: z.object({
     description: z.string().min(1).max(500),
@@ -81,9 +84,13 @@ export const cityApprovalSchema = z.object({
   /** The organizer-signed first walk released by this approval. Older
    * decisions omit it and retain their existing behaviour. */
   initialEventId: z.string().regex(/^[0-9a-f]{64}$/).optional(),
+  initialEventIds: z.array(z.string().regex(/^[0-9a-f]{64}$/)).min(1).max(8).optional(),
   heroImageUrl: z.url().optional(),
   /** Optional super-admin override for the public URL. */
   slug: citySlugSchema.optional(),
+  /** Optional super-admin override for search-only alternative names. An empty
+   * list explicitly clears aliases from the approved public city. */
+  aliases: cityAliasesSchema.optional(),
   status: z.enum(["approved", "rejected", "revoked"]),
   note: z.string().max(500).optional(),
 });

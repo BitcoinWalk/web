@@ -1,5 +1,127 @@
 # BW-15: link previews
 
+## Package coverage and archive retention: 0.3.174
+
+Deployed non-root on 6 October 2026. Backup/evidence:
+`/home/bitcoinwalk/backups/app-staging-deploy.Nyqbcb`. The full suite passed
+722 tests; type-check/build, packaged smoke and backlog validation passed.
+
+On 6 October the user confirmed external social-client preview acceptance and
+chose indefinite retention of old sponsored OG images for future reuse.
+No OG or approved sponsor artwork is deleted at expiry. Immutable image URLs
+continue to serve their original bytes; current metadata selects a newly keyed
+unsponsored composition. Third-party cached previews cannot be forcibly recalled.
+
+Public event modules and OG rendering use the same coverage gate. A sponsor with
+verified paid orders in that city is limited to the exact purchased event IDs,
+addresses and start times, for the purchased 1/2/5-walk count. Review-required
+orders do not grant display. Payment does not approve artwork: the current
+super-admin-signed assignment, feature flag, expiry and override rules still
+apply. Existing manual sponsors without a recorded package remain supported.
+All walk sponsorship ends at the declared walk end, without the routing grace
+period; open pages also hide the module at that boundary. A changed occurrence
+does not silently inherit a purchase. City OG coverage follows the current/next
+walk; cities with no upcoming walk do not advertise an expired sponsor.
+
+BW-15 staging acceptance is complete after this rollout. A real sponsorship
+payment/claim/assignment acceptance remains BW-89, and production canonical
+URL checks remain BW-53. Archive retention is not permission to reactivate a
+sponsor: future reuse still requires a valid approved assignment and coverage.
+
+## Manchester Bitfest conference composition: 0.3.167
+
+Manchester's current exact managed hero identifies a conference-specific share
+campaign. Its public walk hero remains unchanged. Share rendering instead uses
+the supplied clean Manchester background and a packaged transparent vertical
+lockup containing the BitcoinWalk symbol, “on” and the supplied Bitfest logo.
+The lockup and background are generated from versioned source artwork by
+`scripts/build-share-brand.mjs`; deployed rendering needs no font stack and
+fetches no external campaign asset. The exception is bound to Manchester plus
+the exact content-addressed campaign hero, so a later ordinary Manchester hero
+automatically returns to standard city metadata and artwork.
+
+The live title is **BitcoinWalk at Bitfest | Sunday, 22 November 2026**. The
+description names Manchester, the local date/time and the Pendulum Hotel
+meeting point. City and walk OG/Twitter copy match the HTML metadata.
+
+Deployed non-root on 5 October 2026 with evidence
+`/home/bitcoinwalk/backups/app-staging-deploy.UnDkin`. All 680 tests,
+type-check, production build and packaged smoke passed; lint has zero errors
+and four retained image warnings. Public health reports 0.3.167. The hero URL
+remained `d64d013a…e21df`; the live 1200×630 OG JPEG is
+`e75f0e1d…d586d` and matches the reviewed local preview byte-for-byte.
+
+## Manchester Bitfest crop: 0.3.166
+
+The exact managed Manchester hero containing the Bitfest wordmark is now
+top-aligned wherever it is shown as a cropped image. The homepage city card
+and the public walk hero preserve the full wordmark instead of cutting through
+its top edge. Server-rendered 1200×630 OG images use the same top-aware crop;
+other city images retain their existing attention crop. The override is bound
+to the content-addressed managed media asset rather than every future
+Manchester image.
+
+Deployed non-root on 5 October 2026 with evidence
+`/home/bitcoinwalk/backups/app-staging-deploy.MYsA5C`. All 677 tests,
+type-check, production build and packaged smoke passed; lint has zero errors
+and four retained image warnings. Public health reports 0.3.166. The live walk
+hero is top-aligned and the new OG image
+`4ca22ba7…b221` is an intact 1200×630 JPEG which matches the reviewed local
+preview byte-for-byte.
+
+## One-action city activation checklist: 0.3.165
+
+Requests is reduced to the request summary, one **Review request and approval
+settings** disclosure, **Approve / Reject**, and four status footnotes. One
+Approve action retains the existing explicit Nostr signatures but removes the
+separate logo-generation action. After the approval is acknowledged, its exact
+signed event authorizes an idempotent server-side activation check which:
+
+Submitted city fields are shown as one compact list within that disclosure;
+short values occupy one line, URLs remain clickable and revision changes show
+previous → submitted values without nested per-field cards.
+
+The super-admin can edit search-only alternative city names directly below the
+public URL before signing approval. The signed decision preserves that override
+without altering the organizer's submitted revision. City-image selection and
+the sponsor-invitation option remain visible outside the collapsed disclosure.
+
+- reconciles and validates the ten-file localized logo pack;
+- creates and stores a 1200×630 OG image using the managed city hero and that
+  city's transparent `bitcoinwalk-on-black` artwork;
+- validates the generated city meta title and description against the 65/160
+  editorial limits; and
+- reports dedicated relay status as not applicable for Basic, ready only for a
+  genuinely configured paid relay, or amber when a paid entitlement exists but
+  BW-20 provisioning is still unavailable.
+
+The activation endpoint accepts only a valid super-admin-signed approved-city
+event which is the exact current relay decision. Replays are idempotent. It
+retries short relay read-after-write lag without asking for another approval.
+It never represents a requested tier as payment or a missing relay as success.
+Dynamic city and walk metadata now use the current localized logo pack for the
+same saved OG composition, falling back to the established BitcoinWalk symbol
+when no verified pack is available.
+
+Sponsor-free OG images enlarge the localized BitcoinWalk mark and city name to
+720×560 within the 1200×630 canvas for legibility in compact WhatsApp and social
+link previews. Sponsored images retain the smaller layout so the approved
+“Powered by” artwork has dedicated space.
+
+Deployed non-root on 5 October 2026 with evidence
+`/home/bitcoinwalk/backups/app-staging-deploy.rUyZGY`. All 674 tests,
+type-check, production build and packaged smoke passed; lint has zero errors
+and four retained image-optimization warnings. Public health reports 0.3.165
+and the activation endpoint rejects unsigned requests with 403. A real pending
+city approval remains the interactive acceptance step.
+
+The 0.3.165 rollout was then prewarmed against the live staging relay for all
+10 approved cities and all 22 published walks (32 public route checks). Every
+route returned a title of at most 65 characters, a description of at most 160
+characters, matching Open Graph title/description tags and a readable JPEG OG
+image. All 32 checks passed; no city or walk was skipped. This includes city
+entry points that redirect to their next published walk.
+
 ## New-city logo and sponsor-invitation approval: 0.3.158
 
 The super-admin Requests workflow now prepares and verifies the exact pending
@@ -10,8 +132,8 @@ Preparation creates only deterministic media artifacts. It cannot approve a
 city or create a durable approved-city job, and the normal post-approval worker
 reuses the same verified artifact key.
 
-New-city requests also default to **Show the “Sponsor this BitcoinWalk”
-invitation after approval**. The super-admin may deselect it. Approval publishes
+New-city requests also default to the single-line **Show sponsor invitation**
+option. The super-admin may deselect it. Approval publishes
 the invitation choice as a separate signed sponsorship assignment before the
 final signed city decision: selected produces the empty invitation state and
 deselected produces the hidden state when needed. Existing assigned sponsors
@@ -127,7 +249,7 @@ Public metadata resolves the current sponsorship and global feature flag before 
 
 Relay release 0.8.59 is prepared as `bitcoinwalk-sponsor-logo-policy-0.8.59` for the bitcoinwalk account on .138. Its installer verifies the release checksums, stops the relay to back up its databases (including any WAL sidecars), preserves the prior binary/version configuration, and starts the updated relay under the existing non-root service identity. It performs bounded health and version checks. It does not automatically roll back or restore databases. Interactive sudo is required for this system service; the web app remains a separate non-root deployment after relay acceptance.
 
-## Remaining implementation and acceptance
+## Historical acceptance checklist (superseded by the entries above)
 
 1. Signed staging browser acceptance of intake and admin review/approval.
 2. Signed read-back acceptance of the v2 hash binding (relay/app release and backup completed).

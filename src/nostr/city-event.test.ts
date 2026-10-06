@@ -28,12 +28,13 @@ describe("approval event", () => {
     const event = createApprovalEvent({
       cityId: "66f137cb-2ac1-4eef-8358-7dd66b45922f",
       cityRevisionId: "1".repeat(64),
-      initialEventId: "2".repeat(64), heroImageUrl:"https://example.com/approved.jpg", slug:"szydlowiec", status: "approved",
+      initialEventId: "2".repeat(64), heroImageUrl:"https://example.com/approved.jpg", slug:"szydlowiec", aliases:["Szydłowiec City"], status: "approved",
     });
     expect(event.kind).toBe(30304);
     expect(event.tags).toContainEqual(["e", "1".repeat(64), "", "city-revision"]);
     expect(event.tags).toContainEqual(["e", "2".repeat(64), "", "initial-walk"]);
     expect(JSON.parse(event.content).heroImageUrl).toBe("https://example.com/approved.jpg");
+    expect(JSON.parse(event.content).aliases).toEqual(["Szydłowiec City"]);
     expect(event.tags).toContainEqual(["city", "szydlowiec"]);
   });
 });

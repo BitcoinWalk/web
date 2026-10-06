@@ -1,22 +1,14 @@
 import {describe,it,expect,vi} from "vitest";
 import {createCitySearch} from "./geocode";
-const data=[{display_name:"Funchal, Madeira",lat:"32.65",lon:"-16.9",address:{city:"Funchal"}}];
-describe("explicit city search service",()=>{
- it("validates input without making upstream requests",async()=>{const f=vi.fn();const search=createCitySearch(f);expect((await search("a")).status).toBe(400);expect(f).not.toHaveBeenCalled();});
- it("caches normalized queries and limits different queries globally",async()=>{let time=10000;const f=vi.fn(async()=>Response.json(data));const search=createCitySearch(f,()=>time);expect((await search("Funchal")).results[0].cityName).toBe("Funchal");expect((await search(" funchal ")).status).toBe(200);expect(f).toHaveBeenCalledTimes(1);expect((await search("Chicago")).status).toBe(429);time+=1100;expect((await search("Chicago")).status).toBe(200);});
- it("rejects concurrent upstream requests and releases lock after failure",async()=>{let finish!:(r:Response)=>void;let time=10000;const f=vi.fn(()=>new Promise<Response>(r=>{finish=r;}));const search=createCitySearch(f,()=>time);const first=search("Funchal");time+=2000;expect((await search("Chicago")).status).toBe(429);finish(new Response("",{status:503}));expect((await first).status).toBe(502);});
- it("does not cache upstream errors",async()=>{let time=10000;const f=vi.fn(async()=>new Response("",{status:503}));const search=createCitySearch(f,()=>time);expect((await search("Funchal")).status).toBe(502);time+=2000;await search("Funchal");expect(f).toHaveBeenCalledTimes(2);});
- it("requests English name details and stores the Latin city name",async()=>{
-  const localized=[{display_name:"Երևան, Հայաստան",lat:"40.18",lon:"44.51",address:{city:"Երևան"},namedetails:{name:"Երևան","name:en":"Yerevan",int_name:"Yerevan"}}];
-  let requested="";const f=vi.fn(async(input:URL)=>{requested=String(input);return Response.json(localized);}) as unknown as typeof fetch,search=createCitySearch(f,()=>10000),result=await search("Երևան");
-  expect(result.results[0]).toMatchObject({name:"Yerevan",cityName:"Yerevan"});
-  const url=new URL(requested);
-  expect(url.searchParams.get("namedetails")).toBe("1");
-  expect(url.searchParams.get("accept-language")).toBe("en");
- });
- it("never returns a non-Latin city value when OSM has no Latin alias",async()=>{
-  const localized=[{display_name:"Երևան, Հայաստան",lat:"40.18",lon:"44.51",address:{city:"Երևան"},namedetails:{name:"Երևան"}}];
-  const search=createCitySearch(async()=>Response.json(localized),()=>10000);
-  expect((await search("Երևան")).results).toEqual([]);
- });
+const feature={geometry:{type:"Point",coordinates:[-16.9,32.65]},properties:{name:"Funchal",state:"Madeira",country:"Portugal",osm_key:"place",osm_value:"city"}};
+const data={features:[feature]};
+describe("Photon city autocomplete",()=>{
+ it("validates input without requests",async()=>{const f=vi.fn();expect((await createCitySearch(f)("a")).status).toBe(400);expect(f).not.toHaveBeenCalled();});
+ it("normalizes, caches and globally rate limits requests",async()=>{let time=10000;const f=vi.fn(async()=>Response.json(data)),search=createCitySearch(f,()=>time);expect((await search("Funchal")).results[0]).toEqual({cityName:"Funchal",name:"Funchal, Madeira, Portugal",latitude:32.65,longitude:-16.9});await search(" funchal ");expect(f).toHaveBeenCalledTimes(1);expect((await search("Chicago")).status).toBe(429);time+=1100;expect((await search("Chicago")).status).toBe(200);});
+ it("rejects concurrent requests and recovers after errors",async()=>{let finish!:(r:Response)=>void;let time=10000;const f=vi.fn(()=>new Promise<Response>(r=>{finish=r;})),search=createCitySearch(f,()=>time),first=search("Funchal");time+=2000;expect((await search("Chicago")).status).toBe(429);finish(new Response("",{status:503}));expect((await first).status).toBe(502);const second=search("Funchal");finish(Response.json(data));expect((await second).status).toBe(200);expect(f).toHaveBeenCalledTimes(2);});
+ it("uses English names and only settlement filters",async()=>{let requested="";const f:typeof fetch=async input=>{requested=String(input);return Response.json(data);};await createCitySearch(f)("Funchal","https://search.example/api/");const url=new URL(requested);expect(url.hostname).toBe("search.example");expect(url.searchParams.get("lang")).toBe("en");expect(url.searchParams.getAll("osm_tag")).toEqual(["place:city","place:town","place:village","place:hamlet"]);});
+ it.each(["https://nominatim.openstreetmap.org/search","http://photon.komoot.io/api/","https://user:password@search.example/api/"])("rejects unsafe or legacy endpoint %s",async endpoint=>{const f=vi.fn();expect((await createCitySearch(f)("Funchal",endpoint)).status).toBe(502);expect(f).not.toHaveBeenCalled();});
+ it("rejects malformed, non-place, non-Latin and invalid-coordinate results",async()=>{const features=[null,{...feature,geometry:{type:"Point",coordinates:[0,91]}},{...feature,properties:{...feature.properties,osm_key:"amenity"}},{...feature,properties:{...feature.properties,name:"Երևան"}}];expect((await createCitySearch(async()=>Response.json({features}))("city")).results).toEqual([]);});
+ it("preserves Latin diacritics",async()=>{expect((await createCitySearch(async()=>Response.json({features:[{...feature,properties:{...feature.properties,name:"Łódź",state:"Łódź",country:"Poland"}}]}))("Łódź")).results[0].name).toBe("Łódź, Poland");});
+ it("rejects legacy responses",async()=>{expect((await createCitySearch(async()=>Response.json([]))("city")).status).toBe(502);});
 });

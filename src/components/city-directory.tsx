@@ -11,6 +11,7 @@ import {DEFAULT_HOME_PAGE,HOME_PAGE_ID,type ContentPage} from "../domain/content
 import {latestContentPages,queryContentRevisions} from "../nostr/content-records";
 import {DEFAULT_FEATURE_FLAGS} from "../domain/feature-flags";
 import {latestFeatureFlags,queryFeatureFlags} from "../nostr/feature-flags";
+import {heroObjectPosition} from "../domain/hero-presentation";
 import styles from "./city-directory.module.css";
 const Map=dynamic(()=>import("./directory-map"),{ssr:false,loading:()=> <p>Loading map…</p>});
 export const compactHomepageBrand=(scrollY:number)=>scrollY>72;
@@ -18,7 +19,7 @@ function Photo({src,alt}:{src?:string;alt:string}) {
   const [failed,setFailed]=useState(false);
   // Browser-loaded public images, not server-side URL fetches.
   // eslint-disable-next-line @next/next/no-img-element
-  return src&&!failed?<img className={styles.photo} src={src} alt={alt} loading="lazy" referrerPolicy="no-referrer" onError={()=>setFailed(true)}/>:<div className={styles.placeholder} aria-hidden="true">₿ / WALK</div>;
+  return src&&!failed?<img className={styles.photo} src={src} alt={alt} style={{objectPosition:heroObjectPosition(src)}} loading="lazy" referrerPolicy="no-referrer" onError={()=>setFailed(true)}/>:<div className={styles.placeholder} aria-hidden="true">₿ / WALK</div>;
 }
 function Card({row,featured=false}:{row:DirectoryCity;featured?:boolean}) {
   const {city}=row;

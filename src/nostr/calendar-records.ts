@@ -26,7 +26,7 @@ export function approvedCalendarWalks(revisions:CityRevision[],decisions:Approva
     const source={revision,approval:record};
     const sources=approvedSources.get(decision.cityId)??[];
     sources.push(source);approvedSources.set(decision.cityId,sources);
-    if(!initialReleases.has(decision.cityId)&&decision.initialEventId)initialReleases.set(decision.cityId,source);
+    if(!initialReleases.has(decision.cityId)&&(decision.initialEventId||decision.initialEventIds?.length))initialReleases.set(decision.cityId,source);
   }
   const finished=new Set<string>(),rejected=new Map<string,Set<string>>();
   for(const record of [...decisions].sort((a,b)=>compareEvents(a.event,b.event))) {
@@ -88,9 +88,11 @@ export function matchesOrganizerCalendar(event:Event,walk:CalendarWalk):boolean 
 }
 export function matchesInitialCalendar(event:Event,walk:CalendarWalk):boolean {
   const source=walk.initialRelease??walk,city=source.revision.city;
-  if(city.cityId!==walk.revision.city.cityId||event.kind!==31923||!verifyEvent(event)||event.pubkey!==source.revision.event.pubkey||source.approval.approval.initialEventId!==event.id)return false;
+  const released=source.approval.approval.initialEventIds??(source.approval.approval.initialEventId?[source.approval.approval.initialEventId]:[]);
+  if(city.cityId!==walk.revision.city.cityId||event.kind!==31923||!verifyEvent(event)||event.pubkey!==source.revision.event.pubkey||!released.includes(event.id))return false;
   if(one(event,"bitcoinwalk")!=="initial-proposal-v1"||one(event,"i")!==city.cityId||one(event,"title")!==`BitcoinWalk ${city.cityName}`||one(event,"summary")!==`BitcoinWalk in ${city.cityName}`||one(event,"image")!==(city.heroImageUrl??null)||one(event,"t")!=="bitcoinwalk"||event.content!==city.description)return false;
-  const start=Number(one(event,"start")),end=Number(one(event,"end"));if(!Number.isSafeInteger(start)||!Number.isSafeInteger(end)||end-start!==3600||new Date(city.startAt).getTime()/1000!==start||!matchesOccurrenceDays(event,start,end))return false;
+  const starts=city.initialWalkStarts??[city.startAt];
+  const start=Number(one(event,"start")),end=Number(one(event,"end"));if(!Number.isSafeInteger(start)||!Number.isSafeInteger(end)||end-start!==3600||!starts.some(value=>new Date(value).getTime()/1000===start)||!matchesOccurrenceDays(event,start,end))return false;
   const zone=one(event,"start_tzid");if(!zone||one(event,"end_tzid")!==zone)return false;
   const locations=event.tags.filter(t=>t[0]==="location"&&t.length===2);if(locations.length!==2||locations[0][1]!==city.meetingPoint.description||locations[1][1]!==`${city.meetingPoint.latitude},${city.meetingPoint.longitude}`)return false;
   if(!matchesGeohash(event,city.meetingPoint.latitude,city.meetingPoint.longitude))return false;

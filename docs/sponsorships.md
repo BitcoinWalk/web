@@ -1,8 +1,39 @@
 # BitcoinWalk sponsorships
 
-BW-16 provides presentation and super-admin control. It intentionally does not
-claim that a sponsor has paid. Zap-funded booking and receipt verification are
-separate under BW-89.
+Public paid-package coverage (0.3.174): a current signed sponsor assignment is
+restricted to that sponsor's verified purchased dates in the city. Exact event
+ID/address/start and full package count must match; review-required orders do
+not display. Walk modules and OG artwork expire at the scheduled end, including
+manually approved legacy sponsors. Existing sponsored OG images and source
+artwork are retained indefinitely, but are not selected for expired public
+placements. Signed artwork approval is still required; no payment auto-signs
+an assignment. City metadata follows its current/next walk's coverage.
+
+BW-16 provides presentation and super-admin control. BW-89 now adds sponsorship
+checkout at `/sponsor`: searchable approved cities, optional `?city=Warszawa`
+preselection, fixed 1/2/5-walk packages, exact date selection, Lightning invoice
+QR, verified settlement, then a signed association with the sponsor's npub.
+Invoices and reservations live in the existing app payments SQLite database.
+No spending method is exposed. These are NWC-verified Lightning invoice payments;
+NIP-57 zap requests/receipts remain future work because identity is connected
+after payment in the requested flow.
+
+The public catalogue excludes unavailable, hidden, already-sponsored and past
+walks, and requires at least one hour before the event. Cities without available
+walks remain searchable with a contact link; no invoice is created. Packages
+requiring more dates than available are disabled. Pending invoices reserve dates;
+verified expiry releases them. Ambiguous invoice creation keeps the order and
+reservation for support review rather than generating another invoice. Late
+settlement after a conflicting booking, or changed/cancelled dates, is marked
+paid and needing review. A payment never silently signs public sponsorship.
+
+The browser keeps a random checkout recovery key; only its SHA-256 is stored
+server-side. It can be exported/imported as a private recovery file. Claims require
+both that key and a fresh order/site-bound Nostr signature, and cannot transfer
+an already-associated order to a different identity. Background checks continue
+after the browser closes. `/admin/sponsors/payments` lists payments by identity,
+including paid orders awaiting identity and existing sponsors without recorded
+payments. Access requires a super-admin signature.
 
 ## Signed model
 
@@ -18,21 +49,28 @@ address. Each revision links to its predecessor and records one explicit mode:
 
 An optional start/end interval makes an expired sponsor become an open sponsor
 slot rather than silently falling back to a different advertiser. The global
-Sponsorships feature flag is fail closed: missing, unreadable or disabled state
-hides every module without deleting assignments.
+**Sponsor Invite** feature flag is fail closed: missing, unreadable or disabled
+state hides every module without deleting assignments.
 
 ## Resolution
 
 1. Global flag off: hidden.
 2. An explicit walk assignment wins over the city assignment.
 3. A walk in `inherit` mode uses the city assignment.
-4. A city with no assignment remains hidden.
-5. `empty` shows “Would you like to sponsor this or a future walk?”
-6. `sponsor` shows **Sponsored by**, the reusable Nostr profile card, and the
-   approved website link when present.
+4. With **Sponsor Invite** on, a city or walk with no assignment shows the
+   invitation by default.
+5. `empty` shows a compact city-aware invitation below **Hosted by**. Pricing is
+   intentionally withheld until the visitor opens `/sponsor`, where the
+   transparent Lightning packages are 1 walk for 21k sats, 2 for 42k sats, or
+   the recommended 5 for 69k sats.
+6. `sponsor` shows **Sponsored by**, the reusable Nostr profile card, the exact
+   npub, the stored 1200 × 630 BitcoinWalk **Powered by** image generated from
+   approved logo artwork, and the approved website link when present.
 
 “Clear sponsor” signs an `empty` revision. “Hide” signs a `hidden` revision.
 “Use city sponsor” signs an `inherit` revision. No audit record is deleted.
+On walk pages, the resolved sponsor or invitation is rendered immediately below
+the **Hosted by** section.
 
 ## Profile and website safety
 

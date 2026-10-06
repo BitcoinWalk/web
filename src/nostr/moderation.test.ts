@@ -10,7 +10,7 @@ describe("city lifecycle",()=>{
  it.each(["disapprove","archive"] as const)("restores the exact initial walk and approved presentation after %s",action=>{
   const initialId="c".repeat(64);
   const initialRevision={...revision,event:{...revision.event,tags:[["e",initialId,"","initial-walk"]]}};
-  const original={...approval,approval:{...approval.approval,initialEventId:initialId,heroImageUrl:"https://example.com/managed.webp",slug:"radom-walk"}};
+  const original={...approval,approval:{...approval.approval,initialEventId:initialId,heroImageUrl:"https://example.com/managed.webp",slug:"radom-walk",aliases:["Radom City"]}};
   const active=managedCities([initialRevision],[original])[0];
   const revoke=createCityModerationDecision(active,action);
   expect(JSON.parse(revoke.content).status).toBe("revoked");

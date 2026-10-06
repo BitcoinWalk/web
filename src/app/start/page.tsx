@@ -21,6 +21,8 @@ import {RichDescriptionEditor} from "../../components/rich-description";
 import {HOUR_OPTIONS,MINUTE_OPTIONS,registrationLocalDateTime,type Meridiem} from "../../domain/registration-time";
 import {registrationSubmissionMessage} from "../../domain/registration-flow";
 import {registrationDashboardHref,setRegistrationHandoff} from "../../domain/registration-handoff";
+import {REGISTRATION_SERIES_SIZE,registrationSeriesDates,registrationSeriesStarts,type RegistrationRepeat} from "../../domain/registration-recurrence";
+import {WEEKDAYS} from "../../domain/walk-schedule";
 
 const LocationPicker = dynamic(() => import("../../components/location-picker"), { ssr: false });
 const DEFAULT_DESCRIPTION = "Join us for a friendly local BitcoinWalk: a relaxed way to meet fellow Bitcoiners, share ideas, and explore the city together. Everyone is welcome, whether you are new to Bitcoin or have been following it for years. Bring your questions, good shoes, and curiosity. We often continue the conversation over coffee or food after the walk.";
@@ -32,6 +34,7 @@ export default function StartWalkPage() {
   const [state, setState] = useState<SubmissionState>({ kind: "idle" });
   const [cityName, setCityName] = useState("");
   const [walkDate,setWalkDate]=useState(""),[walkHour,setWalkHour]=useState("10"),[walkMinute,setWalkMinute]=useState("00"),[meridiem,setMeridiem]=useState<Meridiem>("AM");
+  const [repeat,setRepeat]=useState<RegistrationRepeat>("weekly"),[customInterval,setCustomInterval]=useState(3),[customWeekday,setCustomWeekday]=useState(6);
   const [description, setDescription] = useState(DEFAULT_DESCRIPTION);
   const [location, setLocation] = useState<LocationValue | null>(null);
   const [meetingDescription, setMeetingDescription] = useState("");
@@ -41,7 +44,7 @@ export default function StartWalkPage() {
   const [checkout,setCheckout]=useState<{cityId:string;revisionId:string;owner:string;cityName:string;relayCount:number}|null>(null);
   const cityId = useRef("");
   const submitting = useRef(false);
-  const pendingSubmission = useRef<{ walk: Event; revision: Event; city: string } | null>(null);
+  const pendingSubmission = useRef<{ walks: Event[]; revision: Event; city: string } | null>(null);
   const detailsHeading=useRef<HTMLHeadingElement>(null),accountHeading=useRef<HTMLHeadingElement>(null),planHeading=useRef<HTMLHeadingElement>(null);
   const locked = state.kind === "working" || state.kind === "success";
   useEffect(()=>{({1:detailsHeading,2:accountHeading,3:planHeading} as const)[step].current?.focus();},[step]);
@@ -50,7 +53,9 @@ export default function StartWalkPage() {
   function draft() {
     if (!cityId.current) cityId.current = crypto.randomUUID();
     const startAt=registrationLocalDateTime(walkDate,walkHour,walkMinute,meridiem);
+    const initialWalkStarts=registrationSeriesStarts(startAt,registrationSeriesDates(walkDate,repeat,customInterval,customWeekday));
     return registrationDocument({ cityId: cityId.current, cityName, startAt, description, location,
+      initialWalkStarts,
       meetingDescription, requestedTier:paidEnabled?requestedTier:"free",
       // Preference never grants paid routing: only verified operator configuration can do that.
       chatUrl: resolveCityChat(undefined, registrationSlug(cityName), chatConfig).url ?? undefined });
@@ -83,15 +88,21 @@ export default function StartWalkPage() {
         throw new Error("Your walk details or signer changed after signing. Submit again to sign the updated request.");
       }
       if (!pendingSubmission.current) {
-        setState({ kind: "working", message: "Please sign your first walk, followed by the city submission…" });
+        setState({ kind: "working", message: "Please sign your walk series, followed by the city submission…" });
         const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-        const walk = await signForOrganizer(createInitialCalendarProposal(candidate, timeZone), organizerKey);
-        const revision = await signForOrganizer(createCityUpdateEvent(candidate, undefined, walk.id), organizerKey);
-        if (walk.pubkey !== organizerKey || revision.pubkey !== organizerKey) throw new Error("Signer identity changed. Reconnect and submit again.");
-        pendingSubmission.current = { walk, revision, city: submissionDraft };
+        const walks:Event[]=[];
+        for(const [index,startAt] of (candidate.initialWalkStarts??[candidate.startAt]).entries()){
+          setState({kind:"working",message:`Please sign walk ${index+1} of ${candidate.initialWalkStarts?.length??1}…`});
+          const walk=await signForOrganizer(createInitialCalendarProposal(candidate,timeZone,"",startAt),organizerKey);
+          if(walk.pubkey!==organizerKey)throw new Error("Signer identity changed. Reconnect and submit again.");
+          walks.push(walk);
+        }
+        const revision = await signForOrganizer(createCityUpdateEvent(candidate, undefined, walks.map(walk=>walk.id)), organizerKey);
+        if (revision.pubkey !== organizerKey) throw new Error("Signer identity changed. Reconnect and submit again.");
+        pendingSubmission.current = { walks, revision, city: submissionDraft };
       }
-      setState({ kind: "working", message: "Sending your signed first walk and city submission…" });
-      await publishVerifiedEvent(pendingSubmission.current.walk, relayConfig.writeRelays, 1, template => signForOrganizer(template, organizerKey));
+      setState({ kind: "working", message: `Sending ${pendingSubmission.current.walks.length} signed walk${pendingSubmission.current.walks.length===1?"":"s"} and your city submission…` });
+      for(const walk of pendingSubmission.current.walks)await publishVerifiedEvent(walk, relayConfig.writeRelays, 1, template => signForOrganizer(template, organizerKey));
       const publication = await publishVerifiedEvent(pendingSubmission.current.revision, relayConfig.writeRelays, 1, template => signForOrganizer(template, organizerKey));
       const revisionId=pendingSubmission.current.revision.id;
       pendingSubmission.current = null;
@@ -119,6 +130,11 @@ export default function StartWalkPage() {
           </fieldset>
           <RichDescriptionEditor value={description} onChange={setDescription}/>
           <label>Meeting-point description <input name="meetingDescription" value={meetingDescription} onChange={e => setMeetingDescription(e.target.value)} placeholder="e.g. In front of the coffee shop" maxLength={500} /></label>
+          <div className="registration-repeat">
+            <label>Repeat <select name="repeat" value={repeat} onChange={event=>setRepeat(event.target.value as RegistrationRepeat)}><option value="weekly">Every week</option><option value="fortnightly">Every 2nd week</option><option value="custom">Custom</option><option value="none">Don&apos;t repeat</option></select></label>
+            {repeat==="custom"&&<fieldset className="registration-repeat__custom"><legend>Custom recurrence</legend><label>Every <span><input type="number" min="1" max="12" value={customInterval} onChange={event=>setCustomInterval(Number(event.target.value))}/> week(s)</span></label><label>On <select value={customWeekday} onChange={event=>setCustomWeekday(Number(event.target.value))}>{WEEKDAYS.map((day,index)=><option key={day} value={index}>{day}</option>)}</select></label><small>The selected date is the first walk; the custom pattern schedules the following walks.</small></fieldset>}
+            {repeat!=="none"&&<small>A series of {REGISTRATION_SERIES_SIZE} walks will be created.</small>}
+          </div>
           <div className="walk-details-frame__next"><button type="submit">Next</button></div>
         </fieldset>
       </form>
@@ -149,5 +165,6 @@ export default function StartWalkPage() {
       />}
     </div>
     {state.message && <p role={state.kind === "error" ? "alert" : "status"}>{state.message}</p>}
+    <footer style={{marginTop:"2rem",fontSize:".75rem",color:"#646b65",textAlign:"center"}}>City search by <a href="https://photon.komoot.io/" target="_blank" rel="noreferrer">Photon</a> · © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap contributors</a></footer>
   </main>;
 }

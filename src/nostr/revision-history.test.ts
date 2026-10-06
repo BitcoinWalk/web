@@ -17,7 +17,18 @@ describe("retained approved revisions", () => {
   approval.approval.slug="szydlowiec";
   const resolved=resolveApprovedCity([first],[approval],"szydlowiec");
   expect(resolved?.city.slug).toBe("szydlowiec");
-  expect(first.city.slug).toBe("radom");
+ expect(first.city.slug).toBe("radom");
+ });
+ it("uses the super-admin alias override without changing the signed revision",()=>{
+  const approval=decision("approved",20);approval.approval.aliases=["Radom City","Rdom"];
+  const resolved=resolveApprovedCity([first],[approval],"radom");
+  expect(resolved?.city.aliases).toEqual(["Radom City","Rdom"]);
+  expect(first.city.aliases).toBeUndefined();
+ });
+ it("allows the super-admin to clear submitted aliases",()=>{
+  const withAliases={...first,city:{...first.city,aliases:["Radom City"]}};
+  const approval=decision("approved",20,withAliases);approval.approval.aliases=[];
+  expect(resolveApprovedCity([withAliases],[approval],"radom")?.city.aliases).toBeUndefined();
  });
  it("uses the approved generated image without mutating the organizer revision",()=>{
   const photoFree={...first,city:{...first.city,heroImageUrl:undefined}};

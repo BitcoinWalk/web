@@ -1,0 +1,46 @@
+.flagList {
+  border: 1px solid color-mix(in srgb, currentColor 18%, transparent);
+  border-radius: 0.8rem;
+  margin: 1rem 0 1.25rem;
+  overflow: hidden;
+}
+
+.flagRow {
+  align-items: center;
+  display: grid;
+  gap: 1.5rem;
+  grid-template-columns: minmax(0, 1fr) auto;
+  padding: 1rem 1.1rem;
+}
+
+.flagRow + .flagRow {
+  border-top: 1px solid color-mix(in srgb, currentColor 14%, transparent);
+}
+
+.flagCopy h3,
+.flagCopy p {
+  margin: 0;
+}
+
+.flagCopy h3 {
+  font-size: 1rem;
+  line-height: 1.35;
+}
+
+.flagCopy p {
+  color: color-mix(in srgb, currentColor 72%, transparent);
+  line-height: 1.45;
+  margin-top: 0.35rem;
+  max-width: 48rem;
+}
+
+@media (max-width: 38rem) {
+  .flagRow {
+    gap: 0.75rem;
+    grid-template-columns: 1fr;
+  }
+
+  .flagRow > :last-child {
+    justify-self: start;
+  }
+}

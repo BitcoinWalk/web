@@ -36,7 +36,7 @@ export function createCityModerationDecision(row:ManagedCity,action:"approve"|"d
  const initial=row.revision.event.tags.filter(t=>t[0]==="e"&&t[3]==="initial-walk");
  if(action==="approve"&&(initial.length>1||(initial.length===1&&!/^[0-9a-f]{64}$/.test(initial[0][1]))))throw new Error("Invalid original first-walk reference. Nothing published.");
  return createApprovalEvent({cityId:city.cityId,cityRevisionId:row.revision.event.id,status:action==="approve"?"approved":"revoked",
-  ...(action==="approve"?{...(initial.length?{initialEventId:initial[0][1]}:{}),...(previous?.heroImageUrl?{heroImageUrl:previous.heroImageUrl}:{}),slug:previous?.slug??city.slug}:{}),
+  ...(action==="approve"?{...(initial.length===1?{initialEventId:initial[0][1]}:initial.length?{initialEventIds:initial.map(tag=>tag[1])}:{}),...(previous?.heroImageUrl?{heroImageUrl:previous.heroImageUrl}:{}),...(previous?.aliases?{aliases:previous.aliases}:{}),slug:previous?.slug??city.slug}:{}),
   note:action==="archive"?ARCHIVE_NOTE:action==="approve"?"Restore city approval.":"DISAPPROVE: Hide the city and its calendar from public views; preserve ownership, editors and history."
  });
 }

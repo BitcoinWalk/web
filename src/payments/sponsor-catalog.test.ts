@@ -1,0 +1,15 @@
+import {beforeEach,it,expect,vi} from "vitest";
+vi.mock("../lib/server-relay-config",()=>({serverReadRelays:()=>[]}));
+vi.mock("../nostr/feature-flags",()=>({resolvedFeatureFlags:vi.fn()}));
+vi.mock("../nostr/calendar-records",()=>({loadCalendarWalks:vi.fn(),calendarOccurrence:vi.fn(),calendarEventSource:vi.fn()}));
+vi.mock("../nostr/city-records",()=>({queryCalendarEvents:vi.fn()}));
+vi.mock("../nostr/sponsorships",()=>({querySponsorships:async()=>[],resolveSponsorship:vi.fn(),calendarAddress:()=>"walk"}));
+import {sponsorshipCatalog} from "./sponsor-catalog";
+import {resolvedFeatureFlags} from "../nostr/feature-flags";
+import {loadCalendarWalks,calendarOccurrence,calendarEventSource} from "../nostr/calendar-records";
+import {queryCalendarEvents} from "../nostr/city-records";
+import {resolveSponsorship} from "../nostr/sponsorships";
+beforeEach(()=>{vi.resetAllMocks();vi.mocked(resolvedFeatureFlags).mockResolvedValue({sponsorships:true} as never);vi.mocked(loadCalendarWalks).mockResolvedValue([{revision:{city:{cityId:"city",cityName:"Warszawa",slug:"warszawa"}}}] as never);vi.mocked(queryCalendarEvents).mockResolvedValue([{id:"event"}] as never);vi.mocked(calendarOccurrence).mockReturnValue({start:Math.floor(Date.now()/1000)+86400,timeZone:"Europe/Warsaw",meetingPoint:{description:"Park"}} as never);vi.mocked(calendarEventSource).mockReturnValue({} as never);vi.mocked(resolveSponsorship).mockReturnValue({state:"empty"});});
+it("returns real available walks and keeps cities with no available dates searchable",async()=>{expect((await sponsorshipCatalog())[0].walks).toHaveLength(1);vi.mocked(queryCalendarEvents).mockResolvedValue([]);expect((await sponsorshipCatalog())[0]).toMatchObject({name:"Warszawa",walks:[]});});
+it("does not sell hidden, already-sponsored or unauthorized events",async()=>{vi.mocked(resolveSponsorship).mockReturnValue({state:"sponsor",pubkey:"a".repeat(64)});expect((await sponsorshipCatalog())[0].walks).toHaveLength(0);vi.mocked(resolveSponsorship).mockReturnValue({state:"empty"});vi.mocked(calendarEventSource).mockReturnValue(null);expect((await sponsorshipCatalog())[0].walks).toHaveLength(0);});
+it("fails closed when booking is disabled",async()=>{vi.mocked(resolvedFeatureFlags).mockResolvedValue({sponsorships:false} as never);await expect(sponsorshipCatalog()).rejects.toThrow("unavailable");expect(queryCalendarEvents).not.toHaveBeenCalled();});

@@ -1,0 +1,40 @@
+import {createHash,randomUUID} from "node:crypto";
+import type {DatabaseSync} from "node:sqlite";
+import type {Invoice} from "./service";
+import {SPONSOR_PACKAGES,type SponsorCity,type SponsorOrder} from "./sponsor-types";
+type Row=Omit<SponsorOrder,"walks"|"needsReview">&{walks:string;tokenHash:string;clientHash:string;checkedAt:number|null;needsReview:number};
+type Wallet={makeSponsorInvoice:(description:string,amount:number)=>Promise<Invoice>;lookupInvoice:(hash:string)=>Promise<Record<string,unknown>>};
+const hash=(value:string)=>createHash("sha256").update(value).digest("hex");
+export class SponsorService{
+ private tail:Promise<unknown>=Promise.resolve();
+ constructor(readonly db:DatabaseSync,private wallet:Wallet,private catalog:()=>Promise<SponsorCity[]>,private now=()=>Math.floor(Date.now()/1000)){
+  db.exec(`CREATE TABLE IF NOT EXISTS sponsorship_order(id TEXT PRIMARY KEY,tokenHash TEXT NOT NULL UNIQUE,clientHash TEXT NOT NULL,cityId TEXT NOT NULL,cityName TEXT NOT NULL,count INTEGER NOT NULL,amountMsat INTEGER NOT NULL,walks TEXT NOT NULL,status TEXT NOT NULL,invoice TEXT NOT NULL DEFAULT '',paymentHash TEXT UNIQUE,createdAt INTEGER NOT NULL,expiresAt INTEGER NOT NULL DEFAULT 0,settledAt INTEGER,pubkey TEXT,claimEvent TEXT,checkedAt INTEGER,needsReview INTEGER NOT NULL DEFAULT 0);
+  CREATE TABLE IF NOT EXISTS sponsorship_reservation(cityId TEXT NOT NULL,address TEXT NOT NULL,orderId TEXT NOT NULL,PRIMARY KEY(cityId,address));`);
+ }
+ private exclusive<T>(work:()=>Promise<T>):Promise<T>{const next=this.tail.then(work,work);this.tail=next.catch(()=>{});return next;}
+ private rows(){return this.db.prepare("SELECT * FROM sponsorship_order ORDER BY createdAt DESC").all() as Row[];}
+ private view(row:Row):SponsorOrder{const {tokenHash,clientHash,claimEvent,checkedAt,...safe}=row as Row&{claimEvent?:string};void tokenHash;void clientHash;void claimEvent;void checkedAt;return {...safe,walks:JSON.parse(row.walks),needsReview:!!row.needsReview};}
+ private authorized(id:string,token:string){if(!/^[a-f0-9]{64}$/.test(token))throw new Error("Checkout recovery key required.");const row=this.db.prepare("SELECT * FROM sponsorship_order WHERE id=? AND tokenHash=?").get(id,hash(token)) as Row|undefined;if(!row)throw new Error("Checkout unavailable. Use the browser where you started it.");return row;}
+ async available(){const cities=await this.catalog(),reserved=this.db.prepare("SELECT cityId,address FROM sponsorship_reservation").all();return cities.map(city=>({...city,walks:city.walks.filter(walk=>!reserved.some(row=>row.cityId===city.id&&row.address===walk.address))}));}
+ create(token:string,client:string,cityId:string,count:number,ids:string[]){return this.exclusive(async()=>{
+  if(!/^[a-f0-9]{64}$/.test(token))throw new Error("Invalid checkout key.");
+  const existing=this.db.prepare("SELECT * FROM sponsorship_order WHERE tokenHash=?").get(hash(token)) as Row|undefined;
+  if(existing){if(existing.cityId!==cityId||existing.count!==count||JSON.stringify(JSON.parse(existing.walks).map((w:{id:string})=>w.id).sort())!==JSON.stringify([...ids].sort()))throw new Error("This checkout already has a different selection.");return this.view(existing);}
+  const price=SPONSOR_PACKAGES.find(p=>p.count===count);if(!price||new Set(ids).size!==count)throw new Error("Choose the required number of walks.");
+  const recent=this.rows().filter(row=>row.createdAt>this.now()-86400);if(recent.filter(row=>row.clientHash===hash(client)).length>=5||recent.filter(row=>row.createdAt>this.now()-3600).length>=50)throw new Error("Invoice limit reached. Please try later.");
+  const city=(await this.available()).find(city=>city.id===cityId),walks=city?.walks.filter(walk=>ids.includes(walk.id));if(!city||walks?.length!==count||walks.some(w=>w.start<=this.now()+3600))throw new Error("Some walks are no longer available. Refresh the list and choose again.");
+  const id=randomUUID();this.db.exec("BEGIN IMMEDIATE");try{this.db.prepare("INSERT INTO sponsorship_order(id,tokenHash,clientHash,cityId,cityName,count,amountMsat,walks,status,createdAt) VALUES(?,?,?,?,?,?,?,?,'creating',?)").run(id,hash(token),hash(client),city.id,city.name,count,price.sats*1000,JSON.stringify(walks),this.now());for(const walk of walks)this.db.prepare("INSERT INTO sponsorship_reservation VALUES(?,?,?)").run(city.id,walk.address,id);this.db.exec("COMMIT");}catch(error){this.db.exec("ROLLBACK");throw error;}
+  try{const invoice=await this.wallet.makeSponsorInvoice(`BitcoinWalk sponsorship — ${city.name} — ${count} walks — ${id}`,price.sats*1000);if(invoice.amountMsat!==price.sats*1000||!invoice.invoice||!/^[a-f0-9]{64}$/.test(invoice.paymentHash)||invoice.expiresAt<=this.now())throw new Error("Invalid invoice");this.db.prepare("UPDATE sponsorship_order SET invoice=?,paymentHash=?,expiresAt=?,status='pending' WHERE id=?").run(invoice.invoice,invoice.paymentHash,invoice.expiresAt,id);}catch{this.db.prepare("UPDATE sponsorship_order SET status='creation-uncertain' WHERE id=?").run(id);}
+  return this.view(this.authorized(id,token));
+ });}
+ private async check(row:Row){if(!row.paymentHash||row.status==="paid")return;const result=await this.wallet.lookupInvoice(row.paymentHash);if(result.payment_hash!==row.paymentHash||result.amount!==row.amountMsat||result.type!=="incoming")throw new Error("Payment evidence does not match this order.");
+  if(result.state==="settled"||(!result.state&&result.settled_at)){
+   if(typeof result.settled_at!=="number"||!Number.isSafeInteger(result.settled_at)||result.settled_at<row.createdAt||result.settled_at>this.now()+60||typeof result.preimage!=="string"||!/^[a-f0-9]{64}$/.test(result.preimage)||createHash("sha256").update(Buffer.from(result.preimage,"hex")).digest("hex")!==row.paymentHash)throw new Error("Payment could not be verified.");
+   const walks: SponsorOrder["walks"]=JSON.parse(row.walks);let changed=false;try{const current=(await this.catalog()).find(city=>city.id===row.cityId);changed=walks.some(w=>!current?.walks.some(c=>c.id===w.id&&c.start===w.start));}catch{changed=true;}this.db.exec("BEGIN IMMEDIATE");try{let review=changed||walks.some(w=>w.start<=this.now());for(const walk of walks){this.db.prepare("INSERT OR IGNORE INTO sponsorship_reservation VALUES(?,?,?)").run(row.cityId,walk.address,row.id);const reservation=this.db.prepare("SELECT orderId FROM sponsorship_reservation WHERE cityId=? AND address=?").get(row.cityId,walk.address);if(reservation?.orderId!==row.id)review=true;}this.db.prepare("UPDATE sponsorship_order SET status='paid',settledAt=?,checkedAt=?,needsReview=? WHERE id=?").run(result.settled_at,this.now(),review?1:0,row.id);this.db.exec("COMMIT");}catch(error){this.db.exec("ROLLBACK");throw error;}
+  }else{const expired=result.state!=="accepted"&&(result.state==="expired"||row.expiresAt<=this.now());this.db.prepare("UPDATE sponsorship_order SET status=?,checkedAt=? WHERE id=?").run(expired?"expired":"pending",this.now(),row.id);if(expired)this.db.prepare("DELETE FROM sponsorship_reservation WHERE orderId=?").run(row.id);}
+ }
+ status(id:string,token:string){return this.exclusive(async()=>{const row=this.authorized(id,token);if(!row.checkedAt||row.checkedAt<=this.now()-10)await this.check(row);return this.view(this.authorized(id,token));});}
+ claim(id:string,token:string,pubkey:string,event:string){return this.exclusive(async()=>{const row=this.authorized(id,token);if(row.status!=="paid")throw new Error("Payment must be verified first.");if(row.pubkey&&row.pubkey!==pubkey)throw new Error("This order is already associated with another identity.");this.db.prepare("UPDATE sponsorship_order SET pubkey=?,claimEvent=? WHERE id=?").run(pubkey,event,id);return this.view(this.authorized(id,token));});}
+ list(){return this.rows().map(row=>this.view(row));}
+ reconcile(){return this.exclusive(async()=>{for(const row of this.rows().filter(r=>r.status==="pending"||r.status==="expired"&&(!r.checkedAt||r.checkedAt<this.now()-86400)).sort((a,b)=>(a.checkedAt??0)-(b.checkedAt??0)).slice(0,20)){try{await this.check(row);}catch{/* Retain evidence and retry next cycle. */}}});}
+}

@@ -92,7 +92,7 @@ export function parseApprovalRecord(event: Event): ApprovalRecord | null {
     return workflowAddress(event, data.cityId) && (uniqueTag(event, "d", data.cityId) || uniqueTag(event, "i", data.cityId)) && uniqueTag(event, "status", data.status)
       && (data.slug ? cityTags.length === 1 && cityTags[0][1] === data.slug : cityTags.length === 0)
       && event.tags.filter(t => t[0] === "e" && t[1] === data.cityRevisionId && t[3] === "city-revision").length === 1
-      && (data.initialEventId ? initialTags.length === 1 && initialTags[0][1] === data.initialEventId : initialTags.length === 0)
+      && (()=>{const ids=data.initialEventIds??(data.initialEventId?[data.initialEventId]:[]);return initialTags.length===ids.length&&ids.every(id=>initialTags.some(tag=>tag[1]===id));})()
       ? { event, approval: data } : null;
   } catch {
     return null;
@@ -241,8 +241,9 @@ export function resolveApprovedCity(revisions: CityRevision[], approvals: Approv
   const decision = latest.get(found.city.cityId)!;
   const resolvedSlug=decision.slug??found.city.slug;
   const heroImageUrl=decision.heroImageUrl??found.city.heroImageUrl;
-  return resolvedSlug!==found.city.slug||heroImageUrl!==found.city.heroImageUrl
-    ? {...found,city:{...found.city,slug:resolvedSlug,...(heroImageUrl?{heroImageUrl}:{heroImageUrl:undefined})}}
+  const aliases=decision.aliases??found.city.aliases;
+  return resolvedSlug!==found.city.slug||heroImageUrl!==found.city.heroImageUrl||aliases!==found.city.aliases
+    ? {...found,city:{...found.city,slug:resolvedSlug,...(aliases?.length?{aliases}:{aliases:undefined}),...(heroImageUrl?{heroImageUrl}:{heroImageUrl:undefined})}}
     : found;
 }
 

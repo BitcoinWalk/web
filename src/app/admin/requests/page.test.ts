@@ -7,6 +7,6 @@ describe("request administration",()=>{
  it("has a dedicated request module",()=>{
   const html=renderToStaticMarkup(createElement(RequestsPage));
   expect(html).toContain("<h1>Requests</h1>");
-  expect(html).toContain("City requests");
+  expect(html).toContain("<h2>Requests</h2>");
  });
 });

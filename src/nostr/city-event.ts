@@ -10,7 +10,7 @@ export function createAuthorizationEvent(grant: CityAuthorization): EventTemplat
 }
 
 /** Each signed revision has its own address, retaining all approved snapshots. */
-export function createCityUpdateEvent(city: CityDocument, previousRevision?: string, initialEventId?: string): EventTemplate {
+export function createCityUpdateEvent(city: CityDocument, previousRevision?: string, initialEventId?: string|string[]): EventTemplate {
   const tags = [
     ["d", `${city.cityId}:${crypto.randomUUID()}`],
     ["i", city.cityId],
@@ -19,8 +19,9 @@ export function createCityUpdateEvent(city: CityDocument, previousRevision?: str
   ];
   if (previousRevision) tags.push(["e", previousRevision, "", "previous"]);
   if (initialEventId) {
-    if (!/^[0-9a-f]{64}$/.test(initialEventId)) throw new Error("A valid initial walk event ID is required.");
-    tags.push(["e", initialEventId, "", "initial-walk"]);
+    const ids=Array.isArray(initialEventId)?initialEventId:[initialEventId];
+    if(!ids.length||ids.length>8||new Set(ids).size!==ids.length||ids.some(id=>!/^[0-9a-f]{64}$/.test(id)))throw new Error("Valid unique initial walk event IDs are required.");
+    tags.push(...ids.map(id=>["e",id,"","initial-walk"]));
   }
 
   return {
@@ -41,7 +42,7 @@ export function createApprovalEvent(approval: CityApproval): EventTemplate {
       ["d", `${validated.cityId}:${crypto.randomUUID()}`],
       ["i", validated.cityId],
       ["e", validated.cityRevisionId, "", "city-revision"],
-      ...(validated.initialEventId ? [["e", validated.initialEventId, "", "initial-walk"]] : []),
+      ...(validated.initialEventIds??(validated.initialEventId?[validated.initialEventId]:[])).map(id=>["e",id,"","initial-walk"]),
       ...(validated.slug ? [["city", validated.slug]] : []),
       ["status", validated.status],
       ["client", "bitcoinwalk.org"],

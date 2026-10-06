@@ -1,0 +1,70 @@
+.switch {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  color: inherit;
+  cursor: pointer;
+  display: inline-flex;
+  flex: 0 0 auto;
+  font: inherit;
+  font-weight: 800;
+  gap: 0.65rem;
+  justify-content: flex-end;
+  min-width: 6.5rem;
+  padding: 0.35rem 0;
+}
+
+.switch:focus-visible {
+  border-radius: 0.45rem;
+  outline: 3px solid #e6358e;
+  outline-offset: 3px;
+}
+
+.switch:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.track {
+  background: #737373;
+  border: 2px solid #737373;
+  border-radius: 999px;
+  display: inline-block;
+  height: 1.75rem;
+  position: relative;
+  transition: background-color 160ms ease, border-color 160ms ease;
+  width: 3.25rem;
+}
+
+.track::after {
+  background: #fff;
+  border-radius: 50%;
+  content: "";
+  height: 1.25rem;
+  left: 0.125rem;
+  position: absolute;
+  top: 0.125rem;
+  transition: transform 160ms ease;
+  width: 1.25rem;
+}
+
+.switch[data-checked="true"] .track {
+  background: #18794e;
+  border-color: #18794e;
+}
+
+.switch[data-checked="true"] .track::after {
+  transform: translateX(1.5rem);
+}
+
+.state {
+  min-width: 2.25rem;
+  text-align: left;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .track,
+  .track::after {
+    transition: none;
+  }
+}
