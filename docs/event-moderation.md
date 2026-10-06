@@ -2,7 +2,7 @@
 
 ## First staging increment (app 0.3.89, relay 0.8.56)
 
-Activated on 29 September 2026 after operator relay installation. Relay backup: `/var/backups/bitcoinwalk-relay-moderation-0.8.56.1otPPT`; app backup: `/home/bitcoinwalk/backups/bitcoinwalk-app-bw39-0.3.89.dHUAAi`. App health checks passed. Source commits: web `2b76ec1`, relay `920fa64`. Signed human acceptance is still pending.
+Activated on 29 September 2026 after operator relay installation. Relay backup: `/var/backups/bitcoinwalk-relay-moderation-0.8.56.1otPPT`; app backup: `/home/bitcoinwalk/backups/bitcoinwalk-app-bw39-0.3.89.dHUAAi`. App health checks passed. Source commits: web `2b76ec1`, relay `920fa64`.
 
 App 0.3.90 moves the required public-reason field directly into the Publishing suspension section, labels it as applying to the next moderation action, and explains why action buttons remain disabled while it is blank.
 
@@ -21,9 +21,11 @@ Kind 30310 is reserved here for super-admin moderation. Content is strict JSON w
 
 Tags are exactly `d=cityId:decisionUUID`, `i=cityId`, `m=scope:target`, `status`, and `client=bitcoinwalk.org`. Unique retained addresses preserve history; the relay rejects changed content at an existing address, stale previous IDs, non-increasing decision timestamps, outsiders, and mismatched event/city/address targets. Retrying the exact stored decision cannot replace a newer state.
 
-## Replication boundary — activation outstanding
+## Replication boundary — accepted
 
-The next relay increment carries exact super-admin-signed event visibility decisions to configured dedicated replicas as ordered `moderation` deliveries. City, author and organizer suspension continue to govern writes at the authoritative source; dedicated city receivers are read-only. The receiver checks the admin signature, city scope, target and predecessor before advancing its durable checkpoint; rejected stale decisions cannot poison that checkpoint. Recovery orders a retained occurrence before its moderation history, reconciliation audits the new journal/outbox records, retry state is durable and sanitized, and visibility remains subordinate to permanent cancellation or city revocation. Automated acceptance covers receiver outage/retry, restart persistence, historical recovery, hide/unhide and non-resurrection after cancellation. Staging activation and human acceptance are still required. Independently operated third-party copies cannot be forcibly removed.
+Relay 0.8.63 carries exact super-admin-signed event visibility decisions to configured dedicated replicas as ordered `moderation` deliveries. City, author and organizer suspension continue to govern writes at the authoritative source; dedicated city receivers are read-only. The receiver checks the admin signature, city scope, target and predecessor before advancing its durable checkpoint; rejected stale decisions cannot poison that checkpoint. Recovery orders a retained occurrence before its moderation history, reconciliation audits the new journal/outbox records, retry state is durable and sanitized, and visibility remains subordinate to permanent cancellation or city revocation. Automated acceptance covers receiver outage/retry, restart persistence, historical recovery, hide/unhide and non-resurrection after cancellation. Independently operated third-party copies cannot be forcibly removed.
+
+The backup-first source/receiver activation completed on staging on 6 October 2026. The authoritative Memphis source and configured receiver remained exact through activation and restart; backup: `/var/backups/bitcoinwalk-replica-moderation-staging.DATWzP`. The super-admin then completed the signed live hide/unhide exercise and confirmed the configured replica followed the moderation state as expected. Recurring registration and sponsor-logo policy remained active, and the installer created no moderation decision.
 
 ## Verification
 
@@ -33,4 +35,4 @@ Human acceptance for non-replicated cities completed on 6 October 2026. The supe
 
 The complete non-replicated checklist now passes: event hide/unhide, exact-page restoration, city suspension/resume, global organizer suspension/resume, preserved public history, organizer role denial and stale-state protection. No temporary moderation state was left active.
 
-Do not mark BW-39 done until the replicated-city relay increment is activated and human acceptance is complete. No live moderation decisions are issued by the deployment process.
+BW-39 was marked complete after replicated-city activation and signed human acceptance on 6 October 2026. Deployment does not issue moderation decisions; each live decision remains an explicit super-admin signature.
