@@ -9,6 +9,7 @@ import {isSuperAdmin} from "../nostr/authority";
 import {assertExactSigned} from "../nostr/moderation";
 import {publishVerifiedEvent} from "../nostr/relay";
 import {createEventModeration,latestEventModerations,moderationKey,queryEventModerations,requireEventModerationRelay,walkAddress,type EventModeration,type EventModerationRecord} from "../nostr/event-moderation";
+import CityFinder from "./city-finder";
 
 export default function EventModerationPanel(){
  const dashboard=useDashboard(),lock=useRef(false);
@@ -16,6 +17,7 @@ export default function EventModerationPanel(){
  async function admin(){if(!isSuperAdmin(await getBrowserExtensionPubkey()))throw new Error("Connect the BitcoinWalk super-admin.");}
  async function run(action:()=>Promise<void>){if(lock.current)return;lock.current=true;setBusy(true);try{await admin();await action();}catch(e){setMessage(e instanceof Error?e.message:"Moderation failed.");}finally{lock.current=false;setBusy(false);}}
  async function load(id:string){setEvents([]);setRecords([]);await requireEventModerationRelay(relayConfig.writeRelays);const [walks,history]=await Promise.all([queryCalendarEvents(relayConfig.writeRelays,{cityId:id}),queryEventModerations(relayConfig.writeRelays,id)]);if(walks.length>=500)throw new Error("City walk read limit reached.");await admin();setEvents(walks);setRecords(history);setMessage("Loaded. Reasons are public signed audit records: do not include private information.");}
+ function selectCity(id:string){setCityId(id);setReason("");if(id)void run(()=>load(id));else{setEvents([]);setRecords([]);setMessage("Select a city to moderate walks or publishing.");}}
  useDashboardAutoLoad(()=>run(async()=>{const grants=await queryAuthorizations(relayConfig.writeRelays);setCities(grants.map(r=>({id:r.grant.cityId,creator:r.grant.creatorPubkey})));if(cityId)await load(cityId);}));
  const heads=latestEventModerations(records),head=(scope:EventModeration["scope"],target:string)=>heads.find(r=>r.decision.scope===scope&&r.decision.target===target);
  async function decide(scope:EventModeration["scope"],target:string,status:EventModeration["status"],eventId?:string){await run(async()=>{
@@ -31,7 +33,7 @@ export default function EventModerationPanel(){
   await load(cityId);setReason("");setMessage(`${status}: signed decision confirmed by relay read-back. Existing cancellation and city disapproval still apply.`);
  });}
  return <section><h2>Walk visibility and publishing</h2><p>These controls preserve signed events, ownership and history. Replicated cities are blocked until their receivers support these decisions. Do not use cancellation as a substitute for hide/unhide.</p>
- <label>City <select disabled={busy} value={cityId} onChange={e=>{const id=e.target.value;setCityId(id);setReason("");if(id)void run(()=>load(id));else{setEvents([]);setRecords([]);}}}><option value="">Select a city</option>{cities.map(c=><option key={c.id} value={c.id}>{dashboard.cities.find(d=>d.id===c.id)?.name??c.id}</option>)}</select></label>
+ <CityFinder disabled={busy} value={cityId} onChange={selectCity} placeholder="Search cities to moderate…" items={cities.map(city=>{const dashboardCity=dashboard.cities.find(item=>item.id===city.id);return {id:city.id,name:dashboardCity?.name??city.id,keywords:[city.id,city.creator]};})}/>
  <button disabled={busy||!cityId} onClick={()=>run(()=>load(cityId))}>Refresh moderation</button><p role="status">{message}</p>
  {cityId&&<><h3>Publishing suspension</h3><p>City publishing: {head("city",cityId)?.decision.status??"active"}</p>
  <label><strong>Reason for the next moderation action</strong><textarea value={reason} maxLength={500} disabled={busy} onChange={e=>setReason(e.target.value)} placeholder="Required. This reason becomes part of the public signed audit history." aria-describedby="moderation-reason-help"/></label>
