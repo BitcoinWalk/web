@@ -8,7 +8,7 @@ App 0.3.90 moves the required public-reason field directly into the Publishing s
 
 The next increment changes organizer suspension from a per-city author decision to an explicit global organizer publishing decision. Relay 0.8.57 treats an existing legacy author suspension as the migration fallback until the super-admin signs a new global decision. App 0.3.91 moves this control to **Admin → Organizers → Publishing access**, disables walk creation and editing for suspended organizers across all centrally managed cities, preserves existing walks and browser drafts, keeps cancellation available, and fails closed when suspension state cannot be verified. Both releases were activated on staging on 29 September 2026. Relay backup: `/var/backups/bitcoinwalk-relay-organizer-global-0.8.57.vktTfZ`; non-root app deployment evidence: `/home/bitcoinwalk/backups/app-staging-deploy.veM30B`. Public and loopback health, all services, and both routes passed after activation. The existing signed Larnaca author suspension `05e10285…97ed2` was read back and is the expected global migration fallback.
 
-Super-admin controls are under **Admin → Walks → Moderation and suspension**. They apply to non-replicated cities only. The app checks the relay version before signing; the relay independently checks authority and scope on receipt and again under the storage lock.
+Super-admin controls are under **Admin → Walks → Moderation and suspension**. The app checks the relay version before signing; the relay independently checks authority and scope on receipt and again under the storage lock.
 
 - **Hide/unhide** targets the stable `31923:author:d` address. Hiding suppresses anonymous lists, exact-ID reads and broadcasts; edited versions cannot bypass it. Original signed records remain stored. Unhide does not undo cancellation, city disapproval, or other existing read restrictions.
 - **Suspend/resume city publishing** blocks new calendar writes for that city without hiding published history or changing ownership.
@@ -21,9 +21,9 @@ Kind 30310 is reserved here for super-admin moderation. Content is strict JSON w
 
 Tags are exactly `d=cityId:decisionUUID`, `i=cityId`, `m=scope:target`, `status`, and `client=bitcoinwalk.org`. Unique retained addresses preserve history; the relay rejects changed content at an existing address, stale previous IDs, non-increasing decision timestamps, outsiders, and mismatched event/city/address targets. Retrying the exact stored decision cannot replace a newer state.
 
-## Replication boundary — still outstanding
+## Replication boundary — activation outstanding
 
-This release deliberately rejects moderation for cities in the source's replication registry. It also rejects exporting a moderated city or adding its history to replication recovery. Receiver transport, suppression/unhide ordering, state reconciliation and restart acceptance must be implemented before enabling these controls for replicated cities. It would be unsafe to report success while a dedicated relay still exposes a hidden walk. Independently operated third-party copies cannot be forcibly removed.
+The next relay increment carries exact super-admin-signed event visibility decisions to configured dedicated replicas as ordered `moderation` deliveries. City, author and organizer suspension continue to govern writes at the authoritative source; dedicated city receivers are read-only. The receiver checks the admin signature, city scope, target and predecessor before advancing its durable checkpoint; rejected stale decisions cannot poison that checkpoint. Recovery orders a retained occurrence before its moderation history, reconciliation audits the new journal/outbox records, retry state is durable and sanitized, and visibility remains subordinate to permanent cancellation or city revocation. Automated acceptance covers receiver outage/retry, restart persistence, historical recovery, hide/unhide and non-resurrection after cancellation. Staging activation and human acceptance are still required. Independently operated third-party copies cannot be forcibly removed.
 
 ## Verification
 
@@ -33,4 +33,4 @@ Human acceptance for non-replicated cities completed on 6 October 2026. The supe
 
 The complete non-replicated checklist now passes: event hide/unhide, exact-page restoration, city suspension/resume, global organizer suspension/resume, preserved public history, organizer role denial and stale-state protection. No temporary moderation state was left active.
 
-Do not mark BW-39 done until replication support and human acceptance are complete. No live moderation decisions are issued by the deployment process.
+Do not mark BW-39 done until the replicated-city relay increment is activated and human acceptance is complete. No live moderation decisions are issued by the deployment process.
