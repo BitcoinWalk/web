@@ -23,6 +23,8 @@ async function main() {
   const publishProfile = process.argv.includes("--publish-profile");
   const printIdentity = process.argv.includes("--print-identity");
   const checkReplication = process.argv.includes("--check-replication");
+  const checkDirectory = process.argv.includes("--check-directory");
+  const baselineDirectory = process.argv.includes("--baseline-directory");
   const retryIndex=process.argv.indexOf("--retry-delivery");
   const retryDelivery=retryIndex!==-1;
   const retryReplicationIndex=process.argv.indexOf("--retry-replication-delivery");
@@ -33,8 +35,8 @@ async function main() {
   const retryPurpose=retryReplicationDelivery?process.argv[selectedRetryIndex+3]:undefined;
   if(retryDelivery&&(!retrySubmission||!retryRecipient))throw new Error("Retry requires an exact live submission and recipient.");
   if(retryReplicationDelivery&&(!retrySubmission||!retryRecipient||!retryPurpose))throw new Error("Replication retry requires an exact submission, recipient and purpose.");
-  if([dryRun,publishProfile,printIdentity,checkReplication,retryDelivery,retryReplicationDelivery].filter(Boolean).length>1)throw new Error("Choose only one Guide operation mode.");
-  if (!dryRun && !publishProfile && !printIdentity && !checkReplication && !retryDelivery && !retryReplicationDelivery && !config.enabled) throw new Error("Guide is disabled. Complete dry-run and operator review before enabling.");
+  if([dryRun,publishProfile,printIdentity,checkReplication,checkDirectory,baselineDirectory,retryDelivery,retryReplicationDelivery].filter(Boolean).length>1)throw new Error("Choose only one Guide operation mode.");
+  if (!dryRun && !publishProfile && !printIdentity && !checkReplication && !checkDirectory && !baselineDirectory && !retryDelivery && !retryReplicationDelivery && !config.enabled) throw new Error("Guide is disabled. Complete dry-run and operator review before enabling.");
   let secret: Uint8Array | undefined;
   let outbox: Outbox | undefined;
   if (!dryRun) {
@@ -50,6 +52,8 @@ async function main() {
     const bot = assertBotKey(secret, config.recipients);
     if(printIdentity){process.stdout.write(bot+"\n");secret.fill(0);return;}
     if(checkReplication){const report=await readGuideReplicationStatus(secret);console.log(`Guide replication authorization passed: ${report.state}; ${report.cities.length} city row(s).`);secret.fill(0);return;}
+    if(checkDirectory){if(!config.directoryStatusURL)throw new Error("Directory status URL is absent.");try{const rows=await readGuideDirectoryRequests(secret,config.directoryStatusURL);console.log(`Guide directory authorization passed; ${rows.length} request row(s).`);secret.fill(0);return;}catch(error){console.error(`Guide directory authorization failed: ${error instanceof Error?error.message:"unknown failure"}`);secret.fill(0);process.exitCode=1;return;}}
+    if(baselineDirectory){if(!config.directoryStatusURL||!config.directoryAdminURL)throw new Error("Directory notification configuration is absent.");const box=new Outbox(join(state,"guide.sqlite"));try{box.bind(bot,config.sourceRelay);const rows=await readGuideDirectoryRequests(secret,config.directoryStatusURL),queued=box.ingestDirectory(rows,secret,config.directoryAdminURL);if(queued!==0)throw new Error("Historical directory baseline unexpectedly queued a message.");console.log(`Guide directory baseline accepted; ${rows.length} existing request row(s), zero historical messages queued.`);}finally{box.close();secret.fill(0);}return;}
     if(!retryDelivery&&!retryReplicationDelivery){
       outbox = new Outbox(join(state, "guide.sqlite"));
       outbox.bind(bot, config.sourceRelay);
