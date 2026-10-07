@@ -5,7 +5,7 @@ import CitySignerSetup from "./city-signer-setup";
 
 describe("CitySignerSetup", () => {
   it("keeps the city signer separate and requires explicit recovery acknowledgement", () => {
-    const html = renderToStaticMarkup(createElement(CitySignerSetup, {cityId: "66f137cb-2ac1-4eef-8358-7dd66b45922f", cityName: "London", actor: "a".repeat(64), saved: {configured: false}, busy: false, onSaved: vi.fn()}));
+    const html = renderToStaticMarkup(createElement(CitySignerSetup, {cityId: "66f137cb-2ac1-4eef-8358-7dd66b45922f", cityName: "London", actor: "a".repeat(64), saved: {configured: false}, setupReady:false,busy: false, onSaved: vi.fn(),onActivation:vi.fn()}));
     expect(html).toContain("Separate city signer");
     expect(html).toContain("never replaces your personal dashboard login");
     expect(html).toContain("Create new city identity");
@@ -13,7 +13,7 @@ describe("CitySignerSetup", () => {
     expect(html).toContain("never uploads or stores the private key");
   });
   it("shows only the truncated expected public identity and a deliberate clear action", () => {
-    const html = renderToStaticMarkup(createElement(CitySignerSetup, {cityId: "66f137cb-2ac1-4eef-8358-7dd66b45922f", cityName: "London", actor: "a".repeat(64), saved: {configured: true, pubkey: "b".repeat(64), version: 2}, busy: false, onSaved: vi.fn()}));
+    const html = renderToStaticMarkup(createElement(CitySignerSetup, {cityId: "66f137cb-2ac1-4eef-8358-7dd66b45922f", cityName: "London", actor: "a".repeat(64), saved: {configured: true, pubkey: "b".repeat(64), version: 2}, setupReady:true,busy: false, onSaved: vi.fn(),onActivation:vi.fn()}));
     expect(html).toContain("Expected city identity"); expect(html).toContain("version 2"); expect(html).toContain("Clear saved city signer");
     expect(html).not.toContain("b".repeat(64));
   });

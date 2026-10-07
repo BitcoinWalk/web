@@ -15,6 +15,8 @@ import {ProSetupTaskStore} from "../payments/pro-setup-task-store";
 import {validatePayoutDestination} from "./lnurl-pay";
 import {SUPER_ADMIN_PUBKEY} from "../nostr/authority";
 import {authorizeCitySignerProof, type ProSetupCommand} from "../nostr/pro-setup-command";
+import {CityBrandStore} from "../directory/city-brand-store";
+import type {EventTemplate} from "nostr-tools";
 
 /** This preflight cannot publish, create invoices, assign identities or activate payments. */
 export type ProSetupPreview = {
@@ -24,6 +26,7 @@ export type ProSetupPreview = {
   payout: {configured: boolean; destination?: string; version?: number; suggestedDestination?: string; registrationVersion?: number};
   setup: {state: "setup-required" | "payout-confirmed" | "signer-confirmed" | "ready-for-proof"; updatedAt: number};
   signer: {configured: boolean; pubkey?: string; version?: number};
+  activation?: {requestId: string; expiresAt: number; proofsReady: boolean};
   steps: Array<{label: string; state: "ready" | "blocked"; detail: string}>;
 };
 
@@ -51,7 +54,7 @@ export const proSetupDependencies = {
       row.decision.status === "suspended" && (row.decision.scope === "city" || row.decision.scope === "author" && row.decision.target === owner));
   },
 };
-export async function resolveProSetupAuthority(cityId: string, actor: string, deps = proSetupDependencies) {
+async function resolveProSetupEvidence(cityId: string, deps = proSetupDependencies) {
   const [snapshot, grants] = await Promise.all([deps.snapshot(), deps.grants()]);
   const row = managedCities(snapshot.revisions, snapshot.approvals).find(item => item.state === "approved" && item.revision.city.cityId === cityId);
   const grant = grants.find(item => item.grant.cityId === cityId);
@@ -59,7 +62,6 @@ export async function resolveProSetupAuthority(cityId: string, actor: string, de
   // Never use the editor who authored the latest revision as owner; directory failures cannot fall back.
   const directory = await deps.discover(cityId, grant.grant.creatorPubkey);
   const ownerPubkey = directory?.ownerPubkey ?? grant.grant.creatorPubkey;
-  if (actor !== ownerPubkey) throw new Error("Only the current city owner can prepare its Pro account.");
   const entitlement = deps.entitlement(cityId);
   if (!entitlement) throw new Error("A settled Pro entitlement is required. This screen never asks you to pay again.");
   if (await deps.restrictions(cityId, ownerPubkey)) throw new Error("City or organizer publishing is suspended. Contact the administrator.");
@@ -67,6 +69,13 @@ export async function resolveProSetupAuthority(cityId: string, actor: string, de
     approvalEventId: row.decision.event.id, entitlementId: entitlement.invoiceId, eligible: true};
   return {authority, row, entitlement};
 }
+export async function resolveProSetupAuthority(cityId: string, actor: string, deps = proSetupDependencies) {
+  const result = await resolveProSetupEvidence(cityId, deps);
+  if (actor !== result.authority.ownerPubkey) throw new Error("Only the current city owner can prepare its Pro account.");
+  return result;
+}
+
+const brandStore = () => new CityBrandStore(getPaymentRuntime().store.db);
 
 function ensureSetupTask(resolved: Awaited<ReturnType<typeof resolveProSetupAuthority>>) {
   const db = getPaymentRuntime().store.db;
@@ -102,17 +111,21 @@ export async function prepareProSetupPreview(cityId: string, actor: string, orig
   const fresh = await resolveProSetupAuthority(cityId, actor);
   if (JSON.stringify(authority) !== JSON.stringify(fresh.authority)) throw new Error("City authority changed during preparation. Reload to try again.");
   const name = `BitcoinWalk in ${city.cityName}`;
-  const {task: initialTask, store: taskStore, binding} = ensureSetupTask(fresh);
+  const {store: taskStore, binding} = ensureSetupTask(fresh);
+  const artworkTask = taskStore.confirmArtwork(cityId, fresh.authority.entitlementId, fresh.authority.ownerPubkey,
+    {revisionId: row.revision.event.id, avatar: artwork.avatar.url, banner: artwork.banner.url});
   const destinations = new PayoutDestinationStore(getPaymentRuntime().store.db);
   const stored = destinations.current(cityId);
   const payout = stored?.ownerPubkey === fresh.authority.ownerPubkey ? stored : null;
-  const task = payout && initialTask.payoutVersion !== payout.version ?
-    taskStore.confirmPayout(cityId, fresh.authority.entitlementId, fresh.authority.ownerPubkey, payout.version) : initialTask;
+  const task = payout && artworkTask.payoutVersion !== payout.version ?
+    taskStore.confirmPayout(cityId, fresh.authority.entitlementId, fresh.authority.ownerPubkey, payout.version) : artworkTask;
   const registration = !payout && task.registrationVersion ? destinations.registration(cityId, task.registrationVersion) : undefined;
   const suggestion = registration?.ownerPubkey === fresh.authority.ownerPubkey && registration.revisionId === binding.revisionId ? registration : undefined;
+  const pending = brandStore().pendingForCity(cityId);
   return {cityId, cityName: city.cityName, revisionId: row.revision.event.id, status: "preparation-only",
     setup: {state: task.state, updatedAt: task.updatedAt},
     signer: task.signer ? {configured: true, pubkey: task.signer.pubkey, version: task.signer.version} : {configured: false},
+    ...(pending ? {activation: {requestId: pending.id, expiresAt: pending.expires_at, proofsReady: !!pending.owner_proof && !!pending.brand_proof}} : {}),
     payout: payout ? {configured: true, destination: payout.normalized, version: payout.version} : suggestion ?
       {configured: false, suggestedDestination: suggestion.normalized, registrationVersion: suggestion.version} : {configured: false},
     profile: {name, display_name: name, picture: artwork.avatar.url, banner: artwork.banner.url, website: `${origin}/${slug}`},
@@ -123,6 +136,54 @@ export async function prepareProSetupPreview(cityId: string, actor: string, orig
       {label: "Separate city signer", state: task.signer ? "ready" : "blocked", detail: task.signer ? `Expected city signer version ${task.signer.version} is confirmed privately. Its key remains outside BitcoinWalk.` : "Create or connect a recoverable city identity and prove control of its exact public key."},
       {label: "City account activation", state: "blocked", detail: "Request-bound approval and relay read-back are still being integrated. Keep your personal dashboard identity; no city account is active yet."},
     ]};
+}
+
+export async function prepareBrandRequest(cityId: string, actor: string, origin: string) {
+  const resolved = await resolveProSetupAuthority(cityId, actor), {task} = ensureSetupTask(resolved);
+  if (!task.signer || !task.payoutVersion || !task.artwork || task.artwork.revisionId !== resolved.row.revision.event.id) throw new Error("Complete payout, signer and current artwork setup before preparing activation.");
+  const city = resolved.row.revision.city, slug = resolved.row.decision.approval.slug ?? city.slug;
+  const profile = {revisionId: task.artwork.revisionId, artworkVersion: task.artwork.version, signerVersion: task.signer.version, payoutVersion: task.payoutVersion,
+    name: `BitcoinWalk in ${city.cityName}`, picture: task.artwork.avatar,
+    banner: task.artwork.banner, website: `${origin}/${slug}`};
+  return brandStore().prepare(actor, resolved.authority, origin, task.signer.pubkey, "activate", profile);
+}
+
+export async function submitBrandProofs(cityId: string, requestId: string, actor: string, ownerProof: Event, signerProof: Event) {
+  const resolved = await resolveProSetupAuthority(cityId, actor), store=brandStore(),request=store.details(requestId);assertBrandTask(request.challenge,resolved);
+  const row = store.submitProofs(requestId, actor, resolved.authority, ownerProof, signerProof);
+  return {requestId: row.id, expiresAt: row.expires_at, proofsReady: true, state: "awaiting-super-admin" as const,
+    message: "Organizer and city-signer proofs saved privately. Super-admin review is required; nothing has been published."};
+}
+
+export async function cancelBrandRequest(cityId: string, requestId: string, actor: string) {
+  const resolved = await resolveProSetupAuthority(cityId, actor); brandStore().cancel(requestId, actor, resolved.authority);
+  return {requestId, cancelled: true as const, message: "Activation request cancelled. Your signer, payout setup and Pro entitlement remain saved."};
+}
+
+export async function listBrandRequests(actor: string) {
+  if (actor !== SUPER_ADMIN_PUBKEY) throw new Error("Super-admin review required.");
+  return brandStore().pending().map(row => ({requestId: row.id, cityId: row.city_id, expiresAt: row.expires_at,
+    brandPubkey: row.challenge.binding.brandPubkey, profile: row.challenge.profile, proofsReady: !!row.owner_proof && !!row.brand_proof}));
+}
+
+async function brandReviewEvidence(requestId: string, actor: string) {
+  if (actor !== SUPER_ADMIN_PUBKEY) throw new Error("Super-admin review required.");
+  const store = brandStore(), request = store.details(requestId), resolved = await resolveProSetupEvidence(request.city_id);assertBrandTask(request.challenge,resolved);
+  return {store, request, resolved};
+}
+function assertBrandTask(challenge: import("../nostr/city-brand").CityBrandChallenge, resolved: Awaited<ReturnType<typeof resolveProSetupEvidence>>) {
+  const {task}=ensureSetupTask(resolved),profile=challenge.profile;
+  if(!task.signer||!task.artwork||!task.payoutVersion||task.signer.pubkey!==challenge.binding.brandPubkey||task.signer.version!==profile.signerVersion||
+    task.artwork.version!==profile.artworkVersion||task.artwork.revisionId!==profile.revisionId||task.artwork.avatar!==profile.picture||task.artwork.banner!==profile.banner||
+    task.payoutVersion!==profile.payoutVersion)throw new Error("City signer, payout or artwork changed. Cancel this request and prepare a new one.");
+}
+export async function reviewBrandRequest(requestId: string, actor: string): Promise<EventTemplate> {
+  const {store, resolved} = await brandReviewEvidence(requestId, actor); return store.reviewStored(requestId, actor, resolved.authority);
+}
+export async function approveBrandRequest(requestId: string, actor: string, signed: Event) {
+  const {store, resolved} = await brandReviewEvidence(requestId, actor), event = store.approveStored(requestId, actor, resolved.authority, signed);
+  return {requestId, eventId: event.id, state: "approved-not-published" as const,
+    message: "Exact city binding signed and stored privately. It is not published or active until relay admission and read-back are implemented."};
 }
 
 export async function saveProSetupSigner(cityId: string, actor: string, command: Extract<ProSetupCommand, {action: "confirm-city-signer"}>, brandProof: Event, origin: string) {

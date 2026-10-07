@@ -24,10 +24,13 @@ const authoritySchema = z.object({
   cityId: z.uuid(), ownerPubkey: hex, authorityEventId: hex,
   approvalEventId: hex, entitlementId: z.string().min(1).max(200), eligible: z.boolean(),
 }).strict();
+const profileSchema = z.object({revisionId: hex, artworkVersion: integer.min(1), signerVersion: integer.min(1), payoutVersion: integer.min(1),
+  name: z.string().trim().min(1).max(100), picture: z.url(), banner: z.url(), website: z.url()}).strict();
+export type CityBrandProfile = z.infer<typeof profileSchema>;
 const challengeSchema = z.object({
   version: z.literal(1), requestId: z.uuid(), origin: z.url(),
   issuedAt: integer, expiresAt: integer,
-  authority: authoritySchema, binding: bindingSchema,
+  authority: authoritySchema, binding: bindingSchema, profile: profileSchema,
 }).strict();
 export type CityBrandChallenge = z.infer<typeof challengeSchema>;
 
@@ -65,7 +68,7 @@ function successor(binding: CityBrandBinding, previous: Event | null) {
 }
 export function createCityBrandChallenge(input: {
   requestId: string; origin: string; authority: CityBrandAuthority;
-  brandPubkey: string; action: CityBrandBinding["action"]; previous: Event | null; now: number;
+  brandPubkey: string; action: CityBrandBinding["action"]; previous: Event | null; now: number; profile: CityBrandProfile;
 }): CityBrandChallenge {
   const authority = authoritySchema.parse(input.authority);
   const prior = input.previous ? readCityBrand(input.previous) : null;
@@ -76,7 +79,7 @@ export function createCityBrandChallenge(input: {
   successor(binding, input.previous);
   if (binding.action !== "revoke" && (!authority.eligible || binding.brandPubkey === authority.ownerPubkey || binding.brandPubkey === SUPER_ADMIN_PUBKEY)) throw new Error("A separate city account and eligible Pro city are required.");
   return challengeSchema.parse({version: 1, requestId: input.requestId,
-    origin: canonicalOrigin(input.origin), issuedAt: input.now, expiresAt: input.now + 900, authority, binding});
+    origin: canonicalOrigin(input.origin), issuedAt: input.now, expiresAt: input.now + 900, authority, binding, profile: profileSchema.parse(input.profile)});
 }
 export function cityBrandProofTemplate(challenge: CityBrandChallenge, role: "owner" | "brand"): EventTemplate {
   const request = challengeSchema.parse(challenge);
@@ -97,7 +100,7 @@ export function authorizeCityBrand(input: {
   successor(request.binding, input.previous);
   const expected = createCityBrandChallenge({requestId: request.requestId, origin: request.origin,
     authority: input.currentAuthority, brandPubkey: request.binding.brandPubkey,
-    action: request.binding.action, previous: input.previous, now: request.issuedAt});
+    action: request.binding.action, previous: input.previous, now: request.issuedAt, profile: request.profile});
   if (JSON.stringify(expected) !== JSON.stringify(request)) throw new Error("City account request changed.");
   for (const role of request.binding.action === "revoke" ? ["owner"] as const : ["owner", "brand"] as const) {
     const proof = role === "owner" ? input.ownerProof : input.brandProof;

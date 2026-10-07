@@ -3,10 +3,12 @@ import type {DatabaseSync} from "node:sqlite";
 import type {Event} from "nostr-tools";
 import {SUPER_ADMIN_PUBKEY} from "../nostr/authority";
 import {authorizeCityBrand, createCityBrandChallenge, readCityBrand, resolveCityBrand,
-  type CityBrandAuthority} from "../nostr/city-brand";
+  type CityBrandAuthority, type CityBrandChallenge, type CityBrandProfile} from "../nostr/city-brand";
 
-/** Private, opt-in store. No runtime instantiates it until the activation API lands.
- * All authority inputs must come from fresh verified server-side resolvers. */
+type RequestRow = {id:string; city_id:string; challenge:string; status:string; expires_at:number; owner_proof:string|null; brand_proof:string|null; approved_event:string|null};
+
+/** Private activation-evidence store. All authority inputs must come from fresh
+ * verified server-side resolvers; only approved binding events have a public projection. */
 export class CityBrandStore {
   constructor(private db: DatabaseSync, private now = () => Math.floor(Date.now() / 1000)) {
     db.exec(`CREATE TABLE IF NOT EXISTS city_brand_request (
@@ -22,11 +24,19 @@ export class CityBrandStore {
     const rows = this.db.prepare("SELECT event FROM city_brand_binding WHERE city_id=? ORDER BY sequence").all(cityId) as {event:string}[];
     return resolveCityBrand(rows.map(row => JSON.parse(row.event)), cityId)?.event ?? null;
   }
-  prepare(actor: string, authority: CityBrandAuthority, origin: string, brandPubkey: string, action: "activate" | "replace" | "revoke") {
+  private expire() {this.db.prepare("UPDATE city_brand_request SET status='expired' WHERE status='pending' AND expires_at<=?").run(this.now());}
+  prepare(actor: string, authority: CityBrandAuthority, origin: string, brandPubkey: string, action: "activate" | "replace" | "revoke", profile: CityBrandProfile) {
     if (actor !== authority.ownerPubkey) throw new Error("Only the verified city owner may prepare this request.");
     const now = this.now();
-    this.db.prepare("UPDATE city_brand_request SET status='expired' WHERE status='pending' AND expires_at<=?").run(now);
-    const challenge = createCityBrandChallenge({requestId: randomUUID(), authority, origin, brandPubkey, action, previous: this.head(authority.cityId), now});
+    this.expire();
+    const pending = this.db.prepare("SELECT * FROM city_brand_request WHERE city_id=? AND status='pending'").get(authority.cityId) as RequestRow | undefined;
+    if (pending) {
+      const existing = JSON.parse(pending.challenge) as CityBrandChallenge;
+      if (existing.origin === origin && JSON.stringify(existing.authority) === JSON.stringify(authority) && existing.binding.brandPubkey === brandPubkey &&
+          existing.binding.action === action && JSON.stringify(existing.profile) === JSON.stringify(profile)) return existing;
+      throw new Error("A different city account request is already pending. Cancel it before preparing another.");
+    }
+    const challenge = createCityBrandChallenge({requestId: randomUUID(), authority, origin, brandPubkey, action, previous: this.head(authority.cityId), now, profile});
     this.db.prepare("INSERT INTO city_brand_request(id,city_id,challenge,status,expires_at) VALUES(?,?,?,'pending',?)")
       .run(challenge.requestId, authority.cityId, JSON.stringify(challenge), challenge.expiresAt);
     return challenge;
@@ -37,10 +47,30 @@ export class CityBrandStore {
     this.db.prepare("UPDATE city_brand_request SET status='cancelled' WHERE id=? AND status='pending'").run(id);
   }
   private request(id: string) {
-    const row = this.db.prepare("SELECT * FROM city_brand_request WHERE id=?").get(id) as
-      {id:string; city_id:string; challenge:string; status:string; approved_event:string|null} | undefined;
+    const row = this.db.prepare("SELECT * FROM city_brand_request WHERE id=?").get(id) as RequestRow | undefined;
     if (!row) throw new Error("City account request not found.");
     return row;
+  }
+  details(id: string) {const row = this.request(id); return {...row, challenge: JSON.parse(row.challenge) as CityBrandChallenge};}
+  pending(limit = 100) {this.expire(); return (this.db.prepare("SELECT * FROM city_brand_request WHERE status='pending' ORDER BY expires_at LIMIT ?").all(limit) as RequestRow[])
+    .map(row => ({...row, challenge: JSON.parse(row.challenge) as CityBrandChallenge}));}
+  pendingForCity(cityId:string){this.expire();const row=this.db.prepare("SELECT * FROM city_brand_request WHERE city_id=? AND status='pending'").get(cityId) as RequestRow|undefined;return row?{...row,challenge:JSON.parse(row.challenge) as CityBrandChallenge}:null;}
+  submitProofs(id: string, actor: string, authority: CityBrandAuthority, ownerProof: Event, brandProof: Event) {
+    const row = this.request(id);
+    if (row.status !== "pending" || actor !== authority.ownerPubkey || row.city_id !== authority.cityId) throw new Error("Only the current city owner may submit this pending request.");
+    authorizeCityBrand({challenge: JSON.parse(row.challenge), currentAuthority: authority, previous: this.head(row.city_id), ownerProof, brandProof, now: this.now()});
+    this.db.prepare("UPDATE city_brand_request SET owner_proof=?,brand_proof=? WHERE id=? AND status='pending'").run(JSON.stringify(ownerProof), JSON.stringify(brandProof), id);
+    return this.details(id);
+  }
+  reviewStored(id: string, actor: string, authority: CityBrandAuthority) {
+    const row = this.request(id);
+    if (!row.owner_proof || !row.brand_proof) throw new Error("Both organizer and city signer proofs are required.");
+    return this.review(id, actor, authority, JSON.parse(row.owner_proof), JSON.parse(row.brand_proof));
+  }
+  approveStored(id: string, actor: string, authority: CityBrandAuthority, signed: Event) {
+    const row = this.request(id);
+    if (!row.owner_proof || !row.brand_proof) throw new Error("Both organizer and city signer proofs are required.");
+    return this.approve(id, actor, authority, JSON.parse(row.owner_proof), JSON.parse(row.brand_proof), signed);
   }
   review(id: string, actor: string, authority: CityBrandAuthority, ownerProof: Event, brandProof?: Event) {
     if (actor !== SUPER_ADMIN_PUBKEY) throw new Error("Super-admin review required.");

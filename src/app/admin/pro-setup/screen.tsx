@@ -7,9 +7,11 @@ import {signWithBrowserExtension} from "../../../nostr/signer";
 import {authorizeProSetup, proSetupTemplate} from "../../../nostr/pro-setup-command";
 import type {ProSetupPreview} from "../../../server/pro-setup";
 import CitySignerSetup from "../../../components/city-signer-setup";
+import CityBrandReview from "../../../components/city-brand-review";
 
 export default function ProSetupScreen({enabled}: {enabled: boolean}) {
-  const {pubkey, cities} = useDashboard();
+  const {pubkey, cities, role} = useDashboard();
+  if(role==="super-admin")return enabled?<CityBrandReview actor={pubkey}/>:<p role="status">Pro city account review is not enabled yet.</p>;
   // Remount on account changes so private setup responses never cross login boundaries.
   return <ProSetupForm key={pubkey} enabled={enabled} actor={pubkey} cities={cities}/>;
 }
@@ -74,10 +76,12 @@ function ProSetupForm({enabled, actor, cities}: {enabled: boolean; actor: string
           {preview.payout.configured && <p>Saved destination version {preview.payout.version}: <strong>{preview.payout.destination}</strong>. Confirming a change creates a new version; existing invoices retain their previous version.</p>}
           <button type="button" onClick={() => void savePayout()} disabled={busy || !destination.trim()}>{busy ? "Validating…" : preview.payout.configured ? "Validate and save new version" : "Validate and save destination"}</button>
         </fieldset>
-        <CitySignerSetup cityId={preview.cityId} cityName={preview.cityName} actor={actor} saved={preview.signer} busy={busy}
-          onSaved={(signer, note) => {setPreview(value => value ? {...value, signer} : value); setMessage(note);}}/>
+        <CitySignerSetup cityId={preview.cityId} cityName={preview.cityName} actor={actor} saved={preview.signer} activation={preview.activation}
+          setupReady={preview.payout.configured&&preview.signer.configured} busy={busy}
+          onSaved={(signer, note) => {setPreview(value => value ? {...value, signer} : value); setMessage(note);}}
+          onActivation={(activation,note)=>{setPreview(value=>value?{...value,activation}:value);setMessage(note);}}/>
         <ol>{preview.steps.map(step => <li key={step.label}><strong>{step.state === "ready" ? "✓" : "Pending"} {step.label}</strong><p>{step.detail}</p></li>)}</ol>
-        <p>You can return to this screen without paying again. A saved payout destination remains private and inactive until provisioning succeeds. No city key has been created or stored.</p>
+        <p>You can return to this screen without paying again. A saved payout destination remains private and inactive until provisioning succeeds. BitcoinWalk never stores the city private key or remote-signer connection.</p>
       </section>}
     </>}
   </section>;

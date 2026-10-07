@@ -44,7 +44,9 @@ describe("durable Pro setup tasks", () => {
     const store = new ProSetupTaskStore(db);
     store.ensure({cityId, entitlementId, originalOwnerPubkey: owner, currentOwnerPubkey: owner});
     expect(store.confirmSigner(cityId, entitlementId, owner, "c".repeat(64))).toMatchObject({state: "signer-confirmed", signer: {version: 1}});
+    expect(store.confirmArtwork(cityId,entitlementId,owner,{revisionId:"e".repeat(64),avatar:"https://bitcoinwalk.org/avatar.webp",banner:"https://bitcoinwalk.org/banner.webp"})).toMatchObject({artwork:{version:1,revisionId:"e".repeat(64)}});
   });
+  it("versions exact approved artwork and rejects unsafe or malformed bindings",()=>{const {store}=setup();store.ensure({cityId,entitlementId,originalOwnerPubkey:owner,currentOwnerPubkey:owner},100);const artwork={revisionId:"e".repeat(64),avatar:"https://bitcoinwalk.org/avatar.webp",banner:"https://bitcoinwalk.org/banner.webp"};expect(store.confirmArtwork(cityId,entitlementId,owner,artwork,101)).toMatchObject({artwork:{...artwork,version:1}});expect(store.confirmArtwork(cityId,entitlementId,owner,artwork,102)).toMatchObject({artwork:{version:1}});expect(()=>store.confirmArtwork(cityId,entitlementId,owner,{...artwork,avatar:"http://example.com/a"})).toThrow("HTTPS");});
 
   it("invalidates the prior owner's payout on a trusted ownership rotation", () => {
     const {store} = setup();

@@ -6,9 +6,11 @@ import {BunkerSigner, parseBunkerInput} from "nostr-tools/nip46";
 import type {NostrBrowserExtension} from "../nostr/signer";
 import {signWithBrowserExtension} from "../nostr/signer";
 import {authorizeProSetup, citySignerProofTemplate, proSetupTemplate} from "../nostr/pro-setup-command";
+import {cityBrandProofTemplate, type CityBrandChallenge} from "../nostr/city-brand";
 
 type RemoteSession = {close(): Promise<void>};
 type SavedSigner = {configured: boolean; pubkey?: string; version?: number};
+type Activation = {requestId: string; expiresAt: number; proofsReady: boolean};
 function localSigner(secret: Uint8Array): NostrBrowserExtension {const pubkey = getPublicKey(secret); return {getPublicKey: async () => pubkey, signEvent: async template => finalizeEvent(structuredClone(template), secret)};}
 function remoteSigner(signer: BunkerSigner): NostrBrowserExtension {return {getPublicKey: () => signer.getPublicKey(), signEvent: template => signer.signEvent(template)};}
 function decodeNsec(value: string) {const decoded = nip19.decode(value.trim()); if (decoded.type !== "nsec" || !(decoded.data instanceof Uint8Array)) throw new Error("Enter a valid nsec1 private key."); return decoded.data;}
@@ -21,8 +23,9 @@ function downloadBackup(nsec: string, cityName: string) {
   anchor.hidden = true; document.body.appendChild(anchor); anchor.click(); anchor.remove(); setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-export default function CitySignerSetup({cityId, cityName, actor, saved, busy: parentBusy, onSaved}: {
-  cityId: string; cityName: string; actor: string; saved: SavedSigner; busy: boolean; onSaved(value: SavedSigner, message: string): void;
+export default function CitySignerSetup({cityId, cityName, actor, saved, activation, setupReady, busy: parentBusy, onSaved, onActivation}: {
+  cityId: string; cityName: string; actor: string; saved: SavedSigner; activation?: Activation; setupReady: boolean; busy: boolean;
+  onSaved(value: SavedSigner, message: string): void; onActivation(value: Activation | undefined, message: string): void;
 }) {
   const signer = useRef<NostrBrowserExtension | null>(null), remote = useRef<RemoteSession | null>(null), file = useRef<HTMLInputElement>(null);
   const [pubkey, setPubkey] = useState(""), [input, setInput] = useState(""), [acknowledged, setAcknowledged] = useState(false);
@@ -57,6 +60,24 @@ export default function CitySignerSetup({cityId, cityName, actor, saved, busy: p
     onSaved({configured: true, pubkey: body.signer.pubkey, version: body.signer.version}, body.signer.message);
   });}
   function clearSaved() {void run(async () => {const command = {action: "clear-city-signer" as const, cityId}, origin = window.location.origin; const event = await signWithBrowserExtension(proSetupTemplate(command, origin)); if (event.pubkey !== actor) throw new Error("Dashboard identity changed."); const response = await fetch("/api/pro-setup", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({event}), signal: AbortSignal.timeout(60_000)}); const body = await response.json(); if (!response.ok) throw new Error(body.error || "Saved signer could not be cleared."); onSaved({configured: false}, body.signer.message); disconnect();});}
+  function submitActivation() {void run(async () => {
+    if (!signer.current || !saved.pubkey || pubkey !== saved.pubkey) throw new Error("Reconnect the exact saved city signer first.");
+    if (!setupReady) throw new Error("Confirm the payout destination and city signer before preparing activation.");
+    const origin=window.location.origin,prepareCommand={action:"prepare-brand-request" as const,cityId};
+    const prepareEvent=await signWithBrowserExtension(proSetupTemplate(prepareCommand,origin));
+    const prepared=await fetch("/api/pro-setup",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({event:prepareEvent}),signal:AbortSignal.timeout(60_000)}),preparedBody=await prepared.json();
+    if(!prepared.ok)throw new Error(preparedBody.error||"Activation request could not be prepared.");
+    const challenge=preparedBody.request as CityBrandChallenge;
+    if(challenge.binding.brandPubkey!==pubkey||challenge.authority.ownerPubkey!==actor||challenge.authority.cityId!==cityId)throw new Error("Prepared activation request did not match the connected identities.");
+    const ownerProof=await signWithBrowserExtension(cityBrandProofTemplate(challenge,"owner"));
+    const brandProof=await signer.current.signEvent(cityBrandProofTemplate(challenge,"brand"));
+    if(ownerProof.pubkey!==actor||brandProof.pubkey!==pubkey||await signer.current.getPublicKey()!==pubkey)throw new Error("An identity changed while signing the activation request.");
+    const submitCommand={action:"submit-brand-proofs" as const,cityId,requestId:challenge.requestId},event=await signWithBrowserExtension(proSetupTemplate(submitCommand,origin));
+    const response=await fetch("/api/pro-setup",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({event,ownerProof,brandProof}),signal:AbortSignal.timeout(60_000)}),body=await response.json();
+    if(!response.ok)throw new Error(body.error||"Activation proofs could not be saved.");
+    onActivation({requestId:body.request.requestId,expiresAt:body.request.expiresAt,proofsReady:true},body.request.message);
+  });}
+  function cancelActivation(){if(!activation)return;void run(async()=>{const origin=window.location.origin,command={action:"cancel-brand-request" as const,cityId,requestId:activation.requestId},event=await signWithBrowserExtension(proSetupTemplate(command,origin));const response=await fetch("/api/pro-setup",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({event}),signal:AbortSignal.timeout(60_000)}),body=await response.json();if(!response.ok)throw new Error(body.error||"Activation request could not be cancelled.");onActivation(undefined,body.request.message);});}
   const mismatch = !!saved.pubkey && !!pubkey && saved.pubkey !== pubkey;
   return <fieldset disabled={busy || parentBusy}>
     <legend>Separate city signer</legend>
@@ -74,7 +95,9 @@ export default function CitySignerSetup({cityId, cityName, actor, saved, busy: p
       {mismatch && <p role="alert">This is not the saved city identity. Reconnect the expected signer, or clear the saved signer before replacing it.</p>}
       <label><input type="checkbox" checked={acknowledged} onChange={event => setAcknowledged(event.target.checked)}/> I have safely backed up this key or confirmed the remote signer’s recovery method.</label>
       <p><button type="button" disabled={!acknowledged || mismatch} onClick={confirm}>Verify and save city signer</button> <button type="button" onClick={disconnect}>Disconnect from this page</button></p>
+      {saved.configured&&saved.pubkey===pubkey&&!activation&&<button type="button" disabled={!setupReady} onClick={submitActivation}>Sign private activation request</button>}
     </>}
+    {activation&&<p><strong>{activation.proofsReady?"Awaiting super-admin review":"Activation request prepared"}</strong> · expires {new Date(activation.expiresAt*1000).toLocaleString()} <button type="button" onClick={cancelActivation}>Cancel request</button></p>}
     {saved.configured && <button type="button" onClick={clearSaved}>Clear saved city signer</button>}
     {message && <p role="status">{message}</p>}
   </fieldset>;

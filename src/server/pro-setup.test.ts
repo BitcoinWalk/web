@@ -13,8 +13,10 @@ vi.mock("../payments/payout-destination-store", () => ({PayoutDestinationStore: 
 import {getLogoCatalog} from "../logos/runtime";
 import {getPaymentRuntime} from "../payments/runtime";
 import {managedBackground} from "./share-image";
-import {clearProSetupSigner, prepareProSetupPreview, resolveProSetupAuthority, saveProSetupSigner, proSetupDependencies} from "./pro-setup";
+import {clearProSetupSigner, prepareBrandRequest, prepareProSetupPreview, resolveProSetupAuthority, reviewBrandRequest, saveProSetupSigner, proSetupDependencies} from "./pro-setup";
 import {citySignerProofTemplate} from "../nostr/pro-setup-command";
+import {ProSetupTaskStore} from "../payments/pro-setup-task-store";
+import {SUPER_ADMIN_PUBKEY} from "../nostr/authority";
 const cityId = "66f137cb-2ac1-4eef-8358-7dd66b45922f", owner = "a".repeat(64), editor = "b".repeat(64), nextOwner = "c".repeat(64);
 const event = (id: string, pubkey: string, created_at: number): Event => ({id: id.repeat(64), pubkey, created_at, kind: 30304, tags: [], content: "", sig: ""});
 const revision: CityRevision = {event: event("d", editor, 1), city: {cityId, slug: "radom", cityName: "Radom", description: "Walk", startAt: "2026-10-02T15:00:00Z", meetingPoint: {description: "Square", latitude: 1, longitude: 2}, heroImageUrl: "https://example.com/i"}};
@@ -77,6 +79,12 @@ describe("Pro setup fresh authority", () => {
     expect(await saveProSetupSigner(cityId,owner,command,proof,origin)).toMatchObject({pubkey:brandPubkey,version:1,state:"confirmed-not-active"});
     expect(await clearProSetupSigner(cityId,owner)).toMatchObject({cleared:true,state:"setup-required"});
     expect(JSON.stringify(database.prepare("SELECT * FROM pro_setup_task").get())).not.toContain("nsec");
+  });
+  it("binds the saved signer and exact approved artwork into a private BW-103 request",async()=>{
+    vi.spyOn(proSetupDependencies,"snapshot").mockImplementation(deps.snapshot);vi.spyOn(proSetupDependencies,"grants").mockImplementation(deps.grants);vi.spyOn(proSetupDependencies,"discover").mockImplementation(deps.discover);vi.spyOn(proSetupDependencies,"entitlement").mockImplementation(deps.entitlement);vi.spyOn(proSetupDependencies,"restrictions").mockImplementation(deps.restrictions);
+    vi.mocked(getLogoCatalog).mockReturnValue({ready:vi.fn().mockResolvedValue({jobKey:"job",slug:"radom"}),file:vi.fn().mockResolvedValue({data:Buffer.from("logo")})} as never);vi.mocked(managedBackground).mockResolvedValue(Buffer.from("hero"));vi.stubEnv("BITCOINWALK_MEDIA_ROOT","/tmp/profile-fixture-unused");
+    await prepareProSetupPreview(cityId,owner,"https://bitcoinwalk.org");const tasks=new ProSetupTaskStore(database),brand=getPublicKey(generateSecretKey());tasks.confirmPayout(cityId,"private-invoice",owner,1);tasks.confirmSigner(cityId,"private-invoice",owner,brand);
+    const request=await prepareBrandRequest(cityId,owner,"https://bitcoinwalk.org");expect(request).toMatchObject({authority:{ownerPubkey:owner},binding:{brandPubkey:brand},profile:{revisionId:revision.event.id,artworkVersion:1,signerVersion:1,payoutVersion:1,name:"BitcoinWalk in Radom",picture:"https://bitcoinwalk.org/api/media/files/avatar.webp",banner:"https://bitcoinwalk.org/api/media/files/banner.webp"}});expect(JSON.stringify(request)).toContain("private-invoice");tasks.clearSigner(cityId,"private-invoice",owner);await expect(reviewBrandRequest(request.requestId,SUPER_ADMIN_PUBKEY)).rejects.toThrow("changed");
   });
   it("follows anchored ownership rotation without transferring the entitlement to the payer", async () => {
     vi.mocked(deps.discover).mockResolvedValue({ownerPubkey: nextOwner, eventId: "9".repeat(64)});
