@@ -43,6 +43,7 @@ export async function POST(request:Request){
   }
   const current=requests.get(command.requestId);if(!current)return Response.json({error:"Directory request was not found."},{status:404,headers});
   if(command.action==="begin-activation")return Response.json({request:requests.beginActivation(current.id,actor,SUPER_ADMIN_PUBKEY)},{headers});
+  if(command.action==="fail-activation")return Response.json({request:requests.markActivationFailed(current.id,actor,SUPER_ADMIN_PUBKEY,command.failure)},{headers});
   if(command.action==="confirm-activation"){
    if(actor!==SUPER_ADMIN_PUBKEY)return Response.json({error:"Super-admin access required."},{status:403,headers});
    if(!current.signedEvent||!current.template)throw new Error("Only an exact owner-signed directory request can be activated.");

@@ -12,6 +12,7 @@ import {managedCities} from "../nostr/moderation";
 import {readGuideReplicationStatus} from "./replication";
 import {verifiedLivePublications} from "./live";
 import {exactLiveDeliveryForRetry, exactReplicationDeliveryForRetry, type PersistedDelivery} from "./operator";
+import {readGuideDirectoryRequests} from "./directory";
 
 async function main() {
   process.umask(0o077);
@@ -91,6 +92,7 @@ async function main() {
         const pending = pendingCityRevisions(revisions, decisions);
         const live=verifiedLivePublications(revisions,decisions,calendarEvents);
         const replication=dryRun?undefined:await readGuideReplicationStatus(secret!);
+        const directory=dryRun||!config.directoryStatusURL||!config.directoryAdminURL?undefined:await readGuideDirectoryRequests(secret!,config.directoryStatusURL);
         const replicationOrganizers=new Map(managedCities(revisions,decisions).filter(city=>city.state==="approved").map(city=>[city.revision.city.cityId,{recipient:city.revision.event.pubkey,cityName:city.revision.city.cityName}]));
         if (dryRun) {
           for (const recipient of config.recipients) {
@@ -102,16 +104,19 @@ async function main() {
         }
         const queued = outbox!.ingest(revisionEvents, pending, config.recipients, secret!, config.adminURL)
           + outbox!.ingestLive(live, secret!, config.adminURL, config.sourceRelay)
-          + outbox!.ingestReplication(replication!.cities,replicationOrganizers,secret!);
+          + outbox!.ingestReplication(replication!.cities,replicationOrganizers,secret!)
+          + (directory?outbox!.ingestDirectory(directory,secret!,config.directoryAdminURL!):0);
         console.log(`Scan complete; ${queued} new recipient notification(s) queued.`);
         const pendingIDs = new Set(pending.map(r => r.event.id));
         const liveIDs = new Set(live.map(item => `live:${item.approval.event.id}`));
         const replicationStates=new Map(replication!.cities.map(city=>[city.cityId,city.state]));
+        const directoryStates=new Map((directory??[]).map(request=>[request.id,`${request.status}:${request.activationState}`]));
         for (const row of outbox!.due(Math.floor(Date.now()/1000))) {
           if (stopping) break;
           if (row.purpose === "review" && !config.recipients.includes(row.recipient)) { outbox!.state(row, "removed-recipient"); continue; }
           const replicationCity=row.submission.startsWith("replication:")?row.submission.split(":")[1]:"";
-          const current=row.purpose==="replication-degraded"?replicationStates.get(replicationCity)==="degraded":row.purpose==="replication-recovered"?replicationStates.get(replicationCity)==="healthy":row.purpose==="review"?pendingIDs.has(row.submission):liveIDs.has(row.submission);
+          const directoryMatch=/^directory:([0-9a-f-]{36}):(directory-(?:invitation|active|failed))$/.exec(row.submission),directoryState=directoryMatch?directoryStates.get(directoryMatch[1]):undefined;
+          const current=row.purpose==="replication-degraded"?replicationStates.get(replicationCity)==="degraded":row.purpose==="replication-recovered"?replicationStates.get(replicationCity)==="healthy":row.purpose==="directory-invitation"?directoryState?.startsWith("awaiting-owner:")===true:row.purpose==="directory-active"?directoryState?.endsWith(":active")===true:row.purpose==="directory-failed"?directoryState?.endsWith(":failed")===true:row.purpose==="review"?pendingIDs.has(row.submission):liveIDs.has(row.submission);
           if(!current){outbox!.state(row,"obsolete");continue;}
           let relays:string[];
           try {

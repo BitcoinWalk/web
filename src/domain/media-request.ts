@@ -12,6 +12,7 @@ export const mediaRequestSchema=z.discriminatedUnion("action",[
  z.object({action:z.literal("generate-city-image"),cityId:z.string().uuid(),cityRevisionId:z.string().regex(/^[0-9a-f]{64}$/)}),
  z.object({action:z.literal("list-media-alerts")}),
  z.object({action:z.literal("list-replication-status")}),
+ z.object({action:z.literal("list-directory-notifications")}),
 ]);
 export type MediaRequest=z.infer<typeof mediaRequestSchema>;
 export function mediaRequestTemplate(request:MediaRequest,now=Math.floor(Date.now()/1000)):EventTemplate{return {kind:MEDIA_REQUEST_KIND,created_at:now,tags:[["t","bitcoinwalk-media"],["action",request.action]],content:JSON.stringify(request)};}

@@ -1,9 +1,10 @@
 import { DatabaseSync } from "node:sqlite";
 import type { ApprovalRecord, CityRevision } from "../nostr/city-records";
 import type { Event } from "nostr-tools";
-import { approvalAlert, liveAlert, replicationAlert, wrapAlert } from "./core";
+import { approvalAlert, directoryAlert, liveAlert, replicationAlert, wrapAlert } from "./core";
+import type {GuideDirectoryRequest} from "./directory";
 
-export type Delivery = { submission: string; recipient: string; wrapped: string; attempts: number; next_attempt: number; state: string; purpose: "review" | "live" | "replication-degraded" | "replication-recovered" };
+export type Delivery = { submission: string; recipient: string; wrapped: string; attempts: number; next_attempt: number; state: string; purpose: "review" | "live" | "replication-degraded" | "replication-recovered"|"directory-invitation"|"directory-active"|"directory-failed" };
 export type ReplicationCityStatus={cityId:string;destination:string;state:"healthy"|"pending"|"degraded";counts:Record<string,number>};
 export type ReplicationRecipient={recipient:string;cityName:string};
 export type LivePublication = { revision: CityRevision; approval: ApprovalRecord; event: Event };
@@ -21,6 +22,23 @@ export class Outbox {
     if (!columns.some(column => column.name === "purpose")) this.db.exec("ALTER TABLE delivery ADD COLUMN purpose TEXT NOT NULL DEFAULT 'review'");
     this.db.exec("CREATE TABLE IF NOT EXISTS live_seen (id TEXT PRIMARY KEY)");
     this.db.exec("CREATE TABLE IF NOT EXISTS replication_state (city_id TEXT PRIMARY KEY, state TEXT NOT NULL, recipient TEXT NOT NULL, generation INTEGER NOT NULL DEFAULT 0)");
+    this.db.exec("CREATE TABLE IF NOT EXISTS directory_state (request_id TEXT PRIMARY KEY, state TEXT NOT NULL, recipient TEXT NOT NULL)");
+  }
+  ingestDirectory(requests:GuideDirectoryRequest[],secret:Uint8Array,adminURL:string):number{
+    this.db.exec("BEGIN IMMEDIATE");
+    try{
+      const initialized=!!this.db.prepare("SELECT value FROM meta WHERE key='directory-initialized'").get();let queued=0;
+      for(const request of requests){
+        const state=`${request.status}:${request.activationState}`,previous=this.db.prepare("SELECT state,recipient FROM directory_state WHERE request_id=?").get(request.id) as {state:string;recipient:string}|undefined;
+        let purpose:"directory-invitation"|"directory-active"|"directory-failed"|undefined;
+        if(initialized&&!previous&&request.status==="awaiting-owner")purpose="directory-invitation";
+        else if(previous&&previous.state!==state&&request.activationState==="active")purpose="directory-active";
+        else if(previous&&previous.state!==state&&request.activationState==="failed")purpose="directory-failed";
+        if(purpose){const wraps=wrapAlert(directoryAlert(purpose,request.cityName,request.id,adminURL),request.ownerPubkey,secret);this.db.prepare("INSERT OR IGNORE INTO delivery (submission,recipient,wrapped,sender_copy,purpose) VALUES (?,?,?,?,?)").run(`directory:${request.id}:${purpose}`,request.ownerPubkey,JSON.stringify(wraps.recipient),JSON.stringify(wraps.sender),purpose);queued++;}
+        this.db.prepare("INSERT INTO directory_state(request_id,state,recipient) VALUES(?,?,?) ON CONFLICT(request_id) DO UPDATE SET state=excluded.state,recipient=excluded.recipient").run(request.id,state,request.ownerPubkey);
+      }
+      this.db.prepare("INSERT OR IGNORE INTO meta VALUES ('directory-initialized','1')").run();this.db.exec("COMMIT");return queued;
+    }catch(error){this.db.exec("ROLLBACK");throw error;}
   }
   ingestLive(publications: LivePublication[], secret: Uint8Array, adminURL: string, relay: string): number {
     this.db.exec("BEGIN IMMEDIATE");

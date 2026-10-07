@@ -25,6 +25,8 @@ export const configSchema = z.object({
     return u.protocol === "https:" && ["app-staging.bitcoinwalk.org", "bitcoinwalk.org"].includes(u.hostname)
       && u.pathname === "/admin" && !u.port && !u.search && !u.hash && !u.username && !u.password;
   }),
+  directoryStatusURL:z.string().url().refine(value=>{const u=new URL(value);return (u.href==="http://127.0.0.1:3345/api/directory-notifications"||u.href==="http://127.0.0.1:3338/api/directory-notifications")&&!u.username&&!u.password&&!u.hash&&!u.search;}).optional(),
+  directoryAdminURL:z.string().url().refine(value=>new URL(value).href==="https://bitcoinwalk.org/admin").optional(),
   enabled: z.boolean().default(false),
 });
 export type GuideConfig = z.infer<typeof configSchema>;
@@ -62,6 +64,13 @@ export function replicationAlert(state:"degraded"|"recovered",cityName:string,ci
   const city=cityName.replace(/[\p{C}\p{Z}]+/gu," ").trim();
   if(state==="degraded")return `BitcoinWalk replication is delayed for ${city}.\nCity ID: ${cityId}\n\nYour public walk remains on the shared relay while BitcoinWalk retries the city replica. Do not republish or sign duplicate events. We will send another message after replication recovers.\n\nBitcoinWalk Guide is automated; replies are not monitored. Never share your private key.`;
   return `BitcoinWalk replication has recovered for ${city}.\nCity ID: ${cityId}\n\nThe city replica is healthy again. No organizer action is required.\n\nBitcoinWalk Guide is automated; replies are not monitored. Never share your private key.`;
+}
+
+export function directoryAlert(purpose:"directory-invitation"|"directory-active"|"directory-failed",cityName:string,requestId:string,adminURL:string):string{
+ const city=cityName.replace(/[\p{C}\p{Z}]+/gu," ").trim(),link=`${new URL(adminURL).origin}/admin/directory?request=${requestId}`;
+ if(purpose==="directory-invitation")return `BitcoinWalk directory signature requested for ${city}.\n\nReview the city relay endpoint and authorities, add your separate offline recovery npub, then sign the exact request: ${link}\n\nOpening the link grants no authority. Sign only after every field matches what you agreed with BitcoinWalk. Never share a private key.`;
+ if(purpose==="directory-active")return `The BitcoinWalk directory entry for ${city} is active.\n\nBoth independent directory transports returned the exact owner-signed event. No further organizer action is required.\n\nBitcoinWalk Guide is automated; replies are not monitored.`;
+ return `The BitcoinWalk directory activation for ${city} did not complete.\n\nYour owner signature remains unchanged and no replacement event was created. BitcoinWalk will review the transport failure and retry the exact event; do not sign a duplicate request.\n\nBitcoinWalk Guide is automated; replies are not monitored.`;
 }
 
 export function selectInbox(events: Event[], recipient: string, allowed: string[], now = Math.floor(Date.now()/1000)): string[] {
