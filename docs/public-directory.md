@@ -39,7 +39,9 @@ city-record relay; it does not discover arbitrary paid relays automatically.
 Automated cases cover pending, rejected/revoked/missing revisions, trusted paid
 routing, search and URL sanitation. On 29 September, live app `0.3.81` browser
 acceptance showed ten approved cards; city-alias search (`Warsaw`) returned Warszawa;
-approved alternative-name URLs redirect to the signed canonical city slug;
+approved alternative-name URLs redirect to the signed canonical city slug. Live
+staging on 7 October 2026 verified `Warsaw`, `Warschau` and `Varsovia` all
+redirect to `/warszawa`, including an alias-based exact-walk URL;
 meeting-point search (`coffee shop`) returned Chicago and Memphis; and an unknown
 query produced the clear zero-result state. Map mode rendered ten pins, a Radom
 filter reduced the map to one pin, and the Chicago popup showed its meeting point
