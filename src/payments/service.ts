@@ -18,7 +18,9 @@ export class PaymentStore {
     createdAt INTEGER NOT NULL,expiresAt INTEGER NOT NULL DEFAULT 0,status TEXT NOT NULL,settledAt INTEGER,checkedAt INTEGER);
    CREATE UNIQUE INDEX IF NOT EXISTS payment_one_open_invoice ON payment_invoice(cityId) WHERE status IN ('creating','creation-uncertain','pending');
    CREATE TABLE IF NOT EXISTS payment_invoice_payout(invoiceId TEXT PRIMARY KEY,destinationVersion INTEGER NOT NULL);
-   CREATE TABLE IF NOT EXISTS paid_city_entitlement(cityId TEXT PRIMARY KEY,owner TEXT NOT NULL,paymentHash TEXT NOT NULL UNIQUE,invoiceId TEXT NOT NULL,paidAt INTEGER NOT NULL);`);
+   CREATE TABLE IF NOT EXISTS paid_city_entitlement(cityId TEXT PRIMARY KEY,owner TEXT NOT NULL,paymentHash TEXT NOT NULL UNIQUE,invoiceId TEXT NOT NULL,paidAt INTEGER NOT NULL);
+   CREATE TABLE IF NOT EXISTS pro_setup_task(cityId TEXT PRIMARY KEY,entitlementId TEXT NOT NULL UNIQUE,originalOwnerPubkey TEXT NOT NULL,currentOwnerPubkey TEXT NOT NULL,
+    registrationVersion INTEGER,payoutVersion INTEGER,state TEXT NOT NULL,createdAt INTEGER NOT NULL,updatedAt INTEGER NOT NULL);`);
  }
  rows():PaymentRow[]{return this.db.prepare("SELECT * FROM payment_invoice ORDER BY createdAt DESC,rowid DESC").all() as PaymentRow[];}
  forCity(cityId:string):PaymentRow[]{return this.db.prepare("SELECT * FROM payment_invoice WHERE cityId=? ORDER BY createdAt DESC,rowid DESC").all(cityId) as PaymentRow[];}
@@ -29,6 +31,13 @@ export class PaymentStore {
   try{
    this.db.prepare("UPDATE payment_invoice SET status='paid',settledAt=?,checkedAt=? WHERE id=?").run(settledAt,checkedAt,row.id);
    this.db.prepare("INSERT OR IGNORE INTO paid_city_entitlement VALUES (?,?,?,?,?)").run(row.cityId,row.owner,row.paymentHash,row.id,settledAt);
+   const entitlement=this.db.prepare("SELECT invoiceId,owner FROM paid_city_entitlement WHERE cityId=?").get(row.cityId) as {invoiceId:string;owner:string}|undefined;
+   if(!entitlement||entitlement.invoiceId!==row.id||entitlement.owner!==row.owner)throw new Error("Paid city entitlement conflict requires operator review.");
+   const payout=this.db.prepare("SELECT destinationVersion FROM payment_invoice_payout WHERE invoiceId=?").get(row.id) as {destinationVersion:number}|undefined;
+   this.db.prepare(`INSERT OR IGNORE INTO pro_setup_task(cityId,entitlementId,originalOwnerPubkey,currentOwnerPubkey,registrationVersion,payoutVersion,state,createdAt,updatedAt)
+    VALUES(?,?,?,?,?,NULL,'setup-required',?,?)`).run(row.cityId,row.id,row.owner,row.owner,payout?.destinationVersion??null,settledAt,settledAt);
+   const task=this.db.prepare("SELECT entitlementId,registrationVersion FROM pro_setup_task WHERE cityId=?").get(row.cityId) as {entitlementId:string;registrationVersion:number|null}|undefined;
+   if(!task||task.entitlementId!==row.id||task.registrationVersion!==(payout?.destinationVersion??null))throw new Error("Pro setup task conflict requires operator review.");
    this.db.exec("COMMIT");
   }catch(error){this.db.exec("ROLLBACK");throw error;}
  }

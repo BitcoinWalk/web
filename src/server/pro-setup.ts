@@ -11,6 +11,7 @@ import {getLogoCatalog} from "../logos/runtime";
 import {ProfileArtworkStore} from "../logos/profile-artwork";
 import {managedBackground} from "./share-image";
 import {PayoutDestinationStore} from "../payments/payout-destination-store";
+import {ProSetupTaskStore} from "../payments/pro-setup-task-store";
 import {validatePayoutDestination} from "./lnurl-pay";
 
 /** This preflight cannot publish, create invoices, assign identities or activate payments. */
@@ -18,7 +19,8 @@ export type ProSetupPreview = {
   cityId: string; cityName: string; revisionId: string;
   profile: {name: string; display_name: string; picture: string; banner: string; website: string};
   status: "preparation-only";
-  payout: {configured: boolean; destination?: string; version?: number};
+  payout: {configured: boolean; destination?: string; version?: number; suggestedDestination?: string; registrationVersion?: number};
+  setup: {state: "setup-required" | "payout-confirmed"; updatedAt: number};
   steps: Array<{label: string; state: "ready" | "blocked"; detail: string}>;
 };
 
@@ -39,7 +41,7 @@ export const proSetupDependencies = {
     return {ownerPubkey: state.content.ownerPubkey, eventId: state.currentEvent.id};
   },
   entitlement: (cityId: string) => getPaymentRuntime().store.db.prepare(
-    "SELECT invoiceId FROM paid_city_entitlement WHERE cityId=?").get(cityId) as {invoiceId: string} | undefined,
+    "SELECT invoiceId,owner FROM paid_city_entitlement WHERE cityId=?").get(cityId) as {invoiceId: string; owner: string} | undefined,
   restrictions: async (cityId: string, owner: string) => {
     const [records, status] = await Promise.all([queryEventModerations(serverReadRelays(), cityId), organizerPublishingStatus(serverReadRelays(), owner)]);
     return status === "suspended" || latestEventModerations(records).some(row =>
@@ -60,7 +62,20 @@ export async function resolveProSetupAuthority(cityId: string, actor: string, de
   if (await deps.restrictions(cityId, ownerPubkey)) throw new Error("City or organizer publishing is suspended. Contact the administrator.");
   const authority: CityBrandAuthority = {cityId, ownerPubkey, authorityEventId: directory?.eventId ?? grant.event.id,
     approvalEventId: row.decision.event.id, entitlementId: entitlement.invoiceId, eligible: true};
-  return {authority, row};
+  return {authority, row, entitlement};
+}
+
+function ensureSetupTask(resolved: Awaited<ReturnType<typeof resolveProSetupAuthority>>) {
+  const db = getPaymentRuntime().store.db;
+  const binding = db.prepare(`SELECT payment_invoice.revisionId,payment_invoice_payout.destinationVersion
+    FROM payment_invoice LEFT JOIN payment_invoice_payout ON payment_invoice_payout.invoiceId=payment_invoice.id WHERE payment_invoice.id=?`)
+    .get(resolved.entitlement.invoiceId) as {revisionId: string; destinationVersion: number | null} | undefined;
+  if (!binding) throw new Error("The settled Pro payment record is incomplete. Contact the administrator; do not pay again.");
+  const store = new ProSetupTaskStore(db);
+  const task = store.ensure({cityId: resolved.authority.cityId, entitlementId: resolved.entitlement.invoiceId,
+    originalOwnerPubkey: resolved.entitlement.owner, currentOwnerPubkey: resolved.authority.ownerPubkey,
+    ...(binding.destinationVersion === null ? {} : {registrationVersion: binding.destinationVersion})});
+  return {task, store, binding};
 }
 
 let artworkStore: ProfileArtworkStore | undefined;
@@ -84,14 +99,21 @@ export async function prepareProSetupPreview(cityId: string, actor: string, orig
   const fresh = await resolveProSetupAuthority(cityId, actor);
   if (JSON.stringify(authority) !== JSON.stringify(fresh.authority)) throw new Error("City authority changed during preparation. Reload to try again.");
   const name = `BitcoinWalk in ${city.cityName}`;
-  const payout = new PayoutDestinationStore(getPaymentRuntime().store.db).current(cityId);
+  const {task, binding} = ensureSetupTask(fresh);
+  const destinations = new PayoutDestinationStore(getPaymentRuntime().store.db);
+  const stored = destinations.current(cityId);
+  const payout = stored?.ownerPubkey === fresh.authority.ownerPubkey ? stored : null;
+  const registration = !payout && task.registrationVersion ? destinations.registration(cityId, task.registrationVersion) : undefined;
+  const suggestion = registration?.ownerPubkey === fresh.authority.ownerPubkey && registration.revisionId === binding.revisionId ? registration : undefined;
   return {cityId, cityName: city.cityName, revisionId: row.revision.event.id, status: "preparation-only",
-    payout: payout ? {configured: true, destination: payout.normalized, version: payout.version} : {configured: false},
+    setup: {state: payout ? "payout-confirmed" : task.state, updatedAt: task.updatedAt},
+    payout: payout ? {configured: true, destination: payout.normalized, version: payout.version} : suggestion ?
+      {configured: false, suggestedDestination: suggestion.normalized, registrationVersion: suggestion.version} : {configured: false},
     profile: {name, display_name: name, picture: artwork.avatar.url, banner: artwork.banner.url, website: `${origin}/${slug}`},
     steps: [
       {label: "Pro payment and city ownership", state: "ready", detail: "Verified against current approval, ownership, moderation and settled payment records."},
       {label: "City profile artwork", state: "ready", detail: "Prepared from the approved city photo. The avatar uses the larger icon without city lettering."},
-      {label: "Personal payout destination", state: payout ? "ready" : "blocked", detail: payout ? `Owner-confirmed destination version ${payout.version} is saved privately. It is not active until provisioning is verified.` : "Add and confirm your personal Lightning address or LNURL-pay destination below."},
+      {label: "Personal payout destination", state: payout ? "ready" : "blocked", detail: payout ? `Owner-confirmed destination version ${payout.version} is saved privately. It is not active until provisioning is verified.` : suggestion ? "Your checkout destination was recovered privately. Confirm it again with the current city owner’s signer before activation." : "Add and confirm your personal Lightning address or LNURL-pay destination below."},
       {label: "City account and activation", state: "blocked", detail: "City signer setup, approval and relay read-back are still being integrated. Keep your personal dashboard identity; no city account is active yet."},
     ]};
 }
@@ -102,7 +124,9 @@ export async function saveProSetupPayout(cityId: string, actor: string, destinat
   const validated = await validatePayoutDestination(destination, {blockedDomains});
   const after = await resolveProSetupAuthority(cityId, actor);
   if (JSON.stringify(before.authority) !== JSON.stringify(after.authority)) throw new Error("City authority changed during payout validation. Reload and confirm again.");
+  const {store: taskStore} = ensureSetupTask(after);
   const saved = new PayoutDestinationStore(getPaymentRuntime().store.db).save(after.authority, event, validated);
+  taskStore.confirmPayout(cityId, after.authority.entitlementId, after.authority.ownerPubkey, saved.version);
   return {cityId: saved.cityId, version: saved.version, destination: saved.normalized, confirmedAt: saved.confirmedAt,
     state: "saved-not-active" as const, message: "Destination saved. City Lightning payments remain disabled until provisioning and read-back succeed."};
 }

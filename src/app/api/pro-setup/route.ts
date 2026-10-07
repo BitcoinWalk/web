@@ -31,7 +31,7 @@ export async function POST(request: Request) {
   }
   catch (error) {
     const message = error instanceof Error ? error.message : "";
-    const safe = /^(An approved|Only the current|A settled|City or organizer|Approved city artwork|The approved city photo|Persistent profile|City authority changed|Enter a valid|The Lightning|Lightning endpoint|This destination|Use a personal)/.test(message);
+    const safe = /^(An approved|Only the current|A settled|The settled Pro payment|Pro setup|City or organizer|Approved city artwork|The approved city photo|Persistent profile|City authority changed|Enter a valid|The Lightning|Lightning endpoint|This destination|Use a personal)/.test(message);
     return reply({error: safe ? message : "Pro setup could not be verified. Retry later; no identity, payment or payout was changed."}, 409);
   } finally {pending.delete(rateKey);}
 }

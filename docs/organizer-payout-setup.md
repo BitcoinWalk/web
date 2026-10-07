@@ -10,6 +10,8 @@ The SQLite history lives in the existing protected app payment database. Each po
 
 The UI explains the 79/21 terms before signing. It shows the current version to the signed-in owner and states that existing invoices retain their previous version. A saved destination remains `saved-not-active`: city Lightning invoice issuance stays disabled until BW-18/BW-19 provisioning and read-back succeed.
 
+Settlement and recovery are now durable. The entitlement and exactly one city setup task are written atomically, including the prepayment destination-version reference. Opening setup on another device reconstructs missing legacy tasks from verified entitlement data and shows the checkout value only as a private suggestion to the same current owner for the exact purchased revision. The current owner must sign it again before it becomes the post-payment version. A directory ownership rotation clears prior-owner confirmation, and conflicting entitlement or payout bindings fail closed for operator review.
+
 ## Configuration and operation
 
 The screen/API remain default-off behind `BITCOINWALK_PRO_SETUP_PREVIEW=true`. `BITCOINWALK_PAYOUT_BLOCKED_DOMAINS` may add comma-separated domains; `bitcoinwalk.org` and subdomains are always blocked as personal destinations. Persistent storage uses the already configured `BITCOINWALK_PAYMENT_DATABASE`; no NWC permission or new secret is added. Keep the database in encrypted backups because it contains personal payout destinations and signed ownership evidence.
@@ -19,9 +21,9 @@ This slice has process-local request throttling. Production must also retain pro
 ## Remaining before BW-101 is Done
 
 - Connect the same field to existing Basic-city upgrades. Registration Step 3 and new invoice binding are implemented. Gift checkout must never request a payout destination.
-- Persist a durable setup task keyed by city and entitlement, including gift fixtures, missed Guide DMs, cross-device resume and provisioning failure without repurchase.
+- Add the Basic upgrade and gift entry points, then queue a deduplicated Guide setup notification. The durable city/entitlement task and cross-device resume are implemented; a missed DM is no longer the only recovery route.
 - Revalidate current versions before Rustress apply/read-back and bind every incoming city invoice to an immutable destination version.
 - Add an authorized destination-change status/audit notification and explicit super-admin recovery path. Never expose the destination publicly.
 - Accept real public endpoints and owner/editor/former-owner/restart flows in staging, then repeat the full gift journey under BW-99.
 
-Automated coverage includes checksum and normalization, malformed/cyclic/unsafe endpoints, amount/metadata checks, signed-command tampering, immutable history, exact retries, private projection, prepayment revision/version and invoice binding, ownership rotation/outage/suspension/unpaid denial and safe API errors. Live endpoint and Rustress acceptance remain outstanding.
+Automated coverage includes checksum and normalization, malformed/cyclic/unsafe endpoints, amount/metadata checks, signed-command tampering, immutable history, exact retries, private projection, prepayment revision/version and invoice binding, atomic settlement/task creation, cross-device recovery, ownership rotation/outage/suspension/unpaid denial, conflict rollback and safe API errors. Live endpoint, Guide and Rustress acceptance remain outstanding.

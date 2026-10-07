@@ -29,7 +29,7 @@ function ProSetupForm({enabled, actor, cities}: {enabled: boolean; actor: string
         body: JSON.stringify({event}), signal: AbortSignal.timeout(60_000)});
       const body = await response.json();
       if (!response.ok) throw new Error(body.error || "Pro setup could not be prepared.");
-      setPreview(body.preview); setDestination(body.preview.payout.destination ?? "");
+      setPreview(body.preview); setDestination(body.preview.payout.destination ?? body.preview.payout.suggestedDestination ?? "");
     } catch (error) {setMessage(error instanceof Error ? error.message : "Preparation failed; no account or payment was changed.");}
     finally {inFlight.current = false; setBusy(false);}
   }
@@ -69,6 +69,7 @@ function ProSetupForm({enabled, actor, cities}: {enabled: boolean; actor: string
             <input value={destination} onChange={event => setDestination(event.target.value)} placeholder="you@example.com or lnurl1…" autoComplete="off" spellCheck={false}/>
           </label>
           <p>79% of payments to your city’s BitcoinWalk Lightning address will go to this private destination. BitcoinWalk retains 21%. Saving validates the endpoint but sends no payment.</p>
+          {!preview.payout.configured && preview.payout.suggestedDestination && <p><strong>Recovered from your Pro checkout:</strong> {preview.payout.suggestedDestination}. Confirm it below with the current city owner’s signer; checkout alone cannot activate it.</p>}
           {preview.payout.configured && <p>Saved destination version {preview.payout.version}: <strong>{preview.payout.destination}</strong>. Confirming a change creates a new version; existing invoices retain their previous version.</p>}
           <button type="button" onClick={() => void savePayout()} disabled={busy || !destination.trim()}>{busy ? "Validating…" : preview.payout.configured ? "Validate and save new version" : "Validate and save destination"}</button>
         </fieldset>

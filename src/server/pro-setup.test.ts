@@ -1,11 +1,15 @@
 import {afterEach, beforeEach, describe, expect, it, vi} from "vitest";
 import type {AuthorizationRecord, ApprovalRecord, CityRevision} from "../nostr/city-records";
 import type {Event} from "nostr-tools";
+import {DatabaseSync} from "node:sqlite";
 vi.mock("../payments/runtime", () => ({getPaymentRuntime: vi.fn()}));
 vi.mock("../logos/runtime", () => ({getLogoCatalog: vi.fn()}));
 vi.mock("./share-image", () => ({managedBackground: vi.fn()}));
 vi.mock("../logos/profile-artwork", () => ({ProfileArtworkStore: class {ensure = vi.fn().mockResolvedValue({avatar: {url: "https://bitcoinwalk.org/api/media/files/avatar.webp"}, banner: {url: "https://bitcoinwalk.org/api/media/files/banner.webp"}});}}));
-vi.mock("../payments/payout-destination-store", () => ({PayoutDestinationStore: class {current = vi.fn().mockReturnValue(null);}}));
+vi.mock("../payments/payout-destination-store", () => ({PayoutDestinationStore: class {
+  current = vi.fn().mockReturnValue(null);
+  registration = vi.fn().mockReturnValue({cityId: "66f137cb-2ac1-4eef-8358-7dd66b45922f", revisionId: "d".repeat(64), version: 1, ownerPubkey: "a".repeat(64), normalized: "alice@example.com", confirmedAt: 1});
+}}));
 import {getLogoCatalog} from "../logos/runtime";
 import {getPaymentRuntime} from "../payments/runtime";
 import {managedBackground} from "./share-image";
@@ -16,12 +20,18 @@ const revision: CityRevision = {event: event("d", editor, 1), city: {cityId, slu
 const approval: ApprovalRecord = {event: event("e", owner, 2), approval: {cityId, cityRevisionId: revision.event.id, status: "approved"}};
 const grant: AuthorizationRecord = {event: event("f", owner, 1), grant: {cityId, creatorPubkey: owner, creatorRevisionId: revision.event.id, editorPubkeys: [owner, editor], superAdminPubkey: "1".repeat(64)}};
 let deps: typeof proSetupDependencies;
+let database: DatabaseSync;
 beforeEach(() => {
-  vi.mocked(getPaymentRuntime).mockReturnValue({store: {db: {}}} as never);
+  database = new DatabaseSync(":memory:");
+  database.exec(`CREATE TABLE payment_invoice(id TEXT PRIMARY KEY,revisionId TEXT NOT NULL);
+    CREATE TABLE payment_invoice_payout(invoiceId TEXT PRIMARY KEY,destinationVersion INTEGER NOT NULL);
+    INSERT INTO payment_invoice VALUES('private-invoice','${revision.event.id}');
+    INSERT INTO payment_invoice_payout VALUES('private-invoice',1);`);
+  vi.mocked(getPaymentRuntime).mockReturnValue({store: {db: database}} as never);
   deps = {snapshot: vi.fn().mockResolvedValue({revisions: [revision], approvals: [approval]}), grants: vi.fn().mockResolvedValue([grant]),
-    discover: vi.fn().mockResolvedValue(null), entitlement: vi.fn().mockReturnValue({invoiceId: "private-invoice"}), restrictions: vi.fn().mockResolvedValue(false)};
+    discover: vi.fn().mockResolvedValue(null), entitlement: vi.fn().mockReturnValue({invoiceId: "private-invoice", owner}), restrictions: vi.fn().mockResolvedValue(false)};
 });
-afterEach(() => {vi.restoreAllMocks(); vi.unstubAllEnvs();});
+afterEach(() => {database.close(); vi.restoreAllMocks(); vi.unstubAllEnvs();});
 describe("Pro setup fresh authority", () => {
   it("prepares approved artwork without exposing private authority or claiming activation", async () => {
     vi.spyOn(proSetupDependencies, "snapshot").mockImplementation(deps.snapshot);
@@ -36,12 +46,13 @@ describe("Pro setup fresh authority", () => {
     const preview = await prepareProSetupPreview(cityId, owner, "https://bitcoinwalk.org");
     expect(ready).toHaveBeenCalledWith({cityId, revisionId: revision.event.id, slug: "radom"});
     expect(preview).toMatchObject({status: "preparation-only", profile: {name: "BitcoinWalk in Radom"}});
+    expect(preview).toMatchObject({setup: {state: "setup-required"}, payout: {configured: false, suggestedDestination: "alice@example.com", registrationVersion: 1}});
     expect(preview.profile).not.toHaveProperty("nip05");
     expect(preview.profile).not.toHaveProperty("lud16");
     expect(JSON.stringify(preview)).not.toContain("private-invoice");
     expect(JSON.stringify(preview)).not.toContain(owner);
     expect(deps.snapshot).toHaveBeenCalledTimes(2);
-    vi.mocked(deps.entitlement).mockReturnValueOnce({invoiceId: "private-invoice"}).mockReturnValueOnce({invoiceId: "changed"});
+    vi.mocked(deps.entitlement).mockReturnValueOnce({invoiceId: "private-invoice", owner}).mockReturnValueOnce({invoiceId: "changed", owner});
     await expect(prepareProSetupPreview(cityId, owner, "https://bitcoinwalk.org")).rejects.toThrow("authority changed");
     vi.mocked(managedBackground).mockResolvedValue(null);
     await expect(prepareProSetupPreview(cityId, owner, "https://bitcoinwalk.org")).rejects.toThrow("photo is unavailable");
@@ -64,7 +75,7 @@ describe("Pro setup fresh authority", () => {
   it("rejects unpaid and suspended cities", async () => {
     vi.mocked(deps.entitlement).mockReturnValue(undefined);
     await expect(resolveProSetupAuthority(cityId, owner, deps)).rejects.toThrow("settled Pro entitlement");
-    vi.mocked(deps.entitlement).mockReturnValue({invoiceId: "paid"});
+    vi.mocked(deps.entitlement).mockReturnValue({invoiceId: "paid", owner});
     vi.mocked(deps.restrictions).mockResolvedValue(true);
     await expect(resolveProSetupAuthority(cityId, owner, deps)).rejects.toThrow("suspended");
   });
