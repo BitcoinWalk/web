@@ -22,11 +22,13 @@ Specify a versioned relay policy and approval path for city-account binding, rep
 
 ### Stage B — automatic avatar and profile assets (BW-104)
 
-Reuse the approved hero background and deterministic BitcoinWalk city-logo template from BW-82/BW-87/BW-15. Render a square avatar from the original assets, containing the BitcoinWalk symbol/wordmark followed by the city name, with a circular safe area; do not crop text out of a finished 1200×630 OG image. Prepare a wider profile banner from the same approved assets. This is deterministic image composition, with no new AI generation step or per-account manual artwork task.
+Reuse the approved hero background and deterministic BitcoinWalk assets from BW-82/BW-87/BW-15. As refined by the user on 7 October, render a square avatar with the enlarged BitcoinWalk icon and **no city lettering**; the profile username already identifies the city. Keep a circular safe area and do not crop a finished 1200×630 OG image. The wider profile banner retains the city name. This is deterministic image composition, with no new AI generation step or per-account manual artwork task.
 
-Version and cache the avatar/banner by city, approved artwork version and template. Store public content-addressed images through the existing media pipeline. Preview square, circular and small profile sizes; test long names, accents, contrast and missing backgrounds. Use a branded city-name fallback if artwork is unavailable. Assets and profile URLs must not expose personal identities or payout information. Name/hero changes prepare new assets and a profile update for the city signer; they cannot silently rewrite an already signed profile. Rollback preserves old URLs.
+Version and cache the avatar/banner by city, approved artwork version and template. Store public content-addressed images through the existing media pipeline. Preview square, circular and small profile sizes; test long banner names, accents, contrast and missing backgrounds. The renderer supports a neutral missing-hero fallback, but the guided preparation screen requires the approved photo to be restored before proceeding. Assets and profile URLs must not expose personal identities or payout information. Name/hero changes prepare new assets and a profile update for the city signer; they cannot silently rewrite an already signed profile. Rollback preserves old URLs.
 
 ### Stage C — one resumable activation screen (BW-105 + BW-101)
+
+Implementation checkpoint: the default-off owner-authenticated preparation preview is implemented; payout confirmation, persisted setup stages, city signer and actual activation are not yet connected. See [current evidence and remaining gates](pro-city-setup.md).
 
 After self-purchase or gift settlement, **Complete Pro setup** presents: the prefilled city profile and avatar preview, the personal payout input/confirmation, and **Create city account** or **Connect existing city account**. Payout details supplied before an organizer's own checkout are retained and shown for confirmation. New-city approval remains a separate activation gate.
 
