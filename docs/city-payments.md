@@ -47,6 +47,13 @@ Pro settlement does not itself approve a city or provision its dedicated relay,
 community, NIP-05 or lightning address. Those remain separate BW-19/BW-20/BW-23
 gates. The future 79/21 city-payment split is not part of this one-time purchase.
 
+Rustress is selected for city NIP-05, LNURL-pay and 79/21 forwarding. Its separate
+NWC connection requires spending permission; the restriction above continues to
+apply to this BW-17 checkout connection. Pro registration will require the
+organizer's signed payout destination before checkout. Implementation, recovery,
+fee policy and acceptance are tracked under BW-18/BW-19/BW-100–BW-102 in the
+[Rustress provisioning plan](rustress-city-provisioning.md).
+
 ## Duplicate and recovery controls
 
 Concurrent requests reuse one stored pending invoice. Every previous hash is
@@ -119,4 +126,3 @@ The organizer's Pro checkout remains below the table. A paid entitlement is
 never downgraded by a later city revision or a temporary wallet outage.
 
 BW-61 remains paused. Payment work does not migrate the Memphis replica.
-
