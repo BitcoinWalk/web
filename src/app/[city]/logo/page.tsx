@@ -1,9 +1,11 @@
 import Link from "next/link";
 import Image from "next/image";
-import {notFound} from "next/navigation";
+import {notFound,redirect} from "next/navigation";
 import type {Metadata} from "next";
 import {loadPublishedLogoPack} from "../../../logos/serving";
 import styles from "./page.module.css";
+import {loadSharedCities} from "../../../server/share-preview";
+import {resolveCityRoute} from "../../../domain/city-route";
 
 export const dynamic = "force-dynamic";
 
@@ -13,7 +15,8 @@ export async function generateMetadata({params}:{params:Promise<{city:string}>})
 
 export default async function CityLogoPage({params}: {params: Promise<{city: string}>}) {
   const {city} = await params;
-  const pack = await loadPublishedLogoPack(city);
+  const route=resolveCityRoute(await loadSharedCities(),city);if(route?.redirect)redirect(`/${encodeURIComponent(route.canonicalSlug)}/logo`);
+  const pack = await loadPublishedLogoPack(route?.canonicalSlug??city);
   if (!pack) notFound();
   const base = `/api/city-logos/${pack.jobKey}/`;
   return <main className={styles.page}>

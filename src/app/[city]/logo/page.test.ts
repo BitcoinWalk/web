@@ -1,12 +1,13 @@
 import {renderToStaticMarkup} from "react-dom/server";
 import {beforeEach, describe, expect, it, vi} from "vitest";
-const mocks = vi.hoisted(() => ({load: vi.fn()}));
+const mocks = vi.hoisted(() => ({load: vi.fn(),cities:vi.fn()}));
 vi.mock("../../../logos/serving", () => ({loadPublishedLogoPack: mocks.load}));
-vi.mock("next/navigation", () => ({notFound: () => {throw new Error("NOT_FOUND");}}));
+vi.mock("../../../server/share-preview",()=>({loadSharedCities:mocks.cities}));
+vi.mock("next/navigation", () => ({notFound: () => {throw new Error("NOT_FOUND");},redirect:(url:string)=>{throw new Error(`REDIRECT:${url}`);}}));
 import CityLogoPage,{generateMetadata} from "./page";
 
 describe("city logo download page", () => {
-  beforeEach(() => mocks.load.mockReset());
+  beforeEach(() => {mocks.load.mockReset();mocks.cities.mockReset();mocks.cities.mockResolvedValue([{revision:{city:{cityId:"radom-id",slug:"radom",aliases:[]}}}]);});
   it("provides anonymous PNG and ZIP downloads, without a tier or signer gate", async () => {
     mocks.load.mockResolvedValue({jobKey:"a".repeat(64),slug: "radom", cityName: "Radom",publiclyListed:false, manifest:{archive: {name: "radom-logos.zip"}, files: [
       {name: "radom-bitcoinwalk-on-black.png", label: "Dark background", background: "dark", width: 775, height: 604},
@@ -23,5 +24,10 @@ describe("city logo download page", () => {
   it("does not advertise a pack until its manifest is published", async () => {
     mocks.load.mockResolvedValue(null);
     await expect(CityLogoPage({params: Promise.resolve({city: "radom"})})).rejects.toThrow("NOT_FOUND");
+  });
+  it("redirects an approved alternative city name to the canonical logo URL",async()=>{
+    mocks.cities.mockResolvedValue([{revision:{city:{cityId:"warszawa-id",slug:"warszawa",aliases:["Warsaw"]}}}]);
+    await expect(CityLogoPage({params:Promise.resolve({city:"warsaw"})})).rejects.toThrow("REDIRECT:/warszawa/logo");
+    expect(mocks.load).not.toHaveBeenCalled();
   });
 });

@@ -13,6 +13,7 @@ import {getLogoCatalog} from "../logos/runtime";
 import {shareBackgroundPosition} from "../domain/hero-presentation";
 import {isManchesterBitfestCampaign,manchesterBitfestCityPreview,manchesterBitfestWalkPreview} from "../domain/share-campaign";
 import {readSponsorLogoAsset} from "./sponsor-logo-store";
+import {resolveCityRoute} from "../domain/city-route";
 export function shareOrigin(){const url=new URL(process.env.BITCOINWALK_PUBLIC_ORIGIN||"https://app-staging.bitcoinwalk.org");if(url.protocol!=="https:"||url.username||url.password||url.pathname!=="/"||url.search||url.hash)throw new Error("Invalid public origin");return url.origin;}
 export const resolveSharedWalk=cache((event:string)=>resolveCalendarLink(event,serverReadRelays()));
 export const loadSharedCities=cache(()=>loadCalendarWalks(serverReadRelays()));
@@ -27,12 +28,12 @@ async function metadata(text:{title:string;description:string},path:string,city:
   return {...text,alternates:{canonical:url},openGraph:{...text,type:"website",siteName:"BitcoinWalk",url,images:[{url:image,width:1200,height:630,type:"image/jpeg",alt:`BitcoinWalk ${city} — city artwork with the BitcoinWalk symbol`}]},twitter:{...text,card:"summary_large_image",images:[image]}};
 }
 export async function walkShareMetadata(city:string,event:string):Promise<Metadata>{try{
-  const result=await resolveSharedWalk(event);if(!result||result.walk.revision.city.slug!==city)return unavailableShare();
+  const result=await resolveSharedWalk(event);if(!result)return unavailableShare();const route=resolveCityRoute([result.currentProfile],city);if(!route)return unavailableShare();
   const occurrence=calendarOccurrence(result.event);if(!occurrence)return unavailableShare();const current=result.currentProfile,images=[current.approval.approval.heroImageUrl,current.revision.city.heroImageUrl,initialCalendarHero(result.event,result.walk)],copy=isManchesterBitfestCampaign(current.revision.city.slug,images)?manchesterBitfestWalkPreview({...occurrence,meetingPoint:occurrence.meetingPoint.description}):walkPreview({city:result.walk.revision.city.cityName,...occurrence,meetingPoint:occurrence.meetingPoint.description});
-  return await metadata(copy,`/${encodeURIComponent(city)}/${encodeURIComponent(event)}`,result.walk.revision.city.cityName,current.revision.city.cityId,current.revision.city.slug,images,await shareSponsor(current.revision.city.cityId,result.event));
+  return await metadata(copy,`/${encodeURIComponent(route.canonicalSlug)}/${encodeURIComponent(event)}`,result.walk.revision.city.cityName,current.revision.city.cityId,current.revision.city.slug,images,await shareSponsor(current.revision.city.cityId,result.event));
 }catch{return unavailableShare();}}
 export async function cityShareMetadata(slug:string):Promise<Metadata>{try{
-  const walk=(await loadSharedCities()).find(row=>row.revision.city.slug===slug);if(!walk)return unavailableShare();const city=walk.revision.city,images=[walk.approval.approval.heroImageUrl,city.heroImageUrl],copy=isManchesterBitfestCampaign(city.slug,images)?manchesterBitfestCityPreview():cityPreview(city.cityName);
+  const route=resolveCityRoute(await loadSharedCities(),slug),walk=route?.row;if(!walk||!route)return unavailableShare();const city=walk.revision.city,images=[walk.approval.approval.heroImageUrl,city.heroImageUrl],copy=isManchesterBitfestCampaign(city.slug,images)?manchesterBitfestCityPreview():cityPreview(city.cityName);
   let sponsor:Buffer|null=null;try{sponsor=await shareSponsor(city.cityId,currentOrNextEvent(walk,await queryCalendarEvents(serverReadRelays(),{cityId:city.cityId})));}catch{/* Unavailable coverage must not hide valid city metadata. */}
-  return await metadata(copy,`/${encodeURIComponent(slug)}`,city.cityName,city.cityId,city.slug,images,sponsor);
+  return await metadata(copy,`/${encodeURIComponent(route.canonicalSlug)}`,city.cityName,city.cityId,city.slug,images,sponsor);
 }catch{return unavailableShare();}}

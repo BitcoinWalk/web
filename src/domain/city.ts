@@ -43,7 +43,8 @@ export const cityDocumentSchema = z.object({
   locale: z.string().min(2).max(35).refine(value => {
     try { new Intl.Locale(value); return true; } catch { return false; }
   }, "Use a valid language locale").optional(),
-  /** Search-only localized and conventional names. Never routes or display titles. */
+  /** Localized and conventional names. They are search terms and redirect-only
+   * public URL aliases; the signed canonical slug remains the display URL. */
   aliases: cityAliasesSchema.optional(),
   // Organizer preference only. Never proof of payment or paid-relay entitlement.
   requestedTier: z.enum(["free", "paid"]).optional(),
@@ -88,8 +89,8 @@ export const cityApprovalSchema = z.object({
   heroImageUrl: z.url().optional(),
   /** Optional super-admin override for the public URL. */
   slug: citySlugSchema.optional(),
-  /** Optional super-admin override for search-only alternative names. An empty
-   * list explicitly clears aliases from the approved public city. */
+  /** Optional super-admin override for alternative search names and redirect-only
+   * URL aliases. An empty list explicitly clears aliases from the approved city. */
   aliases: cityAliasesSchema.optional(),
   status: z.enum(["approved", "rejected", "revoked"]),
   note: z.string().max(500).optional(),

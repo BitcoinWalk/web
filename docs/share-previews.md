@@ -81,10 +81,12 @@ Submitted city fields are shown as one compact list within that disclosure;
 short values occupy one line, URLs remain clickable and revision changes show
 previous → submitted values without nested per-field cards.
 
-The super-admin can edit search-only alternative city names directly below the
-public URL before signing approval. The signed decision preserves that override
-without altering the organizer's submitted revision. City-image selection and
-the sponsor-invitation option remain visible outside the collapsed disclosure.
+The super-admin can edit alternative city names directly below the public URL
+before signing approval. The signed decision preserves that override without
+altering the organizer's submitted revision. Alternative names remain search
+terms and also provide redirect-only URL aliases; canonical city slugs take
+priority and ambiguous aliases fail closed. City-image selection and the
+sponsor-invitation option remain visible outside the collapsed disclosure.
 
 - reconciles and validates the ten-file localized logo pack;
 - creates and stores a 1200×630 OG image using the managed city hero and that

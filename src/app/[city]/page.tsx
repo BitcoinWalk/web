@@ -18,6 +18,7 @@ import {publicSponsorship} from "../../server/public-sponsorship";
 import {DEFAULT_FEATURE_FLAGS} from "../../domain/feature-flags";
 import {assignedSponsorShareImage,cityShareMetadata,loadSharedCities} from "../../server/share-preview";
 import {previewText} from "../../domain/share-preview";
+import {resolveCityRoute} from "../../domain/city-route";
 
 export const dynamic="force-dynamic";
 
@@ -48,14 +49,16 @@ export default async function CityOrEventPage({params}:{params:Promise<{city:str
   let outcome: {state:"unavailable"}|{state:"missing"}|{state:"ready";cityName:string;eventHref?:string;logoHref?:string;sponsorship:SponsorshipPresentation;sponsorOgImage?:string};
   try{
     const walks=await loadSharedCities(),[flagResult,sponsorshipResult]=await Promise.allSettled([resolvedFeatureFlags(serverReadRelays()),querySponsorships(serverReadRelays())]),flags=flagResult.status==="fulfilled"?flagResult.value:DEFAULT_FEATURE_FLAGS,sponsorships=sponsorshipResult.status==="fulfilled"?sponsorshipResult.value:[];
-    const walk=walks.find(item=>item.revision.city.slug===city);
-    if(!walk)outcome={state:"missing"};
+    const route=resolveCityRoute(walks,city);
+    if(!route)outcome={state:"missing"};
     else{
+      if(route.redirect)redirect(`/${encodeURIComponent(route.canonicalSlug)}`);
+      const walk=route.row;
       const events=await queryCalendarEvents(serverReadRelays(),{cityId:walk.revision.city.cityId});
       const event=currentOrNextEvent(walk,events);
       let logoHref:string|undefined;try{const revision=walk.revision,pack=await getLogoCatalog().ready({cityId:revision.city.cityId,revisionId:revision.event.id,slug:revision.city.slug});if(pack?.publiclyListed)logoHref=`/${encodeURIComponent(pack.slug)}/logo`;}catch{}
       const profile=walk.revision.city,sponsorship=publicSponsorship(sponsorships,flags.sponsorships&&sponsorshipResult.status==="fulfilled",profile.cityId,event),sponsorOgImage=sponsorship.state==="sponsor"&&sponsorship.logoHash?await assignedSponsorShareImage(profile.cityId,profile.slug,[walk.approval.approval.heroImageUrl,profile.heroImageUrl],sponsorship.logoHash):undefined;
-      outcome={state:"ready",cityName:profile.cityName,eventHref:event?`/${encodeURIComponent(city)}/${calendarNevent(event,relayConfig.calendarRelayHints)}`:undefined,logoHref,sponsorship,sponsorOgImage};
+      outcome={state:"ready",cityName:profile.cityName,eventHref:event?`/${encodeURIComponent(profile.slug)}/${calendarNevent(event,relayConfig.calendarRelayHints)}`:undefined,logoHref,sponsorship,sponsorOgImage};
     }
   }catch{
     outcome={state:"unavailable"};
