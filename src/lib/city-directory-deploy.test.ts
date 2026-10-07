@@ -34,6 +34,18 @@ describe("reproducible environment-specific releases",()=>{
     expect(bootstrap).toContain("backup-sqlite-online.mjs");
   });
 
+  it("preserves legacy signed media while routing the canonical production host",async()=>{
+    const [caddy,installer]=await Promise.all([
+      readFile("deploy/Caddyfile.production-web","utf8"),
+      readFile("deploy/install-production-web-caddy-0.3.189.sh","utf8"),
+    ]);
+    for(const required of ["directory.bitcoinwalk.org","bitcoinwalk.org, www.bitcoinwalk.org","handle /wp-content/*","127.0.0.1:3345","213.232.235.240"]){
+      expect(caddy).toContain(required);
+    }
+    expect(installer).toContain("caddy validate");
+    expect(installer).toContain("No DNS record was changed");
+  });
+
   it("replaces rejected releases directly from known-good 0.3.70 with rollback",async()=>{
     const installer=await readFile("deploy/install-city-directory-failover-0.3.73.sh","utf8");
 

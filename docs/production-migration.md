@@ -87,6 +87,15 @@ Record release/source hashes, backup location and manifest, successful restore d
 
 Current action: build and privately activate the isolated production app on `.138`, publish the production directory aliases, validate the exact host, then move only apex and `www` traffic. The legacy `.240` host remains intact for rollback.
 
+### 8.1 Accepted web cutover topology
+
+- The production app runs as the unprivileged `bitcoinwalk` user on `.138`, loopback `3345`, from `/home/bitcoinwalk/apps/bitcoinwalk-production`.
+- Production payment, media and city-logo state is isolated under the user's `.local/state` and `.local/share` trees. The NWC and geocoder secrets remain in the existing owner-only global app environment and are not copied into releases.
+- Browser reads/writes use `wss://relay.bitcoinwalk.org/`; server reads use production loopback `3340`.
+- Production directory discovery uses `wss://directory.bitcoinwalk.org/` on `.138` and `wss://directory-2.bitcoinwalk.org/` on `.240`. The old `-staging` hostnames remain available for staging only.
+- Apex and `www` route to the production app. `www` redirects to the apex. `/wp-content/*` is reverse-proxied to the untouched `.240` WordPress origin so immutable URLs already present in signed records continue to resolve.
+- The application installer is non-root. The separate Caddy installer creates a backup and validates the merged configuration but never changes DNS.
+
 ## 9. Superseded two-city proposal — 25 September 2026
 
 This proposal was superseded by the accepted 12-city/110-event production promotion on 7 October 2026. It remains below only as historical migration evidence and must not be used to rebuild current production.

@@ -1,0 +1,50 @@
+# Production directory alias. It serves the same owner-signed multi-city state
+# as directory-staging until the staging hostname is retired separately.
+directory.bitcoinwalk.org {
+	reverse_proxy 127.0.0.1:3343 {
+		header_up X-Forwarded-Host directory.bitcoinwalk.org
+		header_up X-Forwarded-Proto https
+		header_up -Forwarded
+	}
+}
+
+# Canonical production web application. Keep immutable legacy WordPress media
+# resolving from the untouched rollback host while signed records still refer
+# to bitcoinwalk.org/wp-content URLs.
+bitcoinwalk.org, www.bitcoinwalk.org {
+	header {
+		X-Content-Type-Options nosniff
+		Referrer-Policy strict-origin-when-cross-origin
+		X-Frame-Options DENY
+	}
+	request_body {
+		max_size 1MB
+	}
+	route {
+		@www host www.bitcoinwalk.org
+		redir @www https://bitcoinwalk.org{uri} 308
+
+		handle /wp-content/* {
+			reverse_proxy http://213.232.235.240 {
+				header_up Host bitcoinwalk.org
+				header_up X-Forwarded-Host bitcoinwalk.org
+				header_up X-Forwarded-Proto https
+				header_up -Forwarded
+			}
+		}
+
+		@diagnostics path /pilot/* /preview/* /api/admin/pending
+		handle @diagnostics {
+			respond "Not available on public production" 404
+		}
+
+		handle {
+			reverse_proxy 127.0.0.1:3345 {
+				header_up Host bitcoinwalk.org
+				header_up X-Forwarded-Host bitcoinwalk.org
+				header_up X-Forwarded-Proto https
+				header_up -Forwarded
+			}
+		}
+	}
+}
