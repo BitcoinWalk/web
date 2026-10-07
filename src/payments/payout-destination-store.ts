@@ -1,6 +1,7 @@
 import type {DatabaseSync} from "node:sqlite";
 import {getEventHash, verifyEvent, type Event} from "nostr-tools";
 import type {CityBrandAuthority} from "../nostr/city-brand";
+import type {VerifiedCity} from "./service";
 import type {ValidatedPayoutDestination} from "../server/lnurl-pay";
 import {normalizePayoutDestination} from "../server/lnurl-pay";
 
@@ -11,6 +12,11 @@ export class PayoutDestinationStore {
       city_id TEXT NOT NULL,version INTEGER NOT NULL,owner_pubkey TEXT NOT NULL,normalized TEXT NOT NULL,
       endpoint TEXT NOT NULL,callback TEXT NOT NULL,min_sendable INTEGER NOT NULL,max_sendable INTEGER NOT NULL,
       authority TEXT NOT NULL,owner_event_id TEXT NOT NULL,owner_event TEXT NOT NULL,confirmed_at INTEGER NOT NULL,
+      PRIMARY KEY(city_id,version),UNIQUE(city_id,owner_event_id));`);
+    db.exec(`CREATE TABLE IF NOT EXISTS registration_payout_version (
+      city_id TEXT NOT NULL,revision_id TEXT NOT NULL,version INTEGER NOT NULL,owner_pubkey TEXT NOT NULL,
+      normalized TEXT NOT NULL,endpoint TEXT NOT NULL,callback TEXT NOT NULL,min_sendable INTEGER NOT NULL,max_sendable INTEGER NOT NULL,
+      owner_event_id TEXT NOT NULL,owner_event TEXT NOT NULL,confirmed_at INTEGER NOT NULL,
       PRIMARY KEY(city_id,version),UNIQUE(city_id,owner_event_id));`);
   }
   current(cityId: string): PayoutDestinationVersion | null {
@@ -37,4 +43,21 @@ export class PayoutDestinationStore {
       const result = this.current(authority.cityId)!; this.db.exec("COMMIT"); return result;
     } catch (error) {this.db.exec("ROLLBACK"); throw error;}
   }
+  saveRegistration(city:VerifiedCity,ownerEvent:Event,destination:ValidatedPayoutDestination){
+    const signed:Event=JSON.parse(JSON.stringify(ownerEvent));let command:{action?:unknown;cityId?:unknown;revisionId?:unknown;payoutDestination?:unknown}={};
+    try{command=JSON.parse(signed.content);}catch{throw new Error("Invalid signed Pro checkout request.");}
+    const normalized=typeof command.payoutDestination==="string"?normalizePayoutDestination(command.payoutDestination).normalized:"";
+    if(signed.pubkey!==city.owner||signed.kind!==27235||getEventHash(signed)!==signed.id||!verifyEvent(signed)||command.action!=="create"||
+      command.cityId!==city.cityId||command.revisionId!==city.revisionId||normalized!==destination.normalized)throw new Error("The Pro checkout signature does not confirm this city and payout destination.");
+    this.db.exec("BEGIN IMMEDIATE");
+    try{
+      const retry=this.db.prepare("SELECT version FROM registration_payout_version WHERE city_id=? AND owner_event_id=?").get(city.cityId,signed.id) as {version:number}|undefined;
+      if(retry){this.db.exec("COMMIT");return retry.version;}
+      const prior=this.db.prepare("SELECT MAX(version) version FROM registration_payout_version WHERE city_id=?").get(city.cityId) as {version:number|null};
+      const version=(prior.version??0)+1;
+      this.db.prepare("INSERT INTO registration_payout_version VALUES(?,?,?,?,?,?,?,?,?,?,?,?)").run(city.cityId,city.revisionId,version,city.owner,destination.normalized,destination.endpoint,destination.callback,destination.minSendable,destination.maxSendable,signed.id,JSON.stringify(signed),this.now());
+      this.db.exec("COMMIT");return version;
+    }catch(error){this.db.exec("ROLLBACK");throw error;}
+  }
+  registration(cityId:string,version:number){return this.db.prepare("SELECT city_id cityId,revision_id revisionId,version,owner_pubkey ownerPubkey,normalized,confirmed_at confirmedAt FROM registration_payout_version WHERE city_id=? AND version=?").get(cityId,version) as {cityId:string;revisionId:string;version:number;ownerPubkey:string;normalized:string;confirmedAt:number}|undefined;}
 }

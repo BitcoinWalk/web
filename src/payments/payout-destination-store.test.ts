@@ -10,6 +10,7 @@ const databases: DatabaseSync[] = [];
 afterEach(() => databases.splice(0).forEach(db => db.close()));
 function setup() {const db = new DatabaseSync(":memory:"); databases.push(db); return new PayoutDestinationStore(db, () => 2_000_000_000);}
 const signed = (destinationValue: string) => finalizeEvent(proSetupTemplate({action:"save-payout",cityId,destination:destinationValue},"https://bitcoinwalk.org",2_000_000_000), key);
+const checkout = (destinationValue:string) => finalizeEvent({kind:27235,created_at:2_000_000_000,tags:[["u","https://bitcoinwalk.org/api/payments"],["method","POST"],["t","bitcoinwalk-city-payment-v1"]],content:JSON.stringify({action:"create",cityId,revisionId:"b".repeat(64),payoutDestination:destinationValue})},key);
 describe("private payout destination history", () => {
   it("keeps version history and makes exact signed retries idempotent", () => {
     const store = setup(), first = signed(destination.normalized);
@@ -28,4 +29,5 @@ describe("private payout destination history", () => {
     const text = JSON.stringify(store.current(cityId));
     expect(text).not.toContain("private-entitlement"); expect(text).not.toContain("authorityEventId"); expect(text).not.toContain("owner_event");
   });
+  it("retains a signed pre-checkout destination without treating it as an activated payout",()=>{const store=setup(),city={cityId,revisionId:"b".repeat(64),owner,cityName:"Test"};const version=store.saveRegistration(city,checkout(destination.normalized),destination);expect(version).toBe(1);expect(store.registration(cityId,version)).toMatchObject({revisionId:city.revisionId,normalized:destination.normalized});expect(store.current(cityId)).toBeNull();expect(store.saveRegistration(city,checkout(destination.normalized),destination)).toBe(1);});
 });

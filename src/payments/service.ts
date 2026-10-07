@@ -17,6 +17,7 @@ export class PaymentStore {
     invoice TEXT NOT NULL DEFAULT '',paymentHash TEXT UNIQUE,amountMsat INTEGER NOT NULL DEFAULT 21000000,
     createdAt INTEGER NOT NULL,expiresAt INTEGER NOT NULL DEFAULT 0,status TEXT NOT NULL,settledAt INTEGER,checkedAt INTEGER);
    CREATE UNIQUE INDEX IF NOT EXISTS payment_one_open_invoice ON payment_invoice(cityId) WHERE status IN ('creating','creation-uncertain','pending');
+   CREATE TABLE IF NOT EXISTS payment_invoice_payout(invoiceId TEXT PRIMARY KEY,destinationVersion INTEGER NOT NULL);
    CREATE TABLE IF NOT EXISTS paid_city_entitlement(cityId TEXT PRIMARY KEY,owner TEXT NOT NULL,paymentHash TEXT NOT NULL UNIQUE,invoiceId TEXT NOT NULL,paidAt INTEGER NOT NULL);`);
  }
  rows():PaymentRow[]{return this.db.prepare("SELECT * FROM payment_invoice ORDER BY createdAt DESC,rowid DESC").all() as PaymentRow[];}
@@ -39,7 +40,7 @@ export class PaymentService {
  private tail:Promise<unknown>=Promise.resolve();
  constructor(readonly store:PaymentStore,private wallet:PaymentWallet,private verifyCity:(cityId:string,revisionId:string)=>Promise<VerifiedCity>,private now=()=>Math.floor(Date.now()/1000)){}
  private exclusive<T>(work:()=>Promise<T>):Promise<T>{const next=this.tail.then(work,work);this.tail=next.catch(()=>{});return next;}
- create(owner:string,cityId:string,revisionId:string):Promise<PaymentView>{return this.exclusive(async()=>{
+ create(owner:string,cityId:string,revisionId:string,destinationVersion?:number):Promise<PaymentView>{return this.exclusive(async()=>{
   const city=await this.verifyCity(cityId,revisionId);
   if(city.owner!==owner||city.cityId!==cityId||city.revisionId!==revisionId)throw new Error("Only the verified city creator can purchase this plan.");
   const history=this.store.forCity(cityId);
@@ -51,7 +52,10 @@ export class PaymentService {
   // Bound invoice creation even when repeatedly submitting fresh signed requests.
   if(rows.filter(row=>row.createdAt>this.now()-86400).length>=5)throw new Error("Invoice renewal limit reached. Try again tomorrow.");
   const id=randomUUID();
-  this.store.db.prepare("INSERT INTO payment_invoice(id,cityId,owner,cityName,revisionId,createdAt,status) VALUES(?,?,?,?,?,?,'creating')").run(id,cityId,owner,city.cityName,revisionId,this.now());
+  this.store.db.exec("BEGIN IMMEDIATE");
+  try{this.store.db.prepare("INSERT INTO payment_invoice(id,cityId,owner,cityName,revisionId,createdAt,status) VALUES(?,?,?,?,?,?,'creating')").run(id,cityId,owner,city.cityName,revisionId,this.now());
+   if(destinationVersion!==undefined){if(!Number.isSafeInteger(destinationVersion)||destinationVersion<1)throw new Error("Invalid payout destination version");this.store.db.prepare("INSERT INTO payment_invoice_payout VALUES(?,?)").run(id,destinationVersion);}this.store.db.exec("COMMIT");
+  }catch(error){this.store.db.exec("ROLLBACK");throw error;}
   try{
    const result=await this.wallet.makeInvoice(`BitcoinWalk lifetime city plan — ${city.cityName} — order ${id}`);
    if(result.amountMsat!==PRICE_MSAT||!/^[0-9a-f]{64}$/.test(result.paymentHash)||!result.invoice||!Number.isSafeInteger(result.expiresAt)||result.expiresAt<=this.now())throw new Error("Invalid invoice");
@@ -88,4 +92,3 @@ export class PaymentService {
  });}
  list(actor:string,superAdmin:string):PaymentView[]{return this.store.rows().filter(row=>actor===superAdmin||row.owner===actor).map(row=>this.store.view(row));}
 }
-

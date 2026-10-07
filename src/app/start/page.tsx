@@ -40,6 +40,7 @@ export default function StartWalkPage() {
   const [meetingDescription, setMeetingDescription] = useState("");
   const [organizerKey, setOrganizerKey] = useState<string | null>(null);
   const [requestedTier, setRequestedTier] = useState<RequestedTier>("free");
+  const [payoutDestination,setPayoutDestination]=useState("");
   const [paidEnabled,setPaidEnabled]=useState(false);
   const [checkout,setCheckout]=useState<{cityId:string;revisionId:string;owner:string;cityName:string;relayCount:number}|null>(null);
   const cityId = useRef("");
@@ -152,13 +153,15 @@ export default function StartWalkPage() {
         <h2 ref={planHeading} tabIndex={-1}>Step 3 of 3 — Choose your plan</h2>
         <form onSubmit={submit}>
           <RegistrationPlans value={requestedTier} onChange={setRequestedTier} disabled={locked||step!==3} paidEnabled={paidEnabled} showHeading={false}/>
-          <div className="start-account-step__submit"><button type="submit" disabled={!organizerKey||locked||step!==3}>{registrationActionLabel(requestedTier,state.kind==="working")}</button></div>
+          {requestedTier==="paid"&&<fieldset><legend>Your payout destination</legend><label>Lightning address or LNURL-pay<input value={payoutDestination} onChange={event=>setPayoutDestination(event.target.value)} required placeholder="you@example.com or lnurl1…" autoComplete="off" spellCheck={false}/></label><p>79% of payments to your city’s BitcoinWalk Lightning address will go to this private destination. BitcoinWalk retains 21%. We validate it before creating your Pro invoice; no test payment is sent.</p></fieldset>}
+          <div className="start-account-step__submit"><button type="submit" disabled={!organizerKey||locked||step!==3||(requestedTier==="paid"&&!payoutDestination.trim())}>{registrationActionLabel(requestedTier,state.kind==="working")}</button></div>
         </form>
       </>:<CityPayment
         key={checkout.cityId}
         cityId={checkout.cityId}
         revisionId={checkout.revisionId}
         owner={checkout.owner}
+        payoutDestination={payoutDestination}
         autoCreate
         passive
         onPaid={()=>finishRegistration(draft(),"paid",true)}

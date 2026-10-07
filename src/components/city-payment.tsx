@@ -14,7 +14,7 @@ export async function paymentFetch(event:Event){
 }
 export function signPayment(command:PaymentCommand,owner:string){return signForOrganizer(paymentRequest(command,window.location.origin),owner);}
 
-export default function CityPayment({cityId,revisionId,owner,autoCreate=false,passive=false,onPaid}:{cityId:string;revisionId:string;owner:string;autoCreate?:boolean;passive?:boolean;onPaid?:()=>void}){
+export default function CityPayment({cityId,revisionId,owner,payoutDestination,autoCreate=false,passive=false,onPaid}:{cityId:string;revisionId:string;owner:string;payoutDestination:string;autoCreate?:boolean;passive?:boolean;onPaid?:()=>void}){
  const [payment,setPayment]=useState<PaymentView|null>(null),[error,setError]=useState(""),[busy,setBusy]=useState(false);
  const [readRequest,setReadRequest]=useState<Event|null>(null);
  const mounted=useRef(false),lock=useRef(false),started=useRef(false),startedPaid=useRef(false),renewed=useRef(false);
@@ -22,14 +22,14 @@ export default function CityPayment({cityId,revisionId,owner,autoCreate=false,pa
  const refresh=useCallback(async(create:boolean)=>{
   if(lock.current)return;lock.current=true;setBusy(true);setError("");
   try{
-   const event=await signPayment(create?{action:"create",cityId,revisionId}:{action:"status",cityId},owner);
+   const event=await signPayment(create?{action:"create",cityId,revisionId,payoutDestination}:{action:"status",cityId},owner);
    const result=await paymentFetch(event);if(!mounted.current)return;
    setPayment(result.payment??null);
    const status=create?await signPayment({action:"status",cityId},owner):event;
    if(mounted.current)setReadRequest(status);
   }catch(e){if(mounted.current)setError(e instanceof Error?e.message:"Payment unavailable.");}
   finally{lock.current=false;if(mounted.current)setBusy(false);}
- },[cityId,revisionId,owner]);
+ },[cityId,revisionId,owner,payoutDestination]);
  useEffect(()=>{let active=true;queueMicrotask(()=>{if(active&&autoCreate&&!started.current){started.current=true;void refresh(true);}});return()=>{active=false;};},[autoCreate,refresh]);
  useEffect(()=>{if(passive&&payment?.status==="expired"&&!renewed.current){renewed.current=true;void refresh(true);}},[passive,payment?.status,refresh]);
  useEffect(()=>{if(payment?.tier==="paid"&&!startedPaid.current){startedPaid.current=true;onPaid?.();}},[payment?.tier,onPaid]);

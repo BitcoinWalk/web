@@ -4,7 +4,7 @@ import {mkdtempSync,rmSync} from "node:fs";
 import {tmpdir} from "node:os";
 import {join} from "node:path";
 import {DatabaseSync} from "node:sqlite";
-import {generateSecretKey,finalizeEvent} from "nostr-tools";
+import {generateSecretKey,finalizeEvent,verifyEvent} from "nostr-tools";
 import {PaymentService, PaymentStore, type Invoice, type PaymentWallet} from "./service";
 import {authorizePayment,paymentRequest} from "./auth";
 
@@ -29,6 +29,7 @@ describe("paid-city settlement",()=>{
   expect(db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='payment_invoice'").get()).toBeTruthy();
  });
  it("persists hash before returning an invoice and reuses it",async()=>{const {service,wallet,store}=setup();const a=await service.create(owner,cityId,revisionId);expect(a.paymentHash).toBe(hash);expect(store.rows()[0].paymentHash).toBe(hash);expect(await service.create(owner,cityId,revisionId)).toMatchObject({id:a.id,paymentHash:a.paymentHash,invoice:a.invoice});expect(wallet.makeInvoice).toHaveBeenCalledTimes(1);expect(a.tier).toBe("free");});
+ it("atomically binds a new invoice to the confirmed payout version and never rewrites an open invoice",async()=>{const {service,store}=setup();const first=await service.create(owner,cityId,revisionId,3);expect(store.db.prepare("SELECT destinationVersion FROM payment_invoice_payout WHERE invoiceId=?").get(first.id)).toEqual({destinationVersion:3});await service.create(owner,cityId,revisionId,4);expect(store.db.prepare("SELECT destinationVersion FROM payment_invoice_payout WHERE invoiceId=?").get(first.id)).toEqual({destinationVersion:3});});
  it("serializes simultaneous creates",async()=>{const {service,wallet}=setup();await Promise.all([service.create(owner,cityId,revisionId),service.create(owner,cityId,revisionId)]);expect(wallet.makeInvoice).toHaveBeenCalledTimes(1);});
  it("refuses a different owner before creating an invoice",async()=>{const {service,wallet}=setup();await expect(service.create("c".repeat(64),cityId,revisionId)).rejects.toThrow();expect(wallet.makeInvoice).not.toHaveBeenCalled();});
  it("cannot read another organizer's payment",async()=>{const {service}=setup();await service.create(owner,cityId,revisionId);await expect(service.status("c".repeat(64),cityId)).rejects.toThrow();});
@@ -50,5 +51,5 @@ describe("paid-city settlement",()=>{
 describe("payment request authorization",()=>{
  it("binds request to the deployment origin and short lifetime",()=>{const event=finalizeEvent(paymentRequest({action:"status",cityId},"https://app-staging.bitcoinwalk.org",now),generateSecretKey());expect(authorizePayment(event,"https://app-staging.bitcoinwalk.org",now).action).toBe("status");expect(()=>authorizePayment(event,"https://bitcoinwalk.org",now)).toThrow();expect(()=>authorizePayment(event,"https://app-staging.bitcoinwalk.org",now+301)).toThrow();});
  it("rejects tampering and client-supplied price",()=>{const event=finalizeEvent(paymentRequest({action:"list"},"https://example.org",now),generateSecretKey());expect(()=>authorizePayment({...event,content:'{"action":"list","amount":1}'},"https://example.org",now)).toThrow();});
+ it("requires and signs the exact payout destination before Pro invoice creation",()=>{const key=generateSecretKey(),command={action:"create" as const,cityId,revisionId,payoutDestination:"alice@wallet.example"},event=finalizeEvent(paymentRequest(command,"https://example.org",now),key);expect(authorizePayment(event,"https://example.org",now)).toEqual(command);expect(verifyEvent(event)).toBe(true);event.content=JSON.stringify({...command,payoutDestination:"attacker@wallet.example"});expect(()=>authorizePayment(event,"https://example.org",now)).toThrow();expect(()=>paymentRequest({action:"create",cityId,revisionId} as never,"https://example.org",now)).toThrow();});
 });
-
