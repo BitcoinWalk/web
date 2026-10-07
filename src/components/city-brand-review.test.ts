@@ -4,5 +4,5 @@ import {describe,expect,it} from "vitest";
 import CityBrandReview from "./city-brand-review";
 
 describe("CityBrandReview",()=>{
- it("states the private non-publishing boundary before loading requests",()=>{const html=renderToStaticMarkup(createElement(CityBrandReview,{actor:"a".repeat(64)}));expect(html).toContain("City account review");expect(html).toContain("Nothing is published");expect(html).toContain("Load activation requests");});
+ it("explains the automatic profile and official-identity attestation boundary",()=>{const html=renderToStaticMarkup(createElement(CityBrandReview,{actor:"a".repeat(64)}));expect(html).toContain("City account review");expect(html).toContain("generated automatically");expect(html).toContain("official identity");expect(html).toContain("Nothing is published");expect(html).toContain("Load activation requests");});
 });

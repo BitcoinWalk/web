@@ -52,10 +52,10 @@ function ProSetupForm({enabled, actor, cities}: {enabled: boolean; actor: string
     finally {inFlight.current = false; setBusy(false);}
   }
   return <section>
-    <h1>Pro city account setup</h1>
+    <h1>Upgrade your city</h1>
     <p>Your personal account remains your dashboard login. Your city will have its own public BitcoinWalk identity.</p>
     {!enabled ? <p role="status">This setup is being prepared and is not available yet. Your Pro payment remains recorded; do not pay again.</p> : <>
-      <p><strong>Preparation preview only.</strong> This screen does not activate a city identity, Lightning address or payout split.</p>
+      <p><strong>Preparation preview only.</strong> BitcoinWalk automatically fills the city name, avatar and banner from the approved city record. You connect the separate city signer and confirm the payout destination. This screen does not activate a city identity, Lightning address or payout split.</p>
       <CityFinder label="Your city" placeholder="Search your cities…" value={cityId} disabled={busy} items={cities}
         onChange={id => {setCityId(id); setPreview(null); setDestination(""); setMessage("");}}/>
       <button type="button" onClick={() => void prepare()} disabled={busy || !cityId || !actor}>{busy ? "Preparing…" : "Verify and preview Pro setup"}</button>
