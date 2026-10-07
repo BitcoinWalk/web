@@ -18,14 +18,15 @@ describe("city profile artwork", () => {
     expect((await sharp(a.avatar).metadata()).exif).toBeUndefined();
     // No bright icon pixels are lost when a client masks the avatar to a circle.
     const {data, info} = await sharp(a.avatar).removeAlpha().raw().toBuffer({resolveWithObject: true});
-    let bright = 0;
+    let bright = 0, maxRadiusSquared = 0;
     for (let y = 0; y < info.height; y++) for (let x = 0; x < info.width; x++) {
       if (data[(y * info.width + x) * 3] > 200) {
         bright++;
-        expect((x - 512) ** 2 + (y - 512) ** 2).toBeLessThan(480 ** 2);
+        maxRadiusSquared = Math.max(maxRadiusSquared, (x - 512) ** 2 + (y - 512) ** 2);
       }
     }
     expect(bright).toBeGreaterThan(10_000);
+    expect(maxRadiusSquared).toBeLessThan(480 ** 2);
   });
   it("keeps the original hero visible and never silently substitutes a corrupt supplied source", async () => {
     const hero = await sharp({create: {width: 500, height: 500, channels: 3, background: "#ff0000"}}).png().toBuffer();
