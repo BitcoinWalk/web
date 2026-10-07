@@ -46,13 +46,13 @@ export default async function CityOrEventPage({params}:{params:Promise<{city:str
   let staticRoute:ReturnType<typeof contentRoute>=null;
   try{staticRoute=contentRoute(await queryContentRevisions(serverReadRelays()),city);}catch{}
   if(staticRoute){if("redirect" in staticRoute)redirect(staticRoute.redirect);return <StaticContentPage page={staticRoute.page.page}/>;}
-  let outcome: {state:"unavailable"}|{state:"missing"}|{state:"ready";cityName:string;eventHref?:string;logoHref?:string;sponsorship:SponsorshipPresentation;sponsorOgImage?:string};
+  let outcome: {state:"unavailable"}|{state:"missing"}|{state:"redirect";href:string}|{state:"ready";cityName:string;eventHref?:string;logoHref?:string;sponsorship:SponsorshipPresentation;sponsorOgImage?:string};
   try{
     const walks=await loadSharedCities(),[flagResult,sponsorshipResult]=await Promise.allSettled([resolvedFeatureFlags(serverReadRelays()),querySponsorships(serverReadRelays())]),flags=flagResult.status==="fulfilled"?flagResult.value:DEFAULT_FEATURE_FLAGS,sponsorships=sponsorshipResult.status==="fulfilled"?sponsorshipResult.value:[];
     const route=resolveCityRoute(walks,city);
     if(!route)outcome={state:"missing"};
+    else if(route.redirect)outcome={state:"redirect",href:`/${encodeURIComponent(route.canonicalSlug)}`};
     else{
-      if(route.redirect)redirect(`/${encodeURIComponent(route.canonicalSlug)}`);
       const walk=route.row;
       const events=await queryCalendarEvents(serverReadRelays(),{cityId:walk.revision.city.cityId});
       const event=currentOrNextEvent(walk,events);
@@ -65,6 +65,7 @@ export default async function CityOrEventPage({params}:{params:Promise<{city:str
   }
   if(outcome.state==="unavailable")return <main><h1>Walk temporarily unavailable</h1><p>The relay could not be read. Please try again later.</p></main>;
   if(outcome.state==="missing")notFound();
+  if(outcome.state==="redirect")redirect(outcome.href);
   if(outcome.eventHref)redirect(outcome.eventHref);
   return <main><h1>BitcoinWalk {outcome.cityName}</h1><p>No upcoming walk has been scheduled.</p><SponsorModule presentation={outcome.sponsorship} cityName={outcome.cityName} ogImageUrl={outcome.sponsorOgImage}/>{outcome.logoHref&&<p><Link href={outcome.logoHref}>Download the official city logo pack</Link></p>}<p><Link href="/">Browse BitcoinWalks</Link></p></main>;
 }
