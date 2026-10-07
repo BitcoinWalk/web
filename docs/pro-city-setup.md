@@ -18,7 +18,7 @@ The owner can now prepare the private BW-103 activation request after payout, si
 
 ## Enablement boundary
 
-Default off: `BITCOINWALK_PRO_SETUP_PREVIEW=true` enables only this preview. The app also needs its existing payment runtime, configured directory transports, exact approved logo assets, persistent `BITCOINWALK_MEDIA_ROOT` and canonical `BITCOINWALK_PAYMENT_APP_ORIGIN`. No new secrets or wallet permissions are required for preview. Do not enable production account activation on the strength of this feature flag. No VPS rollout is included in this change.
+Default off: `BITCOINWALK_PRO_SETUP_PREVIEW=true` enables only this preview. The app also needs its existing payment runtime, configured directory transports, exact approved logo assets, persistent `BITCOINWALK_MEDIA_ROOT` and canonical `BITCOINWALK_PAYMENT_APP_ORIGIN`. No new secrets or wallet permissions are required for preview. Do not enable production account activation on the strength of this feature flag.
 
 The route is intentionally absent from normal navigation while activation is incomplete. Test through the direct dashboard path after explicitly enabling staging preview. Signed-in city choices are only navigation hints; the backend independently enforces ownership, including after rotation. An empty/incomplete city picker does not authorize entering another city's records.
 
@@ -31,4 +31,8 @@ The route is intentionally absent from normal navigation while activation is inc
 
 BW-105 remains In progress. The dependency gates are reported in the UI, not hidden behind a successful-looking Submit button.
 
-Verification: all 827 tests pass, including private request idempotency/expiry, separate owner/city proofs, sanitized admin review, exact local approval, artwork/signer/payout version binding, stale-request rejection, expected-key enforcement, clear-before-replace, legacy task migration, no-secret rendering, settlement recovery, origin/time/tampering checks, editor/former-owner denial, outages, disapproval/suspension/unpaid denial and API feature/rate limits. Typecheck passes; full lint, production build and backlog validation run again before delivery. Interactive signer and staging acceptance remain outstanding.
+Verification: all 827 tests pass, including private request idempotency/expiry, separate owner/city proofs, sanitized admin review, exact local approval, artwork/signer/payout version binding, stale-request rejection, expected-key enforcement, clear-before-replace, legacy task migration, no-secret rendering, settlement recovery, origin/time/tampering checks, editor/former-owner denial, outages, disapproval/suspension/unpaid denial and API feature/rate limits. Typecheck, lint with four existing image warnings, production build, package smoke and CI pass.
+
+## Staging checkpoint — 7 October 2026
+
+App `0.3.194` is active through the ordinary `bitcoinwalk` account and non-root deployment helper. The staging-only preview flag is enabled; production remains untouched. Archive SHA-256: `a2f2857b4359a00d7ba376d040e44c490cd2eb0fa8eb0e378358437de1a09cca`. Deployment and rollback evidence: `/home/bitcoinwalk/backups/app-staging-deploy.ZuFqEv`; active release: `/opt/bitcoinwalk-app-staging/releases/0.3.194-a2f2857b4359`. Loopback/public health, `/admin/upgrade`, the disconnected account gate and the legacy `/admin/pro-setup` redirect payload all pass. Interactive organizer/city-signer and super-admin attestation acceptance remain outstanding; nothing has been published or activated.
