@@ -1,6 +1,6 @@
 import {describe, expect, it} from "vitest";
-import {finalizeEvent, verifyEvent} from "nostr-tools";
-import {authorizeProSetup, proSetupTemplate} from "./pro-setup-command";
+import {finalizeEvent, getPublicKey, verifyEvent} from "nostr-tools";
+import {authorizeCitySignerProof, authorizeProSetup, citySignerProofTemplate, proSetupTemplate} from "./pro-setup-command";
 const origin = "https://bitcoinwalk.org", now = 2_000_000_000;
 const command = {action: "preview" as const, cityId: "66f137cb-2ac1-4eef-8358-7dd66b45922f"};
 const key = new Uint8Array(32).fill(2);
@@ -30,5 +30,15 @@ describe("private Pro setup commands", () => {
     expect(authorizeProSetup(event, origin, now)).toEqual(save);
     event.content = JSON.stringify({...save, destination: "attacker@wallet.example"});
     expect(() => authorizeProSetup(event, origin, now)).toThrow();
+  });
+  it("requires a separate proof from the exact city signer", () => {
+    const brandKey = new Uint8Array(32).fill(3), brandPubkey = getPublicKey(brandKey);
+    const save = {action: "confirm-city-signer" as const, cityId: command.cityId, brandPubkey, backupAcknowledged: true as const};
+    expect(authorizeProSetup(finalizeEvent(proSetupTemplate(save, origin, now), key), origin, now)).toEqual(save);
+    const proof = finalizeEvent(citySignerProofTemplate(save, origin, now), brandKey);
+    expect(authorizeCitySignerProof(proof, save, origin, now).pubkey).toBe(brandPubkey);
+    expect(() => authorizeCitySignerProof(finalizeEvent(citySignerProofTemplate(save, origin, now), key), save, origin, now)).toThrow("expected identity");
+    expect(() => authorizeCitySignerProof(proof, {...save, brandPubkey: getPublicKey(key)}, origin, now)).toThrow();
+    expect(() => proSetupTemplate({...save, backupAcknowledged: false} as never, origin, now)).toThrow();
   });
 });

@@ -26,6 +26,26 @@ describe("durable Pro setup tasks", () => {
     expect(new ProSetupTaskStore(db).get(cityId)).toMatchObject({state: "payout-confirmed", payoutVersion: 2});
   });
 
+  it("keeps a distinct verified city signer and payout as independent resumable gates", () => {
+    const {store} = setup(), brand = "c".repeat(64);
+    store.ensure({cityId, entitlementId, originalOwnerPubkey: owner, currentOwnerPubkey: owner}, 100);
+    expect(store.confirmSigner(cityId, entitlementId, owner, brand, 105)).toMatchObject({state: "signer-confirmed", signer: {pubkey: brand, version: 1, confirmedAt: 105}});
+    expect(store.confirmSigner(cityId, entitlementId, owner, brand, 110)).toMatchObject({signer: {version: 1, confirmedAt: 105}});
+    expect(() => store.confirmSigner(cityId, entitlementId, owner, "d".repeat(64), 111)).toThrow("Clear the saved");
+    expect(store.confirmPayout(cityId, entitlementId, owner, 2, 115)).toMatchObject({state: "ready-for-proof", payoutVersion: 2});
+    expect(store.clearSigner(cityId, entitlementId, owner, 120)).toEqual({cityId, state: "payout-confirmed", payoutVersion: 2, createdAt: 100, updatedAt: 120});
+    expect(() => store.confirmSigner(cityId, entitlementId, owner, owner)).toThrow("separate");
+  });
+
+  it("adds signer recovery columns to tasks created by the earlier schema", () => {
+    const db = new DatabaseSync(":memory:"); databases.push(db);
+    db.exec(`CREATE TABLE pro_setup_task(cityId TEXT PRIMARY KEY,entitlementId TEXT NOT NULL UNIQUE,originalOwnerPubkey TEXT NOT NULL,currentOwnerPubkey TEXT NOT NULL,
+      registrationVersion INTEGER,payoutVersion INTEGER,state TEXT NOT NULL,createdAt INTEGER NOT NULL,updatedAt INTEGER NOT NULL);`);
+    const store = new ProSetupTaskStore(db);
+    store.ensure({cityId, entitlementId, originalOwnerPubkey: owner, currentOwnerPubkey: owner});
+    expect(store.confirmSigner(cityId, entitlementId, owner, "c".repeat(64))).toMatchObject({state: "signer-confirmed", signer: {version: 1}});
+  });
+
   it("invalidates the prior owner's payout on a trusted ownership rotation", () => {
     const {store} = setup();
     store.ensure({cityId, entitlementId, originalOwnerPubkey: owner, currentOwnerPubkey: owner, registrationVersion: 1}, 100);

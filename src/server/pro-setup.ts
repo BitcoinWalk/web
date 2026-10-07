@@ -13,6 +13,8 @@ import {managedBackground} from "./share-image";
 import {PayoutDestinationStore} from "../payments/payout-destination-store";
 import {ProSetupTaskStore} from "../payments/pro-setup-task-store";
 import {validatePayoutDestination} from "./lnurl-pay";
+import {SUPER_ADMIN_PUBKEY} from "../nostr/authority";
+import {authorizeCitySignerProof, type ProSetupCommand} from "../nostr/pro-setup-command";
 
 /** This preflight cannot publish, create invoices, assign identities or activate payments. */
 export type ProSetupPreview = {
@@ -20,7 +22,8 @@ export type ProSetupPreview = {
   profile: {name: string; display_name: string; picture: string; banner: string; website: string};
   status: "preparation-only";
   payout: {configured: boolean; destination?: string; version?: number; suggestedDestination?: string; registrationVersion?: number};
-  setup: {state: "setup-required" | "payout-confirmed"; updatedAt: number};
+  setup: {state: "setup-required" | "payout-confirmed" | "signer-confirmed" | "ready-for-proof"; updatedAt: number};
+  signer: {configured: boolean; pubkey?: string; version?: number};
   steps: Array<{label: string; state: "ready" | "blocked"; detail: string}>;
 };
 
@@ -99,14 +102,17 @@ export async function prepareProSetupPreview(cityId: string, actor: string, orig
   const fresh = await resolveProSetupAuthority(cityId, actor);
   if (JSON.stringify(authority) !== JSON.stringify(fresh.authority)) throw new Error("City authority changed during preparation. Reload to try again.");
   const name = `BitcoinWalk in ${city.cityName}`;
-  const {task, binding} = ensureSetupTask(fresh);
+  const {task: initialTask, store: taskStore, binding} = ensureSetupTask(fresh);
   const destinations = new PayoutDestinationStore(getPaymentRuntime().store.db);
   const stored = destinations.current(cityId);
   const payout = stored?.ownerPubkey === fresh.authority.ownerPubkey ? stored : null;
+  const task = payout && initialTask.payoutVersion !== payout.version ?
+    taskStore.confirmPayout(cityId, fresh.authority.entitlementId, fresh.authority.ownerPubkey, payout.version) : initialTask;
   const registration = !payout && task.registrationVersion ? destinations.registration(cityId, task.registrationVersion) : undefined;
   const suggestion = registration?.ownerPubkey === fresh.authority.ownerPubkey && registration.revisionId === binding.revisionId ? registration : undefined;
   return {cityId, cityName: city.cityName, revisionId: row.revision.event.id, status: "preparation-only",
-    setup: {state: payout ? "payout-confirmed" : task.state, updatedAt: task.updatedAt},
+    setup: {state: task.state, updatedAt: task.updatedAt},
+    signer: task.signer ? {configured: true, pubkey: task.signer.pubkey, version: task.signer.version} : {configured: false},
     payout: payout ? {configured: true, destination: payout.normalized, version: payout.version} : suggestion ?
       {configured: false, suggestedDestination: suggestion.normalized, registrationVersion: suggestion.version} : {configured: false},
     profile: {name, display_name: name, picture: artwork.avatar.url, banner: artwork.banner.url, website: `${origin}/${slug}`},
@@ -114,8 +120,27 @@ export async function prepareProSetupPreview(cityId: string, actor: string, orig
       {label: "Pro payment and city ownership", state: "ready", detail: "Verified against current approval, ownership, moderation and settled payment records."},
       {label: "City profile artwork", state: "ready", detail: "Prepared from the approved city photo. The avatar uses the larger icon without city lettering."},
       {label: "Personal payout destination", state: payout ? "ready" : "blocked", detail: payout ? `Owner-confirmed destination version ${payout.version} is saved privately. It is not active until provisioning is verified.` : suggestion ? "Your checkout destination was recovered privately. Confirm it again with the current city owner’s signer before activation." : "Add and confirm your personal Lightning address or LNURL-pay destination below."},
-      {label: "City account and activation", state: "blocked", detail: "City signer setup, approval and relay read-back are still being integrated. Keep your personal dashboard identity; no city account is active yet."},
+      {label: "Separate city signer", state: task.signer ? "ready" : "blocked", detail: task.signer ? `Expected city signer version ${task.signer.version} is confirmed privately. Its key remains outside BitcoinWalk.` : "Create or connect a recoverable city identity and prove control of its exact public key."},
+      {label: "City account activation", state: "blocked", detail: "Request-bound approval and relay read-back are still being integrated. Keep your personal dashboard identity; no city account is active yet."},
     ]};
+}
+
+export async function saveProSetupSigner(cityId: string, actor: string, command: Extract<ProSetupCommand, {action: "confirm-city-signer"}>, brandProof: Event, origin: string) {
+  if (command.cityId !== cityId || command.brandPubkey === actor || command.brandPubkey === SUPER_ADMIN_PUBKEY) throw new Error("Use a separate city signer identity.");
+  const before = await resolveProSetupAuthority(cityId, actor);
+  authorizeCitySignerProof(brandProof, command, origin);
+  const after = await resolveProSetupAuthority(cityId, actor);
+  if (JSON.stringify(before.authority) !== JSON.stringify(after.authority)) throw new Error("City authority changed during signer verification. Reload and try again.");
+  const {store} = ensureSetupTask(after);
+  const task = store.confirmSigner(cityId, after.authority.entitlementId, after.authority.ownerPubkey, command.brandPubkey);
+  return {cityId, pubkey: task.signer!.pubkey, version: task.signer!.version, state: "confirmed-not-active" as const,
+    message: "Separate city signer confirmed. It is not published or active yet; keep its recovery method safe."};
+}
+
+export async function clearProSetupSigner(cityId: string, actor: string) {
+  const resolved = await resolveProSetupAuthority(cityId, actor), {store} = ensureSetupTask(resolved);
+  const task = store.clearSigner(cityId, resolved.authority.entitlementId, resolved.authority.ownerPubkey);
+  return {cityId, state: task.state, cleared: true as const, message: "Saved city signer cleared. Your personal dashboard identity and Pro entitlement were not changed."};
 }
 
 export async function saveProSetupPayout(cityId: string, actor: string, destination: string, event: Event) {

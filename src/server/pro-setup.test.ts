@@ -1,6 +1,6 @@
 import {afterEach, beforeEach, describe, expect, it, vi} from "vitest";
 import type {AuthorizationRecord, ApprovalRecord, CityRevision} from "../nostr/city-records";
-import type {Event} from "nostr-tools";
+import {finalizeEvent, generateSecretKey, getPublicKey, type Event} from "nostr-tools";
 import {DatabaseSync} from "node:sqlite";
 vi.mock("../payments/runtime", () => ({getPaymentRuntime: vi.fn()}));
 vi.mock("../logos/runtime", () => ({getLogoCatalog: vi.fn()}));
@@ -13,7 +13,8 @@ vi.mock("../payments/payout-destination-store", () => ({PayoutDestinationStore: 
 import {getLogoCatalog} from "../logos/runtime";
 import {getPaymentRuntime} from "../payments/runtime";
 import {managedBackground} from "./share-image";
-import {prepareProSetupPreview, resolveProSetupAuthority, proSetupDependencies} from "./pro-setup";
+import {clearProSetupSigner, prepareProSetupPreview, resolveProSetupAuthority, saveProSetupSigner, proSetupDependencies} from "./pro-setup";
+import {citySignerProofTemplate} from "../nostr/pro-setup-command";
 const cityId = "66f137cb-2ac1-4eef-8358-7dd66b45922f", owner = "a".repeat(64), editor = "b".repeat(64), nextOwner = "c".repeat(64);
 const event = (id: string, pubkey: string, created_at: number): Event => ({id: id.repeat(64), pubkey, created_at, kind: 30304, tags: [], content: "", sig: ""});
 const revision: CityRevision = {event: event("d", editor, 1), city: {cityId, slug: "radom", cityName: "Radom", description: "Walk", startAt: "2026-10-02T15:00:00Z", meetingPoint: {description: "Square", latitude: 1, longitude: 2}, heroImageUrl: "https://example.com/i"}};
@@ -61,6 +62,21 @@ describe("Pro setup fresh authority", () => {
     const result = await resolveProSetupAuthority(cityId, owner, deps);
     expect(result.authority).toMatchObject({ownerPubkey: owner, authorityEventId: grant.event.id, entitlementId: "private-invoice"});
     await expect(resolveProSetupAuthority(cityId, editor, deps)).rejects.toThrow("current city owner");
+  });
+  it("stores only a separately proven expected city key and supports owner cancellation", async () => {
+    vi.spyOn(proSetupDependencies, "snapshot").mockImplementation(deps.snapshot);
+    vi.spyOn(proSetupDependencies, "grants").mockImplementation(deps.grants);
+    vi.spyOn(proSetupDependencies, "discover").mockImplementation(deps.discover);
+    vi.spyOn(proSetupDependencies, "entitlement").mockImplementation(deps.entitlement);
+    vi.spyOn(proSetupDependencies, "restrictions").mockImplementation(deps.restrictions);
+    const key=generateSecretKey(),brandPubkey=getPublicKey(key),origin="https://bitcoinwalk.org";
+    const command={action:"confirm-city-signer" as const,cityId,brandPubkey,backupAcknowledged:true as const};
+    const proof=finalizeEvent(citySignerProofTemplate(command,origin),key);
+    await expect(saveProSetupSigner(cityId,owner,{...command,brandPubkey:editor},proof,origin)).rejects.toThrow("expected identity");
+    await expect(saveProSetupSigner(cityId,owner,{...command,brandPubkey:owner},proof,origin)).rejects.toThrow("separate");
+    expect(await saveProSetupSigner(cityId,owner,command,proof,origin)).toMatchObject({pubkey:brandPubkey,version:1,state:"confirmed-not-active"});
+    expect(await clearProSetupSigner(cityId,owner)).toMatchObject({cleared:true,state:"setup-required"});
+    expect(JSON.stringify(database.prepare("SELECT * FROM pro_setup_task").get())).not.toContain("nsec");
   });
   it("follows anchored ownership rotation without transferring the entitlement to the payer", async () => {
     vi.mocked(deps.discover).mockResolvedValue({ownerPubkey: nextOwner, eventId: "9".repeat(64)});

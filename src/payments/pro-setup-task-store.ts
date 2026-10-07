@@ -2,9 +2,10 @@ import type {DatabaseSync} from "node:sqlite";
 
 export type ProSetupTask = {
   cityId: string;
-  state: "setup-required" | "payout-confirmed";
+  state: "setup-required" | "payout-confirmed" | "signer-confirmed" | "ready-for-proof";
   registrationVersion?: number;
   payoutVersion?: number;
+  signer?: {pubkey: string; version: number; confirmedAt: number};
   createdAt: number;
   updatedAt: number;
 };
@@ -16,6 +17,9 @@ type TaskRow = {
   currentOwnerPubkey: string;
   registrationVersion: number | null;
   payoutVersion: number | null;
+  brandPubkey: string | null;
+  brandVersion: number;
+  backupAcknowledgedAt: number | null;
   state: ProSetupTask["state"];
   createdAt: number;
   updatedAt: number;
@@ -31,10 +35,17 @@ export class ProSetupTaskStore {
       currentOwnerPubkey TEXT NOT NULL,
       registrationVersion INTEGER,
       payoutVersion INTEGER,
+      brandPubkey TEXT,
+      brandVersion INTEGER NOT NULL DEFAULT 0,
+      backupAcknowledgedAt INTEGER,
       state TEXT NOT NULL,
       createdAt INTEGER NOT NULL,
       updatedAt INTEGER NOT NULL
     );`);
+    const columns = new Set((this.db.prepare("PRAGMA table_info(pro_setup_task)").all() as {name: string}[]).map(row => row.name));
+    if (!columns.has("brandPubkey")) this.db.exec("ALTER TABLE pro_setup_task ADD COLUMN brandPubkey TEXT");
+    if (!columns.has("brandVersion")) this.db.exec("ALTER TABLE pro_setup_task ADD COLUMN brandVersion INTEGER NOT NULL DEFAULT 0");
+    if (!columns.has("backupAcknowledgedAt")) this.db.exec("ALTER TABLE pro_setup_task ADD COLUMN backupAcknowledgedAt INTEGER");
   }
 
   ensure(input: {cityId: string; entitlementId: string; originalOwnerPubkey: string; currentOwnerPubkey: string; registrationVersion?: number}, now = Math.floor(Date.now() / 1000)): ProSetupTask {
@@ -49,7 +60,7 @@ export class ProSetupTaskStore {
         input.registrationVersion ?? null, now, now);
     } else if (existing.currentOwnerPubkey !== input.currentOwnerPubkey) {
       // A prior owner's payout approval can never follow an ownership rotation.
-      this.db.prepare("UPDATE pro_setup_task SET currentOwnerPubkey=?,payoutVersion=NULL,state='setup-required',updatedAt=? WHERE cityId=?")
+      this.db.prepare("UPDATE pro_setup_task SET currentOwnerPubkey=?,payoutVersion=NULL,brandPubkey=NULL,backupAcknowledgedAt=NULL,brandVersion=brandVersion+1,state='setup-required',updatedAt=? WHERE cityId=?")
         .run(input.currentOwnerPubkey, now, input.cityId);
     } else if (existing.registrationVersion === null && input.registrationVersion !== undefined) {
       this.db.prepare("UPDATE pro_setup_task SET registrationVersion=?,updatedAt=? WHERE cityId=?")
@@ -61,8 +72,29 @@ export class ProSetupTaskStore {
   confirmPayout(cityId: string, entitlementId: string, currentOwnerPubkey: string, payoutVersion: number, now = Math.floor(Date.now() / 1000)): ProSetupTask {
     const row = this.row(cityId);
     if (!row || row.entitlementId !== entitlementId || row.currentOwnerPubkey !== currentOwnerPubkey) throw new Error("Pro setup authority changed. Reload and try again.");
-    this.db.prepare("UPDATE pro_setup_task SET payoutVersion=?,state='payout-confirmed',updatedAt=? WHERE cityId=?")
+    this.db.prepare("UPDATE pro_setup_task SET payoutVersion=?,state=CASE WHEN brandPubkey IS NULL THEN 'payout-confirmed' ELSE 'ready-for-proof' END,updatedAt=? WHERE cityId=?")
       .run(payoutVersion, now, cityId);
+    return this.view(this.row(cityId)!);
+  }
+
+  confirmSigner(cityId: string, entitlementId: string, currentOwnerPubkey: string, brandPubkey: string, now = Math.floor(Date.now() / 1000)): ProSetupTask {
+    const row = this.row(cityId);
+    if (!row || row.entitlementId !== entitlementId || row.currentOwnerPubkey !== currentOwnerPubkey) throw new Error("Pro setup authority changed. Reload and try again.");
+    if (!/^[0-9a-f]{64}$/.test(brandPubkey) || brandPubkey === currentOwnerPubkey || brandPubkey === row.originalOwnerPubkey) throw new Error("Use a separate valid city signer identity.");
+    if (row.brandPubkey !== null && row.brandPubkey !== brandPubkey) throw new Error("Clear the saved city signer before replacing it.");
+    if (row.brandPubkey === brandPubkey && row.backupAcknowledgedAt !== null) return this.view(row);
+    this.db.prepare(`UPDATE pro_setup_task SET brandPubkey=?,brandVersion=brandVersion+1,backupAcknowledgedAt=?,
+      state=CASE WHEN payoutVersion IS NULL THEN 'signer-confirmed' ELSE 'ready-for-proof' END,updatedAt=? WHERE cityId=?`)
+      .run(brandPubkey, now, now, cityId);
+    return this.view(this.row(cityId)!);
+  }
+
+  clearSigner(cityId: string, entitlementId: string, currentOwnerPubkey: string, now = Math.floor(Date.now() / 1000)): ProSetupTask {
+    const row = this.row(cityId);
+    if (!row || row.entitlementId !== entitlementId || row.currentOwnerPubkey !== currentOwnerPubkey) throw new Error("Pro setup authority changed. Reload and try again.");
+    if (row.brandPubkey === null) return this.view(row);
+    this.db.prepare(`UPDATE pro_setup_task SET brandPubkey=NULL,brandVersion=brandVersion+1,backupAcknowledgedAt=NULL,
+      state=CASE WHEN payoutVersion IS NULL THEN 'setup-required' ELSE 'payout-confirmed' END,updatedAt=? WHERE cityId=?`).run(now, cityId);
     return this.view(this.row(cityId)!);
   }
 
@@ -78,6 +110,7 @@ export class ProSetupTaskStore {
   private view(row: TaskRow): ProSetupTask {
     return {cityId: row.cityId, state: row.state, createdAt: row.createdAt, updatedAt: row.updatedAt,
       ...(row.registrationVersion === null ? {} : {registrationVersion: row.registrationVersion}),
-      ...(row.payoutVersion === null ? {} : {payoutVersion: row.payoutVersion})};
+      ...(row.payoutVersion === null ? {} : {payoutVersion: row.payoutVersion}),
+      ...(row.brandPubkey === null || row.backupAcknowledgedAt === null ? {} : {signer: {pubkey: row.brandPubkey, version: row.brandVersion, confirmedAt: row.backupAcknowledgedAt}})};
   }
 }

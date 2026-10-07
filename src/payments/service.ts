@@ -20,7 +20,8 @@ export class PaymentStore {
    CREATE TABLE IF NOT EXISTS payment_invoice_payout(invoiceId TEXT PRIMARY KEY,destinationVersion INTEGER NOT NULL);
    CREATE TABLE IF NOT EXISTS paid_city_entitlement(cityId TEXT PRIMARY KEY,owner TEXT NOT NULL,paymentHash TEXT NOT NULL UNIQUE,invoiceId TEXT NOT NULL,paidAt INTEGER NOT NULL);
    CREATE TABLE IF NOT EXISTS pro_setup_task(cityId TEXT PRIMARY KEY,entitlementId TEXT NOT NULL UNIQUE,originalOwnerPubkey TEXT NOT NULL,currentOwnerPubkey TEXT NOT NULL,
-    registrationVersion INTEGER,payoutVersion INTEGER,state TEXT NOT NULL,createdAt INTEGER NOT NULL,updatedAt INTEGER NOT NULL);`);
+    registrationVersion INTEGER,payoutVersion INTEGER,brandPubkey TEXT,brandVersion INTEGER NOT NULL DEFAULT 0,backupAcknowledgedAt INTEGER,
+    state TEXT NOT NULL,createdAt INTEGER NOT NULL,updatedAt INTEGER NOT NULL);`);
  }
  rows():PaymentRow[]{return this.db.prepare("SELECT * FROM payment_invoice ORDER BY createdAt DESC,rowid DESC").all() as PaymentRow[];}
  forCity(cityId:string):PaymentRow[]{return this.db.prepare("SELECT * FROM payment_invoice WHERE cityId=? ORDER BY createdAt DESC,rowid DESC").all(cityId) as PaymentRow[];}
