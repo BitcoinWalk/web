@@ -1,1 +1,1 @@
-export {default} from "../../../components/city-directory-owner";
+export {default} from "../../../components/city-directory-requests";

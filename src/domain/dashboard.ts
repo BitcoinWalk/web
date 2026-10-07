@@ -8,9 +8,10 @@ export const dashboardItems=[
  {href:"/admin/organizers",label:"Organizers",access:"admin"},
  {href:"/admin/content",label:"Content",access:"admin"},
  {href:"/admin/sponsors",label:"Sponsors",access:"admin"},
+ {href:"/admin/directory",label:"City relay setup",access:"relay"},
  {href:"/admin/monitoring/alerts",label:"Monitoring",access:"admin"},
 ] as const;
-export function dashboardNavigation(role:DashboardRole){return dashboardItems.filter(item=>item.access==="all"||item.access==="connected"&&role!=="disconnected"||item.access==="organizer"&&role==="organizer"||item.access==="admin"&&role==="super-admin");}
+export function dashboardNavigation(role:DashboardRole){return dashboardItems.filter(item=>item.access==="all"||item.access==="connected"&&role!=="disconnected"||item.access==="organizer"&&role==="organizer"||item.access==="admin"&&role==="super-admin"||item.access==="relay"&&(role==="organizer"||role==="super-admin"));}
 export type DashboardMenuBadges={cities:number|null;walks:number|null;requests:number|null};
 export function dashboardMenuLabel(href:string,label:string,role:DashboardRole,badges:DashboardMenuBadges):string{
  if(href==="/admin/cities"&&role==="super-admin")return `Cities (${badges.cities??"?"})`;

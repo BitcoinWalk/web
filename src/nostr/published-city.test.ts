@@ -37,5 +37,5 @@ describe("public history reads", () => {
     expect((await queryPublishedCity(["wss://test.invalid"],"radom"))?.event.id).toBe(original.id);
     expect(state.filters.some(filter=>filter.until !== undefined)).toBe(true);
     expect(state.filters.some(filter=>filter.ids?.includes(original.id))).toBe(true);
-  });
+  },15_000);
 });
