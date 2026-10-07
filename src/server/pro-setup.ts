@@ -1,5 +1,5 @@
 import type {Event} from "nostr-tools";
-import type {CityBrandAuthority} from "../nostr/city-brand";
+import {resolveCityBrand,type CityBrandAuthority} from "../nostr/city-brand";
 import {queryAuthorizations, queryDirectoryRecords, queryRelayEvents} from "../nostr/city-records";
 import {CITY_DIRECTORY_KIND, discoverCityDirectoryChainForSigning, discoverExistingCityDirectoryRoot} from "../nostr/city-directory";
 import {latestEventModerations, organizerPublishingStatus, queryEventModerations} from "../nostr/event-moderation";
@@ -162,7 +162,7 @@ export async function cancelBrandRequest(cityId: string, requestId: string, acto
 
 export async function listBrandRequests(actor: string) {
   if (actor !== SUPER_ADMIN_PUBKEY) throw new Error("Super-admin review required.");
-  return brandStore().pending().map(row => ({requestId: row.id, cityId: row.city_id, expiresAt: row.expires_at,
+  return brandStore().reviewQueue().map(row => ({requestId: row.id, cityId: row.city_id, expiresAt: row.expires_at,state:row.status as "pending"|"approved",
     brandPubkey: row.challenge.binding.brandPubkey, profile: row.challenge.profile, proofsReady: !!row.owner_proof && !!row.brand_proof}));
 }
 
@@ -183,7 +183,33 @@ export async function reviewBrandRequest(requestId: string, actor: string): Prom
 export async function approveBrandRequest(requestId: string, actor: string, signed: Event) {
   const {store, resolved} = await brandReviewEvidence(requestId, actor), event = store.approveStored(requestId, actor, resolved.authority, signed);
   return {requestId, eventId: event.id, state: "approved-not-published" as const,
-    message: "Exact city binding signed and stored privately. It is not published or active until relay admission and read-back are implemented."};
+    message: "Exact city binding signed and stored privately. Publish it separately; it becomes active only after exact relay read-back."};
+}
+
+export const brandPublicationDependencies={
+  relays:()=>relayConfig.writeRelays,
+  read:(relay:string,cityId:string)=>queryRelayEvents([relay],[30312],undefined,{authors:[SUPER_ADMIN_PUBKEY],"#i":[cityId],limit:500}),
+};
+export async function prepareBrandPublication(requestId:string,actor:string){
+  const {store,request,resolved}=await brandReviewEvidence(requestId,actor);assertBrandTask(request.challenge,resolved);
+  const approved=store.approvedForPublication(requestId,actor,resolved.authority);
+  return {requestId,event:approved.event,state:approved.row.status,message:approved.row.status==="active"?"This city identity is already active.":"Fresh authority and setup checks passed. Publish this exact signed binding unchanged."};
+}
+export async function confirmBrandPublication(requestId:string,actor:string,deps=brandPublicationDependencies){
+  const before=await brandReviewEvidence(requestId,actor),approved=before.store.approvedForPublication(requestId,actor,before.resolved.authority);
+  if(approved.row.status==="active")return {requestId,eventId:approved.event.id,state:"active" as const,relays:JSON.parse(approved.publication!.relays) as string[],message:"City identity is active; exact relay read-back was already recorded."};
+  const relays=deps.relays();if(!relays.length)throw new Error("No city identity publication relay is configured.");
+  const histories:Event[][]=[];
+  for(const relay of relays){
+    const events=await deps.read(relay,approved.row.city_id);
+    if(events.length>=500)throw new Error("City identity relay history is incomplete.");
+    if(resolveCityBrand(events,approved.row.city_id)?.event.id!==approved.event.id)throw new Error(`Exact city identity was not read back from ${relay}`);
+    histories.push(events);
+  }
+  const after=await brandReviewEvidence(requestId,actor);assertBrandTask(after.request.challenge,after.resolved);
+  if(JSON.stringify(before.resolved.authority)!==JSON.stringify(after.resolved.authority))throw new Error("City authority changed during publication confirmation.");
+  const activated=after.store.activate(requestId,actor,after.resolved.authority,histories[0],relays);
+  return {requestId,eventId:activated.event.id,state:"active" as const,relays,message:`City identity activated after exact read-back from ${relays.length} relay(s).`};
 }
 
 export async function saveProSetupSigner(cityId: string, actor: string, command: Extract<ProSetupCommand, {action: "confirm-city-signer"}>, brandProof: Event, origin: string) {

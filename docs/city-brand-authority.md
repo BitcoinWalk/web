@@ -1,10 +1,10 @@
 # BW-103 — branded city account authority and privacy
 
-Implemented contract and private request ledger, 7 October 2026. This foundation
-is not wired into production routes, relay admission or public profile rendering.
-BW-105 owns activation orchestration; BW-106 owns relay integration, future city
-signing and Hosted by replacement. No deployment is needed for this isolated
-library until those consumers exist.
+Implemented contract and private request ledger, 7 October 2026. On 8 October,
+BW-106 added the strict Khatru admission policy and the application publication
+checkpoint. These changes are tested but not yet deployed. BW-105 owns the
+private setup orchestration; BW-106 still owns staging acceptance, future city
+signing and Hosted by replacement.
 
 ## Authority resolution
 
@@ -70,16 +70,16 @@ request ID, entitlement ID or hash of private evidence is included. Full history
 is retained through unique sequence addresses. This is a BitcoinWalk-specific
 attestation, not a new general Nostr ownership standard.
 
-Before activating BW-106, implement these independent relay checks: exact schema
-and tags, valid designated super-admin signature, city existence, current policy
-eligibility for activate/replace, sequence zero plus empty predecessor only for
-activation, and exactly the retained latest predecessor plus next sequence for
-replacement/revocation. Enforce monotonic time and one accepted successor under
-concurrency; identical retries are idempotent and competing successors fail.
-Revoke keeps the prior brand key and cannot revoke twice. Replacement uses a
-different key, including after revocation. Retain revoked history. Private proof
-commands are never admitted as public brand records. Public readers trust the
-super-admin attestation, not private owner evidence unavailable to them.
+The relay now independently checks exact schema and tags, the designated
+super-admin signature, city existence, current approval and suspension policy
+for activate/replace, sequence zero plus empty predecessor only for activation,
+and exactly the retained latest predecessor plus next sequence for replacement
+or revocation. Its locked write path enforces monotonic time and one successor;
+identical retries are idempotent and competing successors fail. Revoke keeps the
+prior brand key and cannot revoke twice. Replacement uses a different key,
+including after revocation. Revoked history is retained. Private proof commands
+are never admitted as public brand records. Public readers trust the super-admin
+attestation, not private owner evidence unavailable to them.
 
 `resolveCityBrand` validates a complete history and rejects missing predecessors,
 forks, foreign-city records and malformed signatures. A revoked result is not an
@@ -87,15 +87,21 @@ active account. Relays and read clients must establish a complete current view;
 absence in a truncated read or stale cache is not proof of no binding. Seed the
 private ledger from verified authoritative history before accepting requests on
 an existing city or recovering a database. Private approval alone is not public
-activation: publish, exact read-back and current eligibility are subsequent gates.
+activation. The super-admin review keeps an approved request in a distinct
+private state. A separate action repeats fresh authority/setup checks, publishes
+the already-signed event unchanged, reads bounded history independently from
+every configured write relay, repeats the checks again, and only then records
+the binding as active. Missing or mismatched read-back leaves it approved and
+safe to retry; it does not create another signature or identity.
 
 ## Privacy and permission boundaries
 
 The only public store projection is the approved event history. Private proofs
-remain in the app-owned protected SQLite ledger and its encrypted backups. No
-HTTP endpoint or default runtime instantiates this store yet. Future API callers
-must use authenticated actor identity, fresh verified evidence, bounded input
-and scoped access; do not serialize private rows into public page data.
+remain in the app-owned protected SQLite ledger and its encrypted backups. The
+feature-gated Pro setup endpoint instantiates this store inside the protected
+payment database. Its owner and super-admin actions use signed, origin-bound
+commands, fresh verified evidence, bounded input and scoped projections. Private
+rows and proofs are never serialized into public page data.
 
 The public branded identity replaces the person's Hosted by card after BW-106.
 Personal dashboard login and payout data remain restricted to authorized views.

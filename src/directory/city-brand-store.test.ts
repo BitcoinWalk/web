@@ -46,6 +46,15 @@ describe("branded city authority contract and private storage", () => {
     expect(store.approveStored(request.requestId,admin,authority,signed).id).toBe(signed.id);
     expect(JSON.stringify(store.publicHistory(authority.cityId))).not.toContain(profile.picture);
   });
+  it("activates only the exact independently read-back approved event and reuses exact retries",()=>{
+    const {store}=setup(),request=store.prepare(owner,authority,origin,brand,"activate",profile),p=approve(store,request);
+    expect(store.reviewQueue()).toHaveLength(1);
+    expect(()=>store.activate(request.requestId,admin,authority,[],["wss://relay.example/"])).toThrow("read-back");
+    const active=store.activate(request.requestId,admin,authority,[p.signed],["wss://relay.example/"]);
+    expect(active).toMatchObject({row:{status:"active"},publication:{event_id:p.signed.id}});
+    expect(store.reviewQueue()).toEqual([]);
+    expect(store.activate(request.requestId,admin,authority,[p.signed],["wss://relay.example/"])).toMatchObject({row:{status:"active"}});
+  });
   it("reuses only an identical unexpired request and expires abandoned requests",()=>{
     const {store,advance}=setup(),first=store.prepare(owner,authority,origin,brand,"activate",profile);
     expect(store.prepare(owner,authority,origin,brand,"activate",profile).requestId).toBe(first.requestId);
