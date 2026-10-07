@@ -95,6 +95,7 @@ Current action: build and privately activate the isolated production app on `.13
 - Production directory discovery uses `wss://directory.bitcoinwalk.org/` on `.138` and `wss://directory-2.bitcoinwalk.org/` on `.240`. The old `-staging` hostnames remain available for staging only.
 - Apex and `www` route to the production app. `www` redirects to the apex. `/wp-content/*` is reverse-proxied to the untouched `.240` WordPress origin so immutable URLs already present in signed records continue to resolve.
 - The application installer is non-root. The separate Caddy installer creates a backup and validates the merged configuration but never changes DNS.
+- The production-only npm audit on 7 October reported no critical, high or moderate vulnerabilities after `sharp` 0.35.5 and `source-map-js` 1.2.2 were installed. Three low-severity findings remain in the tested `bolt11` decoder chain; npm's proposed fix is a breaking downgrade and is not applied during cutover.
 
 ## 9. Superseded two-city proposal — 25 September 2026
 

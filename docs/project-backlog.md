@@ -41,8 +41,14 @@ filters remain correct and canceled events stay excluded from active public read
 BW-53 additional launch gates identified by source review: implement a reviewed
 production package/configuration path (the existing packager requires staging
 hosts); remove the staging-only payments DB path assumption through validated
-configuration and tests; triage remaining low-severity invoice-decoder dependency
-advisories and Go dependency findings against the actual production toolchain.
+configuration and tests; triage dependency findings against the actual production
+toolchain. The production package and isolated non-root storage path are implemented
+in app `0.3.189`. The 7 October production-only npm audit found and removed the high
+severity `sharp`/librsvg and `source-map-js` findings by upgrading to `sharp` 0.35.5
+and forcing `source-map-js` 1.2.2. Three low-severity findings remain in the tested
+invoice-decoder chain (`bolt11` → `secp256k1` → `elliptic`); npm offers only a
+breaking `bolt11` downgrade, so replacement is deferred pending invoice regression
+coverage rather than weakening the launch build.
 The patched Next.js candidate was deployed and superseded by accepted staging
 releases through app 0.3.158. The housekeeping
 backup is source plus staging app state, not a new complete two-VPS disaster
