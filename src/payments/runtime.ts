@@ -5,6 +5,7 @@ import {NwcWallet} from "./nwc";
 import {verifyPurchasableCity} from "./cities";
 import {SponsorService} from "./sponsor-service";
 import {sponsorshipCatalog} from "./sponsor-catalog";
+import {isApprovedPaymentDatabase} from "../lib/app-storage";
 
 type PaymentRuntime={service:PaymentService;sponsors:SponsorService;store:PaymentStore;timer:NodeJS.Timeout};
 const runtimeKey=Symbol.for("bitcoinwalk.payment-runtime");
@@ -26,7 +27,7 @@ export function getPaymentRuntime():PaymentRuntime{
  const shared=globalThis as RuntimeGlobal;
  if(shared[runtimeKey])return shared[runtimeKey];
  const database=required("BITCOINWALK_PAYMENT_DATABASE");
- if(!database.startsWith("/var/lib/bitcoinwalk-app-staging/")&&process.env.NODE_ENV==="production")throw new Error("Application database must be inside the app state directory");
+ if(process.env.NODE_ENV==="production"&&!isApprovedPaymentDatabase(database))throw new Error("Application database must be inside an approved app state directory");
  mkdirSync(dirname(database),{recursive:true,mode:0o700});
  const store=new PaymentStore(database);
  const wallet=new NwcWallet(required("BITCOINWALK_NWC_URL")),service=new PaymentService(store,wallet,(city,revision)=>verifyPurchasableCity([sourceRelay()],city,revision)),sponsors=new SponsorService(store.db,wallet,sponsorshipCatalog);

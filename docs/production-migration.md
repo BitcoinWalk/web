@@ -1,6 +1,6 @@
 # BitcoinWalk production migration, backups and rollback
 
-Prepared 25 September 2026. This is a preparation runbook, not a record of an executed backup or migration. Current live paths, disk capacity, DNS and service versions must be audited before producing executable installers. User reported image generation, approval/publication, media checks and fallback acceptance successful. New-city public announcements remain deferred under BW-50.
+Prepared 25 September 2026 and reconciled with the accepted production state on 7 October 2026. The web cutover is in progress; new-city public announcements remain deferred under BW-50.
 
 ## 1. Scope and release gates
 
@@ -10,11 +10,9 @@ Keep the legacy website available until cutover and recoverable afterwards. The 
 
 Launch can be limited to the working free-city service. Paid purchasing must remain unavailable or clearly pending until payment and provisioning acceptance is complete.
 
-Decisions required before execution:
+The accepted promotion manifest now contains 12 approved cities and 110 signed events. London is the sole paid city. The atomic production promotion passed on relay `0.8.76`; London remained exact 8/8 and its production replication entitlement/registry activation passed on `0.8.78`. The earlier two-city proposal in this document is historical and no longer governs launch.
 
-- Approve a manifest of cities/events to promote, or choose a clean production start. Do not copy every test city.
-- Select an encrypted off-server backup destination and recovery-key custodian.
-- Agree a short write-freeze window and who performs the privileged cutover.
+Before public web cutover, keep the existing encrypted off-server recovery copy, capture a fresh application/media checkpoint, and agree the short final synchronization window. The ordinary `bitcoinwalk` account deploys and runs the application; only Caddy and DNS activation require privileged/external changes.
 
 ## 2. Read-only inventory and source checkpoint
 
@@ -87,11 +85,11 @@ Trigger immediate containment for unauthorized writes, missing/corrupt records, 
 
 Record release/source hashes, backup location and manifest, successful restore date and duration, promoted city IDs, DNS before/after, Caddy and unit backup paths, successful exact-host/public checks, user signed acceptance and rollback rehearsal. Keep the old website recoverable through an agreed observation period (proposed minimum seven days) and until off-server restore is verified. Retirement/reuse of the old host is a separate task.
 
-Next action: read-only live inventory and selection of promoted cities plus backup destination. No backup or cutover has been executed by this document.
+Current action: build and privately activate the isolated production app on `.138`, publish the production directory aliases, validate the exact host, then move only apex and `www` traffic. The legacy `.240` host remains intact for rollback.
 
-## 9. Selected production city manifest — 25 September 2026
+## 9. Superseded two-city proposal — 25 September 2026
 
-The user selected only Warszawa (`032d98ea-f5da-4826-95bd-c4cf9286716e`) and Szydłowiec (`e64cbf2b-4e46-4364-98c0-580c73e8dc24`) for production. Chicago, Cleveland, Funchal, Larnaca, Memphis and the retired permission-test cities are excluded. Exclusion is not authorization to erase staging until production acceptance and post-migration backup pass.
+This proposal was superseded by the accepted 12-city/110-event production promotion on 7 October 2026. It remains below only as historical migration evidence and must not be used to rebuild current production.
 
 A public read of the staging relay found 11 related signed records for Warszawa: one authorization (30302), one city revision (30303), one approval (30304) and eight NIP-52 occurrences (31923). It found 18 related signed records for Szydłowiec: one authorization, three city revisions, three approval decisions, two delegation invitations (30305), one delegation acceptance (30306), and eight occurrences. All 29 returned records passed signature verification. The selective exporter must still prove complete dependency closure against the database backup and relay policy before import.
 

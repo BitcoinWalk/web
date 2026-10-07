@@ -7,9 +7,12 @@ import {fileURLToPath} from "node:url";
 
 const root=resolve(dirname(fileURLToPath(import.meta.url)),"..");
 const output=join(root,"release-build");
+const profile=process.argv[2]??"staging";
+if(!["staging","production"].includes(profile))throw new Error("Release profile must be staging or production.");
 const health=await readFile(join(root,"src","app","api","healthz","route.ts"),"utf8");
-const release=health.match(/release:\s*["'](app-staging-\d+\.\d+\.\d+)["']/)?.[1];
-if(!release)throw new Error("Set an app-staging-X.Y.Z release label in src/app/api/healthz/route.ts.");
+const stagingRelease=health.match(/defaultRelease\s*=\s*["'](app-staging-\d+\.\d+\.\d+)["']/)?.[1];
+if(!stagingRelease)throw new Error("Set an app-staging-X.Y.Z defaultRelease in src/app/api/healthz/route.ts.");
+const release=profile==="production"?stagingRelease.replace("app-staging-","app-production-"):stagingRelease;
 
 const archive=join(output,`${release}.tar.gz`);
 const checksum=(await readFile(`${archive}.sha256`,"utf8")).trim();
@@ -47,7 +50,7 @@ try{
   let serverOutput="";
   child=spawn(process.execPath,["server.js"],{
     cwd:temp,
-    env:{...process.env,NODE_ENV:"production",HOSTNAME:"127.0.0.1",PORT:String(port),NEXT_TELEMETRY_DISABLED:"1"},
+    env:{...process.env,NODE_ENV:"production",HOSTNAME:"127.0.0.1",PORT:String(port),NEXT_TELEMETRY_DISABLED:"1",BITCOINWALK_APP_RELEASE:release},
     stdio:["ignore","pipe","pipe"],
   });
   for(const stream of [child.stdout,child.stderr])stream.on("data",chunk=>{

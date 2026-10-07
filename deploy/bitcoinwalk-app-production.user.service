@@ -1,0 +1,42 @@
+[Unit]
+Description=BitcoinWalk production web app (bitcoinwalk user)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/bitcoinwalk/apps/bitcoinwalk-production/current
+ExecStart=/home/bitcoinwalk/apps/bitcoinwalk-production/runtime/bin/node server.js
+EnvironmentFile=/home/bitcoinwalk/.config/bitcoinwalk/app.env
+EnvironmentFile=/home/bitcoinwalk/.config/bitcoinwalk/production.env
+EnvironmentFile=/home/bitcoinwalk/.config/bitcoinwalk/production-release.env
+Environment=NODE_ENV=production
+Environment=HOSTNAME=127.0.0.1
+Environment=PORT=3345
+Environment=NEXT_TELEMETRY_DISABLED=1
+Environment=BITCOINWALK_SERVER_READ_RELAY=ws://127.0.0.1:3340
+Environment=BITCOINWALK_MEDIA_ROOT=/home/bitcoinwalk/.local/share/bitcoinwalk-production/media
+Environment=BITCOINWALK_MEDIA_PUBLIC_ORIGIN=https://bitcoinwalk.org
+Environment=BITCOINWALK_PUBLIC_ORIGIN=https://bitcoinwalk.org
+Environment=OPENAI_API_KEY_FILE=/home/bitcoinwalk/.config/bitcoinwalk/credentials/openai-api-key
+Environment=REPLICATION_STATUS_TOKEN_FILE=/home/bitcoinwalk/.config/bitcoinwalk/credentials/replica-status-token
+Environment=BITCOINWALK_GUIDE_PUBKEY=9bb58bb2727e98e2008e3385ebfaa512caac9b99daacfc3d0392523d75b34d3c
+Environment=BITCOINWALK_IMAGE_MODEL=gpt-image-2.5-flare-2026-09-08
+Environment=BITCOINWALK_IMAGE_DAILY_LIMIT=10
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=30
+MemoryMax=768M
+TasksMax=128
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+CapabilityBoundingSet=
+UMask=0077
+
+[Install]
+WantedBy=default.target

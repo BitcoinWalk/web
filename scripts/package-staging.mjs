@@ -9,6 +9,8 @@ const standalone=join(root,".next","standalone");
 const staticAssets=join(root,".next","static");
 const publicAssets=join(root,"public");
 const output=join(root,"release-build");
+const profile=process.argv[2]??"staging";
+if(!["staging","production"].includes(profile))throw new Error("Release profile must be staging or production.");
 
 async function requirePath(path,kind){
   const entry=await lstat(path).catch(()=>null);
@@ -41,22 +43,30 @@ async function treeContains(path,needle){
   return false;
 }
 
-async function requireStagingRelays(path){
-  for(const relay of [
+async function requireProfileRelays(path){
+  const application=profile==="production"?[
+    "wss://relay.bitcoinwalk.org/",
+    "wss://directory.bitcoinwalk.org/",
+    "wss://directory-2.bitcoinwalk.org/",
+  ]:[
     "wss://relay-staging.bitcoinwalk.org/",
     "wss://directory-staging.bitcoinwalk.org/",
     "wss://directory-2-staging.bitcoinwalk.org/",
+  ];
+  for(const relay of [
+    ...application,
     "wss://relay.ditto.pub/",
     "wss://relay.primal.net/",
     "wss://relay.satlantis.io/",
   ]){
-    if(!await treeContains(path,relay))throw new Error(`Required staging relay is absent from the browser bundle: ${relay}`);
+    if(!await treeContains(path,relay))throw new Error(`Required ${profile} relay is absent from the browser bundle: ${relay}`);
   }
 }
 
 const health=await readFile(join(root,"src","app","api","healthz","route.ts"),"utf8");
-const release=health.match(/release:\s*["'](app-staging-\d+\.\d+\.\d+)["']/)?.[1];
-if(!release)throw new Error("Set an app-staging-X.Y.Z release label in src/app/api/healthz/route.ts.");
+const stagingRelease=health.match(/defaultRelease\s*=\s*["'](app-staging-\d+\.\d+\.\d+)["']/)?.[1];
+if(!stagingRelease)throw new Error("Set an app-staging-X.Y.Z defaultRelease in src/app/api/healthz/route.ts.");
+const release=profile==="production"?stagingRelease.replace("app-staging-","app-production-"):stagingRelease;
 await requirePath(standalone,"directory");
 await requirePath(staticAssets,"directory");
 await requirePath(join(root,".next","BUILD_ID"),"file");
@@ -86,7 +96,7 @@ try{
     await requirePath(join(stage,"public","maplibre",worker),"file");
   }
   if(!(await readdir(join(stage,".next","static"))).length)throw new Error("Release static assets are empty.");
-  await requireStagingRelays(join(stage,".next","static"));
+  await requireProfileRelays(join(stage,".next","static"));
   await rejectPrivateFiles(stage);
 
   const archive=join(output,`${release}.tar.gz`);

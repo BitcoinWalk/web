@@ -2,16 +2,36 @@ import {readFile} from "node:fs/promises";
 import {describe,expect,it} from "vitest";
 
 
-describe("corrected reproducible staging release",()=>{
-  it("packages only a browser bundle containing every required public relay",async()=>{
+describe("reproducible environment-specific releases",()=>{
+  it("requires every public relay for both staging and production bundles",async()=>{
     const packager=await readFile("scripts/package-staging.mjs","utf8");
 
     for(const required of [
       "wss://relay-staging.bitcoinwalk.org/",
       "wss://directory-staging.bitcoinwalk.org/",
       "wss://directory-2-staging.bitcoinwalk.org/",
-      "Required staging relay is absent from the browser bundle",
+      "wss://relay.bitcoinwalk.org/",
+      "wss://directory.bitcoinwalk.org/",
+      "wss://directory-2.bitcoinwalk.org/",
+      "Required ${profile} relay is absent from the browser bundle",
     ])expect(packager).toContain(required);
+  });
+
+  it("runs production privately as bitcoinwalk with isolated state",async()=>{
+    const [service,bootstrap,deployer]=await Promise.all([
+      readFile("deploy/bitcoinwalk-app-production.user.service","utf8"),
+      readFile("deploy/bootstrap-production-app-user.sh","utf8"),
+      readFile("deploy/deploy-production-app-user.sh","utf8"),
+    ]);
+    for(const required of [
+      "systemctl --user",
+      "127.0.0.1:3345",
+      "/home/bitcoinwalk/.local/state/bitcoinwalk-production/payments.sqlite",
+      "https://bitcoinwalk.org",
+    ])expect(`${service}\n${bootstrap}\n${deployer}`).toContain(required);
+    expect(`${service}\n${bootstrap}\n${deployer}`).not.toContain("sudo ");
+    expect(deployer).toContain("app-production-*.tar.gz");
+    expect(bootstrap).toContain("backup-sqlite-online.mjs");
   });
 
   it("replaces rejected releases directly from known-good 0.3.70 with rollback",async()=>{

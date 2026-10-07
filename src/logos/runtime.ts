@@ -3,6 +3,7 @@ import {queryDirectoryRecords} from "../nostr/city-records";
 import {LogoJobService, LogoJobStore} from "./approval-worker";
 import {runLogoRenderer} from "./job-runner";
 import {LogoCatalog} from "./catalog";
+import {isApprovedLogoRoot} from "../lib/app-storage";
 
 type LogoRuntime = {service: LogoJobService; store: LogoJobStore; timer: NodeJS.Timeout};
 const runtimeKey = Symbol.for("bitcoinwalk.city-logo-runtime");
@@ -25,7 +26,7 @@ export function getLogoRuntime(): LogoRuntime {
   if (shared[runtimeKey]) return shared[runtimeKey];
   const assetRoot = required("BITCOINWALK_CITY_LOGO_DIR");
   const renderer = required("BITCOINWALK_CITY_LOGO_RENDERER");
-  if (process.env.NODE_ENV === "production" && !assetRoot.startsWith("/home/bitcoinwalk/.local/share/bitcoinwalk/city-logos")) throw new Error("City logo assets must use the app-owned persistent directory");
+  if (process.env.NODE_ENV === "production" && !isApprovedLogoRoot(assetRoot)) throw new Error("City logo assets must use an approved app-owned persistent directory");
   if (process.env.NODE_ENV === "production" && !renderer.startsWith("/home/bitcoinwalk/")) throw new Error("City logo renderer must be owned by the app account");
   const payment = getPaymentRuntime();
   const store = new LogoJobStore(payment.store.db);
