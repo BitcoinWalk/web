@@ -16,7 +16,7 @@ describe("city profile artwork", () => {
     expect(await sharp(a.avatar).metadata()).toMatchObject({width: 1024, height: 1024, format: "webp"});
     expect(await sharp(a.banner).metadata()).toMatchObject({width: 1500, height: 500, format: "webp"});
     expect((await sharp(a.avatar).metadata()).exif).toBeUndefined();
-    // No bright logo/name pixels are lost when a client masks the avatar to a circle.
+    // No bright icon pixels are lost when a client masks the avatar to a circle.
     const {data, info} = await sharp(a.avatar).removeAlpha().raw().toBuffer({resolveWithObject: true});
     let bright = 0;
     for (let y = 0; y < info.height; y++) for (let x = 0; x < info.width; x++) {
@@ -51,7 +51,9 @@ describe("city profile artwork", () => {
     expect(updated.sourceKey).not.toBe(a.sourceKey);
     expect(updated.avatar).toEqual(a.avatar); // identical artwork can safely share immutable bytes
     const changed = await store.ensure({...source, cityLogo: await readFile("design/city-logo-templates/v1/examples/prototype-packs/radom/radom-bitcoinwalk-on-black.png")});
-    expect(changed.avatar.hash).not.toBe(a.avatar.hash);
+    expect(changed.avatar.hash).toBe(a.avatar.hash); // city lettering belongs only to the banner
+    expect(changed.banner.hash).not.toBe(a.banner.hash);
+    expect(changed.version).toBe("city-profile-v2");
     expect(a.avatar.url).toMatch(/^https:\/\/bitcoinwalk.org\/api\/media\/files\/[a-f0-9]{64}\.webp$/);
     await expect(store.ensure({...source, cityId: "../bad"})).rejects.toThrow();
   });

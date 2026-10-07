@@ -21,6 +21,7 @@ for (const [index, cityName] of ["Warszawa", "Szydłowiec", "Frankfurt am Main"]
   const circle = async size => sharp(await sharp(avatar).resize(size, size).png().toBuffer()).composite([
     {input: Buffer.from(`<svg width="${size}" height="${size}"><circle cx="${size / 2}" cy="${size / 2}" r="${size / 2}" fill="white"/></svg>`), blend: "dest-in"}
   ]).png().toBuffer();
+  await writeFile(join(output, `${slug}-avatar-circle.png`), await circle(240));
   panels.push({input: await circle(240), left: 24, top: index * 290 + 24},
     {input: await circle(96), left: 285, top: index * 290 + 24},
     {input: await circle(48), left: 400, top: index * 290 + 24},

@@ -3,7 +3,8 @@ import {mkdir, readFile, rename, writeFile} from "node:fs/promises";
 import {join} from "node:path";
 import sharp from "sharp";
 
-export const profileArtworkVersion = "city-profile-v1";
+export const profileArtworkVersion = "city-profile-v2";
+const avatarIcon = () => readFile(join(process.cwd(), "public/brand/bitcoinwalk-share-icon.png"));
 const digest = (bytes: Buffer | string) => createHash("sha256").update(bytes).digest("hex");
 const limits = {limitInputPixels: 20_000_000, failOn: "warning" as const};
 export type ProfileArtworkSource = {
@@ -12,7 +13,7 @@ export type ProfileArtworkSource = {
   revisionId: string;
   /** Original approved hero, not the finished OG image. Null uses a neutral background. */
   hero: Buffer | null;
-  /** Transparent bitcoinwalk-on-black city-logo variant, including the city name. */
+  /** Transparent bitcoinwalk-on-black city-logo variant for the banner only. */
   cityLogo: Buffer;
 };
 export type ProfileArtwork = {
@@ -32,22 +33,25 @@ async function raster(bytes: Buffer) {
   return image;
 }
 
-/** Pure rendering: no external fetches, account creation, keys or Nostr publication. */
-export async function renderProfileArtwork(hero: Buffer | null, cityLogo: Buffer) {
+/** Local rendering: no external fetches, account creation, keys or Nostr publication. */
+export async function renderProfileArtwork(hero: Buffer | null, cityLogo: Buffer, icon?: Buffer) {
   const logo = await raster(cityLogo);
   if (!(await logo.metadata()).hasAlpha) throw new Error("City logo must be transparent");
   const trimmed = await logo.trim().png().toBuffer();
-  const render = async (width: number, height: number, box: number) => {
+  const symbol = await raster(icon ?? await avatarIcon());
+  if (!(await symbol.metadata()).hasAlpha) throw new Error("Avatar icon must be transparent");
+  const trimmedIcon = await symbol.trim().png().toBuffer();
+  const render = async (width: number, height: number, box: number, artwork: Buffer) => {
     const base = hero
       ? await (await raster(hero)).rotate().resize(width, height, {fit: "cover", position: "centre"}).toBuffer()
       : await sharp({create: {width, height, channels: 3, background: "#25333a"}}).png().toBuffer();
     // The square logo box lies fully inside the avatar's circular crop (including corners).
-    const mark = await sharp(trimmed).resize(box, box, {fit: "inside"}).png().toBuffer();
+    const mark = await sharp(artwork).resize(box, box, {fit: "inside"}).png().toBuffer();
     const shade = Buffer.from(`<svg width="${width}" height="${height}"><rect width="100%" height="100%" fill="black" fill-opacity="0.48"/></svg>`);
     return sharp(base).composite([{input: shade}, {input: mark, gravity: "centre"}])
       .toColourspace("srgb").webp({quality: 90, effort: 5}).toBuffer();
   };
-  return {avatar: await render(1024, 1024, 660), banner: await render(1500, 500, 380)};
+  return {avatar: await render(1024, 1024, 700, trimmedIcon), banner: await render(1500, 500, 380, trimmed)};
 }
 
 export class ProfileArtworkStore {
@@ -66,12 +70,13 @@ export class ProfileArtworkStore {
     if (!/^[0-9a-f-]{36}$/i.test(source.cityId) || !/^[0-9a-f]{64}$/.test(source.revisionId)) {
       throw new Error("An approved city and revision are required");
     }
+    const icon = await avatarIcon();
     const key = digest(JSON.stringify([profileArtworkVersion, sharp.versions, source.cityId, source.revisionId,
-      source.hero ? digest(source.hero) : null, digest(source.cityLogo)]));
+      source.hero ? digest(source.hero) : null, digest(source.cityLogo), digest(icon)]));
     const existing = this.pending.get(key);
     if (existing) return existing;
     if (this.pending.size >= 2) throw new Error("Profile artwork rendering is busy; retry shortly");
-    const task = this.create(source, key);
+    const task = this.create(source, key, icon);
     this.pending.set(key, task);
     try { return await task; } finally { this.pending.delete(key); }
   }
@@ -80,7 +85,7 @@ export class ProfileArtworkStore {
     await writeFile(temp, bytes, {mode: 0o600});
     await rename(temp, path);
   }
-  private async create(source: ProfileArtworkSource, key: string): Promise<ProfileArtwork> {
+  private async create(source: ProfileArtworkSource, key: string, icon: Buffer): Promise<ProfileArtwork> {
     const manifests = join(this.mediaRoot, "profile-artwork"), files = join(this.mediaRoot, "files");
     const manifestPath = join(manifests, `${key}.json`);
     try {
@@ -94,7 +99,7 @@ export class ProfileArtworkStore {
       }
       return cached;
     } catch { /* Missing or damaged cache is regenerated from the approved source. */ }
-    const rendered = await renderProfileArtwork(source.hero, source.cityLogo);
+    const rendered = await renderProfileArtwork(source.hero, source.cityLogo, icon);
     await mkdir(manifests, {recursive: true, mode: 0o700});
     await mkdir(files, {recursive: true, mode: 0o700});
     const store = async (bytes: Buffer, width: number, height: number) => {
