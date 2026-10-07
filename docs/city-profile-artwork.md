@@ -1,6 +1,6 @@
 # BW-104 — city profile artwork
 
-Implemented 7 October 2026; awaiting visual acceptance and BW-105 setup integration.
+Implemented and visually accepted 7 October 2026. BW-104 is Done; live setup integration remains BW-105.
 
 `src/logos/profile-artwork.ts` composes an original approved hero with the existing transparent `bitcoinwalk-on-black` city-logo variant. It produces a 1024×1024 avatar and 1500×500 banner. The avatar mark fits entirely inside a conservative circle-safe square. A neutral dark background is available when there is no approved hero. A corrupt supplied image fails rather than silently publishing replacement artwork. Sources are bounded, still raster images; SVG, animation and remote downloads are not accepted.
 
@@ -14,9 +14,11 @@ BW-105 must show the returned avatar/banner before requesting the city account's
 
 ## Visual acceptance
 
+The user approved the first avatar variant with the city-photo background on 7 October 2026. Use each city's own approved hero behind its BitcoinWalk logo and city name as the standard appearance. The neutral background is only a missing-hero fallback, not the preferred design. This approval does not publish or change any live profile.
+
 Run `node scripts/preview-city-profile.mjs` to produce an isolated temporary review sheet and individual WebP assets. The sheet shows Warszawa with its bundled hero, Szydłowiec for accented lettering, and Frankfurt am Main for a long name with the neutral fallback. Circular previews are 240, 96 and 48 pixels; banners are reduced to 600×200. These are fixtures, not approved production profile changes.
 
-The current template preserves the complete city name without clipping. At 48px long names are not legible; the icon remains recognizable. Decide whether this is acceptable alongside the client's textual display name or whether a dedicated multi-line compact profile-logo variant is needed before closing visual acceptance. Do not claim all names are readable at every client size.
+The current template preserves the complete city name without clipping. At 48px long names are not legible; the icon remains recognizable. This remains a documented small-size limitation, not a claim that all names are readable at every client size. The approved photo-background design is the accepted baseline; no compact multi-line redesign is required for this item.
 
 Tests cover dimensions, deterministic output, metadata removal, circular safety, source validation, hero preservation, concurrent retries, corruption repair, revision/source invalidation and public URL shape. There is no live account setup UI or staging deployment in this isolated artwork change.
 
