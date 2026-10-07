@@ -4,13 +4,16 @@ import {nip19,type Event,type EventTemplate} from "nostr-tools";
 import {createCityDirectoryRoot,verifySignedCityDirectoryTemplate} from "../nostr/city-directory";
 
 export type DirectoryRequestStatus="awaiting-owner"|"signed"|"rejected"|"superseded"|"expired";
+export type DirectoryActivationState="not-requested"|"activating"|"active";
+export type DirectoryActivationEvidence={eventId:string;relays:string[];confirmedAt:number};
 export type DirectorySigningRequest={
  id:string;cityId:string;cityName:string;cityRevisionId:string;ownerPubkey:string;createdBy:string;
  primaryRelay:string;mirrorRelays:string[];operatorPubkeys:string[];status:DirectoryRequestStatus;
  eventCreatedAt:number;createdAt:number;expiresAt:number;updatedAt:number;recoveryPubkey:string|null;
  template:EventTemplate|null;signedEvent:Event|null;
+ activationState:DirectoryActivationState;activationAttempts:number;activationUpdatedAt:number|null;activationEvidence:DirectoryActivationEvidence|null;
 };
-type Row=Omit<DirectorySigningRequest,"mirrorRelays"|"operatorPubkeys"|"template"|"signedEvent">&{mirrorRelays:string;operatorPubkeys:string;template:string|null;signedEvent:string|null};
+type Row=Omit<DirectorySigningRequest,"mirrorRelays"|"operatorPubkeys"|"template"|"signedEvent"|"activationEvidence">&{mirrorRelays:string;operatorPubkeys:string;template:string|null;signedEvent:string|null;activationEvidence:string|null};
 
 function decodeNpub(value:string):string{
  let decoded;
@@ -18,16 +21,22 @@ function decodeNpub(value:string):string{
  if(decoded.type!=="npub"||typeof decoded.data!=="string")throw new Error("Recovery identity must be an npub, never an nsec or private key.");
  return decoded.data;
 }
-function view(row:Row):DirectorySigningRequest{return {...row,mirrorRelays:JSON.parse(row.mirrorRelays),operatorPubkeys:JSON.parse(row.operatorPubkeys),template:row.template?JSON.parse(row.template):null,signedEvent:row.signedEvent?JSON.parse(row.signedEvent):null};}
+function view(row:Row):DirectorySigningRequest{return {...row,mirrorRelays:JSON.parse(row.mirrorRelays),operatorPubkeys:JSON.parse(row.operatorPubkeys),template:row.template?JSON.parse(row.template):null,signedEvent:row.signedEvent?JSON.parse(row.signedEvent):null,activationEvidence:row.activationEvidence?JSON.parse(row.activationEvidence):null};}
 
 export class DirectoryRequestStore{
  constructor(readonly db:DatabaseSync,private now=()=>Math.floor(Date.now()/1000)){
   db.exec(`CREATE TABLE IF NOT EXISTS city_directory_request(
    id TEXT PRIMARY KEY,cityId TEXT NOT NULL,cityName TEXT NOT NULL,cityRevisionId TEXT NOT NULL,ownerPubkey TEXT NOT NULL,createdBy TEXT NOT NULL,
    primaryRelay TEXT NOT NULL,mirrorRelays TEXT NOT NULL,operatorPubkeys TEXT NOT NULL,status TEXT NOT NULL,eventCreatedAt INTEGER NOT NULL,
-   createdAt INTEGER NOT NULL,expiresAt INTEGER NOT NULL,updatedAt INTEGER NOT NULL,recoveryPubkey TEXT,template TEXT,signedEvent TEXT);
+   createdAt INTEGER NOT NULL,expiresAt INTEGER NOT NULL,updatedAt INTEGER NOT NULL,recoveryPubkey TEXT,template TEXT,signedEvent TEXT,
+   activationState TEXT NOT NULL DEFAULT 'not-requested',activationAttempts INTEGER NOT NULL DEFAULT 0,activationUpdatedAt INTEGER,activationEvidence TEXT);
    CREATE INDEX IF NOT EXISTS city_directory_request_owner ON city_directory_request(ownerPubkey,createdAt DESC);
    CREATE UNIQUE INDEX IF NOT EXISTS city_directory_request_active ON city_directory_request(cityId) WHERE status IN ('awaiting-owner','signed');`);
+  const columns=this.db.prepare("PRAGMA table_info(city_directory_request)").all() as Array<{name:string}>;
+  if(!columns.some(column=>column.name==="activationState"))this.db.exec("ALTER TABLE city_directory_request ADD COLUMN activationState TEXT NOT NULL DEFAULT 'not-requested'");
+  if(!columns.some(column=>column.name==="activationAttempts"))this.db.exec("ALTER TABLE city_directory_request ADD COLUMN activationAttempts INTEGER NOT NULL DEFAULT 0");
+  if(!columns.some(column=>column.name==="activationUpdatedAt"))this.db.exec("ALTER TABLE city_directory_request ADD COLUMN activationUpdatedAt INTEGER");
+  if(!columns.some(column=>column.name==="activationEvidence"))this.db.exec("ALTER TABLE city_directory_request ADD COLUMN activationEvidence TEXT");
  }
  private expire(){const now=this.now();this.db.prepare("UPDATE city_directory_request SET status='expired',updatedAt=? WHERE status='awaiting-owner' AND expiresAt<=?").run(now,now);}
  get(id:string){this.expire();const row=this.db.prepare("SELECT * FROM city_directory_request WHERE id=?").get(id) as Row|undefined;return row?view(row):null;}
@@ -37,7 +46,7 @@ export class DirectoryRequestStore{
   if(input.ownerPubkey===input.createdBy&&input.operatorPubkeys.includes(input.ownerPubkey))throw new Error("The owner must not be duplicated as an operator.");
   const active=this.db.prepare("SELECT id FROM city_directory_request WHERE cityId=? AND status IN ('awaiting-owner','signed')").get(input.cityId) as {id:string}|undefined;
   if(active)throw new Error("This city already has an active directory request. Supersede it explicitly before preparing another.");
-  const request:DirectorySigningRequest={...input,id:randomUUID(),status:"awaiting-owner",eventCreatedAt:now,createdAt:now,expiresAt:now+ttl,updatedAt:now,recoveryPubkey:null,template:null,signedEvent:null};
+  const request:DirectorySigningRequest={...input,id:randomUUID(),status:"awaiting-owner",eventCreatedAt:now,createdAt:now,expiresAt:now+ttl,updatedAt:now,recoveryPubkey:null,template:null,signedEvent:null,activationState:"not-requested",activationAttempts:0,activationUpdatedAt:null,activationEvidence:null};
   this.db.prepare("INSERT INTO city_directory_request(id,cityId,cityName,cityRevisionId,ownerPubkey,createdBy,primaryRelay,mirrorRelays,operatorPubkeys,status,eventCreatedAt,createdAt,expiresAt,updatedAt,recoveryPubkey,template,signedEvent) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)").run(request.id,request.cityId,request.cityName,request.cityRevisionId,request.ownerPubkey,request.createdBy,request.primaryRelay,JSON.stringify(request.mirrorRelays),JSON.stringify(request.operatorPubkeys),request.status,request.eventCreatedAt,request.createdAt,request.expiresAt,request.updatedAt,null,null,null);
   return request;
  }
@@ -55,6 +64,20 @@ export class DirectoryRequestStore{
   if(request.status!=="awaiting-owner")throw new Error(`Directory request is ${request.status} and cannot be signed.`);
   const now=this.now();this.db.prepare("UPDATE city_directory_request SET status='signed',recoveryPubkey=?,template=?,signedEvent=?,updatedAt=? WHERE id=? AND status='awaiting-owner'").run(recoveryPubkey,JSON.stringify(template),JSON.stringify(signed),now,id);
   return this.get(id)!;
+ }
+ beginActivation(id:string,actor:string,superAdmin:string){
+  const request=this.get(id);if(!request)throw new Error("Directory request was not found.");
+  if(actor!==superAdmin)throw new Error("Only the super-admin may activate a directory request.");
+  if(request.status!=="signed"||!request.signedEvent||!request.template)throw new Error("Only an exact owner-signed directory request can be activated.");
+  if(request.activationState==="active")return request;
+  const now=this.now();this.db.prepare("UPDATE city_directory_request SET activationState='activating',activationAttempts=activationAttempts+1,activationUpdatedAt=? WHERE id=?").run(now,id);return this.get(id)!;
+ }
+ confirmActivation(id:string,actor:string,superAdmin:string,evidence:DirectoryActivationEvidence){
+  const request=this.get(id);if(!request)throw new Error("Directory request was not found.");
+  if(actor!==superAdmin)throw new Error("Only the super-admin may confirm directory activation.");
+  if(request.status!=="signed"||!request.signedEvent||evidence.eventId!==request.signedEvent.id)throw new Error("Directory activation evidence does not match the exact signed event.");
+  if(!evidence.relays.length||new Set(evidence.relays).size!==evidence.relays.length)throw new Error("Directory activation evidence is incomplete.");
+  const now=this.now();this.db.prepare("UPDATE city_directory_request SET activationState='active',activationUpdatedAt=?,activationEvidence=? WHERE id=?").run(now,JSON.stringify({...evidence,confirmedAt:now}),id);return this.get(id)!;
  }
  transition(id:string,actor:string,status:"rejected"|"superseded",superAdmin:string){
   const request=this.get(id);if(!request)throw new Error("Directory request was not found.");

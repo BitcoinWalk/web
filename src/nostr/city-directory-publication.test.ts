@@ -1,6 +1,6 @@
 import {finalizeEvent,generateSecretKey,getPublicKey} from "nostr-tools";
 import {describe,expect,it,vi} from "vitest";
-import {createCityDirectoryRoot,publishAndConfirmCityDirectoryRoot} from "./city-directory";
+import {confirmCityDirectoryEvent,createCityDirectoryRoot,publishAndConfirmCityDirectoryRoot} from "./city-directory";
 
 const secret=generateSecretKey(),owner=getPublicKey(secret);
 const template=createCityDirectoryRoot({cityId:"66f137cb-2ac1-4eef-8358-7dd66b45922f",ownerPubkey:owner,operatorPubkeys:[],recoveryPubkey:getPublicKey(generateSecretKey()),primaryRelay:"wss://city.example/",mirrorRelays:[]},100);
@@ -20,5 +20,10 @@ describe("city endpoint directory publication",()=>{
     const read=vi.fn().mockResolvedValue([event]);
     await expect(publishAndConfirmCityDirectoryRoot(event,relays,vi.fn().mockRejectedValue(new Error("1/2")),read)).rejects.toThrow("1/2");
     await expect(publishAndConfirmCityDirectoryRoot(event,relays,vi.fn().mockResolvedValue({accepted:relays,rejected:[]}),vi.fn(async relay=>relay===relays[0]?[event]:[]))).rejects.toThrow("read back");
+  });
+  it("confirms an already-delivered exact event without publishing it again",async()=>{
+    const read=vi.fn().mockResolvedValue([event]);
+    await expect(confirmCityDirectoryEvent(event,relays,read)).resolves.toEqual({eventId:event.id,relays});
+    expect(read).toHaveBeenCalledTimes(2);
   });
 });

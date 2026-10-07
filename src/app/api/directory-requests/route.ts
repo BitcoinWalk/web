@@ -5,7 +5,7 @@ import {serverReadRelays} from "../../../lib/server-relay-config";
 import {relayConfig} from "../../../lib/relay-config";
 import {SUPER_ADMIN_PUBKEY} from "../../../nostr/authority";
 import {queryDirectoryRecords} from "../../../nostr/city-records";
-import {discoverExistingCityDirectoryRoot,normalizeDirectoryRelays,normalizeRootWssRelay} from "../../../nostr/city-directory";
+import {confirmCityDirectoryEvent,discoverExistingCityDirectoryRoot,normalizeDirectoryRelays,normalizeRootWssRelay,verifySignedCityDirectoryTemplate} from "../../../nostr/city-directory";
 import {managedCities} from "../../../nostr/moderation";
 import {getPaymentRuntime} from "../../../payments/runtime";
 import {paymentBody} from "../../../payments/request-body";
@@ -42,6 +42,16 @@ export async function POST(request:Request){
    return Response.json({request:requests.prepare({...city,createdBy:actor,primaryRelay,mirrorRelays,operatorPubkeys})},{headers});
   }
   const current=requests.get(command.requestId);if(!current)return Response.json({error:"Directory request was not found."},{status:404,headers});
+  if(command.action==="begin-activation")return Response.json({request:requests.beginActivation(current.id,actor,SUPER_ADMIN_PUBKEY)},{headers});
+  if(command.action==="confirm-activation"){
+   if(actor!==SUPER_ADMIN_PUBKEY)return Response.json({error:"Super-admin access required."},{status:403,headers});
+   if(!current.signedEvent||!current.template)throw new Error("Only an exact owner-signed directory request can be activated.");
+   const city=await approvedCity(current.cityId);
+   if(city.cityRevisionId!==current.cityRevisionId||city.ownerPubkey!==current.ownerPubkey)throw new Error("Directory request is stale because the approved city identity changed. Ask the super-admin to supersede it.");
+   verifySignedCityDirectoryTemplate(current.signedEvent,current.template,current.ownerPubkey);
+   const evidence=await confirmCityDirectoryEvent(current.signedEvent,normalizeDirectoryRelays(relayConfig.directoryRelays));
+   return Response.json({request:requests.confirmActivation(current.id,actor,SUPER_ADMIN_PUBKEY,{...evidence,confirmedAt:Math.floor(Date.now()/1000)})},{headers});
+  }
   if(command.action==="sign"){
    const city=await approvedCity(current.cityId);
    if(city.cityRevisionId!==current.cityRevisionId||city.ownerPubkey!==current.ownerPubkey)throw new Error("Directory request is stale because the approved city identity changed. Ask the super-admin to supersede it.");

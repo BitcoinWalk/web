@@ -6,6 +6,8 @@ export const directoryRequestCommand=z.discriminatedUnion("action",[
  z.object({action:z.literal("list")}).strict(),
  z.object({action:z.literal("prepare"),cityId:z.uuid(),primaryRelay:z.url(),mirrorRelays:z.array(z.url()).max(7),operatorPubkeys:z.array(hex).max(20)}).strict(),
  z.object({action:z.literal("sign"),requestId:z.uuid(),recoveryNpub:z.string().startsWith("npub1"),event:z.custom<Event>(value=>!!value&&typeof value==="object")}).strict(),
+ z.object({action:z.literal("begin-activation"),requestId:z.uuid()}).strict(),
+ z.object({action:z.literal("confirm-activation"),requestId:z.uuid()}).strict(),
  z.object({action:z.literal("reject"),requestId:z.uuid()}).strict(),
  z.object({action:z.literal("supersede"),requestId:z.uuid()}).strict(),
 ]);

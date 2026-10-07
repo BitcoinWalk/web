@@ -253,6 +253,11 @@ async function defaultRead(relay:string,event:Event){
 export async function publishAndConfirmCityDirectoryRoot(event:Event,relayValues:string[],publish:Publish=publishVerifiedEvent,read:Read=defaultRead):Promise<{eventId:string;relays:string[]}>{
   const relays=normalizeDirectoryRelays(relayValues);
   await publish(event,relays,relays.length);
+  return confirmCityDirectoryEvent(event,relays,read);
+}
+
+export async function confirmCityDirectoryEvent(event:Event,relayValues:string[],read:Read=defaultRead):Promise<{eventId:string;relays:string[]}>{
+  const relays=normalizeDirectoryRelays(relayValues);
   const outcomes=await Promise.all(relays.map(async relay=>({relay,events:await read(relay,event)})));
   const missing=outcomes.filter(({events})=>!events.some(candidate=>candidate.id===event.id&&verifyEvent(candidate))).map(({relay})=>relay);
   if(missing.length)throw new Error(`The exact signed directory event could not be read back independently from: ${missing.join(", ")}`);
