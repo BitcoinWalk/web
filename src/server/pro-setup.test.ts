@@ -5,7 +5,9 @@ vi.mock("../payments/runtime", () => ({getPaymentRuntime: vi.fn()}));
 vi.mock("../logos/runtime", () => ({getLogoCatalog: vi.fn()}));
 vi.mock("./share-image", () => ({managedBackground: vi.fn()}));
 vi.mock("../logos/profile-artwork", () => ({ProfileArtworkStore: class {ensure = vi.fn().mockResolvedValue({avatar: {url: "https://bitcoinwalk.org/api/media/files/avatar.webp"}, banner: {url: "https://bitcoinwalk.org/api/media/files/banner.webp"}});}}));
+vi.mock("../payments/payout-destination-store", () => ({PayoutDestinationStore: class {current = vi.fn().mockReturnValue(null);}}));
 import {getLogoCatalog} from "../logos/runtime";
+import {getPaymentRuntime} from "../payments/runtime";
 import {managedBackground} from "./share-image";
 import {prepareProSetupPreview, resolveProSetupAuthority, proSetupDependencies} from "./pro-setup";
 const cityId = "66f137cb-2ac1-4eef-8358-7dd66b45922f", owner = "a".repeat(64), editor = "b".repeat(64), nextOwner = "c".repeat(64);
@@ -15,6 +17,7 @@ const approval: ApprovalRecord = {event: event("e", owner, 2), approval: {cityId
 const grant: AuthorizationRecord = {event: event("f", owner, 1), grant: {cityId, creatorPubkey: owner, creatorRevisionId: revision.event.id, editorPubkeys: [owner, editor], superAdminPubkey: "1".repeat(64)}};
 let deps: typeof proSetupDependencies;
 beforeEach(() => {
+  vi.mocked(getPaymentRuntime).mockReturnValue({store: {db: {}}} as never);
   deps = {snapshot: vi.fn().mockResolvedValue({revisions: [revision], approvals: [approval]}), grants: vi.fn().mockResolvedValue([grant]),
     discover: vi.fn().mockResolvedValue(null), entitlement: vi.fn().mockReturnValue({invoiceId: "private-invoice"}), restrictions: vi.fn().mockResolvedValue(false)};
 });

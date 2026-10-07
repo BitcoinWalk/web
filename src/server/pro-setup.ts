@@ -10,12 +10,15 @@ import {getPaymentRuntime} from "../payments/runtime";
 import {getLogoCatalog} from "../logos/runtime";
 import {ProfileArtworkStore} from "../logos/profile-artwork";
 import {managedBackground} from "./share-image";
+import {PayoutDestinationStore} from "../payments/payout-destination-store";
+import {validatePayoutDestination} from "./lnurl-pay";
 
 /** This preflight cannot publish, create invoices, assign identities or activate payments. */
 export type ProSetupPreview = {
   cityId: string; cityName: string; revisionId: string;
   profile: {name: string; display_name: string; picture: string; banner: string; website: string};
   status: "preparation-only";
+  payout: {configured: boolean; destination?: string; version?: number};
   steps: Array<{label: string; state: "ready" | "blocked"; detail: string}>;
 };
 
@@ -81,12 +84,25 @@ export async function prepareProSetupPreview(cityId: string, actor: string, orig
   const fresh = await resolveProSetupAuthority(cityId, actor);
   if (JSON.stringify(authority) !== JSON.stringify(fresh.authority)) throw new Error("City authority changed during preparation. Reload to try again.");
   const name = `BitcoinWalk in ${city.cityName}`;
+  const payout = new PayoutDestinationStore(getPaymentRuntime().store.db).current(cityId);
   return {cityId, cityName: city.cityName, revisionId: row.revision.event.id, status: "preparation-only",
+    payout: payout ? {configured: true, destination: payout.normalized, version: payout.version} : {configured: false},
     profile: {name, display_name: name, picture: artwork.avatar.url, banner: artwork.banner.url, website: `${origin}/${slug}`},
     steps: [
       {label: "Pro payment and city ownership", state: "ready", detail: "Verified against current approval, ownership, moderation and settled payment records."},
       {label: "City profile artwork", state: "ready", detail: "Prepared from the approved city photo. The avatar uses the larger icon without city lettering."},
-      {label: "Personal payout destination", state: "blocked", detail: "Owner-confirmed Lightning payout setup is not connected yet (BW-101). No payout address has been changed."},
+      {label: "Personal payout destination", state: payout ? "ready" : "blocked", detail: payout ? `Owner-confirmed destination version ${payout.version} is saved privately. It is not active until provisioning is verified.` : "Add and confirm your personal Lightning address or LNURL-pay destination below."},
       {label: "City account and activation", state: "blocked", detail: "City signer setup, approval and relay read-back are still being integrated. Keep your personal dashboard identity; no city account is active yet."},
     ]};
+}
+
+export async function saveProSetupPayout(cityId: string, actor: string, destination: string, event: Event) {
+  const before = await resolveProSetupAuthority(cityId, actor);
+  const blockedDomains = (process.env.BITCOINWALK_PAYOUT_BLOCKED_DOMAINS ?? "").split(",").map(value => value.trim()).filter(Boolean);
+  const validated = await validatePayoutDestination(destination, {blockedDomains});
+  const after = await resolveProSetupAuthority(cityId, actor);
+  if (JSON.stringify(before.authority) !== JSON.stringify(after.authority)) throw new Error("City authority changed during payout validation. Reload and confirm again.");
+  const saved = new PayoutDestinationStore(getPaymentRuntime().store.db).save(after.authority, event, validated);
+  return {cityId: saved.cityId, version: saved.version, destination: saved.normalized, confirmedAt: saved.confirmedAt,
+    state: "saved-not-active" as const, message: "Destination saved. City Lightning payments remain disabled until provisioning and read-back succeed."};
 }

@@ -24,4 +24,11 @@ describe("private Pro setup commands", () => {
     const event = finalizeEvent({...template, content: JSON.stringify({...command, owner: "a".repeat(64), paid: true})}, key);
     expect(() => authorizeProSetup(event, origin, now)).toThrow();
   });
+  it("binds the exact payout destination into the owner's signature", () => {
+    const save = {action: "save-payout" as const, cityId: command.cityId, destination: "alice@wallet.example"};
+    const event = finalizeEvent(proSetupTemplate(save, origin, now), key);
+    expect(authorizeProSetup(event, origin, now)).toEqual(save);
+    event.content = JSON.stringify({...save, destination: "attacker@wallet.example"});
+    expect(() => authorizeProSetup(event, origin, now)).toThrow();
+  });
 });

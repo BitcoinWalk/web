@@ -20,7 +20,7 @@ The route is intentionally absent from normal navigation while activation is inc
 
 ## Work remaining before BW-105 can close
 
-1. BW-101: owner-signed payout confirmation, validated LNURL endpoints/cycle protection, versioned private destination storage and recovery. Retain entitlement through all retries; never ask an already-paid city to repurchase.
+1. BW-101 continuation: the owner-signed field, LNURL endpoint/cycle validation and versioned private destination history are implemented. Registration-before-checkout reuse, durable gift/recovery tasks, provisioning revalidation and staging acceptance remain. Retain entitlement through all retries; never ask an already-paid city to repurchase. See [payout setup evidence](organizer-payout-setup.md).
 2. Persistent setup task linking payout/artwork versions, city public key and BW-103 challenge/proofs. Resume after device changes without duplicate identities or lost selections; expired signatures need renewal.
 3. Isolated city signer: create/import/remote signer, explicit backup acknowledgement, exact expected-key checking, cancellation and reconnection without replacing the personal dashboard signer.
 4. Wire private proofs, super-admin review, approved binding publication and exact read-back. BW-106 must supply relay admission first; do not treat private SQLite approval as live activation.
@@ -29,4 +29,4 @@ The route is intentionally absent from normal navigation while activation is inc
 
 BW-105 remains In progress. The dependency gates are reported in the UI, not hidden behind a successful-looking Submit button.
 
-Verification: all 795 tests pass, including origin/time/tampering checks, current-owner versus editor and former-owner denial, directory outages, disapproval/suspension/unpaid denial, exact approved artwork lookup, post-render authority changes, missing photos, private-field exclusion and API feature/rate limits. Typecheck, changed-file ESLint, production build and backlog validation also pass. Interactive signer/staging acceptance remains outstanding.
+Verification: all 803 tests pass, including origin/time/tampering checks, current-owner versus editor and former-owner denial, directory outages, disapproval/suspension/unpaid denial, exact approved artwork lookup, post-render authority changes, missing photos, payout validation/history, private-field exclusion and API feature/rate limits. Typecheck, changed-file ESLint, production build and backlog validation also pass. Interactive signer/staging acceptance remains outstanding.
