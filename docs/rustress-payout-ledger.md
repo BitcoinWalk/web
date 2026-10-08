@@ -622,8 +622,10 @@ rehearsal passed checksum/receipt/restart acceptance, then all synthetic key and
 archive artifacts were removed. Public recipient `A206…B188` contains no secret
 key; the first retained real ciphertext then passed its receiver checksum and
 the six-hour sender timer was enabled. Confirmed independent private-key custody,
-an independent human-run decrypt/restore rehearsal, external failure alerts and
-wallet-history reconciliation remain open. See
+and an independent human-run decrypt/restore rehearsal now pass: path/type and
+required-file checks, SQLite integrity and automatic cleanup returned
+`RESTORE_REHEARSAL_OK`, with no temporary restored state left behind. External
+failure alerts and post-initialization wallet-history reconciliation remain open. See
 [the runbook](hub-candidate-backups.md).
 
 ## Deliberate boundaries / next slice

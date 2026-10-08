@@ -549,8 +549,11 @@ uploads through a dedicated shell-denied key to an append-only receiver on
 `A206…B188`; it contains no secret key. The first retained ciphertext passed the
 receiver checksum and the six-hour sender timer is enabled. A disposable-key
 rehearsal also passed and all synthetic artifacts were removed. No wallet setup
-or recovery file was created. Independent private-key custody, human-controlled
-restore rehearsal and external failure alerting remain open. See the
+or recovery file was created. The user then confirmed offline key custody and
+independently ran the local verifier; six
+required files, SQLite integrity, path/type safety and automatic decrypted-data
+cleanup passed, with no temporary restore directory remaining. External failure
+alerting and post-initialization wallet/history reconciliation remain open. See the
 [backup and key-custody runbook](hub-candidate-backups.md).
 
 Reviewed official tag v1.24.0, commit

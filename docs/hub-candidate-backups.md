@@ -43,6 +43,18 @@ timer is now enabled and active; receiver retention remains enabled and active.
 The key custodian must still store offline copies of the private key and its
 passphrase in separately controlled locations.
 
+The user confirmed independent custody and completed the local-only restore
+rehearsal on 9 October. `verify-backup-restore.sh` decrypted the retained
+ciphertext through the user's local GPG agent, rejected unsafe paths and special
+entries, extracted into a mode-0700 temporary directory, verified all required
+candidate/build/state files, found no recovery file or symlink and returned
+SQLite `PRAGMA integrity_check` success. It reported
+`RESTORE_REHEARSAL_OK files=6 decrypted_material_removed_on_exit=yes`.
+Post-run inspection found zero `bitcoinwalk-hub-restore.*` temporary directories;
+only the mode-0600 ciphertext/checksum and mode-0700 verifier remain in the
+private rehearsal folder. The agent never received the passphrase, private key,
+decrypted archive or restored database.
+
 ## Acceptance performed
 
 - Package checks cover shell/Python syntax, receiver receipt/checksum,
@@ -56,6 +68,8 @@ passphrase in separately controlled locations.
 - The real public recipient, first encrypted archive and scheduled sender are
   now active. There is still no Hub recovery file, wallet credential, setup,
   unlock or funds.
+- The key custodian confirmed offline storage and independently ran the restore
+  verifier; structural, SQLite-integrity and automatic-cleanup acceptance passed.
 
 ## Restore boundary
 
@@ -67,8 +81,9 @@ restore into a new isolated candidate root, then reconcile against the complete
 independent wallet/journal history before enabling any sender. An older snapshot
 must never be treated as proof that an uncertain payment did not occur.
 
-This establishes an encrypted off-host staging path, retained archive and
-scheduled receiver retention. It does not yet close production backup readiness:
-confirmed independent private-key/passphrase custody, an independent human-run
-decrypt/restore rehearsal, external timer-failure alerting and live wallet/
-history reconciliation remain required.
+This establishes an encrypted off-host staging path, retained archive, scheduled
+receiver retention, independent key custody and a human-run decrypt/restore
+rehearsal. It does not yet close production backup readiness: external
+timer-failure alerting and live wallet/history reconciliation remain required,
+and the rehearsal must be repeated after the wallet is initialized and before
+funds are introduced.
