@@ -423,9 +423,32 @@ operations. The test uses temporary SQLite, a synthetic marker and in-memory
 keys. It does **not** open or validate a real LDK recovery phrase (`.recovery`),
 channel backup, Hub workdir, production database, wallet credential or funds.
 Before activation, operators must provision encrypted retention/key custody,
-monitoring and a stopped/fenced restore procedure for the actual hosts. The only
-remaining candidate acceptance gate is real relay delivery plus bounded,
-no-funds staging validation; spending and public endpoints remain disabled.
+monitoring and a stopped/fenced restore procedure for the actual hosts. Spending
+and public endpoints remain disabled.
+
+### Real NWC relay transport accepted with no funds — 8 October 2026
+
+`integrations/alby-fee-cap/run-relay-acceptance.py` completed one explicitly
+opted-in round trip through `wss://relay.getalby.com`, one of the exact default
+NWC relays in the reviewed Hub candidate. The allowlisted runner refuses an
+arbitrary relay and creates fresh synthetic client/service keys, temporary
+SQLite and Hub's mock LN backend. It never accepts an NWC URI or loads a wallet,
+node credential, real invoice, preimage or funds.
+
+The relay acknowledged and returned the exact signed, NIP-44-encrypted request.
+The patched Hub event handler decrypted it, enforced the 100,000-msat fee cap,
+processed a 123-sat testnet fixture through the mock backend, signed/encrypted
+the correlated response, and published it back through the same relay. Exact
+read-back, signature, author, request ID and decrypted result all passed. The
+retained evidence contains only pass/fail results and hashes, not event payloads.
+
+This closes the candidate's external relay transport gate. It is not a staging
+or production Hub deployment and it does not prove the real wallet connection,
+live retained-history provider, real balance isolation, managed backup/key
+custody or a funded payout. The candidate remains disabled. Next is a separately
+reviewed deployment package and rollback plan, followed—only with explicit
+authorization—by a non-spending staging installation and fresh operational
+evidence. A funded payout remains a later, independently authorized action.
 
 Reviewed official tag v1.24.0, commit
 `d8ef0e70e0d265a8424276daee0a595ac31993c0`:

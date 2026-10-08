@@ -538,6 +538,7 @@ Readiness is **not granted**. Outstanding evidence and authority:
 |---|---|---|
 | Private journal transport | Cross-host fixture checks and fresh paused read-back pass | Live-bound deployment provider; synthetic journal must not become a live journal |
 | Backup/recovery | Authenticated encrypted synthetic ledger, independent-journal and exact candidate-workdir restore/rollback passed | Provision managed encrypted retention, key custody and monitoring for live state; rehearse actual stopped/fenced host procedure before activation |
+| External NWC relay | One synthetic signed/encrypted request and correlated response passed through Hub's reviewed default relay and patched handler, with mock LN only | Install no-spend candidate in staging under a reviewed rollback plan; do not infer wallet readiness from relay delivery |
 | Wallet grants and fees | Earlier pinned Hub source audit; synthetic adapter tests | Fresh authenticated connection inventory and provider proving actual enforced fees/budget; not a callback returning guessed values |
 | Complete history | Bounded collector and refusal tests | Independent retained-history/exclusive-sender proof provider |
 | Spending authorization | User approved 50,000 sats maximum payout, 100 sats maximum fee per payout, 200,000 sats total non-renewing budget including fees | Wallet enforcement and remaining readiness gates; limits alone do not authorize activation |
@@ -546,8 +547,10 @@ Asked the user for pilot limits without requesting activation. No real credentia
 were loaded. BW-18 remains In progress. Authenticated synthetic backup/restore/
 rollback subsequently passed for the app ledger, independent journal and exact
 five-patch Hub candidate; managed live-host retention remains operational work.
-The next candidate gate is bounded no-funds staging relay acceptance, not flipping
-a production flag.
+The external real-relay candidate gate subsequently passed with synthetic keys,
+temporary state and mock LN only. The next step is a reviewed, reversible,
+non-spending staging installation and fresh operational evidence—not flipping a
+production or payout flag.
 
 ### Approved pilot limits — 8 October 2026
 
