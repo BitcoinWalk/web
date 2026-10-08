@@ -1,0 +1,11 @@
+[Unit]
+Description=Prune retained BitcoinWalk encrypted Hub backups daily
+
+[Timer]
+OnCalendar=*-*-* 03:43:00 UTC
+RandomizedDelaySec=20m
+Persistent=true
+Unit=bitcoinwalk-hub-backup-prune.service
+
+[Install]
+WantedBy=timers.target

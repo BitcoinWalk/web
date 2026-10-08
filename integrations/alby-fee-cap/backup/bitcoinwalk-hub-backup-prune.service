@@ -1,0 +1,6 @@
+[Unit]
+Description=Prune BitcoinWalk encrypted Hub backups under receiver retention policy
+
+[Service]
+Type=oneshot
+ExecStart=/home/bitcoinwalk/.local/libexec/bitcoinwalk-hub-backup-prune

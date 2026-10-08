@@ -614,6 +614,17 @@ called, and existing Hub/Rustress health is unchanged. This closes the isolated
 no-spend HTTP runtime checkpoint; live-bound wallet/history evidence, managed
 retention and funded acceptance remain open.
 
+The first managed-retention slice is now deployed without a wallet. `.240`
+encrypts stopped-container snapshots locally and can upload only through a
+shell-denied transport key to an append-only `.138` receiver. Receiver pruning
+retains 48 hours plus 14 daily, 8 weekly and 12 monthly points. A disposable-key
+rehearsal passed checksum/receipt/restart acceptance, then all synthetic key and
+archive artifacts were removed. The production sender is intentionally disabled
+until the key custodian supplies only an offline-held public encryption key.
+First real retention, independent decrypt/restore rehearsal, external failure
+alerts and wallet-history reconciliation remain open. See
+[the runbook](hub-candidate-backups.md).
+
 ## Deliberate boundaries / next slice
 
 The ledger is an internal accounting primitive, not proof that a payment happened.

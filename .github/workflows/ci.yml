@@ -22,6 +22,7 @@ jobs:
       - run: npm ci
       - run: npm test
       - run: npm run lint
+      - run: npm run hub-backup:check
       - run: npm run typecheck
       - run: npm run build
       - run: npm run release:package

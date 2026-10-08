@@ -1,0 +1,9 @@
+[Unit]
+Description=BitcoinWalk isolated Hub encrypted off-host backup
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+Environment=BW_CANDIDATE_ROOT=/home/bitcoinwalk/hub-feecap-candidate-6bb8520025d7
+ExecStart=/home/bitcoinwalk/.local/libexec/bitcoinwalk-hub-backup
