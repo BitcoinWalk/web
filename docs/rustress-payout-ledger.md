@@ -586,6 +586,18 @@ This does not change the installed wallet or adapter capability: live spending
 remains disabled. See the isolated candidate evidence in
 [wallet readiness](rustress-wallet-readiness.md#isolated-candidate-build--8-october-2026).
 
+The follow-on native server package is now reproducible from the clean pinned
+Hub source with all five reviewed patches. The full frontend build and Go suite
+pass before packaging. The archive contains the server, migration binary,
+matching LDK library, hashed manifest and non-root stage/rollback scripts, but no
+wallet data, credentials or enabled service. Its disabled launcher exits by
+design; checksum verification, isolated staging, rollback, unsafe-link rejection
+and non-empty-state refusal pass. The ignored local archive hash is recorded in
+[wallet readiness](rustress-wallet-readiness.md#default-disabled-native-server-package--8-october-2026).
+No VPS or wallet changed. BW-18 remains In progress: non-spending host install,
+real connection-bound wallet/history evidence, managed retention and a later
+explicitly authorized funded acceptance are still separate gates.
+
 ## Deliberate boundaries / next slice
 
 The ledger is an internal accounting primitive, not proof that a payment happened.

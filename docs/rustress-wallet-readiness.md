@@ -450,6 +450,40 @@ reviewed deployment package and rollback plan, followed—only with explicit
 authorization—by a non-spending staging installation and fresh operational
 evidence. A funded payout remains a later, independently authorized action.
 
+### Default-disabled native server package — 8 October 2026
+
+The separately reviewed package and rollback-plan checkpoint is now complete.
+`build-candidate-server.py` starts from the exact clean upstream pin, applies the
+five hashed patches, performs a frozen Yarn 1.22.22 install without changing the
+lockfile, builds the HTTP frontend, runs the complete Go suite, and compiles the
+Linux-amd64 Hub server plus migration binary and matching LDK shared library.
+The resulting ignored local archive is
+`bitcoinwalk-hub-candidate-6bb8520025d7.tar.gz`, SHA-256
+`7d16c45975f8849918ba0606081ae7b6696d1ec64a8ae8919ee9fc57cbe9a28f`.
+Its manifest binds upstream `a231ed34…223f`, reviewed candidate
+`6bb85200…fa84`, architecture, patch hashes and explicit false
+`productionReady`/`startEnabled` markers. It contains no wallet state,
+credentials, recovery material or service configuration.
+
+The non-root staging script accepts only an absolute, owned, non-symlink target
+with an empty dedicated state directory. It rejects traversal paths, links,
+special archive entries, multiple top-level releases, checksum failures and a
+non-empty state directory. Staging changes only a candidate-local `current`
+symlink. The rollback script verifies the prior release and only restores that
+pointer; it does not start or stop a service. A packaged launcher exits 78 by
+design. Internal checksums, native linkage to the packaged `libldk_node.so`,
+isolated staging and pointer rollback passed. Negative tests confirmed that a
+link-bearing archive and a non-empty state directory are refused.
+
+This is packaging evidence, not a host deployment. It has not touched the live
+Docker Hub, its data, the Rustress container or a wallet. Before even a
+non-spending staging installation, audit a dedicated empty host root and create
+a host-specific non-root service definition that remains disabled. Installation
+requires an authorized non-root deployment account and separate explicit user
+approval. Only after stopped/fenced backup readiness and fresh operational
+evidence may the candidate be started without spending; funded acceptance is a
+later and separately authorized gate.
+
 Reviewed official tag v1.24.0, commit
 `d8ef0e70e0d265a8424276daee0a595ac31993c0`:
 

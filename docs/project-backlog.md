@@ -201,13 +201,21 @@ Exact adapter binding now passes: the reviewed LDK candidate returns a strict
 payment-safety statement through signed NWC `get_info`, and the default-off
 payout runtime validates it on the same connection before constructing its
 sender. Stock Hub, wrong backend/revision and incomplete claims fail closed.
-Still required before rollout is encrypted backup/restore/rollback with the
-legacy audit rehearsed on the restored copy, and final bounded relay delivery
-acceptance. The real frontend bundle, Linux
-server and full serial Go suite now build/pass from the patched pin. The
+Authenticated encrypted backup/restore/rollback, including the legacy audit on
+the restored copy, and bounded real-relay delivery with synthetic keys/mock LN
+now pass. The real frontend bundle, Linux server and full serial Go suite also
+build/pass from the patched pin. The
 frontend-lock patch pins Vite to
 the lockfile's reviewed 8.2.1 version: a fresh frozen install leaves the lockfile
 byte-identical, whereas the upstream floating range silently selected 8.3.4.
+The follow-on native Linux-amd64 server package is now reproducible and carries
+the server, migration binary, matching LDK library, patch-bound manifest and
+non-root stage/rollback scripts. It is explicitly non-production and start-disabled,
+contains no wallet data or credentials, and passed internal checksums, native
+linkage, isolated staging, rollback plus unsafe-archive/non-empty-state refusal.
+It has not been installed. Next is a separately authorized non-spending host
+installation under a reviewed, disabled service definition; live wallet/history
+evidence, managed retention and funded acceptance remain distinct gates.
 BW-18 remains In progress and live spending disabled; no live wallet code
 changed.
 No custom Hub deployment, backend switch, payment or limit change authorized.
