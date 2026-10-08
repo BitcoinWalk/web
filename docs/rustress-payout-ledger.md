@@ -602,12 +602,17 @@ The user then selected Docker. The exact package is now built and staged on
 `.240` in a separate rootless Docker namespace owned by non-root `bitcoinwalk`.
 The digest-pinned context bundle, image ID and runtime policy are recorded in
 [wallet readiness](rustress-wallet-readiness.md#rootless-docker-staging--9-october-2026).
-The candidate container is stopped in `created` state, its disabled gate returns
-78, and its new private state contains only a candidate marker. Rollback/rematerialization
-preserved the same image and empty state. No live Docker socket, existing Hub/
-Rustress data, NWC credential or wallet was accessible. This closes packaging
-and stopped staging only; a separately reviewed no-spend start, live evidence
-providers, managed retention and funded acceptance remain open.
+The candidate first passed its stopped `created`-state gate: the disabled entry
+returned 78 and rollback/rematerialization preserved the same image and empty
+state. The user then separately authorized its no-spend start. The exact image is
+now running rootlessly with a read-only root, no restart policy and loopback-only
+`127.0.0.1:18080`. Its public home and info endpoints return HTTP 200, while Hub
+reports `setupCompleted=false`, `running=false` and `unlocked=false`. Fresh state
+contains only the safety marker, an unconfigured SQLite database/WAL and logs;
+there is no recovery file. No setup, restore, unlock or wallet operation was
+called, and existing Hub/Rustress health is unchanged. This closes the isolated
+no-spend HTTP runtime checkpoint; live-bound wallet/history evidence, managed
+retention and funded acceptance remain open.
 
 ## Deliberate boundaries / next slice
 

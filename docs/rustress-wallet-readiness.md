@@ -523,11 +523,24 @@ expected unauthenticated HTTP 401. Rootless namespace isolation, rather than a
 generic Docker grant, prevents this deployment account from managing those
 root-owned containers. No Hub, Rustress or wallet state was read or changed.
 
-This completes stopped container staging, not no-spend runtime acceptance.
-Starting it requires a separate reviewed action that changes the explicit gate
-from `disabled` to `reviewed-no-spend`; do not configure a wallet, complete Hub
-setup, mount existing data or expose the port publicly. A funded payout remains
-a later independently authorized gate.
+The user separately authorized the no-spend start on 9 October. The exact image
+was rematerialized with the explicit `reviewed-no-spend` gate and is now healthy
+in the same rootless namespace. Docker reports `Running=true`, the expected image
+ID, read-only root filesystem, no restart policy, no OOM/exit failure and only
+`127.0.0.1:18080` bound to candidate port 8080. Public `GET /` and `GET /api/info`
+both return HTTP 200. The non-sensitive readiness fields report the exact
+`bitcoinwalk-feecap-6bb8520025d7` version with `setupCompleted=false`,
+`running=false`, `unlocked=false` and an empty network: the HTTP process is up,
+but no Hub wallet has been configured, started or unlocked.
+
+The fresh bind mount contains only the safety marker, Hub log files and the
+new unconfigured SQLite database/WAL files; no recovery file exists. No setup,
+restore, start, unlock or backup endpoint was called, no existing data was
+mounted, and no credential or wallet material was supplied. The existing public
+Hub still returns HTTP 200 and Rustress admin retains its expected unauthenticated
+HTTP 401. This completes the isolated no-spend HTTP runtime checkpoint only.
+Connection-bound wallet/history evidence, managed encrypted retention and any
+funded payout remain separate, explicitly authorized gates.
 
 Reviewed official tag v1.24.0, commit
 `d8ef0e70e0d265a8424276daee0a595ac31993c0`:
