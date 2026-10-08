@@ -236,7 +236,7 @@ There is currently **no acceptable local journal location** under the implemente
 separate-filesystem policy. Changing directory names or creating a loop-mounted
 file on the same disk would not establish an independent failure domain.
 
-User decision required before infrastructure changes:
+Options reviewed (user selected option two on 8 October 2026):
 
 - Provision a separate persistent data volume with independently managed backup
   and restore procedures, then privately provision journal storage as non-root.
@@ -248,9 +248,18 @@ User decision required before infrastructure changes:
   adapter does not support that topology; do not put SQLite on SSHFS/NFS as a
   shortcut or infer that the existing provisioning tunnel authorizes journal RPCs.
 
+Selected direction: build the authenticated remote journal service on the other
+existing VPS. Require synchronous durable acknowledgements before sending,
+idempotent claims, strict client/wallet binding, sender fencing and refusal to
+send during journal outages. Do not weaken the local-filesystem preflight to
+pretend a remote service is a local SQLite file. Independent backup/restore and
+failure-domain checks remain required. The user also explicitly approved
+publishing these audit notes to GitHub and ngit.
+
 No volume, mount, directory, permissions, service or deployment was changed.
-Payout activation remains blocked pending the storage choice and the other live
-readiness gates. No purchase or broader server access is authorized by this audit.
+Payout activation remains blocked pending remote-journal implementation and the
+other live readiness gates. No purchase or broader server access is authorized
+by this choice.
 
 ## Deliberate boundaries / next slice
 

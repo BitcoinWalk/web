@@ -103,12 +103,14 @@ backlog checks pass. BW-18 remains In progress.
 
 Read-only storage audit: both VPS hosts were inspected as non-root bitcoinwalk;
 neither has a separate journal data volume. Existing app backups share its main
-filesystem. Live activation cannot pass the current storage preflight. Next
-decision: separately managed persistent volume, or additional implementation of
-an authenticated remote journal on the other existing VPS. No infrastructure,
+filesystem. Live activation cannot pass the current local storage preflight.
+User selected option two: implement an authenticated remote journal service on
+the other existing VPS, with durable acknowledgements, idempotent claims, sender
+fencing and fail-closed outages. Audit publication to GitHub and ngit is approved.
+No infrastructure,
 permissions, credentials or wallet settings were changed; see the storage audit
 in [ledger scope](rustress-payout-ledger.md). BW-18 coding can continue, but live
-activation remains gated on an approved storage topology.
+activation remains gated on implementing and verifying the selected topology.
 
 | ID | Stage | Item | Status | Depends on | Acceptance |
 |---|---:|---|---|---|---|
