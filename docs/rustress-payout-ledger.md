@@ -421,6 +421,45 @@ bound fixture will be needed for full worker/recovery acceptance with a fake wal
 never remove these journal records or waive missing-history checks to make that
 test pass. Production backup policy and wallet/history/fee approvals remain open.
 
+### Complete fake-wallet flow acceptance — 8 October 2026
+
+`scripts/payout-acceptance-fixture.ts` exercises the real PayoutFlow, PayoutWorker,
+SQLite ledger, RemoteJournalRecovery, RemoteJournalClient and real loopback HTTP
+journal together. Only wallet settlement/send/lookup, recipient invoice responses
+and readiness evidence are synthetic. It reads no environment configuration,
+credentials or existing database. Every scenario uses a fresh random binding,
+temporary databases and ephemeral loopback port, closed and removed afterwards.
+Its fixture readiness permit is not a deployed-wallet or topology approval.
+
+Nine scenarios passed locally and as non-root `bitcoinwalk` on staging app VPS
+`.138` using its installed Node runtime:
+
+- Incoming 100, 250 and 12,345 sats: exactly one fake send despite duplicate
+  collection/run; 79% credited to organizer, whole-satoshi payments with residual
+  millisatoshi debt retained, fees deducted from BitcoinWalk's share only.
+- Fake sender asserts the durable journal record exists before it is called;
+  supplied fee cap remains exact.
+- Wallet settlement followed by lost response and unavailable lookup: ledger
+  reopens from disk; history/lookup recovery settles once without resending,
+  even after original authorization expiry.
+- Journal acknowledgement lost after commit: zero sends, retained claim, retry
+  remains `recorded`, obligation remains unknown rather than released.
+- Journal outage and stale sender fence: zero sends and recovery paused.
+- Incomplete history or empty restored ledger: reconciliation stays blocked.
+
+Build/run with `npm run payout:acceptance:build` then `npm run payout:acceptance`.
+The same scenarios run in Vitest. All **1,079 tests across 189 files** pass; types,
+changed-file lint and backlog checks pass. The credential-free harness was uploaded
+to staging `incoming`; no app restart or configuration change was made. Existing
+cross-host journal records were not touched.
+
+These complete-flow scenarios used same-host temporary HTTP; preceding cross-host
+protocol tests verified restricted transport separately. This is not a fully
+deployed cross-host live payout workflow. Remaining: default-disabled real wallet
+adapter/settlement collector, deployment and retained-history proof, managed
+encrypted backups/monitoring, numeric budget/fee authorization and an explicitly
+approved bounded live test. BW-18 remains In progress; no real spending enabled.
+
 ## Deliberate boundaries / next slice
 
 The ledger is an internal accounting primitive, not proof that a payment happened.
@@ -450,7 +489,7 @@ restart while outcome is unknown, restart after payment, preimage validation,
 fee conflicts and conservation of every allocated millisatoshi. They use only
 synthetic records and temporary local databases, not real invoices or funds.
 
-Verification: 1,070 tests across 188 files pass on Node 24, including 15 ledger
+Verification: 1,079 tests across 189 files pass on Node 24, including 15 ledger
 tests and 24 outgoing-invoice/worker tests. This slice adds 35 fixture tests for
 recipient retrieval, pinned HTTPS transport and outgoing wallet lookup validation.
 The authenticated reader adds 16 fixture tests for signatures, correlation,

@@ -135,9 +135,16 @@ changed. Dedicated non-root cross-host transport now also passes: app loopback
 private client-only credential; shell/unrelated forwarding and operator actions
 are denied. The real journal client passed synthetic claims, read-back, retry,
 conflict and tunnel-outage checks from the app VPS. Journal remains paused; no
-wallet adapter or app rollout. Next: full worker/recovery acceptance against a
-fresh fake-wallet fixture, plus managed backup/history readiness. BW-18 remains
-In progress, with live payments disabled. See [deployment evidence](rustress-payout-ledger.md).
+wallet adapter or app rollout. Complete worker/recovery acceptance now also passes
+in nine fresh fake-wallet scenarios, locally and on the non-root staging app VPS:
+arbitrary-size 79/21 accounting, BitcoinWalk-paid fees, retained rounding debt,
+durable claim-before-send, duplicate suppression, restart recovery, lost journal
+acknowledgement, outage/stale-fence refusal and missing history/ledger blocking.
+These use isolated same-host HTTP; cross-host protocol acceptance is separate.
+All 1,079 tests across 189 files pass. Next: default-disabled real wallet adapter
+and collector, managed backup/history readiness, then explicitly authorized
+bounded live acceptance. BW-18 remains In progress, with live payments disabled.
+See [deployment evidence](rustress-payout-ledger.md).
 
 | ID | Stage | Item | Status | Depends on | Acceptance |
 |---|---:|---|---|---|---|
