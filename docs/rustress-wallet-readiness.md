@@ -299,11 +299,48 @@ Acceptance from a fresh pinned checkout:
   rejection, exact 100-sat success, reconstruction and duplicate rejection.
 
 This closes the reproduced reservation-release defect for the tested LDK path.
-It does not authorize deployment. Still open: encrypted NWC transport acceptance,
-a native LDK interruption injected while the complete Hub service is running,
-definitive-failure release verification, legacy misclassified-row migration,
-full frontend/server build, capability binding in the BitcoinWalk adapter,
-encrypted backup and rollback rehearsal. Live spending remains disabled.
+It does not authorize deployment. The encrypted request boundary and terminal
+failure handling are tested separately below. Live spending remains disabled.
+
+### Encrypted NWC boundary and terminal failure accepted in isolation — 8 October 2026
+
+`integrations/alby-fee-cap/run-nwc-transport.py` injects a synthetic, signed
+NIP-44 `pay_invoice` event through the complete Hub event handler, permission
+check, pay controller, transaction database and response publisher. The response
+is signature-checked, correlated to the exact request and decrypted with the
+request cipher. The backend receives exactly `100000` millisatoshis as the
+maximum fee. A second case injects a proven terminal routing failure and checks
+that the encrypted NWC error is returned, the row becomes FAILED, the fee reserve
+is cleared and the non-renewing budget is released. Both cases passed three
+repeats under Go's race detector; the surrounding NIP-47, controller and
+transaction suites also pass serially.
+
+This closes the local encrypted NWC application boundary and definitive-failure
+release gates. It does not claim WebSocket relay delivery or a live wallet test:
+the test uses an in-memory publisher and synthetic backend, with no credentials,
+network or funds. Still open before deployment:
+
+1. Inject an in-flight native LDK interruption while the complete Hub service is
+   running, then restart and reconcile the exact payment without resending it.
+2. Define and implement a fail-closed audit/migration for legacy FAILED rows that
+   may actually have an unknown outcome.
+3. Bind the BitcoinWalk adapter to the exact installed Hub revision and verify
+   its required capability at startup.
+4. Rehearse encrypted backup, restore and rollback before any staging adoption.
+5. Include real relay delivery and bounded no-funds staging acceptance in the
+   final rollout rehearsal. Live spending remains disabled.
+
+The functional build gate itself passes: the real HTTP frontend bundle and Linux
+server binary were built from the patched pin, and the full serial `go test
+./...` suite passed with that bundle embedded. The temporary server binary hash
+was `754795a3fd9da902be8fcbf8df141038520f7586abe4471fc25d0f45a1285782`.
+The first build exposed an upstream reproducibility defect: `vite` used the
+floating `^8.2.1` range while the committed lock recorded 8.2.1, so frozen
+installation failed and a non-frozen install silently selected 8.3.4. The third
+candidate patch, `frontend-lock.patch`, pins the already reviewed 8.2.1 release.
+A fresh frozen install then left `yarn.lock` byte-identical, built with Vite
+8.2.1 and passed the full suite. This is reproducible build evidence, not
+deployment authorization.
 
 Reviewed official tag v1.24.0, commit
 `d8ef0e70e0d265a8424276daee0a595ac31993c0`:

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run fault-injected controller/DB acceptance; any failing safety assertion blocks adoption."""
+"""Run signed NIP-44 NWC event-handler acceptance without a relay or wallet."""
 import argparse
 import hashlib
 import json
@@ -23,22 +23,22 @@ if subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=checkout, text=True
 patches = [base / name for name in ('isolated-candidate.patch', 'unknown-outcome.patch', 'frontend-lock.patch')]
 for patch in reversed(patches):
     subprocess.run(['git', 'apply', '--reverse', '--check', str(patch)], cwd=checkout, check=True)
-source = base / 'bitcoinwalk_recovery_test.go'
-target = checkout / 'nip47/controllers/bitcoinwalk_recovery_test.go'
+source = base / 'bitcoinwalk_nwc_transport_test.go'
+target = checkout / 'nip47/bitcoinwalk_nwc_transport_test.go'
 if target.exists() and target.read_bytes() != source.read_bytes():
-    raise SystemExit('Existing recovery test differs; review before replacing')
+    raise SystemExit('Existing transport test differs; review before replacing')
 shutil.copyfile(source, target)
-output = base.parents[1] / 'release-build/alby-fee-cap-recovery'
+output = base.parents[1] / 'release-build/alby-fee-cap-nwc-transport'
 output.mkdir(parents=True, exist_ok=True)
 manifest = output / 'manifest.json'
 manifest.unlink(missing_ok=True)
-command = [args.go, 'test', './nip47/controllers', '-run', '^TestBitcoinWalk(ConcurrentNwcBudget|UncertainSendMustRetainReservation|AbruptProcessRecovery|LostNwcResponseAfterSettlement)$', '-count=3', '-timeout=3m', '-json']
+command = [args.go, 'test', './nip47', '-run', '^TestBitcoinWalkEncryptedNwc(PayInvoice|DefinitiveFailureReleasesBudget)$', '-count=3', '-timeout=3m', '-json']
 if args.race:
     command.append('-race')
-with (output / 'recovery.jsonl').open('w') as log:
-    result = subprocess.run(command, cwd=checkout, env=dict(os.environ, TEST_DATABASE_URI='', BW_CRASH_CHILD=''), stdout=log, stderr=subprocess.STDOUT)
+with (output / 'transport.jsonl').open('w') as log:
+    result = subprocess.run(command, cwd=checkout, env=dict(os.environ, TEST_DATABASE_URI=''), stdout=log, stderr=subprocess.STDOUT)
 outcomes = []
-for line in (output / 'recovery.jsonl').read_text().splitlines():
+for line in (output / 'transport.jsonl').read_text().splitlines():
     try:
         item = json.loads(line)
     except ValueError:
@@ -50,11 +50,11 @@ manifest.write_text(json.dumps({
     'status': 'blocked' if result.returncode else 'tested-only', 'raceDetector': args.race,
     'testSha256': hashlib.sha256(source.read_bytes()).hexdigest(),
     'patches': {p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in patches},
-    'logSha256': hashlib.sha256((output / 'recovery.jsonl').read_bytes()).hexdigest(),
-    'scope': 'NWC pay controller + actual SQLite; injected backend, no transport or live LDK',
+    'logSha256': hashlib.sha256((output / 'transport.jsonl').read_bytes()).hexdigest(),
+    'scope': 'signed NIP-44 request and response through Hub event handler, controller and SQLite; synthetic backend, no relay or wallet',
     'outcomes': outcomes,
 }, indent=2) + '\n')
 for item in outcomes:
     print(f"{item['result']}: {item['test']}")
-print('Deployment blocked by failed acceptance.' if result.returncode else 'Controller acceptance passed; production remains disabled.')
+print('Deployment blocked by failed acceptance.' if result.returncode else 'Encrypted NWC boundary passed; production remains disabled.')
 raise SystemExit(result.returncode)

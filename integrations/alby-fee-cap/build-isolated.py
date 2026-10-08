@@ -13,7 +13,7 @@ parser.add_argument('--go', default='go')
 args = parser.parse_args()
 checkout = args.checkout.resolve()
 root = Path(__file__).resolve().parents[2]
-patches = [Path(__file__).with_name(name) for name in ('isolated-candidate.patch', 'unknown-outcome.patch')]
+patches = [Path(__file__).with_name(name) for name in ('isolated-candidate.patch', 'unknown-outcome.patch', 'frontend-lock.patch')]
 pin = 'a231ed34a660cd86c0bd7f36282f7eb0dc90223f'
 if os.getuid() == 0:
     raise SystemExit('Non-root only')

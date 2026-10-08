@@ -185,10 +185,20 @@ now fixes that defect: cancellation, deadline and typed disconnect retain the
 race-detector repeats, complete transaction/controller suites, serial backend Go
 packages and three routed regtest repeats pass from a fresh pin. Other backends
 retain their existing notification behaviour through explicit LDK-only lookup
-capability. Still required before rollout: complete-Hub native interruption and
-encrypted NWC transport acceptance, definitive-failure release, legacy-row plan,
-frontend/server build, adapter capability binding, backups and rollback. BW-18
-remains In progress and live spending disabled; no live wallet code changed.
+capability. Signed NIP-44 request/response acceptance now passes three race-
+detector repeats through the real Hub event handler, controller and SQLite with
+the exact 100-sat ceiling; a proven terminal routing failure returns an encrypted
+error and releases both principal and fee reservation. The surrounding NIP-47,
+controller and transaction suites pass. This is synthetic and uses neither relay
+delivery nor a wallet. Still required before rollout: complete-Hub native LDK
+interruption/restart reconciliation, a legacy-row audit/migration, exact adapter
+capability binding, encrypted backup and rollback, and final bounded relay
+delivery acceptance. The real frontend bundle, Linux server and full serial Go
+suite now build/pass from the patched pin. A third candidate patch pins Vite to
+the lockfile's reviewed 8.2.1 version: a fresh frozen install leaves the lockfile
+byte-identical, whereas the upstream floating range silently selected 8.3.4.
+BW-18 remains In progress and live spending disabled; no live wallet code
+changed.
 No custom Hub deployment, backend switch, payment or limit change authorized.
 See [fee investigation](rustress-wallet-readiness.md).
 See [deployment evidence](rustress-payout-ledger.md).
