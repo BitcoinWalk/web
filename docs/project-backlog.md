@@ -130,9 +130,14 @@ credentials and private checksum-verified Node runtime. Durable retry, outage,
 paused restart and separate-directory restore retained identity/records and
 rejected old fences. Final service is paused, not enabled at boot; the temporary
 restore process is stopped. No wallet, Rustress configuration or app deployment
-changed. Next: restricted private transport, app-side staging integration and
-managed backup/history readiness. BW-18 remains In progress, with live payments
-disabled. See [deployment evidence](rustress-payout-ledger.md).
+changed. Dedicated non-root cross-host transport now also passes: app loopback
+18891 to journal 8891, separate source/port-restricted key, pinned host identity,
+private client-only credential; shell/unrelated forwarding and operator actions
+are denied. The real journal client passed synthetic claims, read-back, retry,
+conflict and tunnel-outage checks from the app VPS. Journal remains paused; no
+wallet adapter or app rollout. Next: full worker/recovery acceptance against a
+fresh fake-wallet fixture, plus managed backup/history readiness. BW-18 remains
+In progress, with live payments disabled. See [deployment evidence](rustress-payout-ledger.md).
 
 | ID | Stage | Item | Status | Depends on | Acceptance |
 |---|---:|---|---|---|---|

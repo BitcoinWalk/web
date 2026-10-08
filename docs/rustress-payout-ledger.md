@@ -385,6 +385,42 @@ app-side deployment verification, independent managed backups, authenticated
 complete wallet-history evidence and authorized wallet budgets/fee limits. No
 sender is wired to this service; do not activate the fixture as a live journal.
 
+### Dedicated cross-host staging transport — 8 October 2026
+
+Installed non-root user service `bitcoinwalk-journal-tunnel.service` on app VPS
+`.138`: 127.0.0.1:18891 forwards to journal VPS `.240` 127.0.0.1:8891. It is running
+but not enabled at boot. Its dedicated key/configuration live under the private
+`/home/bitcoinwalk/.config/bitcoinwalk-journal-tunnel` directory. The host key is
+pinned to the previously trusted ED25519 key, never blindly accepted on first use.
+
+The new key is authorized only from `.138`, with `restrict`, forwarding restricted
+to the journal destination, remote listening confined to the journal port,
+and forced `/bin/false` for session commands. Existing authorized keys were
+preserved with a private pre-append backup. No shell, PTY, agent, X11 or user-rc
+access is granted. Actual shell execution and forwarding to ports 8890 and 22
+were denied. The existing Rustress connection was not reused or modified.
+
+Only the fixture **client** credential and pinned service/binding were transferred
+privately to the app host; the operator credential remains on the journal host.
+`scripts/deploy-journal-tunnel.py` orchestrates one-time deployment and testing;
+it captures secrets in memory without logging them. `scripts/test-journal-tunnel.ts`
+bundles the real `RemoteJournalClient` into a standalone Node fixture harness.
+
+Across the actual two hosts, the harness verified pinned identity, authentication,
+operator denial with the client token, synthetic first claim, exact read-back,
+recorded retry, conflicting-commitment rejection and loss of transport. Stopping
+the tunnel caused the client to refuse an uncertain outcome; restarting it
+restored access to the paused service. Fixture activation was temporary and
+followed by an explicit pause on the journal host. No browser route, application
+environment, NWC credential, wallet adapter or payment was enabled.
+
+This is **cross-host journal protocol acceptance**, not a completed end-to-end
+payout test or a live deployment-readiness grant. The retained claims are synthetic
+and have no corresponding real ledger or wallet history. A fresh, separately
+bound fixture will be needed for full worker/recovery acceptance with a fake wallet;
+never remove these journal records or waive missing-history checks to make that
+test pass. Production backup policy and wallet/history/fee approvals remain open.
+
 ## Deliberate boundaries / next slice
 
 The ledger is an internal accounting primitive, not proof that a payment happened.
