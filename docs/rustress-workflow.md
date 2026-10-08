@@ -5,7 +5,7 @@ and not deployed to production. This integration can only prepare disabled confi
 activate public NIP-05/LNURL endpoints, create invoices, or move money.
 
 The separately gated [Madeira private rehearsal](madeira-private-pilot.md) is
-prepared for app 0.3.198: reuse its existing city identity and saved checkout
+deployed in staging app 0.3.198: reuse its existing city identity and saved checkout
 payout through private owner/admin proofs, with a test-only unpaid entitlement.
 This never relaxes the ordinary paid setup rules below. Madeira has been approved
 on staging; real signed evidence preflight passes, invoice remains pending and no

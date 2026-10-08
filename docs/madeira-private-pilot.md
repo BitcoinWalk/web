@@ -79,3 +79,14 @@ authentication, request bounds and redacted errors. The read-only `.138` preflig
 verified real Madeira approval, existing identity, checkout payout signature and
 current payout endpoint; invoice `pending`, paid entitlements `0`. No signatures
 have been supplied to this private pilot yet.
+
+Staging deployment completed as non-root `bitcoinwalk`: app `0.3.198`, source
+`88fceb1` (pilot implementation `d9efe3d`), archive SHA-256
+`9c8d86be1b78db26024ed94f33154bb8a6963a923bfbdd9ae015d32a168e8dea`.
+Release `/opt/bitcoinwalk-app-staging/releases/0.3.198-9c8d86be1b78` is active.
+Database/release evidence: `/home/bitcoinwalk/backups/app-staging-deploy.fuey8y`;
+pilot flag evidence: `/home/bitcoinwalk/backups/madeira-pilot-enable.bTpeJm`.
+Package smoke, public health, private-page login rendering and unsigned API
+rejection pass. Post-deploy preflight again reports invoice `pending` and zero
+paid entitlements. Both code commits are on ngit and GitHub. Human signatures,
+fixture Madeira apply/read-back and restart acceptance remain pending.
