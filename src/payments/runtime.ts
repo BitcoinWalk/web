@@ -36,6 +36,13 @@ export function getPaymentRuntime():PaymentRuntime{
  const timer=setInterval(()=>void reconcile(),15_000);timer.unref();
  shared[runtimeKey]={service,sponsors,store,timer};
  setTimeout(()=>void reconcile(),1_000).unref();
+ // Separate loop: slow/offline provisioning must never delay invoice settlement.
+ if(process.env.BITCOINWALK_RUSTRESS_FIXTURE_ENABLED==="1"){
+  let provisioningBusy=false;
+  setInterval(()=>{if(provisioningBusy)return;provisioningBusy=true;void import("../server/rustress-workflow")
+   .then(module=>module.reconcileIsolatedProvisioning()).catch(()=>console.warn("Isolated provisioning deferred; saved tasks retained."))
+   .finally(()=>{provisioningBusy=false;});},30_000).unref();
+ }
  return shared[runtimeKey];
 }
 

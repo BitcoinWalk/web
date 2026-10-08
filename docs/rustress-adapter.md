@@ -118,6 +118,13 @@ spending credentials until durable accounting and isolated acceptance pass.
 
 ## Next steps
 
+The [durable app workflow](rustress-workflow.md) is now implemented with fresh
+authority checks, immutable task persistence, leases and read-before-retry
+recovery. Its default-off hooks are wired to branded-city publication and a
+separate reconciliation loop. Actual app-code-to-VPS fixture acceptance passed
+through a temporary SSH tunnel. Staging app deployment, persistent transport
+and an explicitly allowed real-city pilot remain; no app runtime flag is enabled.
+
 Expanded requirement: BW-19 must invoke this automatically after prerequisites,
 not require manual per-city Rustress administration. BW-109 adds a separate
 super-admin unsplit-address contract; the existing city client intentionally

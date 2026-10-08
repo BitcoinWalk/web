@@ -1,4 +1,6 @@
 import type {Event} from "nostr-tools";
+import {createHash} from "node:crypto";
+import {provisionConfigSchema} from "../rustress/contract";
 import {resolveCityBrand,type CityBrandAuthority} from "../nostr/city-brand";
 import {queryAuthorizations, queryDirectoryRecords, queryRelayEvents} from "../nostr/city-records";
 import {CITY_DIRECTORY_KIND, discoverCityDirectoryChainForSigning, discoverExistingCityDirectoryRoot} from "../nostr/city-directory";
@@ -197,7 +199,10 @@ export async function prepareBrandPublication(requestId:string,actor:string){
 }
 export async function confirmBrandPublication(requestId:string,actor:string,deps=brandPublicationDependencies){
   const before=await brandReviewEvidence(requestId,actor),approved=before.store.approvedForPublication(requestId,actor,before.resolved.authority);
-  if(approved.row.status==="active")return {requestId,eventId:approved.event.id,state:"active" as const,relays:JSON.parse(approved.publication!.relays) as string[],message:"City identity is active; exact relay read-back was already recorded."};
+  if(approved.row.status==="active"){
+    await queueProvisioningIfEnabled(requestId);
+    return {requestId,eventId:approved.event.id,state:"active" as const,relays:JSON.parse(approved.publication!.relays) as string[],message:"City identity is active; exact relay read-back was already recorded."};
+  }
   const relays=deps.relays();if(!relays.length)throw new Error("No city identity publication relay is configured.");
   const histories:Event[][]=[];
   for(const relay of relays){
@@ -209,7 +214,14 @@ export async function confirmBrandPublication(requestId:string,actor:string,deps
   const after=await brandReviewEvidence(requestId,actor);assertBrandTask(after.request.challenge,after.resolved);
   if(JSON.stringify(before.resolved.authority)!==JSON.stringify(after.resolved.authority))throw new Error("City authority changed during publication confirmation.");
   const activated=after.store.activate(requestId,actor,after.resolved.authority,histories[0],relays);
+  await queueProvisioningIfEnabled(requestId);
   return {requestId,eventId:activated.event.id,state:"active" as const,relays,message:`City identity activated after exact read-back from ${relays.length} relay(s).`};
+}
+
+async function queueProvisioningIfEnabled(requestId: string) {
+  if (process.env.BITCOINWALK_RUSTRESS_FIXTURE_ENABLED !== "1") return;
+  try {await (await import("./rustress-workflow")).queueIsolatedProvisioning(requestId);}
+  catch {console.warn("Isolated provisioning queue deferred. City identity remains recorded; retry confirmation to queue safely.");}
 }
 
 export async function saveProSetupSigner(cityId: string, actor: string, command: Extract<ProSetupCommand, {action: "confirm-city-signer"}>, brandProof: Event, origin: string) {
@@ -241,4 +253,43 @@ export async function saveProSetupPayout(cityId: string, actor: string, destinat
   taskStore.confirmPayout(cityId, after.authority.entitlementId, after.authority.ownerPubkey, saved.version);
   return {cityId: saved.cityId, version: saved.version, destination: saved.normalized, confirmedAt: saved.confirmedAt,
     state: "saved-not-active" as const, message: "Destination saved. City Lightning payments remain disabled until provisioning and read-back succeed."};
+}
+
+/** Internal worker resolver, never a browser-supplied provisioning payload.
+ * Requires a published signed binding and repeats live checks on every call.
+ * Calling this does not create invoices or make provisioning publicly active. */
+export async function resolveRustressProvisionEvidence(requestId: string) {
+  const before = await brandReviewEvidence(requestId, SUPER_ADMIN_PUBKEY);
+  const {authority} = before.resolved;
+  const approved = before.store.approvedForPublication(requestId, SUPER_ADMIN_PUBKEY, authority);
+  if (approved.row.status !== "active") throw new Error("City identity must be active before provisioning.");
+  const relays = brandPublicationDependencies.relays();
+  if (!relays.length) throw new Error("No city identity read-back relay is configured.");
+  for (const relay of relays) {
+    const history = await brandPublicationDependencies.read(relay, authority.cityId);
+    const current = history.length < 500 ? resolveCityBrand(history, authority.cityId) : null;
+    if (!current || current.event.id !== approved.event.id || current.binding.action === "revoke")
+      throw new Error("City identity read-back is incomplete or superseded.");
+  }
+  const destinations = new PayoutDestinationStore(getPaymentRuntime().store.db);
+  const payout = destinations.current(authority.cityId);
+  if (!payout || payout.ownerPubkey !== authority.ownerPubkey || payout.version !== before.request.challenge.profile.payoutVersion)
+    throw new Error("Current owner payout confirmation is required.");
+  const validated = await validatePayoutDestination(payout.normalized, {blockedDomains: ["bitcoinwalk.org",
+    ...(process.env.BITCOINWALK_PAYOUT_BLOCKED_DOMAINS ?? "").split(",").map(value => value.trim()).filter(Boolean)]});
+  if (validated.normalized !== payout.normalized) throw new Error("Payout destination changed.");
+  const after = await brandReviewEvidence(requestId, SUPER_ADMIN_PUBKEY);
+  const confirmed = after.store.approvedForPublication(requestId, SUPER_ADMIN_PUBKEY, after.resolved.authority);
+  if (JSON.stringify(authority) !== JSON.stringify(after.resolved.authority) || confirmed.event.id !== approved.event.id ||
+      confirmed.row.status !== "active" || JSON.stringify(destinations.current(authority.cityId)) !== JSON.stringify(payout))
+    throw new Error("City provisioning evidence changed during verification.");
+  const city = after.resolved.row;
+  const config = provisionConfigSchema.parse({cityId: authority.cityId, version: 1, domain: "bitcoinwalk.org",
+    localPart: city.decision.approval.slug ?? city.revision.city.slug,
+    brandPubkey: after.request.challenge.binding.brandPubkey, authorityEventId: authority.authorityEventId,
+    approvalEventId: authority.approvalEventId, brandEventId: approved.event.id, payoutVersion: payout.version,
+    payoutDestination: payout.normalized, walletRef: "isolated-test", organizerBasisPoints: 7900, retainedBasisPoints: 2100,
+    invoiceIssuance: "disabled"});
+  return {config, proofHash: createHash("sha256").update(JSON.stringify({authority, profile: after.request.challenge.profile,
+    brandEventId: approved.event.id, payoutVersion: payout.version})).digest("hex")};
 }
