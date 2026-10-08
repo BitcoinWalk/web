@@ -8,6 +8,8 @@ vi.mock("nostr-tools/relay",()=>({Relay:class{
  publish=mock.publish;
 }}));
 import {RustressNwcReader} from "./nwc-reader";
+import {RustressNwcWallet,type WalletSendPermit} from "./nwc-wallet";
+import {encode,sign} from "bolt11";
 const wallet=Buffer.from("23".repeat(32),"hex"),client=Buffer.from("12".repeat(32),"hex"),checkout=Buffer.from("34".repeat(32),"hex");
 const walletKey=getPublicKey(wallet),clientKey=getPublicKey(client),key=nip44.getConversationKey(wallet,clientKey);
 const uri=(secret:Uint8Array)=>`nostr+walletconnect://${walletKey}?relay=wss://fixture.example&secret=${Buffer.from(secret).toString("hex")}`;
@@ -17,6 +19,43 @@ function reply(request:Event,result:unknown,method="lookup_invoice",patch:Partia
 }
 beforeEach(()=>{vi.useFakeTimers();mock.publish.mockReset().mockResolvedValue("ok");mock.connect.mockReset().mockResolvedValue(undefined);mock.close.mockClear();mock.subclose.mockClear();});
 afterEach(()=>vi.useRealTimers());
+describe("default-off real NWC payout adapter",()=>{
+ const now=1800000000,preimage="56".repeat(32),hash=createHash("sha256").update(Buffer.from(preimage,"hex")).digest("hex");
+ const invoice=sign(encode({millisatoshis:"79000",timestamp:now,tags:[{tagName:"payment_hash",data:hash},{tagName:"description",data:"synthetic"},{tagName:"expire_time",data:3600}]}),"67".repeat(32)).paymentRequest!;
+ const input={invoice,maximumFeeMsat:"10000",paymentHash:hash};
+ function fixture(){
+  let enabled=true,time=now;
+  const permit=vi.fn(async(r:{binding:string;paymentHash:string;amountMsat:string}):Promise<WalletSendPermit>=>({binding:r.binding,paymentHash:r.paymentHash,amountMsat:r.amountMsat,enforcedFeeCeilingMsat:"10000",checkedAt:now,expiresAt:now+60,authorized:true}));
+  const w=new RustressNwcWallet("fixture",uri(client),uri(checkout),"bc",permit,()=>enabled,()=>time);
+  mock.publish.mockImplementation(async(event:Event)=>{const body=JSON.parse(nip44.decrypt(event.content,key));
+   expect(body).toEqual({method:"pay_invoice",params:{invoice}});mock.reply?.(reply(event,{preimage},"pay_invoice"));return "ok";});
+  return {w,permit,disable:()=>{enabled=false;},expire:()=>{time+=100;}};
+ }
+ it("does not connect or publish by default",async()=>{
+  const w=new RustressNwcWallet("fixture",uri(client),uri(checkout),"bc");
+  await expect(w.send(input)).rejects.toThrow("unconfirmed");expect(mock.connect).not.toHaveBeenCalled();
+ });
+ it("publishes one authenticated payment request with no invented fee parameter",async()=>{
+  const f=fixture();await f.w.send(input);await expect(f.w.send(input)).rejects.toThrow("unconfirmed");expect(mock.publish).toHaveBeenCalledTimes(1);
+ });
+ it.each(["binding","hash","amount","fee","stale","expired"])("blocks invalid %s evidence before networking",async mode=>{
+  const f=fixture();f.permit.mockImplementation(async r=>({binding:mode==="binding"?"wrong":r.binding,paymentHash:mode==="hash"?"wrong":r.paymentHash,amountMsat:mode==="amount"?"1":r.amountMsat,enforcedFeeCeilingMsat:mode==="fee"?"10001":"10000",checkedAt:mode==="stale"?now-31:now,expiresAt:mode==="expired"?now:now+60,authorized:true}));
+  await expect(f.w.send(input)).rejects.toThrow("unconfirmed");expect(mock.connect).not.toHaveBeenCalled();
+ });
+ it.each(["disable","expire"])("rechecks %s after connecting and before publishing",async mode=>{
+  const f=fixture();mock.connect.mockImplementation(async()=>{if(mode==="disable")f.disable();else f.expire();});
+  await expect(f.w.send(input)).rejects.toThrow("unconfirmed");expect(mock.publish).not.toHaveBeenCalled();
+ });
+ it("does not retry after an uncertain publish",async()=>{
+  const f=fixture();mock.publish.mockRejectedValue(new Error("private wallet detail"));
+  await expect(f.w.send(input)).rejects.toThrow(/^Payment outcome unconfirmed; reconcile before any further action$/);
+  await expect(f.w.send(input)).rejects.toThrow("unconfirmed");expect(mock.publish).toHaveBeenCalledTimes(1);
+ });
+ it("rejects forged settlement preimage",async()=>{
+  const f=fixture();mock.publish.mockImplementation(async(event:Event)=>{mock.reply?.(reply(event,{preimage:"00".repeat(32)},"pay_invoice"));return "ok";});
+  await expect(f.w.send(input)).rejects.toThrow("unconfirmed");
+ });
+});
 describe("isolated authenticated read-only NWC integration",()=>{
  it("decrypts only an exact wallet/request-bound response",async()=>{
   mock.publish.mockImplementation(async(event:Event)=>{

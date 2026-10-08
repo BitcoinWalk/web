@@ -460,6 +460,50 @@ adapter/settlement collector, deployment and retained-history proof, managed
 encrypted backups/monitoring, numeric budget/fee authorization and an explicitly
 approved bounded live test. BW-18 remains In progress; no real spending enabled.
 
+### Default-off NWC wallet and settlement collector — 8 October 2026
+
+Implemented `RustressNwcWallet` with the shared authenticated NIP-44 NWC
+transport, while preserving `RustressNwcReader` as a read-only wrapper with no
+exposed generic RPC or send method. Existing read verification tests still pass.
+The wallet adapter is constructible only from explicitly supplied private server
+configuration; no environment loader, browser route, service or live connection
+has been added. The receive-only checkout connection cannot be reused.
+
+Send remains disabled by default and requires both an explicit enable callback
+and a trusted per-payment permit. The permit binds the exact connection, invoice
+hash, amount and enforced fee ceiling, is checked for freshness/expiry, and is
+checked again after relay connection establishment before publication. It must
+come from independently verified wallet enforcement, budget, deployment and user
+authorization—not caller assertions or NWC capability advertising. **No such live
+permit provider is implemented or configured yet.**
+
+[NIP-47 pay_invoice](https://nips.nostr.com/47) has no standard per-payment fee-cap
+parameter. The adapter therefore sends only the invoice and refuses a permit
+whose verified wallet-enforced ceiling exceeds the ledger's approved cap. It
+does not invent a `max_fee` parameter or infer enforcement from a successful pay.
+The worker still needs exact authenticated lookup before recording settlement.
+Publication errors, malformed replies and invalid preimages remain uncertain;
+there is no automatic payment retry. An in-process bounded attempted-hash guard
+supplements, but never replaces, the durable ledger/journal exclusion.
+
+`SettlementCollector` is also off by default. It accepts bounded deduplicated hash
+hints, rechecks saved invoice snapshots through authenticated lookup, and performs
+bounded scans of registered pending invoices. Failed lookups remain pending for
+later scans, completed scans reset their cursor, concurrent scans are blocked,
+and disable checks stop subsequent work. It supplies no automatic timer, NIP-47
+notification subscription or invoice-import endpoint. A future scheduler can poll
+these saved invoices without relying on reliable notification delivery.
+
+Nineteen new tests cover disabled state, request encryption/binding, no invented
+fee field, one publication per attempted hash, invalid/expired fee permits,
+disable/expiry during connection setup, uncertain publication, invalid preimages,
+and collector bounds, duplicates, retries and concurrency. All **1,098 tests in
+190 files**, type checking and changed-file lint pass. Only synthetic signed
+responses were used; no live NWC credential was read and no wallet was contacted.
+No VPS deployment or Hub permissions changed in this slice. Next: reviewed
+default-off runtime composition and real provider/history readiness evidence;
+budget/fee approval and bounded live acceptance remain separate gates.
+
 ## Deliberate boundaries / next slice
 
 The ledger is an internal accounting primitive, not proof that a payment happened.
@@ -489,7 +533,7 @@ restart while outcome is unknown, restart after payment, preimage validation,
 fee conflicts and conservation of every allocated millisatoshi. They use only
 synthetic records and temporary local databases, not real invoices or funds.
 
-Verification: 1,079 tests across 189 files pass on Node 24, including 15 ledger
+Verification: 1,098 tests across 190 files pass on Node 24, including 15 ledger
 tests and 24 outgoing-invoice/worker tests. This slice adds 35 fixture tests for
 recipient retrieval, pinned HTTPS transport and outgoing wallet lookup validation.
 The authenticated reader adds 16 fixture tests for signatures, correlation,

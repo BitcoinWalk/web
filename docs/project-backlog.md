@@ -141,9 +141,16 @@ arbitrary-size 79/21 accounting, BitcoinWalk-paid fees, retained rounding debt,
 durable claim-before-send, duplicate suppression, restart recovery, lost journal
 acknowledgement, outage/stale-fence refusal and missing history/ledger blocking.
 These use isolated same-host HTTP; cross-host protocol acceptance is separate.
-All 1,079 tests across 189 files pass. Next: default-disabled real wallet adapter
-and collector, managed backup/history readiness, then explicitly authorized
-bounded live acceptance. BW-18 remains In progress, with live payments disabled.
+The real NWC wallet adapter and settlement collector are now implemented, both
+default-off and not wired to live credentials. Authenticated NIP-44 payment
+requests require exact fresh per-payment authorization and independently verified
+wallet-enforced fee ceilings; checkout stays read-only. No automatic resend after
+uncertainty. The collector deduplicates hints and scans saved pending invoices
+with authenticated lookup, bounded pages and concurrent-scan protection. No
+notification listener or automatic scheduler is installed. All 1,098 tests across
+190 files pass. Next: reviewed default-off runtime composition, actual fee/budget
+permit and retained-history providers, managed backup readiness, then explicitly
+authorized bounded live acceptance. BW-18 remains In progress; spending disabled.
 See [deployment evidence](rustress-payout-ledger.md).
 
 | ID | Stage | Item | Status | Depends on | Acceptance |
