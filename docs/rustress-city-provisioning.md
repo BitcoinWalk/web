@@ -92,7 +92,9 @@ approved wallet references, never per-address connection strings.
 provisioning contract are implemented with fixture tests. The companion Rustress
 API is now implemented and locally tested as a pinned, isolated-only patch:
 14 Rust tests plus real-process client acceptance cover atomicity, concurrent
-retries, restart and drift. No VPS fixture or live deployment has occurred.
+retries, restart and drift. A separate non-root VPS fixture service now passes
+remote atomic apply, concurrency, restart/read-back and isolation checks on
+127.0.0.1:8890. No live deployment or wallet configuration has occurred.
 Non-root `.240` access and read-only
 inventory now confirm the installed revision label matches the reviewed source;
 the immutable image digest is recorded. Wallet capability and backup acceptance

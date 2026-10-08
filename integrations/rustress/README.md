@@ -73,12 +73,54 @@ Independent status read-back compares the actual materialized user and split,
 not only the saved receipt; drift cannot be reported as success. Configuration
 history is retained across updates/restarts.
 
+## VPS fixture deployment — 8 October 2026
+
+The isolated service is installed on `213.232.235.240` under non-root
+`bitcoinwalk` (UID 1004). No root login, sudo grant, Docker operation or live
+Rustress database access was used. User-owned service persistence was enabled
+with `loginctl enable-linger bitcoinwalk`; no broader privilege was granted.
+
+- Unit: `bitcoinwalk-rustress-fixture.service` (systemd **user** service).
+- Listener: **127.0.0.1:8890**, no reverse-proxy/public route.
+- Root directory: `/home/bitcoinwalk/rustress-fixture` (0700).
+- Separate marked DB: `state/isolated.fixture.sqlite` (0600).
+- Private token: `secrets/api-token` (0600), generated on the VPS, never printed.
+- Binary source: local Rust checkout commit `d2389b4`, upstream plus this patch.
+- Uploaded stripped debug artifact SHA-256:
+  `796b10d033024b33d0899bc8499f9ab5a7c113a68efcc5c8718c5c38797c41d7`.
+- Build: Rust 1.90.0, locked dependencies; x86_64 GNU binary. Required symbol
+  versions are at most GLIBC 2.34 / OPENSSL 3.0.0. VPS Ubuntu 24.04 with glibc
+  2.39/OpenSSL 3.0.13 resolves all libraries. This is a test artifact, not a
+  release/production binary.
+- Limits: 256 MiB memory, 25% CPU, 64 tasks, no new privileges, private umask.
+
+`install-fixture.py <expected-sha256>` runs only as bitcoinwalk from an incoming
+directory containing `rustress`. It verifies the artifact/libraries, installs a
+versioned binary and user unit, preserves an existing private token and restarts
+only this named test service. `verify-fixture.py <expected-sha256>` verifies auth,
+public-route denial, artifact pin, atomic apply, concurrent/exact retries,
+restart/read-back, one fixture user/split, no stored NWC credentials, non-root
+PID and loopback binding. Both passed on the VPS. The exact uploaded binary also
+passed the local TypeScript-client process test. No real cities are configured.
+
+Operational commands, as `bitcoinwalk` on `.240`:
+
+```sh
+systemctl --user status bitcoinwalk-rustress-fixture.service
+systemctl --user stop bitcoinwalk-rustress-fixture.service
+```
+
+To retire the test service, use `systemctl --user disable --now
+bitcoinwalk-rustress-fixture.service`. Preserve its isolated state for diagnosis;
+do not delete or alter the live `/root/rustress.db`. Do not disable user lingering
+if other user services have since been installed. The live container and its
+port 8889 are unchanged; its unauthenticated admin still returns HTTP 401.
+
 ## Remaining gates
 
-No VPS fixture service is installed yet; no privileges or live services changed.
-Before remote testing, build for the VPS platform, verify the artifact and use
-a separate non-root directory/service and empty fixture DB. Do not grant generic
-Docker/sudo access. Keep any private tunnel limited to the fixture listener.
+Any app-to-VPS access must use a reviewed private tunnel limited to this listener;
+no tunnel is installed yet. Never expose the fixture API publicly or supply
+wallet credentials to it.
 
 This is NOT production-ready provisioning. Remaining work includes BW-109's
 standalone no-split resource, app-owned durable orchestration with fresh signed

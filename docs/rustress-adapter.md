@@ -128,7 +128,10 @@ The companion API is now implemented as a maintained patch against the pinned
 upstream revision. See [patch and reproduction instructions](../integrations/rustress/README.md).
 It runs only in isolated mode with a loopback listener, private token and marked
 fixture database. It refuses root, unmarked existing databases and wallet keys;
-normal upstream mode refuses the fixture database. No live instance was changed.
+normal upstream mode refuses the fixture database. A separate VPS fixture service
+was installed and verified on 8 October, as UID 1004 at 127.0.0.1:8890, using
+only an empty marked test database and an on-host generated private token.
+No live instance was changed. See the patch README for deployment evidence.
 
 Verification: 14 Rust tests and 14 app adapter tests pass. The actual Rust process
 also passes the TypeScript-client HTTP acceptance script: atomic configuration,
@@ -139,20 +142,17 @@ The full app suite passes 861 tests across 167 files on Node 24; TypeScript,
 changed-file lint and public backlog generation also pass.
 
 1. Non-root access, image/revision pin and mount inventory are complete. Next
-   verify the backup procedure and non-secret capability metadata. Local builds
-   use pinned Rust 1.90.0; build a VPS-compatible artifact before remote testing.
-   Prepare a separate non-root test service with its own
-   empty fixture database and private listener, no live NWC or NIP-57 key, no
-   public proxy route and no mount of `/root/rustress.db`. Do not retag/recreate
-   the running Rustress container. Deployment permission should be a root-owned
-   helper restricted to that isolated service, not docker-group membership or
-   unrestricted sudo; review it once an actual tested artifact exists.
+   verify the live backup procedure and wallet capability metadata separately.
+   The pinned Rust 1.90.0 binary resolves all VPS libraries and passed remote
+   fixture tests. A user-owned persistent test service was sufficient; no
+   root-owned deployment helper, Docker grant or unrestricted sudo was needed.
+   Do not retag/recreate the running Rustress container.
 2. The local companion API, transaction rollback, restart, unmanaged-name
-   collision and concurrent retry checks are complete. Remote service packaging,
-   restricted deployment and independent review remain.
-3. Repeat the adapter tests against that isolated VPS service with fixture identities
-   and no spending credentials. Test wrong token, redirects, network loss,
-   drifted provider versions and unknown outcomes. Do not expose public endpoints.
+   collision and concurrent retry checks are complete. Isolated VPS deployment
+   and remote restart/read-back checks now pass. Independent review remains.
+3. Establish reviewed private app-to-service transport and persistent application
+   tasks. Continue fixture acceptance for wrong token, redirects, network loss,
+   drifted versions and unknown outcomes. Do not expose public endpoints.
 4. Wire fresh signed app authority, persisted tasks and validated destinations to
    the adapter only after those checks pass. Complete BW-18/BW-19 and BW-102
    before enabling real payments or London's public mapping.
