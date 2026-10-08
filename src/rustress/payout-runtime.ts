@@ -7,6 +7,7 @@ import {RemoteJournalRecovery} from "./remote-journal-recovery";
 import {createRecoveryHistory,type RecoveryCoverage} from "./recovery-history";
 import {SettlementCollector} from "./settlement-collector";
 import {assessRustressWallet,type WalletReadinessEvidence} from "./wallet-readiness";
+import {requireHubPaymentSafetyCapability} from "./hub-capability";
 import type {PayoutLedger,IncomingSnapshot} from "./payout-ledger";
 
 const deploymentSchema=z.object({binding:z.string(),serviceId:z.uuid(),checkedAt:z.number().int().safe(),expiresAt:z.number().int().safe(),
@@ -54,8 +55,11 @@ export class PayoutRuntime {
    const c=await this.deps.credentials();
    if(!this.active()||generation!==this.#generation)throw new Error();
    const reader=new RustressNwcReader(this.deps.walletRef,c.wallet,c.checkout);
+   if(reader.binding!==this.deps.policy.binding)throw new Error();
+   requireHubPaymentSafetyCapability(await reader.getInfo());
+   if(!this.active()||generation!==this.#generation)throw new Error();
    const wallet=new RustressNwcWallet(this.deps.walletRef,c.wallet,c.checkout,this.deps.network,this.deps.permit,()=>this.ready&&generation===this.#generation,this.now);
-   if(reader.binding!==this.deps.policy.binding||wallet.binding!==reader.binding)throw new Error();
+   if(wallet.binding!==reader.binding)throw new Error();
    const client=new RemoteJournalClient(this.deps.journal.origin,c.journalClientToken,this.deps.journal.serviceId,reader.binding);
    const history=createRecoveryHistory(reader,this.deps.coverage,this.now);
    const recovery=new RemoteJournalRecovery(client,this.deps.ledger,this.deps.walletRef,history,hash=>wallet.lookup(hash),()=>this.active()&&generation===this.#generation);

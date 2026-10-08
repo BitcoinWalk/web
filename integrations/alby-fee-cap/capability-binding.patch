@@ -1,0 +1,197 @@
+diff --git a/nip47/controllers/get_info_controller.go b/nip47/controllers/get_info_controller.go
+--- a/nip47/controllers/get_info_controller.go
++++ b/nip47/controllers/get_info_controller.go
+@@ -7,22 +7,24 @@
+ 	"github.com/getAlby/go-nostr"
+ 	"github.com/getAlby/hub/constants"
+ 	"github.com/getAlby/hub/db"
++	"github.com/getAlby/hub/lnclient"
+ 	"github.com/getAlby/hub/logger"
+ 	"github.com/getAlby/hub/nip47/models"
+ 	"github.com/sirupsen/logrus"
+ )
+ 
+ type getInfoResponse struct {
+-	Alias            *string     `json:"alias"`
+-	Color            *string     `json:"color"`
+-	Pubkey           *string     `json:"pubkey"`
+-	Network          *string     `json:"network"`
+-	BlockHeight      *uint32     `json:"block_height"`
+-	BlockHash        *string     `json:"block_hash"`
+-	Methods          []string    `json:"methods"`
+-	Notifications    []string    `json:"notifications"`
+-	Metadata         interface{} `json:"metadata,omitempty"`
+-	LightningAddress *string     `json:"lud16"`
++	Alias            *string                             `json:"alias"`
++	Color            *string                             `json:"color"`
++	Pubkey           *string                             `json:"pubkey"`
++	Network          *string                             `json:"network"`
++	BlockHeight      *uint32                             `json:"block_height"`
++	BlockHash        *string                             `json:"block_hash"`
++	Methods          []string                            `json:"methods"`
++	Notifications    []string                            `json:"notifications"`
++	Metadata         interface{}                         `json:"metadata,omitempty"`
++	LightningAddress *string                             `json:"lud16"`
++	PaymentSafety    *lnclient.PaymentSafetyCapabilities `json:"bitcoinwalk_payment_safety,omitempty"`
+ }
+ 
+ func (controller *nip47Controller) HandleGetInfoEvent(ctx context.Context, nip47Request *models.Request, requestEventId uint, app *db.App, publishResponse publishFunc) {
+@@ -35,6 +37,10 @@
+ 		Methods:       controller.permissionsService.GetPermittedMethods(app, controller.lnClient),
+ 		Notifications: supportedNotifications,
+ 	}
++	if provider, ok := controller.lnClient.(lnclient.PaymentSafetyCapabilityProvider); ok {
++		capabilities := provider.BitcoinWalkPaymentSafetyCapabilities()
++		responsePayload.PaymentSafety = &capabilities
++	}
+ 
+ 	if app != nil {
+ 		metadata := map[string]interface{}{}
+diff --git a/lnclient/bitcoinwalk_payment_safety.go b/lnclient/bitcoinwalk_payment_safety.go
+new file mode 100644
+--- /dev/null
++++ b/lnclient/bitcoinwalk_payment_safety.go
+@@ -0,0 +1,23 @@
++package lnclient
++
++const BitcoinWalkPaymentSafetyContract = "bitcoinwalk-payment-safety-v1"
++const BitcoinWalkPaymentSafetyCandidate = "6bb8520025d781f8570ef1a5d134fe545a1586f3ab46cfedd780e15a641cfa84"
++const BitcoinWalkPaymentSafetyUpstream = "a231ed34a660cd86c0bd7f36282f7eb0dc90223f"
++
++// PaymentSafetyCapabilities is returned inside the authenticated NIP-47
++// get_info response. It binds BitcoinWalk to the exact reviewed LDK safety
++// contract instead of trusting a generic method list or deployment label.
++type PaymentSafetyCapabilities struct {
++	Contract                     string `json:"contract"`
++	CandidateRevision            string `json:"candidate_revision"`
++	UpstreamCommit               string `json:"upstream_commit"`
++	Backend                      string `json:"backend"`
++	ExplicitFeeCeiling           bool   `json:"explicit_fee_ceiling"`
++	UnknownOutcomeReservation    bool   `json:"unknown_outcome_reservation"`
++	OutgoingLookupReconciliation bool   `json:"outgoing_lookup_reconciliation"`
++	LegacyFailedQuarantine       bool   `json:"legacy_failed_quarantine"`
++}
++
++type PaymentSafetyCapabilityProvider interface {
++	BitcoinWalkPaymentSafetyCapabilities() PaymentSafetyCapabilities
++}
+diff --git a/lnclient/ldk/bitcoinwalk_payment_safety.go b/lnclient/ldk/bitcoinwalk_payment_safety.go
+new file mode 100644
+--- /dev/null
++++ b/lnclient/ldk/bitcoinwalk_payment_safety.go
+@@ -0,0 +1,16 @@
++package ldk
++
++import "github.com/getAlby/hub/lnclient"
++
++func (ls *LDKService) BitcoinWalkPaymentSafetyCapabilities() lnclient.PaymentSafetyCapabilities {
++	return lnclient.PaymentSafetyCapabilities{
++		Contract:                     lnclient.BitcoinWalkPaymentSafetyContract,
++		CandidateRevision:            lnclient.BitcoinWalkPaymentSafetyCandidate,
++		UpstreamCommit:               lnclient.BitcoinWalkPaymentSafetyUpstream,
++		Backend:                      "ldk",
++		ExplicitFeeCeiling:           true,
++		UnknownOutcomeReservation:    true,
++		OutgoingLookupReconciliation: true,
++		LegacyFailedQuarantine:       true,
++	}
++}
+diff --git a/lnclient/ldk/bitcoinwalk_payment_safety_test.go b/lnclient/ldk/bitcoinwalk_payment_safety_test.go
+new file mode 100644
+--- /dev/null
++++ b/lnclient/ldk/bitcoinwalk_payment_safety_test.go
+@@ -0,0 +1,21 @@
++package ldk
++
++import (
++	"testing"
++
++	"github.com/getAlby/hub/lnclient"
++	"github.com/stretchr/testify/require"
++)
++
++func TestBitcoinWalkPaymentSafetyCapability(t *testing.T) {
++	var provider lnclient.PaymentSafetyCapabilityProvider = &LDKService{}
++	capability := provider.BitcoinWalkPaymentSafetyCapabilities()
++	require.Equal(t, lnclient.BitcoinWalkPaymentSafetyContract, capability.Contract)
++	require.Equal(t, lnclient.BitcoinWalkPaymentSafetyCandidate, capability.CandidateRevision)
++	require.Equal(t, lnclient.BitcoinWalkPaymentSafetyUpstream, capability.UpstreamCommit)
++	require.Equal(t, "ldk", capability.Backend)
++	require.True(t, capability.ExplicitFeeCeiling)
++	require.True(t, capability.UnknownOutcomeReservation)
++	require.True(t, capability.OutgoingLookupReconciliation)
++	require.True(t, capability.LegacyFailedQuarantine)
++}
+diff --git a/nip47/controllers/bitcoinwalk_payment_safety_test.go b/nip47/controllers/bitcoinwalk_payment_safety_test.go
+new file mode 100644
+--- /dev/null
++++ b/nip47/controllers/bitcoinwalk_payment_safety_test.go
+@@ -0,0 +1,68 @@
++package controllers
++
++import (
++	"context"
++	"encoding/json"
++	"testing"
++
++	"github.com/getAlby/go-nostr"
++	"github.com/getAlby/hub/db"
++	"github.com/getAlby/hub/lnclient"
++	"github.com/getAlby/hub/nip47/models"
++	"github.com/getAlby/hub/tests"
++	"github.com/stretchr/testify/require"
++)
++
++type bitcoinWalkCapabilityBackend struct{ lnclient.LNClient }
++
++func (bitcoinWalkCapabilityBackend) BitcoinWalkPaymentSafetyCapabilities() lnclient.PaymentSafetyCapabilities {
++	return lnclient.PaymentSafetyCapabilities{
++		Contract:          lnclient.BitcoinWalkPaymentSafetyContract,
++		CandidateRevision: lnclient.BitcoinWalkPaymentSafetyCandidate,
++		UpstreamCommit:    lnclient.BitcoinWalkPaymentSafetyUpstream,
++		Backend:           "ldk", ExplicitFeeCeiling: true,
++		UnknownOutcomeReservation: true, OutgoingLookupReconciliation: true,
++		LegacyFailedQuarantine: true,
++	}
++}
++
++func TestBitcoinWalkGetInfoBindsPaymentSafetyCapability(t *testing.T) {
++	svc, err := tests.CreateTestService(t)
++	require.NoError(t, err)
++	defer svc.Remove()
++	app, _, err := tests.CreateApp(svc)
++	require.NoError(t, err)
++	svc.LNClient = bitcoinWalkCapabilityBackend{LNClient: svc.LNClient}
++	request := &models.Request{}
++	require.NoError(t, json.Unmarshal([]byte(nip47GetInfoJson), request))
++	requestEvent := &db.RequestEvent{}
++	require.NoError(t, svc.DB.Create(requestEvent).Error)
++	var response *models.Response
++	NewTestNip47Controller(svc).HandleGetInfoEvent(context.Background(), request, requestEvent.ID, app, func(value *models.Response, _ nostr.Tags) { response = value })
++	require.NotNil(t, response)
++	require.Nil(t, response.Error)
++	info := response.Result.(*getInfoResponse)
++	require.NotNil(t, info.PaymentSafety)
++	require.Equal(t, lnclient.BitcoinWalkPaymentSafetyCandidate, info.PaymentSafety.CandidateRevision)
++	require.Equal(t, "ldk", info.PaymentSafety.Backend)
++	require.True(t, info.PaymentSafety.ExplicitFeeCeiling)
++	require.True(t, info.PaymentSafety.UnknownOutcomeReservation)
++	require.True(t, info.PaymentSafety.OutgoingLookupReconciliation)
++	require.True(t, info.PaymentSafety.LegacyFailedQuarantine)
++}
++
++func TestBitcoinWalkGetInfoOmitsUnverifiedPaymentSafetyCapability(t *testing.T) {
++	svc, err := tests.CreateTestService(t)
++	require.NoError(t, err)
++	defer svc.Remove()
++	app, _, err := tests.CreateApp(svc)
++	require.NoError(t, err)
++	request := &models.Request{}
++	require.NoError(t, json.Unmarshal([]byte(nip47GetInfoJson), request))
++	requestEvent := &db.RequestEvent{}
++	require.NoError(t, svc.DB.Create(requestEvent).Error)
++	var response *models.Response
++	NewTestNip47Controller(svc).HandleGetInfoEvent(context.Background(), request, requestEvent.ID, app, func(value *models.Response, _ nostr.Tags) { response = value })
++	require.NotNil(t, response)
++	require.Nil(t, response.Result.(*getInfoResponse).PaymentSafety)
++}

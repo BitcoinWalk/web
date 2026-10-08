@@ -320,11 +320,9 @@ release gates. It does not claim WebSocket relay delivery or a live wallet test:
 the test uses an in-memory publisher and synthetic backend, with no credentials,
 network or funds. Still open before deployment:
 
-1. Bind the BitcoinWalk adapter to the exact installed Hub revision and verify
-   its required capability at startup.
-2. Rehearse encrypted backup, restore and rollback before any staging adoption,
+1. Rehearse encrypted backup, restore and rollback before any staging adoption,
    including the legacy-failure audit against a restored database copy.
-3. Include real relay delivery and bounded no-funds staging acceptance in the
+2. Include real relay delivery and bounded no-funds staging acceptance in the
    final rollout rehearsal. Live spending remains disabled.
 
 The functional build gate itself passes: the real HTTP frontend bundle and Linux
@@ -374,6 +372,32 @@ transaction and NWC controller suites also pass. No real database, wallet,
 credentials, relay or funds were used. Before deployment, run the dry audit and
 apply rehearsal only against an encrypted restored database copy; the live Hub
 remains unchanged.
+
+### Exact Hub capability binding accepted in isolation — 8 October 2026
+
+`integrations/alby-fee-cap/capability-binding.patch` gives the reviewed LDK
+candidate one immutable payment-safety identity,
+`6bb8520025d781f8570ef1a5d134fe545a1586f3ab46cfedd780e15a641cfa84`.
+Its signed NIP-47 `get_info` response attests the exact upstream commit, LDK
+backend, explicit fee-ceiling enforcement, unknown-outcome reservation,
+authoritative outgoing lookup and legacy-failure quarantine. Stock Hub and other
+backends omit the statement rather than claiming partial support.
+
+The BitcoinWalk payout runtime now calls `get_info` through the same private NWC
+connection it will use for payouts, after the existing inventory/deployment
+checks but before constructing the sending wallet or starting recovery. NIP-44
+signature, author and request correlation in the transport authenticate that
+response. The runtime accepts only the exact strict capability object; a missing
+field, different candidate/upstream/backend, false safety flag or unreviewed
+extra claim blocks readiness and no send is possible.
+
+The reproducible capability runner applies the five independently reviewable
+patches to the pinned source, passes the Hub statement/controller tests three
+times under Go's race detector, and passes the app capability, payout-runtime
+and authenticated transport suites. The complete Rustress suite also passes:
+257 tests. No live Hub, wallet, connection secret, relay or funds were used.
+Production remains disabled until backup/restore/rollback and bounded staging
+relay acceptance are complete.
 
 Reviewed official tag v1.24.0, commit
 `d8ef0e70e0d265a8424276daee0a595ac31993c0`:

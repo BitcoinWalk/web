@@ -516,6 +516,11 @@ than silently discovering wallet settings.
 Startup requires exact wallet/journal-bound deployment evidence, current wallet
 readiness, then complete authenticated history and successful journal recovery.
 Deployment evidence expires within the runtime's 60-second freshness window.
+It now also performs an authenticated `get_info` call through the exact payout
+connection and requires the strict reviewed Hub/LDK payment-safety capability
+before constructing the sender or starting recovery. Generic NIP-47 methods,
+inventory labels and operator assertions do not satisfy this gate; stock Hub,
+wrong backend/revision and incomplete capability statements fail closed.
 Operations serialize, pause invalidates pending startup and wallet permission,
 and the adapter rechecks its enable callback before publishing. A payment already
 published cannot be recalled by pause: stop/drain and reconciliation remain

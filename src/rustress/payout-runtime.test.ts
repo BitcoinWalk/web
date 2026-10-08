@@ -4,9 +4,11 @@ import {afterEach,beforeEach,describe,it,expect,vi} from "vitest";
 import {PayoutLedger} from "./payout-ledger";
 import {RUSTRESS_WALLET_REQUIREMENTS} from "./contract";
 import {PayoutRuntime,type PayoutRuntimeDependencies} from "./payout-runtime";
-const mock=vi.hoisted(()=>({binding:"ab".repeat(32),serviceId:"ce72e914-5890-4902-8e8c-16fb30d80f11",fence:"19d4c97a-aef0-43d7-b9bd-245b934d9e54",enabled:undefined as (()=>boolean)|undefined,history:vi.fn(),lookup:vi.fn(),status:vi.fn()}));
+import {HUB_PAYMENT_SAFETY_CANDIDATE,HUB_PAYMENT_SAFETY_CONTRACT,HUB_PAYMENT_SAFETY_UPSTREAM} from "./hub-capability";
+const mock=vi.hoisted(()=>({binding:"ab".repeat(32),serviceId:"ce72e914-5890-4902-8e8c-16fb30d80f11",fence:"19d4c97a-aef0-43d7-b9bd-245b934d9e54",enabled:undefined as (()=>boolean)|undefined,history:vi.fn(),lookup:vi.fn(),status:vi.fn(),info:vi.fn()}));
 vi.mock("./nwc-reader",()=>({RustressNwcReader:class{
  binding=mock.binding;walletRef="fixture";listRecoveryTransactions=mock.history;lookupInvoice=mock.lookup;
+ getInfo=mock.info;
 }}));
 vi.mock("./nwc-wallet",()=>({RustressNwcWallet:class{
  binding=mock.binding;walletRef="fixture";network="bc";lookup=mock.lookup;
@@ -17,7 +19,10 @@ vi.mock("./remote-journal-client",()=>({RemoteJournalClient:class{
  async page(){return {state:await mock.status(),entries:[]};}
 }}));
 const dbs:DatabaseSync[]=[];
-beforeEach(()=>{mock.enabled=undefined;mock.history.mockReset().mockResolvedValue({transactions:[],total_count:0});mock.lookup.mockReset();mock.status.mockReset().mockResolvedValue({serviceId:mock.serviceId,binding:mock.binding,fence:mock.fence,active:true,lastSequence:0});});
+beforeEach(()=>{mock.enabled=undefined;mock.history.mockReset().mockResolvedValue({transactions:[],total_count:0});mock.lookup.mockReset();mock.status.mockReset().mockResolvedValue({serviceId:mock.serviceId,binding:mock.binding,fence:mock.fence,active:true,lastSequence:0});
+ mock.info.mockReset().mockResolvedValue({bitcoinwalk_payment_safety:{contract:HUB_PAYMENT_SAFETY_CONTRACT,candidate_revision:HUB_PAYMENT_SAFETY_CANDIDATE,
+  upstream_commit:HUB_PAYMENT_SAFETY_UPSTREAM,backend:"ldk",explicit_fee_ceiling:true,unknown_outcome_reservation:true,
+  outgoing_lookup_reconciliation:true,legacy_failed_quarantine:true}});});
 afterEach(()=>{for(const db of dbs.splice(0))db.close();});
 function fixture(on=true){
  let enabled=on,now=1800000000;
@@ -57,6 +62,20 @@ describe("default-off payout runtime composition",()=>{
  });
  it("requires history and an active journal, without activating it",async()=>{
   const f=fixture();mock.status.mockResolvedValue({active:false});expect(await f.runtime.reconcile()).toEqual({state:"blocked"});expect(f.runtime.ready).toBe(false);
+ });
+ it.each(["missing","revision","backend","incomplete"])('blocks %s Hub capability on the authenticated wallet connection',async mode=>{
+  const safety:{contract:string;candidate_revision:string;upstream_commit:string;backend:string;explicit_fee_ceiling:boolean;
+   unknown_outcome_reservation:boolean;outgoing_lookup_reconciliation:boolean;legacy_failed_quarantine:boolean}={
+   contract:HUB_PAYMENT_SAFETY_CONTRACT,candidate_revision:HUB_PAYMENT_SAFETY_CANDIDATE,
+   upstream_commit:HUB_PAYMENT_SAFETY_UPSTREAM,backend:"ldk",explicit_fee_ceiling:true,unknown_outcome_reservation:true,
+   outgoing_lookup_reconciliation:true,legacy_failed_quarantine:true};
+  const value:{bitcoinwalk_payment_safety?:typeof safety}={bitcoinwalk_payment_safety:safety};
+  if(mode==="missing")delete value.bitcoinwalk_payment_safety;
+  if(mode==="revision")safety.candidate_revision="00".repeat(32);
+  if(mode==="backend")safety.backend="lnd";
+  if(mode==="incomplete")safety.unknown_outcome_reservation=false;
+  mock.info.mockResolvedValue(value);const f=fixture();
+  expect(await f.runtime.reconcile()).toEqual({state:"blocked"});expect(f.runtime.ready).toBe(false);expect(mock.status).not.toHaveBeenCalled();
  });
  it("pause and expiry invalidate the wallet enable callback",async()=>{
   const f=fixture();await f.runtime.reconcile();f.expire();expect(f.runtime.ready).toBe(false);expect(mock.enabled?.()).toBe(false);expect(await f.runtime.run(randomUUID())).toEqual({state:"paused"});

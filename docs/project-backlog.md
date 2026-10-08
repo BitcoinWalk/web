@@ -197,9 +197,13 @@ FAILED-row gate now has an app-scoped, cutoff-bound and fingerprinted quarantine
 it preserves original evidence, restores principal plus the exact fee reserve,
 blocks drift or malformed rows and is idempotent after a lost response. Three
 race-detector repeats and the complete affected suites pass from a fresh pin.
-Still required before rollout is exact adapter capability binding, encrypted
-backup/restore/rollback with this audit rehearsed on the restored copy, and final
-bounded relay delivery acceptance. The real frontend bundle, Linux
+Exact adapter binding now passes: the reviewed LDK candidate returns a strict
+payment-safety statement through signed NWC `get_info`, and the default-off
+payout runtime validates it on the same connection before constructing its
+sender. Stock Hub, wrong backend/revision and incomplete claims fail closed.
+Still required before rollout is encrypted backup/restore/rollback with the
+legacy audit rehearsed on the restored copy, and final bounded relay delivery
+acceptance. The real frontend bundle, Linux
 server and full serial Go suite now build/pass from the patched pin. The
 frontend-lock patch pins Vite to
 the lockfile's reviewed 8.2.1 version: a fresh frozen install leaves the lockfile
