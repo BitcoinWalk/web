@@ -1,8 +1,15 @@
 # BW-100 — durable app provisioning workflow
 
-8 October 2026. Deployed in staging app 0.3.197; not enabled for any pilot city
+8 October 2026. Deployed in staging app 0.3.197; generic provisioning not enabled for any pilot city
 and not deployed to production. This integration can only prepare disabled configuration. It cannot
 activate public NIP-05/LNURL endpoints, create invoices, or move money.
+
+The separately gated [Madeira private rehearsal](madeira-private-pilot.md) is
+prepared for app 0.3.198: reuse its existing city identity and saved checkout
+payout through private owner/admin proofs, with a test-only unpaid entitlement.
+This never relaxes the ordinary paid setup rules below. Madeira has been approved
+on staging; real signed evidence preflight passes, invoice remains pending and no
+paid entitlement exists. Production/profile/public addresses are untouched.
 
 ## Entry and recovery
 

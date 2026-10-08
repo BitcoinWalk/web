@@ -14,6 +14,15 @@ after existing authorization/payment prerequisites, with durable background
 reconciliation and no per-city Rustress dashboard work. Owner/signing consent
 is preserved; city auto-approval remains separate deferred scope.
 
+BW-100 Madeira rehearsal, 8 October: implemented a narrowly gated private staging
+pilot that reuses the existing Madeira identity without profile publication,
+ownership transfer, invoice payment or a counterfeit paid entitlement. Owner and
+super-admin sign a private test-only challenge; disabled fixture provisioning uses
+the durable outbox with current signed approval/authority/payout checks. Deployment
+and human signature/read-back acceptance are pending. Generic provisioning remains
+disabled. BW-108's real MEP migration and BW-18/BW-19 activation remain separate.
+See [pilot instructions and boundaries](madeira-private-pilot.md).
+
 | ID | Stage | Item | Status | Depends on | Acceptance |
 |---|---:|---|---|---|---|
 | BW-109 | 9, 10 | Super-admin standalone Lightning addresses without splits | ⚪ Planned | BW-100 | Create/manage addresses from CMS with explicit receiving-wallet selection and signed super-admin-only commands; automatically provision and verify LNURL-pay with no Prism or 79/21 split; prefer direct receipt without an extra forwarding hop. Initial requested addresses: endo@bitcoinwalk.org and donate@bitcoinwalk.org; user confirmed bitcoinwalk@getalby.com as recipient for both; underlying wallet mapping still needs verification. Separate resource type from Pro cities, global address collision protection, no silent adoption, durable retries/read-back, disable/recovery and preserved old invoices. No NIP-05 or NIP-57 recipient invented. No live changes yet. See [plan](admin-lightning-addresses.md). |

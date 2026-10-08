@@ -36,6 +36,7 @@ export function getPaymentRuntime():PaymentRuntime{
  const timer=setInterval(()=>void reconcile(),15_000);timer.unref();
  shared[runtimeKey]={service,sponsors,store,timer};
  setTimeout(()=>void reconcile(),1_000).unref();
+ if(process.env.BITCOINWALK_MADEIRA_PILOT==="private-fixture-v1")void import("../server/madeira-pilot").then(module=>module.startMadeiraPilot()).catch(()=>console.warn("Private Madeira pilot unavailable; payments unchanged."));
  // Separate loop: slow/offline provisioning must never delay invoice settlement.
  if(process.env.BITCOINWALK_RUSTRESS_FIXTURE_ENABLED==="1"){
   let provisioningBusy=false;
