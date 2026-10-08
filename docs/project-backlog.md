@@ -176,9 +176,15 @@ Private routed-fee acceptance now passes three independent runs: a 101-sat route
 is rejected under the 100-sat cap; a separate test-only 101-sat positive control
 succeeds; the exact 100-sat boundary succeeds and a one-msat tighter cap rejects.
 A fresh sender instance reloads settled state and rejects duplicate payment.
-No real funds, external peers or live Hub used. Full Hub/NWC uncertain-payment
-recovery, concurrent budget checks and rollout review remain required; native LDK
-route evidence does not close those gates.
+No real funds, external peers or live Hub used. Subsequent controller/SQLite
+acceptance passes 20-request concurrent admission (3 paid, 17 quota-rejected) and
+abrupt child-process recovery without resend. **Candidate deployment is blocked:**
+cancellation/timeout after backend entry is misclassified as failed, releases
+the pending principal/fee budget, and permits another backend attempt before
+reconciliation. A failing regression is retained; no live wallet code changed.
+Fix unknown-outcome classification and reconciliation, then test native-LDK
+in-flight interruption and full NWC transport before rollout. BW-18 remains
+In progress; native route success alone does not close its wallet-safety gate.
 No custom Hub deployment, backend switch, payment or limit change authorized.
 See [fee investigation](rustress-wallet-readiness.md).
 See [deployment evidence](rustress-payout-ledger.md).

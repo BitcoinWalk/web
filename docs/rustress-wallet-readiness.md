@@ -202,6 +202,70 @@ Those checks, installed-capability binding, full backend review, encrypted backu
 and rollback rehearsal remain open. No Hub deployment, permissions or spending
 were enabled; BW-18 stays In progress.
 
+### Controller recovery acceptance — 8 October 2026
+
+**Deployment blocker reproduced; no wallet implementation changed.** The new
+`bitcoinwalk_recovery_test.go` runs the actual NWC pay controller and Hub
+transaction service against temporary SQLite, with an injected backend. This
+tests the service/database boundary, not encrypted relay transport or a real
+LDK payment interrupted in flight. The separate regtest route evidence remains
+valid, but does not override a recovery failure.
+
+Three repeats under Go's race detector produced the following results; no data
+race was reported. The suite correctly exits nonzero because the unknown-outcome
+safety assertions fail on every repeat.
+
+- Concurrent admission: 20 distinct, simultaneous 50,000-sat requests with
+  100-sat caps; three enter the backend, 17 receive quota errors. Both pending
+  and settled usage are exactly 150,300 sats within the non-renewing 200,000-sat
+  budget. This is one Hub process using SQLite, not multi-process/PostgreSQL proof.
+- Abrupt process loss: a child exits after its pending reservation is committed
+  and the injected backend is entered. The parent reconstructs the controller
+  using that database, retains 50,100 sats usage, and blocks a second backend
+  call. This models a lost process, not a proven real-wallet settlement outcome.
+- Lost success response: discarding the response after settlement then retrying
+  through a fresh controller does not invoke the backend again. Settled budget
+  usage remains exactly 50,100 sats.
+- **FAIL:** an entered backend returning `context.Canceled` or
+  `context.DeadlineExceeded` is classified as FAILED. The 100-sat fee reservation
+  becomes zero and the entire 50,100-sat obligation drops out of budget usage.
+  A fresh controller permits the same invoice to reach the backend again before
+  reconciliation. The test deliberately expects safe PENDING/reserved behaviour
+  and remains red; do not weaken it to bless current behaviour.
+
+Source path confirms this is relevant to the candidate: LDK's synchronous send
+returns its context error when interrupted while waiting for a terminal event;
+the transaction service unconditionally calls `markPaymentFailed` for a send
+error. That clears the fee reserve, and budget queries exclude failed rows.
+Lookup reconciliation only visits PENDING rows. This does not prove a duplicate
+real payment occurred; it proves early reservation release and unsafe retry
+admission at the controller/backend boundary.
+
+Reproduce on the patched pin with
+`python3 integrations/alby-fee-cap/run-recovery.py /path/to/patched-hub-checkout --go /path/to/go --race`.
+The runner repeats tests three times, writes synthetic fixture logs
+and a hash manifest under ignored `release-build/alby-fee-cap-recovery/`, and
+returns nonzero with `status: blocked` on any failed assertion. The additional
+lost-response test discards a success response then retries through a fresh
+controller, checking that a settled invoice cannot be sent twice. No wallet
+credentials, real keys, relay messages or production database are used.
+
+Recommended next implementation, separately reviewed before adoption:
+
+1. Distinguish proven terminal failure from unknown outcome. Preserve principal
+   and fee reservation on cancellation, timeout, disconnect or ambiguous errors;
+   do not merely special-case two Go errors and assume all others are definitive.
+2. Persist the payment hash, app ownership and attempted fee bound; fence retries
+   while unknown. Reconcile against the exact backend before releasing anything.
+3. Make LDK restart reconciliation work even for notification-capable backends;
+   check failed legacy rows that may have been misclassified without blindly
+   refunding budgets or sending again. Missing lookup evidence is not failure.
+4. Rerun these assertions, add late-success/definitive-failure and interrupted
+   native-LDK scenarios, and review all backend error semantics before rollout.
+
+The BitcoinWalk sender remains disabled. This candidate must not replace the
+live Hub until this gate and the previously recorded rollout gates pass.
+
 Reviewed official tag v1.24.0, commit
 `d8ef0e70e0d265a8424276daee0a595ac31993c0`:
 
