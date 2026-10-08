@@ -32,8 +32,10 @@ BW-100 next slice: local wallet-readiness evaluator implemented with 11 tests;
 rejects missing/stale grants, checkout connection reuse, excessive permissions
 and unapproved budgets/fee limits. It cannot enable payments and is not yet
 runtime-wired. User supplied https://hub.bitcoinwalk.org/; HTTPS login screen
-confirmed. Authenticated Hub inventory awaits user login; the read-only collector
-is still pending. Full suite: 904 tests across 175 files pass; TypeScript, lint
+confirmed. Authenticated UI inventory now verifies Paid city is receive-only
+(no sending permission); no separate Rustress connection is listed. Preserve
+checkout scopes; finish durable payout accounting before granting spending.
+The connection-bound read-only collector is still pending. Full suite: 904 tests across 175 files pass; TypeScript, lint
 and backlog checks pass. No NWC connection, funding or wallet changes.
 See [readiness scope](rustress-wallet-readiness.md). BW-100 remains In progress.
 

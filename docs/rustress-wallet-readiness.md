@@ -62,7 +62,18 @@ checkout reuse, staleness, revocation, wrong network, excess scopes, incomplete
 read probes, missing notifications, budget limits/renewal/fees, wallet isolation
 and unsafe integer amounts. No live tests are claimed.
 
-Access checkpoint: the user supplied `https://hub.bitcoinwalk.org/`. It loads
-the Hub login screen over HTTPS. No saved local Hub CLI token exists (existence
-checked only). Authenticated inventory is pending user login in the opened Hub
-tab; no password, wallet connection or token was requested in chat.
+Access checkpoint: the user supplied `https://hub.bitcoinwalk.org/` and logged
+in directly over HTTPS. No saved local Hub CLI token exists (existence checked
+only). Authenticated UI inspection on 8 October shows one connected app, Paid
+city. Its granted permissions are read balance, read node information, create
+invoices, look up invoices, read transaction history and receive notifications;
+it has no sending permission and no connection expiry. No Rustress-specific
+connection is listed. Preserve checkout's existing permissions unchanged.
+
+This is authenticated UI inventory, not completed protocol-probe evidence. No
+NWC secret was revealed/read, no connection created and no permission, budget or
+wallet setting changed. The update banner is not an authoritative installed
+version check. Backend/network, fee enforcement, budget policy, backups and
+the connection-bound read-only collector remain unverified. Complete durable
+BW-18 accounting/uncertain-send recovery before granting a separate spending
+connection, then request explicit approval for scope, budget and expiry.
