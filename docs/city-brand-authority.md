@@ -129,8 +129,9 @@ delegated-person panel is likewise omitted for branded/unverified identities;
 CMS delegation and signed history are unchanged. Historical event objects and
 nevents are never rewritten. No cross-request identity cache is introduced.
 Read scopes are one bounded city filter per configured authoritative relay.
-Staging deployment and real binding/profile visual acceptance remain pending;
-this implementation does not activate London's identity or transfer ownership.
+Staging deployment completed on 8 October 2026; real branded binding/profile
+visual acceptance remains pending. This implementation does not activate
+London's identity or transfer ownership.
 
 Local verification: 847 tests across 166 files pass with `--maxWorkers=4`,
 TypeScript and the production build pass, and backlog generation/diff checks
@@ -142,6 +143,19 @@ passes. New fixtures cover signed activation/replacement/revocation, malformed
 signatures, foreign cities, gaps/forks, replica disagreement, capped/failed
 reads, no-event cities, payment suppression and exact historical event/nevent
 preservation through the rendered walk page. No real binding was published.
+
+Staging release `app-staging-0.3.196` was built and package-smoked with Node
+24.19.0; the full 847-test suite also passes on that runtime. Source commit:
+`ea75cab`, pushed to ngit before GitHub. Archive SHA-256:
+`07801b6351b2a70df0e715918321d1debb8d2adff14e9a0e2403c1e5bf28c95e`.
+Non-root deployment evidence:
+`/home/bitcoinwalk/backups/app-staging-deploy.Si5iuD`; active release:
+`/opt/bitcoinwalk-app-staging/releases/0.3.196-07801b6351b2`.
+User service and loopback/public health pass. Browser verification of London's
+staging city-to-event redirect, rendered Hosted by and npub copied feedback
+passes. London still displays the original organizer because no city binding
+was activated. The previous release is retained; production, ownership,
+profiles, payments and relay configuration were not changed.
 
 Personal dashboard login and payout data remain restricted to authorized views.
 Existing public creator/editor records, anchored owner chains, event authors and
