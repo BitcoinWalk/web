@@ -222,6 +222,36 @@ blocked. Tests simulate topology; no VPS mounts or live wallet queries were made
 Restore operations must still stop all senders and re-open handles: replacing
 files under an existing SQLite connection is not a supported deployment workflow.
 
+## Read-only VPS storage audit — 8 October 2026
+
+Verified both existing app and Rustress VPS hosts over key-only SSH as non-root
+`bitcoinwalk`, using mount/block-device/space/ownership metadata only. Neither
+host has a separate data volume: application data, home directories and existing
+app-host backups share that host's main filesystem. The Rustress host's separate
+boot partition is on the same disk and is not a journal-storage candidate.
+Matching device numbers across hosts do not imply the same physical disk; device
+IDs are host-local. No databases, credentials or backup contents were read.
+
+There is currently **no acceptable local journal location** under the implemented
+separate-filesystem policy. Changing directory names or creating a loop-mounted
+file on the same disk would not establish an independent failure domain.
+
+User decision required before infrastructure changes:
+
+- Provision a separate persistent data volume with independently managed backup
+  and restore procedures, then privately provision journal storage as non-root.
+  Provider durability/failure-domain claims must be verified; a new device alone
+  does not establish independent physical redundancy.
+- Alternatively, implement a dedicated durable journal service on the other
+  existing VPS, with authenticated synchronous acknowledgements, idempotent
+  claims, outage refusal and independent backup policy. The current local SQLite
+  adapter does not support that topology; do not put SQLite on SSHFS/NFS as a
+  shortcut or infer that the existing provisioning tunnel authorizes journal RPCs.
+
+No volume, mount, directory, permissions, service or deployment was changed.
+Payout activation remains blocked pending the storage choice and the other live
+readiness gates. No purchase or broader server access is authorized by this audit.
+
 ## Deliberate boundaries / next slice
 
 The ledger is an internal accounting primitive, not proof that a payment happened.

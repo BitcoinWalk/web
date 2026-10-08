@@ -101,6 +101,15 @@ provider; these code checks alone do not authorize live sending.
 Verification: 1,055 tests across 187 files; TypeScript, changed-file lint and
 backlog checks pass. BW-18 remains In progress.
 
+Read-only storage audit: both VPS hosts were inspected as non-root bitcoinwalk;
+neither has a separate journal data volume. Existing app backups share its main
+filesystem. Live activation cannot pass the current storage preflight. Next
+decision: separately managed persistent volume, or additional implementation of
+an authenticated remote journal on the other existing VPS. No infrastructure,
+permissions, credentials or wallet settings were changed; see the storage audit
+in [ledger scope](rustress-payout-ledger.md). BW-18 coding can continue, but live
+activation remains gated on an approved storage topology.
+
 | ID | Stage | Item | Status | Depends on | Acceptance |
 |---|---:|---|---|---|---|
 | BW-109 | 9, 10 | Super-admin standalone Lightning addresses without splits | ⚪ Planned | BW-100 | Create/manage addresses from CMS with explicit receiving-wallet selection and signed super-admin-only commands; automatically provision and verify LNURL-pay with no Prism or 79/21 split; prefer direct receipt without an extra forwarding hop. Initial requested addresses: endo@bitcoinwalk.org and donate@bitcoinwalk.org; user confirmed bitcoinwalk@getalby.com as recipient for both; underlying wallet mapping still needs verification. Separate resource type from Pro cities, global address collision protection, no silent adoption, durable retries/read-back, disable/recovery and preserved old invoices. No NIP-05 or NIP-57 recipient invented. No live changes yet. See [plan](admin-lightning-addresses.md). |
