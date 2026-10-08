@@ -2,9 +2,9 @@
 
 Implemented contract and private request ledger, 7 October 2026. On 8 October,
 BW-106 added the strict Khatru admission policy and the application publication
-checkpoint. These changes are tested but not yet deployed. BW-105 owns the
-private setup orchestration; BW-106 still owns staging acceptance, future city
-signing and Hosted by replacement.
+checkpoint. Relay `0.8.88` and app `0.3.195` were deployed to staging on 8
+October 2026. BW-105 owns the private setup orchestration; BW-106 still owns
+interactive publication acceptance, future city signing and Hosted by replacement.
 
 ## Authority resolution
 
