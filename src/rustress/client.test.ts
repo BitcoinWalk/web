@@ -43,6 +43,10 @@ describe("isolated Rustress provisioning adapter", () => {
     const writes = transport.mock.calls.filter(([, init]) => init?.method === "POST");
     expect(writes).toHaveLength(2); expect(writes[0][1]?.body).toBe(writes[1][1]?.body);
   });
+  it("accepts an exact prepare retry whose configuration was already applied", async () => {
+    const {client} = fixture("applied");
+    expect(await client.prepare(config)).toEqual(receipt("applied"));
+  });
   it("refuses unpinned providers and wrong-domain capabilities before writes", async () => {
     for (const broken of [{upstreamCommit: "unreviewed"}, {adapterRevision: "e".repeat(64)}, {domain: "other.org"},
       {atomicConfiguration: false}, {managedEntriesOnly: false}, {invoiceIssuanceGate: false}]) {

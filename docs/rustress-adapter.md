@@ -65,8 +65,9 @@ public reverse proxy must not route `/v1/bitcoinwalk` or the admin dashboard.
   configHash, prepared/applied state and invoiceIssuance disabled. Never return
   wallet credentials or private proof records.
 
-Prepare and apply are separate phases. Store idempotency by phase plus city,
-version and digest; retries of either phase must return its original receipt.
+Prepare and apply are separate phases. Store durable state by city, version and
+digest; exact retries return the current state without reapplying a mutation.
+Prepare after an already-applied version returns applied, never downgrades it.
 An identical already-applied operation must succeed idempotently even though its
 expected predecessor is now old. A changed payload with the same version must
 conflict. Retain durable receipts and reservations across process restarts.
@@ -123,25 +124,33 @@ super-admin unsplit-address contract; the existing city client intentionally
 rejects anything other than 79/21 and must not be repurposed to create those
 addresses. See [standalone address plan](admin-lightning-addresses.md).
 
-Verification for this slice: 13 new adapter tests pass; complete suite is 860
-tests across 167 files on Node 24.19.0. TypeScript, changed-file lint, public
-backlog generation and diff checks pass. These are client/contract fixture tests,
-not proof of upstream atomicity, live NWC permissions or successful provisioning.
+The companion API is now implemented as a maintained patch against the pinned
+upstream revision. See [patch and reproduction instructions](../integrations/rustress/README.md).
+It runs only in isolated mode with a loopback listener, private token and marked
+fixture database. It refuses root, unmarked existing databases and wallet keys;
+normal upstream mode refuses the fixture database. No live instance was changed.
+
+Verification: 14 Rust tests and 14 app adapter tests pass. The actual Rust process
+also passes the TypeScript-client HTTP acceptance script: atomic configuration,
+lost-response reconciliation, concurrent retries, restart, address conflicts,
+drift detection, authentication and public-route denial. These tests use fixture
+identities and inert wallet references, not live NWC permissions or provisioning.
+The full app suite passes 861 tests across 167 files on Node 24; TypeScript,
+changed-file lint and public backlog generation also pass.
 
 1. Non-root access, image/revision pin and mount inventory are complete. Next
-   verify the backup procedure and non-secret capability metadata. Local cargo
-   and rustc are not on PATH; establish a pinned build environment before
-   compiling the patch. Prepare a separate non-root test service with its own
+   verify the backup procedure and non-secret capability metadata. Local builds
+   use pinned Rust 1.90.0; build a VPS-compatible artifact before remote testing.
+   Prepare a separate non-root test service with its own
    empty fixture database and private listener, no live NWC or NIP-57 key, no
    public proxy route and no mount of `/root/rustress.db`. Do not retag/recreate
    the running Rustress container. Deployment permission should be a root-owned
    helper restricted to that isolated service, not docker-group membership or
    unrestricted sudo; review it once an actual tested artifact exists.
-2. Implement the companion Rustress API against the pinned source in a maintained
-   patch/repository. Bind it privately, enforce authentication, transactional
-   ownership-scoped mutations, uniqueness, CAS and durable receipts. Test actual
-   rollback, restart, collisions with existing users and concurrent retries.
-3. Run the adapter against that isolated patched service with fixture identities
+2. The local companion API, transaction rollback, restart, unmanaged-name
+   collision and concurrent retry checks are complete. Remote service packaging,
+   restricted deployment and independent review remain.
+3. Repeat the adapter tests against that isolated VPS service with fixture identities
    and no spending credentials. Test wrong token, redirects, network loss,
    drifted provider versions and unknown outcomes. Do not expose public endpoints.
 4. Wire fresh signed app authority, persisted tasks and validated destinations to

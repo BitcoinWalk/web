@@ -21,6 +21,7 @@
     "logos:render": "node scripts/render-city-logo-pack.mjs",
     "logos:package": "node scripts/package-city-logo-renderer.mjs",
     "test": "vitest run",
+    "test:rustress-api": "node scripts/test-rustress-api.mjs",
     "test:watch": "vitest"
   },
   "dependencies": {

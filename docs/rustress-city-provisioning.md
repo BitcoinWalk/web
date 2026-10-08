@@ -90,7 +90,10 @@ approved wallet references, never per-address connection strings.
 
 8 October checkpoint: the isolated app-side client and versioned disabled-only
 provisioning contract are implemented with fixture tests. The companion Rustress
-API is not yet implemented or deployed. Non-root `.240` access and read-only
+API is now implemented and locally tested as a pinned, isolated-only patch:
+14 Rust tests plus real-process client acceptance cover atomicity, concurrent
+retries, restart and drift. No VPS fixture or live deployment has occurred.
+Non-root `.240` access and read-only
 inventory now confirm the installed revision label matches the reviewed source;
 the immutable image digest is recorded. Wallet capability and backup acceptance
 remain unverified. See [adapter scope and remaining work](rustress-adapter.md).

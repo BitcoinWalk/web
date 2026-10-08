@@ -99,7 +99,9 @@ export class RustressProvisioner {
     });
     try {
       const receipt = this.#receipt(result, config);
-      if (receipt.state !== (action === "prepare" ? "prepared" : "applied")) throw new Error();
+      // An exact prepare retry after apply may return the advanced state, never
+      // downgrade it. Apply still requires the fully applied configuration.
+      if (action === "apply" && receipt.state !== "applied") throw new Error();
       // A successful response alone is not activation: independently read back.
       const readBack = await this.status(config);
       if (readBack.state !== receipt.state) throw new Error();
