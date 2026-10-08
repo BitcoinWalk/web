@@ -47,8 +47,11 @@ survive restart. The next isolated slice adds validated outgoing BOLT11 storage
 and an injected payout worker: amount/network/expiry/metadata checks, fresh
 authorization before claiming, and independent preimage-verified settlement
 lookup. Concurrent workers and restart retries cannot resend a claimed attempt.
-No real wallet adapter or runtime integration is enabled. Trusted collectors,
-protected LNURL transport, failure recovery, backup audit and bounded live
+The isolated recipient adapter now adds pinned public-IPv4 HTTPS, same-origin
+callbacks, bounded JSON/deadlines and exact metadata-bound invoice retrieval.
+Read-only lookup validation rejects wrong-direction/hash/amount/preimage evidence.
+No authenticated real wallet adapter or runtime integration is enabled. Trusted collectors,
+provider compatibility, failure recovery, backup audit and bounded live
 acceptance remain. See [ledger scope](rustress-payout-ledger.md).
 
 | ID | Stage | Item | Status | Depends on | Acceptance |

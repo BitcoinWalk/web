@@ -62,6 +62,27 @@ NWC transport. Adapters must enforce timeouts, budgets and fees. Authorization
 must come from fresh trusted server evidence, not a browser flag. Private invoice
 documents must never be exposed through public status APIs; preimages are not stored.
 
+## Recipient retrieval and lookup validation slice
+
+`recipient-invoice.ts` retrieves recipient metadata and a matching invoice from
+the immutable obligation's saved address. It does not reserve credit or pay.
+HTTPS transport pins a checked public IPv4 address while retaining the original
+TLS hostname, rejects redirects/compression/non-JSON, caps bodies at 64 KiB and
+uses a seven-second total deadline including DNS. All resolved addresses must
+pass the conservative IPv4 policy: dual-stack and IPv6-only providers currently
+fail closed. BitcoinWalk endpoints and cross-origin callbacks are rejected.
+Cross-origin providers need a reviewed explicit allow-list, not a blanket bypass.
+Amount, bounds, exact metadata commitment and BOLT11 checks remain mandatory.
+Transport injection is for trusted internal testing, never browser input.
+
+`wallet-lookup.ts` validates outgoing settled lookup records against the exact
+requested hash, safe integer amounts/fees and matching preimage, and binds the
+result to a configured private wallet reference. Pending/failed/unknown outcomes
+stay unresolved. It does **not** authenticate a real wallet: the future transport
+must verify connection identity, response signature and request correlation.
+No credentials, live HTTP requests, wallet calls or runtime imports were used
+in this slice. Checkout's receive-only adapter is untouched.
+
 ## Deliberate boundaries / next slice
 
 The ledger is an internal accounting primitive, not proof that a payment happened.
@@ -70,9 +91,9 @@ it must never forward browser JSON or an unverified notification directly to set
 
 Before runtime integration, implement and test:
 
-1. Protected LNURL metadata/callback retrieval bound to the saved destination;
-   callers cannot substitute arbitrary metadata or recipient terms. Add SSRF,
-   redirect, response-size and timeout protection before any real request.
+1. Integrate the isolated recipient adapter with immutable obligations and the
+   worker; review provider compatibility, outbound egress policy and response
+   limits before real requests. Add reviewed IPv6/cross-origin support if needed.
 2. A connection-bound collector and real wallet adapter, notification deduplication plus paged
    settlement catch-up, authenticated wallet lookup, fee/budget enforcement and
    unknown-send reconciliation. A missing lookup result is not a failed payment.
@@ -91,7 +112,9 @@ restart while outcome is unknown, restart after payment, preimage validation,
 fee conflicts and conservation of every allocated millisatoshi. They use only
 synthetic records and temporary local databases, not real invoices or funds.
 
-Verification: all 943 tests across 178 files pass on Node 24, including 15 ledger
-tests and 24 outgoing-invoice/worker tests. TypeScript, changed-file lint and
+Verification: 978 tests across 181 files pass on Node 24, including 15 ledger
+tests and 24 outgoing-invoice/worker tests. This slice adds 35 fixture tests for
+recipient retrieval, pinned HTTPS transport and outgoing wallet lookup validation.
+TypeScript, changed-file lint and
 backlog checks pass. No staging/production
 release is needed for this unconnected component.
