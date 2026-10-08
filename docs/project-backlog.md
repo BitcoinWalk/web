@@ -39,6 +39,14 @@ The connection-bound read-only collector is still pending. Full suite: 904 tests
 and backlog checks pass. No NWC connection, funding or wallet changes.
 See [readiness scope](rustress-wallet-readiness.md). BW-100 remains In progress.
 
+BW-18 accounting slice, 8 October: implemented the isolated SQLite payout ledger
+with integer 79/21 allocation, deduplicated settlement, immutable destinations,
+small-amount carry-forward, atomic reservations, single-use send claims and
+conservative unknown-outcome recovery. Completed payments and fee warnings
+survive restart; no live wallet or runtime integration is enabled. Outgoing
+invoice validation/storage, trusted collectors, failure recovery, backup audit
+and bounded live acceptance remain. See [ledger scope](rustress-payout-ledger.md).
+
 | ID | Stage | Item | Status | Depends on | Acceptance |
 |---|---:|---|---|---|---|
 | BW-109 | 9, 10 | Super-admin standalone Lightning addresses without splits | ⚪ Planned | BW-100 | Create/manage addresses from CMS with explicit receiving-wallet selection and signed super-admin-only commands; automatically provision and verify LNURL-pay with no Prism or 79/21 split; prefer direct receipt without an extra forwarding hop. Initial requested addresses: endo@bitcoinwalk.org and donate@bitcoinwalk.org; user confirmed bitcoinwalk@getalby.com as recipient for both; underlying wallet mapping still needs verification. Separate resource type from Pro cities, global address collision protection, no silent adoption, durable retries/read-back, disable/recovery and preserved old invoices. No NIP-05 or NIP-57 recipient invented. No live changes yet. See [plan](admin-lightning-addresses.md). |
