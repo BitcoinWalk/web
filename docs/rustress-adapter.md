@@ -5,14 +5,34 @@
 ## Inventory and boundaries
 
 The user identified the existing instance at `http://213.232.235.240:8889/admin`.
-An unauthenticated request returns 401. Non-root SSH as `bitcoinwalk` with the
-available deployment key is denied. No root login was attempted. Installed
-version, service/container image, wallet permissions and database layout remain
-unverified. Do not enter admin credentials over public plain HTTP.
+An unauthenticated request returns 401. The user created `bitcoinwalk` with
+key-only SSH access on 8 October; agent login was verified as UID 1004 with no
+elevated permissions. The separate `codex-audit` account retains only its existing
+root-owned read-only helper. No root login was attempted. Do not enter admin
+credentials over public plain HTTP.
+
+Read-only inventory found container `rustress`, restart policy `unless-stopped`,
+host port `8889` mapped publicly (IPv4/IPv6) to `8080`, and the bind mount
+`/root/rustress.db:/app/rustress.db`. The user provided image metadata:
+
+- Configured tag: `ghcr.io/frnandu/rustress:latest` (not changed).
+- Immutable repository digest:
+  `ghcr.io/frnandu/rustress@sha256:dd82bfc0637138a0e3887276ceb2c0c7842d6b94725077685cf8b76d3953ffb6`.
+- Local image ID:
+  `sha256:d2d3faad326e6d2b9ab8f45879d667c5178e131345f9f0b0e95ce7b6bf891fd6`.
+- Revision label: `c72fdeccd80025d181efc1b1d45baeb8bfbde4a9`.
+- Container Config.User is empty: no explicit non-root runtime user configured.
+
+The deployed revision label matches the reviewed source. This identifies the
+baseline, not a rebuild/attestation of all image contents. Wallet scopes, mounted
+database contents, existing address claims and backup validity remain unchecked.
+No Docker group access, generic sudo, container restart or data read was granted
+or performed. The database may contain credentials; never copy it into a test
+instance or print it for inventory.
 
 The local upstream review checkout is pinned to
-`c72fdeccd80025d181efc1b1d45baeb8bfbde4a9`. This is the reviewed source, not a claim
-about the installed version. Its `/admin/add` handler creates a user and then
+`c72fdeccd80025d181efc1b1d45baeb8bfbde4a9`, matching the installed revision label.
+Its `/admin/add` handler creates a user and then
 inserts Prism splits separately, with compensating deletion on failure. It does
 not implement the narrow contract below. We will not automate dashboard login
 or write directly to its live database.
@@ -108,8 +128,15 @@ tests across 167 files on Node 24.19.0. TypeScript, changed-file lint, public
 backlog generation and diff checks pass. These are client/contract fixture tests,
 not proof of upstream atomicity, live NWC permissions or successful provisioning.
 
-1. Obtain non-root access to `.240`; inventory image/commit, mounts, networking,
-   backup procedure and capability metadata without printing credential values.
+1. Non-root access, image/revision pin and mount inventory are complete. Next
+   verify the backup procedure and non-secret capability metadata. Local cargo
+   and rustc are not on PATH; establish a pinned build environment before
+   compiling the patch. Prepare a separate non-root test service with its own
+   empty fixture database and private listener, no live NWC or NIP-57 key, no
+   public proxy route and no mount of `/root/rustress.db`. Do not retag/recreate
+   the running Rustress container. Deployment permission should be a root-owned
+   helper restricted to that isolated service, not docker-group membership or
+   unrestricted sudo; review it once an actual tested artifact exists.
 2. Implement the companion Rustress API against the pinned source in a maintained
    patch/repository. Bind it privately, enforce authentication, transactional
    ownership-scoped mutations, uniqueness, CAS and durable receipts. Test actual
