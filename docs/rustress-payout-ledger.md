@@ -570,6 +570,12 @@ No live policy/credentials were installed and no wallet permissions, payments or
 services changed when recording this approval. A concrete activation/expiry
 window and remaining deployment, history and backup evidence are still required.
 
+An explicitly authorized local no-funds Hub candidate now has reproducible
+mock/offline test executables and a fee-reservation/budget regression patch.
+This does not change the installed wallet or adapter capability: live spending
+remains disabled. See the isolated candidate evidence in
+[wallet readiness](rustress-wallet-readiness.md#isolated-candidate-build--8-october-2026).
+
 ## Deliberate boundaries / next slice
 
 The ledger is an internal accounting primitive, not proof that a payment happened.

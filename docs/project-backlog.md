@@ -165,8 +165,14 @@ spending disabled. See the approved-limits section in the ledger scope.
 Fee-cap follow-up: upstream Hub PR #2566 is open/unmerged at `a231ed34` (verified
 via public API). Its actual diff propagates `max_fee` to LDK but leaves default
 fee-reserve accounting unchanged; it is not an approved production upgrade.
-Current 50,000/100-sat combination remains blocked. Awaiting user direction on
-waiting for released support versus a separately scoped no-funds candidate build.
+Current live 50,000/100-sat combination remains blocked. User authorized an
+isolated no-funds candidate build: completed against the exact upstream pin with
+a local regression patch. Tests reproduced incorrect fee reservation, budget
+admission and overflow acceptance before the patch; corrected transaction and
+NWC suites plus the offline LDK fee helper test pass in a fresh checkout.
+The 200,000-sat boundary includes fees and rejects a one-msat overrun. Test
+executables and a hash manifest are generated locally, not a deployable Hub.
+Real routed-fee rejection/recovery and rollout review remain required.
 No custom Hub deployment, backend switch, payment or limit change authorized.
 See [fee investigation](rustress-wallet-readiness.md).
 See [deployment evidence](rustress-payout-ledger.md).

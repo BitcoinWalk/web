@@ -110,14 +110,51 @@ needs budget-accounting review; a tighter cap may over-reserve. For this pilot,
 100 sats is below the default 500-sat reserve at a 50,000-sat payout. This does
 not justify treating the whole branch as safe, nor proving installed support.
 
-Recommended choices requiring user direction: wait for reviewed released support,
-or separately authorize an isolated, no-funds candidate build and tests. Before
+The user subsequently authorized an isolated, no-funds candidate build and tests
+(evidence below), not a live upgrade. Before
 any live adoption, review budget reservation/recovery, reject unsupported backends,
 prove requested cap reaches LDK on initial and recovery paths, test boundaries and
 no-route outcomes, bind capability to the exact installed revision, and plan Hub
 backup/rollback. Do not silently send an unknown `max_fee` field to the current
 Hub, install a custom build, switch wallet backend or relax the approved limits.
 No Hub, application or wallet changes were made during this investigation.
+
+### Isolated candidate build — 8 October 2026
+
+Completed locally, without a running Hub, wallet credentials, VPS changes or
+payments. `integrations/alby-fee-cap/isolated-candidate.patch` applies only to
+upstream `a231ed34a660cd86c0bd7f36282f7eb0dc90223f`, not the installed v1.24.0.
+
+Regression tests first failed on the unchanged candidate: pending reservations
+ignored the requested cap; a cap above the default could exceed the app budget;
+an overflowing amount-plus-fee was accepted. The local patch reserves the exact
+requested fee, checks signed-accounting bounds, and compares budgets in integer
+millisats rather than rounded-down sats. Nil caps retain the default policy.
+
+Verification on a fresh pinned checkout:
+
+- Full transaction and NWC controller suites pass.
+- 50,000-sat principal with a 100-sat cap reaches the mock backend unchanged;
+  pending reservations survive service reconstruction and block duplicate sends.
+- Exact 200,000-sat budget boundary succeeds; one millisatoshi over fails before
+  backend invocation. Zero, below-default and above-default caps are covered.
+- LDK helper test preserves explicit caps and defaults. The native package
+  compiles, but no node or real route was exercised.
+
+Reproduce as a non-root user with a fresh clean checkout at the pin:
+`python3 integrations/alby-fee-cap/build-isolated.py /path/to/fresh-hub-checkout --go /path/to/go`.
+Go selects the candidate's required toolchain (1.26.2); dependency downloads may
+require network access. The script applies the patch, forces the mock tests to
+local SQLite, runs the tests and builds three **test executables**, not a Hub
+server. Logs, executables and SHA-256 manifest are under ignored
+`release-build/alby-fee-cap-isolated/`. The manifest explicitly marks
+`productionReady: false`. No upstream patch has been published.
+
+Still required: controlled regtest/signet route rejection at the requested cap,
+no-route and uncertain/restart outcome tests, review of concurrent budget use and
+all supported backend semantics, installed-capability binding in the BitcoinWalk
+adapter, and backup/rollback review. Offline tests do not prove live fee
+enforcement. BW-18 remains In progress; spending remains disabled.
 
 Reviewed official tag v1.24.0, commit
 `d8ef0e70e0d265a8424276daee0a595ac31993c0`:

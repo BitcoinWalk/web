@@ -1,0 +1,257 @@
+diff --git i/lnclient/ldk/bitcoinwalk_fee_cap_test.go w/lnclient/ldk/bitcoinwalk_fee_cap_test.go
+new file mode 100644
+index 0000000..a762e04
+--- /dev/null
++++ w/lnclient/ldk/bitcoinwalk_fee_cap_test.go
+@@ -0,0 +1,16 @@
++package ldk
++
++import (
++	"github.com/stretchr/testify/require"
++	"testing"
++)
++
++// Executes the same helper used to populate RouteParametersConfig; no node,
++// network, seed, channel, real route or payment is created by this unit test.
++func TestBitcoinWalkRoutingFeeCeiling(t *testing.T) {
++	require.Equal(t, uint64(500000), getMaxTotalRoutingFeeLimit(50000000, nil))
++	require.Equal(t, uint64(10000), getMaxTotalRoutingFeeLimit(1000, nil))
++	for _, cap := range []uint64{0, 100000, 600000} {
++		require.Equal(t, cap, getMaxTotalRoutingFeeLimit(50000000, &cap))
++	}
++}
+diff --git i/lnclient/ldk/ldk.go w/lnclient/ldk/ldk.go
+index b3e8aef..2dc82ab 100644
+--- i/lnclient/ldk/ldk.go
++++ w/lnclient/ldk/ldk.go
+@@ -565,7 +565,10 @@ func (ls *LDKService) Shutdown() error {
+ 	return nil
+ }
+ 
+-func getMaxTotalRoutingFeeLimit(amountMsat uint64) uint64 {
++func getMaxTotalRoutingFeeLimit(amountMsat uint64, explicit *uint64) uint64 {
++	if explicit != nil {
++		return *explicit
++	}
+ 	return transactions.CalculateFeeReserveMsat(amountMsat)
+ }
+ 
+@@ -614,10 +617,7 @@ func (ls *LDKService) SendPaymentSync(invoice string, amountMsat *uint64, maxFee
+ 
+ 	saturationPower := ls.cfg.GetEnv().LDKMaxChannelSaturationPowerOfHalf
+ 	maxPathCount := ls.cfg.GetEnv().LDKMaxPathCount
+-	maxTotalRoutingFeeMsat := getMaxTotalRoutingFeeLimit(paymentAmountMsat)
+-	if maxFeeMsat != nil {
+-		maxTotalRoutingFeeMsat = *maxFeeMsat
+-	}
++	maxTotalRoutingFeeMsat := getMaxTotalRoutingFeeLimit(paymentAmountMsat, maxFeeMsat)
+ 
+ 	routeParameters := &ldk_node.RouteParametersConfig{
+ 		MaxTotalRoutingFeeMsat:          &maxTotalRoutingFeeMsat,
+@@ -715,7 +715,7 @@ func (ls *LDKService) SendKeysend(amountMsat uint64, destination string, custom_
+ 
+ 	saturationPower := ls.cfg.GetEnv().LDKMaxChannelSaturationPowerOfHalf
+ 	maxPathCount := ls.cfg.GetEnv().LDKMaxPathCount
+-	maxTotalRoutingFeeMsat := getMaxTotalRoutingFeeLimit(amountMsat)
++	maxTotalRoutingFeeMsat := getMaxTotalRoutingFeeLimit(amountMsat, nil)
+ 
+ 	routeParameters := &ldk_node.RouteParametersConfig{
+ 		MaxTotalRoutingFeeMsat:          &maxTotalRoutingFeeMsat,
+diff --git i/transactions/bitcoinwalk_fee_cap_test.go w/transactions/bitcoinwalk_fee_cap_test.go
+new file mode 100644
+index 0000000..d6b2b02
+--- /dev/null
++++ w/transactions/bitcoinwalk_fee_cap_test.go
+@@ -0,0 +1,109 @@
++package transactions
++
++import (
++	"github.com/getAlby/hub/constants"
++	"github.com/getAlby/hub/db"
++	"github.com/getAlby/hub/lnclient"
++	"github.com/getAlby/hub/tests"
++	"github.com/stretchr/testify/require"
++	"math"
++	"testing"
++)
++
++type bitcoinwalkCaptureLn struct {
++	lnclient.LNClient
++	send func(string, *uint64, *uint64) (*lnclient.PayInvoiceResponse, error)
++}
++
++func (l bitcoinwalkCaptureLn) SendPaymentSync(i string, a, f *uint64) (*lnclient.PayInvoiceResponse, error) {
++	return l.send(i, a, f)
++}
++
++func TestBitcoinWalkFeeReserveMatchesCap(t *testing.T) {
++	for _, fee := range []uint64{0, 100000, 600000} {
++		t.Run(string(rune('a'+fee/100000)), func(t *testing.T) {
++			svc, err := tests.CreateTestService(t)
++			require.NoError(t, err)
++			defer svc.Remove()
++			amount := uint64(50000000)
++			backend := bitcoinwalkCaptureLn{LNClient: svc.LNClient, send: func(_ string, a, f *uint64) (*lnclient.PayInvoiceResponse, error) {
++				require.Equal(t, amount, *a)
++				require.Equal(t, fee, *f)
++				var row db.Transaction
++				require.NoError(t, svc.DB.Where("payment_hash = ? AND type = ?", tests.MockZeroAmountPaymentHash, constants.TRANSACTION_TYPE_OUTGOING).First(&row).Error)
++				require.Equal(t, fee, row.FeeReserveMsat, "durable pending reserve must use requested fee cap")
++				require.Equal(t, constants.TRANSACTION_STATE_PENDING, row.State)
++				// Reconstruct the service while the durable payment is pending:
++				// a retry must fail before any second backend call.
++				_, retryErr := NewTransactionsService(svc.DB, svc.EventPublisher).SendPaymentSync(tests.MockZeroAmountInvoice, &amount, &fee, nil, svc.LNClient, nil, nil)
++				require.ErrorContains(t, retryErr, "already a payment pending")
++				return &lnclient.PayInvoiceResponse{Preimage: "synthetic"}, nil
++			}}
++			_, err = NewTransactionsService(svc.DB, svc.EventPublisher).SendPaymentSync(tests.MockZeroAmountInvoice, &amount, &fee, nil, backend, nil, nil)
++			require.NoError(t, err)
++		})
++	}
++}
++
++func TestBitcoinWalkPilotBudgetBoundary(t *testing.T) {
++	for _, spent := range []uint64{149900000, 149900001, 149901000} {
++		t.Run(string(rune('a'+(spent-149900000)/1000)), func(t *testing.T) {
++			svc, err := tests.CreateTestService(t)
++			require.NoError(t, err)
++			defer svc.Remove()
++			app, _, err := tests.CreateApp(svc)
++			require.NoError(t, err)
++			require.NoError(t, svc.DB.Create(&db.AppPermission{AppId: app.ID, Scope: constants.PAY_INVOICE_SCOPE, MaxAmountSat: 200000}).Error)
++			require.NoError(t, svc.DB.Create(&db.Transaction{AppId: &app.ID, Type: constants.TRANSACTION_TYPE_OUTGOING, State: constants.TRANSACTION_STATE_SETTLED, AmountMsat: spent, PaymentHash: "synthetic-previous"}).Error)
++			amount, fee := uint64(50000000), uint64(100000)
++			called := false
++			backend := bitcoinwalkCaptureLn{LNClient: svc.LNClient, send: func(_ string, _, f *uint64) (*lnclient.PayInvoiceResponse, error) {
++				called = true
++				require.Equal(t, fee, *f)
++				return &lnclient.PayInvoiceResponse{Preimage: "synthetic", FeeMsat: fee}, nil
++			}}
++			_, err = NewTransactionsService(svc.DB, svc.EventPublisher).SendPaymentSync(tests.MockZeroAmountInvoice, &amount, &fee, nil, backend, &app.ID, nil)
++			if spent == 149900000 {
++				require.NoError(t, err)
++				require.True(t, called)
++			} else {
++				require.Error(t, err)
++				require.False(t, called)
++			}
++		})
++	}
++}
++
++func TestBitcoinWalkBudgetCountsRequestedFee(t *testing.T) {
++	svc, err := tests.CreateTestService(t)
++	require.NoError(t, err)
++	defer svc.Remove()
++	app, _, err := tests.CreateApp(svc)
++	require.NoError(t, err)
++	require.NoError(t, svc.DB.Create(&db.AppPermission{AppId: app.ID, Scope: constants.PAY_INVOICE_SCOPE, MaxAmountSat: 200}).Error)
++	fee := uint64(100000)
++	called := false
++	backend := bitcoinwalkCaptureLn{LNClient: svc.LNClient, send: func(_ string, _, _ *uint64) (*lnclient.PayInvoiceResponse, error) {
++		called = true
++		return &lnclient.PayInvoiceResponse{Preimage: "synthetic"}, nil
++	}}
++	// 123 sat invoice + 100 sat cap exceeds the non-renewing 200 sat allowance.
++	_, err = NewTransactionsService(svc.DB, svc.EventPublisher).SendPaymentSync(tests.MockInvoice, nil, &fee, nil, backend, &app.ID, nil)
++	require.Error(t, err)
++	require.False(t, called, "backend must not be called above budget")
++}
++
++func TestBitcoinWalkRejectsOverflowBeforeBackend(t *testing.T) {
++	svc, err := tests.CreateTestService(t)
++	require.NoError(t, err)
++	defer svc.Remove()
++	fee := uint64(math.MaxUint64)
++	called := false
++	backend := bitcoinwalkCaptureLn{LNClient: svc.LNClient, send: func(_ string, _, _ *uint64) (*lnclient.PayInvoiceResponse, error) {
++		called = true
++		return &lnclient.PayInvoiceResponse{Preimage: "synthetic"}, nil
++	}}
++	_, err = NewTransactionsService(svc.DB, svc.EventPublisher).SendPaymentSync(tests.MockInvoice, nil, &fee, nil, backend, nil, nil)
++	require.Error(t, err)
++	require.False(t, called)
++}
+diff --git i/transactions/transactions_service.go w/transactions/transactions_service.go
+index cfa8aa4..7400d81 100644
+--- i/transactions/transactions_service.go
++++ w/transactions/transactions_service.go
+@@ -353,6 +353,18 @@ func (svc *transactionsService) SendPaymentSync(payReq string, amountMsat *uint6
+ 	if amountMsat != nil && paymentRequest.MSatoshi == 0 {
+ 		paymentAmountMsat = *amountMsat
+ 	}
++	// Reserve the same ceiling that will be passed to the backend. This bounds
++	// signed database/accounting conversions before creating any pending row.
++	feeReserveMsat := CalculateFeeReserveMsat(paymentAmountMsat)
++	if maxFeeMsat != nil {
++		feeReserveMsat = *maxFeeMsat
++	}
++	if paymentAmountMsat > math.MaxInt64 || feeReserveMsat > math.MaxInt64-paymentAmountMsat {
++		return nil, errors.New("payment amount and fee exceed accounting bounds")
++	}
++	if selfPayment {
++		feeReserveMsat = 0
++	}
+ 
+ 	err = func() error {
+ 		balanceValidationLock.Lock()
+@@ -384,7 +396,7 @@ func (svc *transactionsService) SendPaymentSync(payReq string, amountMsat *uint6
+ 				return errors.New("there is already a payment pending for this invoice")
+ 			}
+ 
+-			err := svc.validateCanPay(tx, appId, paymentAmountMsat, paymentRequest.Description, selfPayment)
++			err := svc.validateCanPay(tx, appId, paymentAmountMsat, paymentRequest.Description, selfPayment, &feeReserveMsat)
+ 			if err != nil {
+ 				return err
+ 			}
+@@ -399,7 +411,7 @@ func (svc *transactionsService) SendPaymentSync(payReq string, amountMsat *uint6
+ 				RequestEventId:  requestEventId,
+ 				Type:            constants.TRANSACTION_TYPE_OUTGOING,
+ 				State:           constants.TRANSACTION_STATE_PENDING,
+-				FeeReserveMsat:  CalculateFeeReserveMsat(paymentAmountMsat),
++				FeeReserveMsat:  feeReserveMsat,
+ 				AmountMsat:      paymentAmountMsat,
+ 				PaymentRequest:  payReq,
+ 				PaymentHash:     paymentRequest.PaymentHash,
+@@ -504,7 +516,7 @@ func (svc *transactionsService) SendKeysend(amountMsat uint64, destination strin
+ 		balanceValidationLock.Lock()
+ 		defer balanceValidationLock.Unlock()
+ 		return svc.db.Transaction(func(tx *gorm.DB) error {
+-			err := svc.validateCanPay(tx, appId, amountMsat, "", selfPayment)
++			err := svc.validateCanPay(tx, appId, amountMsat, "", selfPayment, nil)
+ 			if err != nil {
+ 				return err
+ 			}
+@@ -1130,10 +1142,17 @@ func (svc *transactionsService) interceptSelfHoldPayment(paymentRequest string,
+ 	}
+ }
+ 
+-func (svc *transactionsService) validateCanPay(tx *gorm.DB, appId *uint, amountMsat uint64, description string, selfPayment bool) error {
++func (svc *transactionsService) validateCanPay(tx *gorm.DB, appId *uint, amountMsat uint64, description string, selfPayment bool, explicitFeeReserve *uint64) error {
+ 	amountWithFeeReserveMsat := amountMsat
+ 	if !selfPayment {
+-		amountWithFeeReserveMsat += CalculateFeeReserveMsat(amountMsat)
++		fee := CalculateFeeReserveMsat(amountMsat)
++		if explicitFeeReserve != nil {
++			fee = *explicitFeeReserve
++		}
++		if amountMsat > math.MaxInt64 || fee > math.MaxInt64-amountMsat {
++			return errors.New("payment amount and fee exceed accounting bounds")
++		}
++		amountWithFeeReserveMsat += fee
+ 	}
+ 
+ 	// ensure balance for isolated apps
+@@ -1190,7 +1209,11 @@ func (svc *transactionsService) validateCanPay(tx *gorm.DB, appId *uint, amountM
+ 			if err != nil {
+ 				return fmt.Errorf("failed to calculate budget usage for app: %w", err)
+ 			}
+-			if int(amountWithFeeReserveMsat/1000) > appPermission.MaxAmountSat-int(budgetUsageMsat/1000) {
++			if uint64(appPermission.MaxAmountSat) > math.MaxInt64/1000 {
++				return errors.New("budget exceeds accounting bounds")
++			}
++			budgetMsat := uint64(appPermission.MaxAmountSat) * 1000
++			if budgetUsageMsat > budgetMsat || amountWithFeeReserveMsat > budgetMsat-budgetUsageMsat {
+ 				message := NewQuotaExceededError().Error()
+ 				if description != "" {
+ 					message += " " + description
