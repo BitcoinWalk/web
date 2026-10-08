@@ -112,6 +112,16 @@ permissions, credentials or wallet settings were changed; see the storage audit
 in [ledger scope](rustress-payout-ledger.md). BW-18 coding can continue, but live
 activation remains gated on implementing and verifying the selected topology.
 
+Remote journal service slice implemented locally: append-only SQLite claims,
+separate client/operator authentication, pinned service/wallet identity, durable
+sender fences, paused restarts and bounded loopback HTTP. First acknowledgements
+permit one send; retries only confirm prior recording. The payout worker awaits
+the remote claim before sending, and remote recovery rejects missing allocations,
+unstable journal snapshots and uncertain wallet outcomes. Local tests include
+HTTP authentication, restart, outage and lost-acknowledgement cases. No VPS
+service, tunnel, credential or wallet setting has changed. Next: package and
+review a non-root staging deployment and independent backup/restore rehearsal.
+
 | ID | Stage | Item | Status | Depends on | Acceptance |
 |---|---:|---|---|---|---|
 | BW-109 | 9, 10 | Super-admin standalone Lightning addresses without splits | ⚪ Planned | BW-100 | Create/manage addresses from CMS with explicit receiving-wallet selection and signed super-admin-only commands; automatically provision and verify LNURL-pay with no Prism or 79/21 split; prefer direct receipt without an extra forwarding hop. Initial requested addresses: endo@bitcoinwalk.org and donate@bitcoinwalk.org; user confirmed bitcoinwalk@getalby.com as recipient for both; underlying wallet mapping still needs verification. Separate resource type from Pro cities, global address collision protection, no silent adoption, durable retries/read-back, disable/recovery and preserved old invoices. No NIP-05 or NIP-57 recipient invented. No live changes yet. See [plan](admin-lightning-addresses.md). |

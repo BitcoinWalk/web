@@ -4,7 +4,6 @@ import {PayoutLedger,type IncomingSnapshot} from "./payout-ledger";
 import {PayoutWorker,type PayoutWallet} from "./payout-worker";
 import {retrieveRecipientInvoice} from "./recipient-invoice";
 import {assessRustressWallet,type WalletReadinessEvidence} from "./wallet-readiness";
-import type {PayoutRecovery} from "./payout-recovery";
 
 const money=z.string().regex(/^(0|[1-9][0-9]{0,15})$/).refine(v=>BigInt(v)<=BigInt(Number.MAX_SAFE_INTEGER));
 const policySchema=z.object({binding:z.string().regex(/^[0-9a-f]{64}$/),budgetMsat:money.refine(v=>BigInt(v)>0n),
@@ -16,7 +15,7 @@ type Dependencies={
  // All dependencies/configuration are trusted server-side, never browser JSON.
  evidence:()=>Promise<{binding:string;readiness:WalletReadinessEvidence}>;
  fetchJson:(url:URL)=>Promise<unknown>;
- recovery?:Pick<PayoutRecovery,"ready"|"claim">;
+ recovery?:{readonly ready:boolean;claim:(id:string)=>boolean|Promise<boolean>};
 };
 /** Isolated integration harness, NOT a live service. No default transport or
  * credentials. An explicit injected wallet is required, tests use fakes only. */
@@ -34,8 +33,9 @@ export class PayoutFlow {
    const network={mainnet:"bc",testnet:"tb",signet:"tb",regtest:"bcrt"}[r.network];
    return network===deps.wallet.network&&BigInt(r.policy.maximumTestPaymentMsat)>=BigInt(request.amountMsat)&&
     BigInt(r.policy.maximumFeeMsat)>=BigInt(request.maximumFeeMsat)&&BigInt(r.policy.maximumBudgetMsat)>=BigInt(p.budgetMsat);
-  },now,id=>this.now()<this.#policy.expiresAt&&deps.recovery?.ready===true&&
-    ledger.claimWithinBudget(id,deps.wallet.walletRef,this.#policy.budgetMsat)&&deps.recovery.claim(id));
+  },now,async id=>this.now()<this.#policy.expiresAt&&deps.recovery?.ready===true&&
+    ledger.claimWithinBudget(id,deps.wallet.walletRef,this.#policy.budgetMsat)&&await deps.recovery.claim(id)&&
+    this.now()<this.#policy.expiresAt&&deps.recovery.ready);
  }
  /** Issuance must save a verified invoice snapshot before showing it publicly. */
  register(snapshot:IncomingSnapshot){if(snapshot.walletRef!==this.deps.reader.walletRef)throw new Error("Wallet mismatch");this.ledger.register(snapshot);}

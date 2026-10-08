@@ -261,6 +261,47 @@ Payout activation remains blocked pending remote-journal implementation and the
 other live readiness gates. No purchase or broader server access is authorized
 by this choice.
 
+## Remote journal implementation — local service slice
+
+Option two now has a server factory, persistent store, bounded client and remote
+recovery adapter under `src/rustress/remote-journal-*.ts`. No listener starts on
+import, no environment flag activates it and no deployment package is supplied
+yet. A localhost HTTP test exercises the real request handler using synthetic
+credentials and temporary databases, not either VPS or a wallet.
+
+- One immutable wallet binding and pinned service identity per database.
+  SQLite WAL with FULL synchronous writes; an acknowledgement follows COMMIT.
+  Append-only claims contain hashes/commitments, not invoices, destinations,
+  wallet secrets or preimages. Unique attempt IDs and payment hashes reject
+  conflicting claims. No deletion or arbitrary database API exists.
+- Loopback requests only, separate client/operator bearer credentials, strict
+  schemas, bounded bodies/pages/timeouts and generic errors. Deployment requires
+  a separately authorized pinned SSH tunnel; do not expose this port publicly
+  or reuse the provisioning tunnel token or checkout credential.
+- Operator-only compare-and-swap activation/pause rotates a durable sender fence.
+  New databases and service-store restarts are paused. Old fences cannot claim.
+  Fence rotation does not cancel an already acknowledged or in-flight payment:
+  stopping/draining all senders is still mandatory before restore/reconciliation.
+- A first durable claim returns `created`; exact retries return `recorded` only.
+  The latter is never renewed send permission. A lost acknowledgement therefore
+  leaves an unresolved obligation requiring lookup, not another send. Outages,
+  failed writes or malformed receipts cannot permit sending.
+- Remote recovery requires explicitly verified deployment topology plus complete
+  authenticated wallet history. It checks journal identity, allocation commitments,
+  fence and high-water sequence before/after a bounded scan. Missing restored
+  allocations, new journal entries during audit or uncertain proof stay blocked.
+- The payout worker now awaits remote acknowledgement after its atomic local
+  budget claim and before calling the injected sender. It rechecks policy expiry
+  and recovery readiness after waiting. No real NWC sender has been enabled.
+
+Before deploying: package a non-root service, provision private journal storage
+on the other VPS with independently tested backups, establish restricted private
+transport and separate credentials without displaying them, verify retention and
+sender stopping, then rehearse restart/outage/restore on isolated staging data.
+Loss or rollback of both stores still requires independent wallet history and
+operator recovery. This implementation does not assert provider-level physical
+independence or authorize a live payment test.
+
 ## Deliberate boundaries / next slice
 
 The ledger is an internal accounting primitive, not proof that a payment happened.
@@ -290,7 +331,7 @@ restart while outcome is unknown, restart after payment, preimage validation,
 fee conflicts and conservation of every allocated millisatoshi. They use only
 synthetic records and temporary local databases, not real invoices or funds.
 
-Verification: 1,055 tests across 187 files pass on Node 24, including 15 ledger
+Verification: 1,070 tests across 188 files pass on Node 24, including 15 ledger
 tests and 24 outgoing-invoice/worker tests. This slice adds 35 fixture tests for
 recipient retrieval, pinned HTTPS transport and outgoing wallet lookup validation.
 The authenticated reader adds 16 fixture tests for signatures, correlation,
@@ -302,6 +343,9 @@ Restore coverage adds 15 independent-journal/older-backup tests plus an integrat
 missing-guard denial test. These use only synthetic wallets and temporary files.
 History/storage composition adds 27 tests covering pagination/coverage failures,
 unpaid-inclusive encrypted requests, private storage checks and default denial.
+Remote-journal coverage adds 15 tests for durable/idempotent claims, conflicts,
+lost acknowledgements, database restart, fencing, denied deployment, restoration,
+response bounds and actual authenticated loopback HTTP with operator isolation.
 TypeScript, changed-file lint and
 backlog checks pass. No staging/production
 release is needed for this unconnected component.
