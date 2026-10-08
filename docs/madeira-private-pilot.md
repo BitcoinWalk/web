@@ -71,7 +71,7 @@ or the payout address. It does not instantiate the payment runtime or create a t
 
 ## Verification checkpoint
 
-Node-24 suite: 892 tests across 174 files pass. TypeScript, changed-file lint and
+Node-24 suite: 893 tests across 174 files pass. TypeScript, changed-file lint and
 production build pass. New coverage includes signed role/origin/scope/expiry
 checks, unchanged payment tables, payout tampering and production-signature
 rejection, changed approval/ownership/suspension, unavailable reads, private API

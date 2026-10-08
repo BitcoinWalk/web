@@ -1,5 +1,11 @@
 import {describe,it,expect} from "vitest";
 import {dashboardNavigation,dashboardAccess,dashboardMenuLabel,legacyDashboardHref} from "./dashboard";
+it("allows the private pilot screen after login without a general menu item; its API enforces exact identity",()=>{
+ expect(dashboardAccess("/admin/madeira-pilot","organizer")).toBe(true);
+ expect(dashboardAccess("/admin/madeira-pilot","super-admin")).toBe(true);
+ expect(dashboardAccess("/admin/madeira-pilot","disconnected")).toBe(false);
+ expect(dashboardNavigation("organizer").some(item=>String(item.href)==="/admin/madeira-pilot")).toBe(false);
+});
 describe("dashboard navigation boundaries",()=>{
  it("requires login for the owner-verified upgrade flow without adding a menu item",()=>{expect(dashboardAccess("/admin/upgrade","disconnected")).toBe(false);expect(dashboardAccess("/admin/upgrade","organizer")).toBe(true);expect(dashboardAccess("/admin/pro-setup","organizer")).toBe(true);expect(dashboardNavigation("organizer").some(item=>String(item.href)==="/admin/upgrade")).toBe(false);});
  it("shows only overview before connection",()=>{expect(dashboardNavigation("disconnected").map(i=>i.href)).toEqual(["/admin"]);});
