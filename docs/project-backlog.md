@@ -192,12 +192,16 @@ error and releases both principal and fee reservation. The surrounding NIP-47,
 controller and transaction suites pass. This is synthetic and uses neither relay
 delivery nor a wallet. Native LDK interruption/reconstruction now passes three
 private regtest repeats, and the complete Hub composition passes its held-payment
-SIGKILL/restart, exact-reconciliation and duplicate-fencing rehearsal. Still
-required before rollout is a legacy-row audit/migration, exact adapter capability
-binding, encrypted backup and rollback, and final bounded relay delivery
-acceptance. The real frontend bundle, Linux
-server and full serial Go suite now build/pass from the patched pin. A third
-candidate patch pins Vite to
+SIGKILL/restart, exact-reconciliation and duplicate-fencing rehearsal. The legacy
+FAILED-row gate now has an app-scoped, cutoff-bound and fingerprinted quarantine:
+it preserves original evidence, restores principal plus the exact fee reserve,
+blocks drift or malformed rows and is idempotent after a lost response. Three
+race-detector repeats and the complete affected suites pass from a fresh pin.
+Still required before rollout is exact adapter capability binding, encrypted
+backup/restore/rollback with this audit rehearsed on the restored copy, and final
+bounded relay delivery acceptance. The real frontend bundle, Linux
+server and full serial Go suite now build/pass from the patched pin. The
+frontend-lock patch pins Vite to
 the lockfile's reviewed 8.2.1 version: a fresh frozen install leaves the lockfile
 byte-identical, whereas the upstream floating range silently selected 8.3.4.
 BW-18 remains In progress and live spending disabled; no live wallet code

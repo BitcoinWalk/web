@@ -320,12 +320,11 @@ release gates. It does not claim WebSocket relay delivery or a live wallet test:
 the test uses an in-memory publisher and synthetic backend, with no credentials,
 network or funds. Still open before deployment:
 
-1. Define and implement a fail-closed audit/migration for legacy FAILED rows that
-   may actually have an unknown outcome.
-2. Bind the BitcoinWalk adapter to the exact installed Hub revision and verify
+1. Bind the BitcoinWalk adapter to the exact installed Hub revision and verify
    its required capability at startup.
-3. Rehearse encrypted backup, restore and rollback before any staging adoption.
-4. Include real relay delivery and bounded no-funds staging acceptance in the
+2. Rehearse encrypted backup, restore and rollback before any staging adoption,
+   including the legacy-failure audit against a restored database copy.
+3. Include real relay delivery and bounded no-funds staging acceptance in the
    final rollout rehearsal. Live spending remains disabled.
 
 The functional build gate itself passes: the real HTTP frontend bundle and Linux
@@ -334,8 +333,8 @@ server binary were built from the patched pin, and the full serial `go test
 was `754795a3fd9da902be8fcbf8df141038520f7586abe4471fc25d0f45a1285782`.
 The first build exposed an upstream reproducibility defect: `vite` used the
 floating `^8.2.1` range while the committed lock recorded 8.2.1, so frozen
-installation failed and a non-frozen install silently selected 8.3.4. The third
-candidate patch, `frontend-lock.patch`, pins the already reviewed 8.2.1 release.
+installation failed and a non-frozen install silently selected 8.3.4. The
+`frontend-lock.patch` candidate pins the already reviewed 8.2.1 release.
 A fresh frozen install then left `yarn.lock` byte-identical, built with Vite
 8.2.1 and passed the full suite. This is reproducible build evidence, not
 deployment authorization.
@@ -350,6 +349,31 @@ service restarts from the same database/LDK stores, exact lookup reconciles the
 reservation without resending, and a duplicate retry is rejected while the
 single outgoing row remains within the 50,000,000-msat payout and
 200,000,000-msat total-budget limits.
+
+### Legacy failed-payment quarantine accepted in isolation — 8 October 2026
+
+`integrations/alby-fee-cap/legacy-failed-audit.patch` adds an explicit,
+app-scoped audit and quarantine for outgoing rows created before the
+unknown-outcome correction. It does not trust legacy failure text as proof that
+the wallet never sent. The caller must select one exact app, an immutable time
+cutoff, the approved 100,000-msat fee reserve and the SHA-256 fingerprint from a
+fresh dry-run. Changed, empty, malformed, self-payment or hold rows stop the
+operation.
+
+An accepted batch is recorded atomically with each row's original state,
+failure reason and reserve before the row returns to PENDING with principal plus
+the exact fee cap reserved. This fences retries until authoritative lookup proves
+settlement. Missing lookup evidence releases nothing. Repeating the same
+fingerprinted operation after a lost response is a verified no-op. Other apps
+and rows newer than the cutoff remain unchanged.
+
+From a fresh pinned checkout, the audit, drift rejection, malformed-row block,
+atomic apply, preserved evidence, budget accounting, cross-app isolation and
+idempotent retry tests pass three times under Go's race detector. The complete
+transaction and NWC controller suites also pass. No real database, wallet,
+credentials, relay or funds were used. Before deployment, run the dry audit and
+apply rehearsal only against an encrypted restored database copy; the live Hub
+remains unchanged.
 
 Reviewed official tag v1.24.0, commit
 `d8ef0e70e0d265a8424276daee0a595ac31993c0`:

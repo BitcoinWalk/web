@@ -1,0 +1,348 @@
+diff --git i/transactions/legacy_failed_payments.go w/transactions/legacy_failed_payments.go
+new file mode 100644
+index 0000000..1ff2e03
+--- /dev/null
++++ w/transactions/legacy_failed_payments.go
+@@ -0,0 +1,221 @@
++package transactions
++
++import (
++	"crypto/sha256"
++	"encoding/hex"
++	"errors"
++	"fmt"
++	"math"
++	"sort"
++	"strings"
++	"time"
++
++	"github.com/getAlby/hub/constants"
++	"github.com/getAlby/hub/db"
++	"gorm.io/gorm"
++)
++
++// LegacyFailedPaymentAudit is a deterministic, non-mutating inventory of old
++// outgoing rows that were marked failed before unknown outcomes were retained.
++// It intentionally exposes no invoice or payment hash.
++type LegacyFailedPaymentAudit struct {
++	AppID            uint
++	Before           time.Time
++	Count            int
++	PrincipalMsat    uint64
++	ReservedFeeMsat  uint64
++	Fingerprint      string
++	TransactionIDs   []uint
++	BlockingProblems []string
++}
++
++type legacyFailedPaymentBatch struct {
++	Fingerprint    string `gorm:"primaryKey"`
++	AppID          uint
++	Before         time.Time
++	FeeReserveMsat uint64
++	Count          int
++	PrincipalMsat  uint64
++	CreatedAt      time.Time
++}
++
++func (legacyFailedPaymentBatch) TableName() string {
++	return "bitcoinwalk_legacy_failed_payment_batches"
++}
++
++type legacyFailedPaymentRecord struct {
++	TransactionID          uint   `gorm:"primaryKey"`
++	BatchFingerprint       string `gorm:"index;not null"`
++	AppID                  uint
++	PaymentHash            string
++	PreviousState          string
++	PreviousFailureReason  string
++	PreviousFeeReserveMsat uint64
++	ReservedFeeMsat        uint64
++	CreatedAt              time.Time
++}
++
++func (legacyFailedPaymentRecord) TableName() string {
++	return "bitcoinwalk_legacy_failed_payment_records"
++}
++
++// AuditLegacyFailedOutgoingPayments selects only one explicitly named app and
++// only rows at or before a caller-chosen cutoff. All selected rows are treated
++// as outcome-unknown because legacy failure text cannot prove whether a send
++// reached the wallet.
++func AuditLegacyFailedOutgoingPayments(tx *gorm.DB, appID uint, before time.Time, feeReserveMsat uint64) (*LegacyFailedPaymentAudit, error) {
++	if appID == 0 {
++		return nil, errors.New("legacy payment audit requires a nonzero app ID")
++	}
++	if before.IsZero() {
++		return nil, errors.New("legacy payment audit requires an explicit cutoff")
++	}
++	if feeReserveMsat == 0 || feeReserveMsat > math.MaxInt64 {
++		return nil, errors.New("legacy payment audit requires a bounded nonzero fee reserve")
++	}
++
++	var app db.App
++	if err := tx.First(&app, appID).Error; err != nil {
++		return nil, fmt.Errorf("load audited app: %w", err)
++	}
++
++	var rows []db.Transaction
++	if err := tx.Where(
++		"app_id = ? AND type = ? AND state = ? AND created_at <= ?",
++		appID,
++		constants.TRANSACTION_TYPE_OUTGOING,
++		constants.TRANSACTION_STATE_FAILED,
++		before,
++	).Order("id ASC").Find(&rows).Error; err != nil {
++		return nil, fmt.Errorf("list legacy failed payments: %w", err)
++	}
++
++	audit := &LegacyFailedPaymentAudit{AppID: appID, Before: before.UTC(), ReservedFeeMsat: feeReserveMsat}
++	canonical := make([]string, 0, len(rows))
++	for _, row := range rows {
++		audit.TransactionIDs = append(audit.TransactionIDs, row.ID)
++		if row.AppId == nil || *row.AppId != appID {
++			audit.BlockingProblems = append(audit.BlockingProblems, fmt.Sprintf("transaction %d has unexpected app ownership", row.ID))
++		}
++		if row.PaymentHash == "" {
++			audit.BlockingProblems = append(audit.BlockingProblems, fmt.Sprintf("transaction %d has no payment hash", row.ID))
++		}
++		if row.PaymentRequest == "" {
++			audit.BlockingProblems = append(audit.BlockingProblems, fmt.Sprintf("transaction %d is not an invoice payment", row.ID))
++		}
++		if row.SelfPayment || row.Hold {
++			audit.BlockingProblems = append(audit.BlockingProblems, fmt.Sprintf("transaction %d is a self or hold payment", row.ID))
++		}
++		if row.AmountMsat == 0 || row.AmountMsat > math.MaxInt64 || feeReserveMsat > math.MaxInt64-row.AmountMsat {
++			audit.BlockingProblems = append(audit.BlockingProblems, fmt.Sprintf("transaction %d exceeds accounting bounds", row.ID))
++		} else if audit.PrincipalMsat > math.MaxUint64-row.AmountMsat {
++			audit.BlockingProblems = append(audit.BlockingProblems, "legacy payment principal total overflows")
++		} else {
++			audit.PrincipalMsat += row.AmountMsat
++		}
++		canonical = append(canonical, fmt.Sprintf("%d|%d|%s|%d|%d|%s|%s|%s",
++			row.ID,
++			appID,
++			row.PaymentHash,
++			row.AmountMsat,
++			row.FeeReserveMsat,
++			row.CreatedAt.UTC().Format(time.RFC3339Nano),
++			row.UpdatedAt.UTC().Format(time.RFC3339Nano),
++			row.FailureReason,
++		))
++	}
++	audit.Count = len(rows)
++	sort.Strings(audit.BlockingProblems)
++	digest := sha256.Sum256([]byte(strings.Join(canonical, "\n")))
++	audit.Fingerprint = hex.EncodeToString(digest[:])
++	return audit, nil
++}
++
++// QuarantineLegacyFailedOutgoingPayments atomically turns the exact audited
++// batch back into pending reservations. It never infers a terminal failure from
++// missing lookup evidence. A repeated apply with the same fingerprint is a
++// verified no-op, which makes a lost command response safe to retry.
++func QuarantineLegacyFailedOutgoingPayments(tx *gorm.DB, appID uint, before time.Time, feeReserveMsat uint64, expectedFingerprint string) (*LegacyFailedPaymentAudit, error) {
++	if expectedFingerprint == "" {
++		return nil, errors.New("legacy payment quarantine requires the exact audit fingerprint")
++	}
++	if err := tx.AutoMigrate(&legacyFailedPaymentBatch{}, &legacyFailedPaymentRecord{}); err != nil {
++		return nil, fmt.Errorf("create legacy payment quarantine ledger: %w", err)
++	}
++
++	var existing legacyFailedPaymentBatch
++	result := tx.First(&existing, "fingerprint = ?", expectedFingerprint)
++	if result.Error == nil {
++		if existing.AppID != appID || !existing.Before.Equal(before.UTC()) || existing.FeeReserveMsat != feeReserveMsat {
++			return nil, errors.New("existing quarantine batch does not match requested scope")
++		}
++		return &LegacyFailedPaymentAudit{
++			AppID: appID, Before: before.UTC(), Count: existing.Count,
++			PrincipalMsat: existing.PrincipalMsat, ReservedFeeMsat: feeReserveMsat,
++			Fingerprint: expectedFingerprint,
++		}, nil
++	}
++	if !errors.Is(result.Error, gorm.ErrRecordNotFound) {
++		return nil, fmt.Errorf("read legacy payment quarantine ledger: %w", result.Error)
++	}
++
++	var applied *LegacyFailedPaymentAudit
++	err := tx.Transaction(func(inner *gorm.DB) error {
++		audit, err := AuditLegacyFailedOutgoingPayments(inner, appID, before, feeReserveMsat)
++		if err != nil {
++			return err
++		}
++		if audit.Fingerprint != expectedFingerprint {
++			return errors.New("legacy payment audit changed; run a fresh dry-run")
++		}
++		if audit.Count == 0 {
++			return errors.New("legacy payment audit selected no rows")
++		}
++		if len(audit.BlockingProblems) != 0 {
++			return fmt.Errorf("legacy payment audit is blocked: %s", strings.Join(audit.BlockingProblems, "; "))
++		}
++
++		batch := legacyFailedPaymentBatch{
++			Fingerprint: expectedFingerprint, AppID: appID, Before: before.UTC(),
++			FeeReserveMsat: feeReserveMsat, Count: audit.Count,
++			PrincipalMsat: audit.PrincipalMsat,
++		}
++		if err := inner.Create(&batch).Error; err != nil {
++			return fmt.Errorf("record legacy payment quarantine batch: %w", err)
++		}
++
++		var rows []db.Transaction
++		if err := inner.Where("id IN ?", audit.TransactionIDs).Order("id ASC").Find(&rows).Error; err != nil {
++			return fmt.Errorf("reload legacy failed payments: %w", err)
++		}
++		if len(rows) != audit.Count {
++			return errors.New("legacy payment rows changed during quarantine")
++		}
++		for _, row := range rows {
++			record := legacyFailedPaymentRecord{
++				TransactionID: row.ID, BatchFingerprint: expectedFingerprint,
++				AppID: appID, PaymentHash: row.PaymentHash,
++				PreviousState: row.State, PreviousFailureReason: row.FailureReason,
++				PreviousFeeReserveMsat: row.FeeReserveMsat, ReservedFeeMsat: feeReserveMsat,
++			}
++			if err := inner.Create(&record).Error; err != nil {
++				return fmt.Errorf("record legacy payment %d: %w", row.ID, err)
++			}
++			updated := inner.Model(&db.Transaction{}).
++				Where("id = ? AND app_id = ? AND type = ? AND state = ?", row.ID, appID, constants.TRANSACTION_TYPE_OUTGOING, constants.TRANSACTION_STATE_FAILED).
++				Updates(map[string]interface{}{"state": constants.TRANSACTION_STATE_PENDING, "fee_reserve_msat": feeReserveMsat})
++			if updated.Error != nil {
++				return fmt.Errorf("quarantine legacy payment %d: %w", row.ID, updated.Error)
++			}
++			if updated.RowsAffected != 1 {
++				return fmt.Errorf("legacy payment %d changed during quarantine", row.ID)
++			}
++		}
++		applied = audit
++		return nil
++	})
++	if err != nil {
++		return nil, err
++	}
++	return applied, nil
++}
+diff --git i/transactions/legacy_failed_payments_test.go w/transactions/legacy_failed_payments_test.go
+new file mode 100644
+index 0000000..6796bae
+--- /dev/null
++++ w/transactions/legacy_failed_payments_test.go
+@@ -0,0 +1,114 @@
++package transactions
++
++import (
++	"testing"
++	"time"
++
++	"github.com/getAlby/hub/constants"
++	"github.com/getAlby/hub/db"
++	"github.com/getAlby/hub/db/queries"
++	"github.com/getAlby/hub/tests"
++	"github.com/stretchr/testify/require"
++)
++
++func createLegacyFailedFixture(t *testing.T, svc *tests.TestService, appID uint, hash string, amount uint64, createdAt time.Time) db.Transaction {
++	t.Helper()
++	row := db.Transaction{
++		AppId: &appID, Type: constants.TRANSACTION_TYPE_OUTGOING,
++		State: constants.TRANSACTION_STATE_FAILED, AmountMsat: amount,
++		PaymentRequest: "lnbcrt1legacyfixture", PaymentHash: hash,
++		FailureReason: "context deadline exceeded", CreatedAt: createdAt,
++	}
++	require.NoError(t, svc.DB.Create(&row).Error)
++	return row
++}
++
++func TestBitcoinWalkLegacyFailedAuditAndQuarantine(t *testing.T) {
++	svc, err := tests.CreateTestService(t)
++	require.NoError(t, err)
++	defer svc.Remove()
++	app, _, err := tests.CreateApp(svc)
++	require.NoError(t, err)
++	other, _, err := tests.CreateApp(svc)
++	require.NoError(t, err)
++	permission := db.AppPermission{AppId: app.ID, Scope: constants.PAY_INVOICE_SCOPE, MaxAmountSat: 200000}
++	require.NoError(t, svc.DB.Create(&permission).Error)
++
++	cutoff := time.Now().UTC().Add(-time.Hour)
++	first := createLegacyFailedFixture(t, svc, app.ID, "legacy-one", 50_000_000, cutoff.Add(-time.Hour))
++	second := createLegacyFailedFixture(t, svc, app.ID, "legacy-two", 25_000_000, cutoff.Add(-time.Minute))
++	createLegacyFailedFixture(t, svc, other.ID, "other-app", 10_000_000, cutoff.Add(-time.Minute))
++	createLegacyFailedFixture(t, svc, app.ID, "after-cutoff", 5_000_000, cutoff.Add(time.Minute))
++
++	audit, err := AuditLegacyFailedOutgoingPayments(svc.DB, app.ID, cutoff, 100_000)
++	require.NoError(t, err)
++	require.Equal(t, 2, audit.Count)
++	require.Equal(t, uint64(75_000_000), audit.PrincipalMsat)
++	require.Equal(t, []uint{first.ID, second.ID}, audit.TransactionIDs)
++	require.Empty(t, audit.BlockingProblems)
++	require.Len(t, audit.Fingerprint, 64)
++
++	var stillFailed int64
++	require.NoError(t, svc.DB.Model(&db.Transaction{}).Where("id IN ? AND state = ?", audit.TransactionIDs, constants.TRANSACTION_STATE_FAILED).Count(&stillFailed).Error)
++	require.Equal(t, int64(2), stillFailed, "audit must not mutate payment state")
++
++	applied, err := QuarantineLegacyFailedOutgoingPayments(svc.DB, app.ID, cutoff, 100_000, audit.Fingerprint)
++	require.NoError(t, err)
++	require.Equal(t, audit.Fingerprint, applied.Fingerprint)
++
++	var quarantined []db.Transaction
++	require.NoError(t, svc.DB.Where("id IN ?", audit.TransactionIDs).Order("id ASC").Find(&quarantined).Error)
++	require.Len(t, quarantined, 2)
++	for _, row := range quarantined {
++		require.Equal(t, constants.TRANSACTION_STATE_PENDING, row.State)
++		require.Equal(t, uint64(100_000), row.FeeReserveMsat)
++		require.Equal(t, "context deadline exceeded", row.FailureReason, "original evidence must remain")
++	}
++	usage, err := queries.GetBudgetUsageMsat(svc.DB, &permission)
++	require.NoError(t, err)
++	require.Equal(t, uint64(75_200_000), usage)
++
++	// A caller that lost the success response can safely submit the exact batch
++	// again; no row or reserve is duplicated.
++	repeated, err := QuarantineLegacyFailedOutgoingPayments(svc.DB, app.ID, cutoff, 100_000, audit.Fingerprint)
++	require.NoError(t, err)
++	require.Equal(t, 2, repeated.Count)
++	var records int64
++	require.NoError(t, svc.DB.Table("bitcoinwalk_legacy_failed_payment_records").Count(&records).Error)
++	require.Equal(t, int64(2), records)
++
++	var untouched int64
++	require.NoError(t, svc.DB.Model(&db.Transaction{}).Where("payment_hash IN ? AND state = ?", []string{"other-app", "after-cutoff"}, constants.TRANSACTION_STATE_FAILED).Count(&untouched).Error)
++	require.Equal(t, int64(2), untouched)
++}
++
++func TestBitcoinWalkLegacyFailedQuarantineRejectsDriftAndMalformedRows(t *testing.T) {
++	svc, err := tests.CreateTestService(t)
++	require.NoError(t, err)
++	defer svc.Remove()
++	app, _, err := tests.CreateApp(svc)
++	require.NoError(t, err)
++	cutoff := time.Now().UTC()
++	row := createLegacyFailedFixture(t, svc, app.ID, "legacy-drift", 50_000_000, cutoff.Add(-time.Minute))
++
++	audit, err := AuditLegacyFailedOutgoingPayments(svc.DB, app.ID, cutoff, 100_000)
++	require.NoError(t, err)
++	require.NoError(t, svc.DB.Model(&db.Transaction{}).Where("id = ?", row.ID).Update("failure_reason", "changed after audit").Error)
++	_, err = QuarantineLegacyFailedOutgoingPayments(svc.DB, app.ID, cutoff, 100_000, audit.Fingerprint)
++	require.ErrorContains(t, err, "audit changed")
++
++	newAudit, err := AuditLegacyFailedOutgoingPayments(svc.DB, app.ID, cutoff, 100_000)
++	require.NoError(t, err)
++	require.NoError(t, svc.DB.Model(&db.Transaction{}).Where("id = ?", row.ID).Update("payment_request", "").Error)
++	malformed, err := AuditLegacyFailedOutgoingPayments(svc.DB, app.ID, cutoff, 100_000)
++	require.NoError(t, err)
++	require.NotEmpty(t, malformed.BlockingProblems)
++	_, err = QuarantineLegacyFailedOutgoingPayments(svc.DB, app.ID, cutoff, 100_000, malformed.Fingerprint)
++	require.ErrorContains(t, err, "audit is blocked")
++
++	_, err = QuarantineLegacyFailedOutgoingPayments(svc.DB, app.ID, cutoff, 100_000, newAudit.Fingerprint)
++	require.ErrorContains(t, err, "audit changed")
++	var state string
++	require.NoError(t, svc.DB.Model(&db.Transaction{}).Select("state").Where("id = ?", row.ID).Scan(&state).Error)
++	require.Equal(t, constants.TRANSACTION_STATE_FAILED, state)
++}
+

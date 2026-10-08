@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
-"""Run fault-injected controller/DB acceptance; any failing safety assertion blocks adoption."""
+"""Run the fail-closed legacy-payment audit/quarantine acceptance."""
 import argparse
 import hashlib
 import json
 import os
 from pathlib import Path
-import shutil
 import subprocess
 
 parser = argparse.ArgumentParser()
@@ -23,22 +22,17 @@ if subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=checkout, text=True
 patches = [base / name for name in ('isolated-candidate.patch', 'unknown-outcome.patch', 'legacy-failed-audit.patch', 'frontend-lock.patch')]
 for patch in reversed(patches):
     subprocess.run(['git', 'apply', '--reverse', '--check', str(patch)], cwd=checkout, check=True)
-source = base / 'bitcoinwalk_recovery_test.go'
-target = checkout / 'nip47/controllers/bitcoinwalk_recovery_test.go'
-if target.exists() and target.read_bytes() != source.read_bytes():
-    raise SystemExit('Existing recovery test differs; review before replacing')
-shutil.copyfile(source, target)
-output = base.parents[1] / 'release-build/alby-fee-cap-recovery'
+output = base.parents[1] / 'release-build/alby-fee-cap-legacy-audit'
 output.mkdir(parents=True, exist_ok=True)
 manifest = output / 'manifest.json'
 manifest.unlink(missing_ok=True)
-command = [args.go, 'test', './nip47/controllers', '-run', '^TestBitcoinWalk(ConcurrentNwcBudget|UncertainSendMustRetainReservation|AbruptProcessRecovery|LostNwcResponseAfterSettlement)$', '-count=3', '-timeout=3m', '-json']
+command = [args.go, 'test', './transactions', '-run', '^TestBitcoinWalkLegacyFailed', '-count=3', '-timeout=3m', '-json']
 if args.race:
     command.append('-race')
-with (output / 'recovery.jsonl').open('w') as log:
-    result = subprocess.run(command, cwd=checkout, env=dict(os.environ, TEST_DATABASE_URI='', BW_CRASH_CHILD=''), stdout=log, stderr=subprocess.STDOUT)
+with (output / 'legacy-audit.jsonl').open('w') as log:
+    result = subprocess.run(command, cwd=checkout, env=dict(os.environ, TEST_DATABASE_URI=''), stdout=log, stderr=subprocess.STDOUT)
 outcomes = []
-for line in (output / 'recovery.jsonl').read_text().splitlines():
+for line in (output / 'legacy-audit.jsonl').read_text().splitlines():
     try:
         item = json.loads(line)
     except ValueError:
@@ -48,13 +42,12 @@ for line in (output / 'recovery.jsonl').read_text().splitlines():
 manifest.write_text(json.dumps({
     'upstream': pin, 'productionReady': False, 'exitCode': result.returncode,
     'status': 'blocked' if result.returncode else 'tested-only', 'raceDetector': args.race,
-    'testSha256': hashlib.sha256(source.read_bytes()).hexdigest(),
     'patches': {p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in patches},
-    'logSha256': hashlib.sha256((output / 'recovery.jsonl').read_bytes()).hexdigest(),
-    'scope': 'NWC pay controller + actual SQLite; injected backend, no transport or live LDK',
+    'logSha256': hashlib.sha256((output / 'legacy-audit.jsonl').read_bytes()).hexdigest(),
+    'scope': 'synthetic app-scoped SQLite legacy FAILED rows; no live database, wallet, relay, credentials or funds',
     'outcomes': outcomes,
 }, indent=2) + '\n')
 for item in outcomes:
     print(f"{item['result']}: {item['test']}")
-print('Deployment blocked by failed acceptance.' if result.returncode else 'Controller acceptance passed; production remains disabled.')
+print('Legacy-payment quarantine acceptance failed; production remains disabled.' if result.returncode else 'Legacy-payment quarantine passed; production remains disabled pending remaining gates.')
 raise SystemExit(result.returncode)

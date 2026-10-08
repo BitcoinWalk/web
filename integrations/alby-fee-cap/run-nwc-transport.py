@@ -20,7 +20,7 @@ if os.getuid() == 0:
     raise SystemExit('Non-root only')
 if subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=checkout, text=True).strip() != pin:
     raise SystemExit('Wrong upstream revision')
-patches = [base / name for name in ('isolated-candidate.patch', 'unknown-outcome.patch', 'frontend-lock.patch')]
+patches = [base / name for name in ('isolated-candidate.patch', 'unknown-outcome.patch', 'legacy-failed-audit.patch', 'frontend-lock.patch')]
 for patch in reversed(patches):
     subprocess.run(['git', 'apply', '--reverse', '--check', str(patch)], cwd=checkout, check=True)
 source = base / 'bitcoinwalk_nwc_transport_test.go'
