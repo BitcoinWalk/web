@@ -83,6 +83,33 @@ must verify connection identity, response signature and request correlation.
 No credentials, live HTTP requests, wallet calls or runtime imports were used
 in this slice. Checkout's receive-only adapter is untouched.
 
+## Authenticated read-only NWC slice
+
+`nwc-reader.ts` now supplies a separate NIP-44 encrypted NWC reader with only
+`get_info`, bounded `list_transactions` pages and `lookup_invoice`. It verifies
+wallet signatures, exact request/recipient tags, result method and timestamps,
+rejects duplicate correlation tags and uses unique request nonces. Verification
+reconstructs wire fields rather than trusting a mutable event's cached result.
+Timeouts and failures close subscriptions/connections and redact wallet errors.
+Relay failover happens only before publication; no request is replayed afterward.
+Legacy-only encryption fails closed. Connection relays must come from trusted
+private server configuration, not user-supplied API requests.
+
+The reader rejects the checkout client key even under a different reference.
+Its internal wallet/client fingerprint must be pinned to the immutable inventory
+mapping before runtime use; a display label alone is not connection identity.
+`lookupPayout` combines authenticated transport with the outgoing preimage/amount
+validator. History and get_info remain raw authenticated read results: inventory
+permissions, network/schema validation, budget collection and paginated catch-up
+still need a collector. Advertised methods never establish granted permissions.
+
+There is no send method, public route, credential installation or live probe.
+The standard [NIP-47 pay_invoice request](https://github.com/nostr-protocol/nips/blob/master/47.md#pay_invoice)
+does not specify a maximum-routing-fee parameter. Do not invent one or assume it
+is enforced: verify provider-specific fee control before adding sending. Keep
+explicit spending approval, budget/fee policy and restore reconciliation gates.
+All adapter tests use synthetic keys and mocked relays; none use the user's Hub.
+
 ## Deliberate boundaries / next slice
 
 The ledger is an internal accounting primitive, not proof that a payment happened.
@@ -112,9 +139,11 @@ restart while outcome is unknown, restart after payment, preimage validation,
 fee conflicts and conservation of every allocated millisatoshi. They use only
 synthetic records and temporary local databases, not real invoices or funds.
 
-Verification: 978 tests across 181 files pass on Node 24, including 15 ledger
+Verification: 994 tests across 182 files pass on Node 24, including 15 ledger
 tests and 24 outgoing-invoice/worker tests. This slice adds 35 fixture tests for
 recipient retrieval, pinned HTTPS transport and outgoing wallet lookup validation.
+The authenticated reader adds 16 fixture tests for signatures, correlation,
+checkout isolation, read-only methods, timeouts and integrated payout proof checks.
 TypeScript, changed-file lint and
 backlog checks pass. No staging/production
 release is needed for this unconnected component.

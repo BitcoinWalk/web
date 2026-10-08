@@ -1,0 +1,72 @@
+import {createHash} from "node:crypto";
+import {beforeEach,afterEach,describe,it,expect,vi} from "vitest";
+import {finalizeEvent,getPublicKey,nip44,type Event} from "nostr-tools";
+const mock=vi.hoisted(()=>({reply:undefined as ((event:Event)=>void)|undefined,publish:vi.fn(),connect:vi.fn(),close:vi.fn(),subclose:vi.fn()}));
+vi.mock("nostr-tools/relay",()=>({Relay:class{
+ connect=mock.connect;close=mock.close;
+ subscribe(_filter:unknown,handlers:{onevent:(e:Event)=>void}){mock.reply=handlers.onevent;return {close:mock.subclose};}
+ publish=mock.publish;
+}}));
+import {RustressNwcReader} from "./nwc-reader";
+const wallet=Buffer.from("23".repeat(32),"hex"),client=Buffer.from("12".repeat(32),"hex"),checkout=Buffer.from("34".repeat(32),"hex");
+const walletKey=getPublicKey(wallet),clientKey=getPublicKey(client),key=nip44.getConversationKey(wallet,clientKey);
+const uri=(secret:Uint8Array)=>`nostr+walletconnect://${walletKey}?relay=wss://fixture.example&secret=${Buffer.from(secret).toString("hex")}`;
+const reader=()=>new RustressNwcReader("fixture",uri(client),uri(checkout));
+function reply(request:Event,result:unknown,method="lookup_invoice",patch:Partial<Event>={}){
+ return finalizeEvent({kind:23195,created_at:request.created_at,tags:[["e",request.id],["p",clientKey],["encryption","nip44_v2"]],content:nip44.encrypt(JSON.stringify({result_type:method,result}),key),...patch},wallet);
+}
+beforeEach(()=>{vi.useFakeTimers();mock.publish.mockReset().mockResolvedValue("ok");mock.connect.mockReset().mockResolvedValue(undefined);mock.close.mockClear();mock.subclose.mockClear();});
+afterEach(()=>vi.useRealTimers());
+describe("isolated authenticated read-only NWC integration",()=>{
+ it("decrypts only an exact wallet/request-bound response",async()=>{
+  mock.publish.mockImplementation(async(event:Event)=>{
+   expect(JSON.parse(nip44.decrypt(event.content,key))).toEqual({method:"lookup_invoice",params:{payment_hash:"ab".repeat(32)}});
+   mock.reply?.(reply(event,{payment_hash:"ab".repeat(32)}));return "ok";
+  });
+  expect(await reader().lookupInvoice("ab".repeat(32))).toEqual({payment_hash:"ab".repeat(32)});
+  expect(mock.close).toHaveBeenCalled();expect(mock.subclose).toHaveBeenCalled();
+ });
+ it.each(["author","signature","request","recipient","kind","old","future","encryption","duplicate-tag"])("ignores a %s mismatch before accepting a valid reply",async mode=>{
+  mock.publish.mockImplementation(async(event:Event)=>{
+   let invalid=reply(event,{bad:true});
+   if(mode==="author")invalid={...invalid,pubkey:clientKey};
+   if(mode==="signature")invalid={...invalid,sig:"00".repeat(64)};
+   if(mode==="request")invalid=reply(event,{},"lookup_invoice",{tags:[["e","ab".repeat(32)],["p",clientKey]]});
+   if(mode==="recipient")invalid=reply(event,{},"lookup_invoice",{tags:[["e",event.id],["p",walletKey]]});
+   if(mode==="kind")invalid=reply(event,{},"lookup_invoice",{kind:1});
+   if(mode==="old")invalid=reply(event,{},"lookup_invoice",{created_at:event.created_at-60});
+   if(mode==="future")invalid=reply(event,{},"lookup_invoice",{created_at:event.created_at+60});
+   if(mode==="encryption")invalid=reply(event,{},"lookup_invoice",{tags:[["e",event.id],["p",clientKey],["encryption","nip04"]]});
+   if(mode==="duplicate-tag")invalid=reply(event,{},"lookup_invoice",{tags:[["e",event.id],["e",event.id],["p",clientKey]]});
+   mock.reply?.(invalid);mock.reply?.(reply(event,{good:true}));return "ok";
+  });
+  expect(await reader().lookupInvoice("ab".repeat(32))).toEqual({good:true});
+ });
+ it("integrates authenticated lookup with preimage verification",async()=>{
+  const preimage="56".repeat(32),hash=createHash("sha256").update(Buffer.from(preimage,"hex")).digest("hex");
+  mock.publish.mockImplementation(async(event:Event)=>{mock.reply?.(reply(event,{type:"outgoing",state:"settled",payment_hash:hash,amount:79000,fees_paid:100,settled_at:1800000000,preimage}));return "ok";});
+  expect(await reader().lookupPayout(hash)).toMatchObject({state:"paid",walletRef:"fixture",paymentHash:hash,amountMsat:"79000"});
+ });
+ it("exposes bounded history and info reads, not sending",async()=>{
+  mock.publish.mockImplementation(async(event:Event)=>{const body=JSON.parse(nip44.decrypt(event.content,key));mock.reply?.(reply(event,body.params,body.method));return "ok";});
+  const r=reader();expect(await r.getInfo()).toEqual({});expect(await r.listTransactions(100,50)).toEqual({offset:100,limit:50});
+  expect(()=>r.listTransactions(-1)).toThrow();expect(()=>r.listTransactions(0,101)).toThrow();
+  expect("send" in r).toBe(false);expect("makeInvoice" in r).toBe(false);
+ });
+ it("does not reuse checkout credentials, even with a different label",()=>{
+  expect(()=>new RustressNwcReader("different",uri(client),uri(client))).toThrow("Separate");
+  const r=reader();expect(r.binding).toHaveLength(64);expect(JSON.stringify(r)).not.toContain(Buffer.from(client).toString("hex"));
+ });
+ it("rejects invalid configuration without disclosing credentials",()=>{
+  for(const value of ["secret",uri(client).replace("wss:","ws:"),uri(client)+"&secret=bad"])
+   expect(()=>new RustressNwcReader("fixture",value,uri(checkout))).toThrow(/^Invalid private wallet configuration$/);
+ });
+ it("times out, closes resources and does not republish",async()=>{
+  const result=reader().lookupInvoice("ab".repeat(32));const rejected=expect(result).rejects.toThrow(/^Wallet read could not be verified$/);
+  await vi.advanceTimersByTimeAsync(16000);await rejected;expect(mock.publish).toHaveBeenCalledTimes(1);expect(mock.subclose).toHaveBeenCalled();expect(mock.close).toHaveBeenCalled();
+ });
+ it("rejects wrong result types and raw wallet errors without disclosure",async()=>{
+  mock.publish.mockImplementation(async(event:Event)=>{mock.reply?.(reply(event,{secret:"hidden"},"pay_invoice"));return "ok";});
+  await expect(reader().getInfo()).rejects.toThrow(/^Wallet read could not be verified$/);
+ });
+});

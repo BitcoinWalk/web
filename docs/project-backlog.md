@@ -50,7 +50,11 @@ lookup. Concurrent workers and restart retries cannot resend a claimed attempt.
 The isolated recipient adapter now adds pinned public-IPv4 HTTPS, same-origin
 callbacks, bounded JSON/deadlines and exact metadata-bound invoice retrieval.
 Read-only lookup validation rejects wrong-direction/hash/amount/preimage evidence.
-No authenticated real wallet adapter or runtime integration is enabled. Trusted collectors,
+An isolated authenticated NIP-44 reader now supports info, bounded history and
+exact-hash payout lookups; 16 mocked-relay tests cover signature/correlation checks,
+checkout-key separation and preimage verification. No sending, real credentials
+or runtime integration is enabled. Standard NWC does not specify a per-payment
+fee cap; provider fee enforcement must be verified before spending. Trusted collectors,
 provider compatibility, failure recovery, backup audit and bounded live
 acceptance remain. See [ledger scope](rustress-payout-ledger.md).
 
