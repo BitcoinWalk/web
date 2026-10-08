@@ -13,7 +13,8 @@ import WalkDescriptions from "./walk-descriptions";
 import WalkRoute from "./walk-route";
 import CityWalkTitle from "./city-walk-title";
 import type {LogoVariantAsset} from "../logos/catalog";
-import WalkHost from "./walk-host";
+import {CityHostPanel} from "./public-city-host";
+import {resolvePublicCityHost} from "../server/public-city-host";
 import SponsorModule from "./sponsor-module";
 import type {SponsorshipPresentation} from "../domain/sponsorship";
 
@@ -21,7 +22,10 @@ export default async function WalkEvent({event,walk,currentProfile,logoHref,titl
   const city=walk.revision.city,occurrence=calendarOccurrence(event),point=occurrence?.meetingPoint??city.meetingPoint;
   const startSeconds=occurrence?.start??Math.floor(new Date(city.startAt).getTime()/1000),endSeconds=occurrence?.end??startSeconds+3600,start=startSeconds*1000;
   const chat=cityChatDetails({cityId:city.cityId,slug:city.slug});
-  const weather=await getWalkWeather({latitude:point.latitude,longitude:point.longitude,start:startSeconds,end:endSeconds});
+  const [weather,host]=await Promise.all([
+    getWalkWeather({latitude:point.latitude,longitude:point.longitude,start:startSeconds,end:endSeconds}),
+    resolvePublicCityHost(city.cityId,currentProfile.revision.city.cityName,event.pubkey),
+  ]);
   const forecastHero=pilotWeatherHero(city.slug,weather);
   // nostr-tools caches verification on a symbol property. Explicitly copy the
   // signed wire fields before crossing the Server-to-Client boundary.
@@ -33,8 +37,8 @@ export default async function WalkEvent({event,walk,currentProfile,logoHref,titl
     <WalkDescriptions cityName={currentProfile.revision.city.cityName} cityDescription={currentProfile.revision.city.description} eventDescription={event.content}/><p>{point.description}</p>
     {calendarRoute(event)&&<WalkRoute url={calendarRoute(event)!}/>}
     <CoordinatesCopy latitude={point.latitude} longitude={point.longitude}/>
-    <WalkDelegation event={publicEvent} readOnly/>
-    <WalkHost pubkey={event.pubkey}/>
+    {host.state==="personal"&&<WalkDelegation event={publicEvent} readOnly/>}
+    <CityHostPanel host={host}/>
     <SponsorModule presentation={sponsorship} cityName={city.cityName} ogImageUrl={sponsorOgImage} endsAt={endSeconds}/>
     <CalendarShare nevent={calendarNevent(event,relayConfig.calendarRelayHints)}/>
     <CityChat cityId={city.cityId} slug={city.slug}/>

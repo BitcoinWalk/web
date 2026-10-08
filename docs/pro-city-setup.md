@@ -1,5 +1,7 @@
 # BW-105 — guided Pro city account setup
 
+Existing paid accounts with an already-created city identity use the planned [BW-108 MEP path](migrate-existing-paid.md). Do not ask London to generate another key or purchase again. Actual transfer to an owner-equals-brand identity is not supported by this standard separate-signer flow yet.
+
 ## Delivered first slice — 7 October 2026
 
 The feature-gated `/admin/upgrade` screen prepares an owner-only profile preview using an authenticated, origin-bound `/api/pro-setup` command. The former `/admin/pro-setup` address redirects to the canonical upgrade URL. It is deliberately **preparation-only**, not a completed account activation flow.

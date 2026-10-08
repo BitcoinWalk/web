@@ -14,6 +14,8 @@ NIP-05 maps the city address to a dedicated branded city Nostr account, named **
 
 ## Branded account design and setup (BW-103–BW-106)
 
+Exceptional existing paid cities: [BW-108 MEP](migrate-existing-paid.md) reuses an organizer-controlled dedicated city identity. London's immediate acceptance criterion is that this key appears as host on every `/london` page. A separately authorized ownership transfer may make it both owner and brand, but requires an explicit protocol/setup exception; it is not an automatic branding action. Existing entitlement is preserved with no repurchase. NIP-05 and city Lightning activation retain their independent verification gates.
+
 ### Stage A — account authority and privacy contract (BW-103)
 
 Model separate values for the verified city owner, branded city npub, authorized editors, signed event author and private payout destination. A public city-account binding contains city ID, branded npub, version and activation state. The server verifies a fresh owner authorization against existing ownership evidence plus proof signed by the city account; persist owner authorization privately and publish the minimum approved binding needed by clients. Review existing public permission/directory schemas for unavoidable identity links. Do not silently create a new public personal-to-city mapping merely for display, and do not promise anonymity: historical signed events and existing public ownership records remain inspectable.

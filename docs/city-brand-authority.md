@@ -8,6 +8,8 @@ interactive publication acceptance, future city signing and Hosted by replacemen
 
 ## Authority resolution
 
+Planned exception: [BW-108 MEP](migrate-existing-paid.md) adopts an already-created paid-city identity. Public host replacement does not require ownership transfer. An explicit transfer making owner and brand the same key requires a reviewed versioned exception across web and relay; the current distinct-key guards remain in force until implemented.
+
 The activation server must assemble fresh `CityBrandAuthority` evidence. The
 browser may supply a requested city and brand key, never authoritative owner,
 approval, eligibility or entitlement values. Read complete verified current city
@@ -103,7 +105,44 @@ payment database. Its owner and super-admin actions use signed, origin-bound
 commands, fresh verified evidence, bounded input and scoped projections. Private
 rows and proofs are never serialized into public page data.
 
-The public branded identity replaces the person's Hosted by card after BW-106.
+The BW-106 public display slice is implemented locally on 8 October 2026.
+`resolvePublicCityHost` reads bounded, complete retained kind-30312 history from
+each configured authoritative server read relay, verifies signatures and the
+full successor chain, and requires matching heads. It shares one presentation
+between dated event routes and city pages without an upcoming event. Aliases and
+city routes redirecting to event pages inherit the same resolver. No private
+ledger, owner proof, payout destination or browser-supplied binding is read.
+
+An active city binding replaces the person's Hosted by card, including the
+profile link and copyable npub. Only that key's signed public profile is loaded;
+the fallback is the city name and neutral avatar, never the personal profile.
+Profile NIP-05 retains the shared component's independent verification states.
+Branded Lightning fields/actions remain suppressed until separate verified
+provisioning is wired in under BW-19/BW-107: a profile's lud16 alone is not proof
+of the correct 79/21 route. Existing unbranded event host behavior is preserved.
+For an unbranded city without an upcoming event, the signed creator grant is used,
+not the author of its latest (possibly editor-authored) revision.
+
+Failures, truncated history, conflicting replicas and revoked bindings show
+identity unavailable, with no personal fallback or payment link. The public
+delegated-person panel is likewise omitted for branded/unverified identities;
+CMS delegation and signed history are unchanged. Historical event objects and
+nevents are never rewritten. No cross-request identity cache is introduced.
+Read scopes are one bounded city filter per configured authoritative relay.
+Staging deployment and real binding/profile visual acceptance remain pending;
+this implementation does not activate London's identity or transfer ownership.
+
+Local verification: 847 tests across 166 files pass with `--maxWorkers=4`,
+TypeScript and the production build pass, and backlog generation/diff checks
+pass. The unrestricted repeat hit the existing artwork test's five-second
+timeout (846 other tests passed); limiting test concurrency passed the complete
+suite without changing timeouts or artwork code. Full lint has zero errors and
+four existing image-element warnings in unrelated components; changed-file lint
+passes. New fixtures cover signed activation/replacement/revocation, malformed
+signatures, foreign cities, gaps/forks, replica disagreement, capped/failed
+reads, no-event cities, payment suppression and exact historical event/nevent
+preservation through the rendered walk page. No real binding was published.
+
 Personal dashboard login and payout data remain restricted to authorized views.
 Existing public creator/editor records, anchored owner chains, event authors and
 historical zap receipts can link identities; presentation privacy cannot remove

@@ -13,9 +13,11 @@ type Props={
  resolveProfile?:boolean;
  createdCities?:string[];
  editorCities?:string[];
+ showLightning?:boolean;
+ profileLink?:boolean;
 };
 
-export default function NostrUser({pubkey,profile:provided,variant="card",resolveProfile=true,createdCities=[],editorCities=[]}:Props){
+export default function NostrUser({pubkey,profile:provided,variant="card",resolveProfile=true,createdCities=[],editorCities=[],showLightning=true,profileLink=false}:Props){
  const [resolved,setResolved]=useState<{pubkey:string;profile:PublicProfile}>(),[failed,setFailed]=useState<string>();
  const [verified,setVerified]=useState<{key:string;value:boolean}>();
  const profile=resolved?.pubkey===pubkey?resolved.profile:provided;
@@ -35,8 +37,9 @@ export default function NostrUser({pubkey,profile:provided,variant="card",resolv
     <div className={styles.nameLine}><strong className={styles.name}><CopyValue label="username" value={profile?.name??"Unnamed Nostr user"}/></strong>{profile?.nip05?<span className={styles.nip05}><CopyValue label="NIP-05" value={profile.nip05}/><span className={styles[verification]}>{verification==="verified"?"✓ verified":verification==="checking"?"checking…":"not verified"}</span></span>:<span className={styles.nip05Missing}>NIP-05 not provided</span>}</div>
     <dl>
      <div><dt>npub</dt><dd><CopyValue label="npub" value={npub}/></dd></div>
-     <div><dt>LNURL</dt><dd><CopyValue label="LNURL" value={profile?.lnurl}/></dd></div>
+     {showLightning&&<div><dt>LNURL</dt><dd><CopyValue label="LNURL" value={profile?.lnurl}/></dd></div>}
     </dl>
+    {profileLink&&<a href={`nostr:${npub}`}>Open Nostr profile</a>}
    </div>
   </div>
   {!!createdCities.length&&<p className={styles.cities}><strong>Created:</strong> {createdCities.join(", ")}</p>}
