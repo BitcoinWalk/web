@@ -173,6 +173,27 @@ func TestBitcoinWalkPrivateRegtest(t *testing.T) {
 			}
 			return false
 		})
+		wait("sender routing graph fee update", func() bool {
+			pump()
+			graph := nodes[0].NetworkGraph()
+			for _, scid := range graph.ListChannels() {
+				ch := graph.Channel(scid)
+				if ch == nil {
+					continue
+				}
+				var direction *ldk.ChannelUpdateInfo
+				if ch.NodeOne == nodes[1].NodeId() && ch.NodeTwo == nodes[2].NodeId() {
+					direction = ch.OneToTwo
+				}
+				if ch.NodeTwo == nodes[1].NodeId() && ch.NodeOne == nodes[2].NodeId() {
+					direction = ch.TwoToOne
+				}
+				if direction != nil && direction.Enabled && direction.Fees.BaseMsat == fee && direction.Fees.ProportionalMillionths == 0 {
+					return true
+				}
+			}
+			return false
+		})
 	}
 	var lastInvoice *ldk.Bolt11Invoice
 	pay := func(cap uint64, success bool) string {

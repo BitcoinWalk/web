@@ -168,7 +168,7 @@ and its archive matched the published SHA256SUMS (not a claim of PGP verificatio
 RPC/P2P listeners were loopback-only, Bitcoin peer discovery/connections disabled,
 and the chain was explicitly checked as regtest before mining fixture coins.
 
-Three independently initialized runs passed (12.540 seconds total):
+Three independently initialized runs passed:
 
 - A 50,000-sat payment through a 101-sat route is rejected under a 100-sat cap.
 - Positive control: the same route succeeds with a **test-only** 101-sat cap,
@@ -181,7 +181,11 @@ Three independently initialized runs passed (12.540 seconds total):
 Initial fixture debugging found that ordinary private channels did not forward
 the control payment. Routing-enabled announced channels fixed the fixture; their
 announcements were confined to the local regtest peers. Negative-only runs were
-not counted as evidence. All temporary nodes stopped after testing.
+not counted as evidence. A subsequent repeat exposed stale sender routing-graph
+fees immediately after a fee update. The fixture now explicitly waits for the
+correct enabled B-to-C fee in the sender's graph as well as the recipient's
+channel information before testing either cap. All temporary nodes stopped
+after testing.
 
 Reproduce after `build-isolated.py` with
 `python3 integrations/alby-fee-cap/run-regtest.py /path/to/patched-hub-checkout --bitcoind /path/to/verified/bitcoind --go /path/to/go`.
