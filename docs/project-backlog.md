@@ -19,7 +19,10 @@ pilot that reuses the existing Madeira identity without profile publication,
 ownership transfer, invoice payment or a counterfeit paid entitlement. Owner and
 super-admin sign a private test-only challenge; disabled fixture provisioning uses
 the durable outbox with current signed approval/authority/payout checks. Deployment
-is complete in staging app 0.3.198; human signature/read-back acceptance is pending. Generic provisioning remains
+is complete in staging app 0.3.198. Both human signatures and retry/read-back passed;
+non-root app/isolated-provider restarts preserved identical proofs and a single
+configuration, with checkout still pending and zero fixture invoices. Final user
+post-restart reload remains pending. Generic provisioning remains
 disabled. BW-108's real MEP migration and BW-18/BW-19 activation remain separate.
 See [pilot instructions and boundaries](madeira-private-pilot.md).
 

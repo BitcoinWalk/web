@@ -90,3 +90,30 @@ Package smoke, public health, private-page login rendering and unsigned API
 rejection pass. Post-deploy preflight again reports invoice `pending` and zero
 paid entitlements. Both code commits are on ngit and GitHub. Human signatures,
 fixture Madeira apply/read-back and restart acceptance remain pending.
+
+## Madeira recovery checkpoint — 8 October 2026
+
+The user completed both private signatures, reported `verified`, then repeated
+Check/resume and reload with both proofs still confirmed and provisioning verified.
+The non-root recovery test restarted only `.240`'s
+`bitcoinwalk-rustress-fixture.service` and `.138`'s
+`bitcoinwalk-app-staging.service`. Both returned active; public health remained
+app `0.3.198`. No production service was restarted.
+
+Before/after SQLite record fingerprints and authenticated provider read-back agree:
+
+- One private challenge with both proofs; digest
+  `db5ab0fa847f4b196b558078e9ded83975d5f2b68d5ecfef704215da2133c8e5`.
+- One verified task, no active lease; digest
+  `50763c561a66a807b9d092f75c416a1e2d2315ccfac2fc67e5a0ad67734ed1af`.
+- One Madeira claim, configuration, user and split; combined digest
+  `e9e250d617cd5af02251d0e5305cea765d87ca0dff68a5ea6ac547435260e6d3`.
+- Provider version 1 remains applied, configuration hash
+  `c3e46575008c6d887a464a4a9166a579115a931d22033e65cc65c1d65747c933`,
+  issuance disabled. Fixture invoice count zero, wallet credentials absent.
+- Checkout invoice remains pending; real paid entitlement count zero.
+
+Server-side completed-state persistence and retry checks passed. Final user
+reload/Check after restart remains pending. This does not claim a live
+interrupted-write or payment-recovery test; uncertain-write behavior is covered
+by the separate workflow fixture tests. BW-100 remains in progress.
