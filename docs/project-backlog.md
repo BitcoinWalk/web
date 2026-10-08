@@ -43,9 +43,13 @@ BW-18 accounting slice, 8 October: implemented the isolated SQLite payout ledger
 with integer 79/21 allocation, deduplicated settlement, immutable destinations,
 small-amount carry-forward, atomic reservations, single-use send claims and
 conservative unknown-outcome recovery. Completed payments and fee warnings
-survive restart; no live wallet or runtime integration is enabled. Outgoing
-invoice validation/storage, trusted collectors, failure recovery, backup audit
-and bounded live acceptance remain. See [ledger scope](rustress-payout-ledger.md).
+survive restart. The next isolated slice adds validated outgoing BOLT11 storage
+and an injected payout worker: amount/network/expiry/metadata checks, fresh
+authorization before claiming, and independent preimage-verified settlement
+lookup. Concurrent workers and restart retries cannot resend a claimed attempt.
+No real wallet adapter or runtime integration is enabled. Trusted collectors,
+protected LNURL transport, failure recovery, backup audit and bounded live
+acceptance remain. See [ledger scope](rustress-payout-ledger.md).
 
 | ID | Stage | Item | Status | Depends on | Acceptance |
 |---|---:|---|---|---|---|

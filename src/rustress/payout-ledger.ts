@@ -23,6 +23,7 @@ export class PayoutLedger {
       CREATE TABLE IF NOT EXISTS bw_ledger_invoice(wallet TEXT NOT NULL,hash TEXT NOT NULL,snapshot TEXT NOT NULL,bucket TEXT NOT NULL,amount TEXT NOT NULL,settled INTEGER NOT NULL DEFAULT 0,PRIMARY KEY(wallet,hash));
       CREATE TABLE IF NOT EXISTS bw_ledger_credit(wallet TEXT NOT NULL,hash TEXT NOT NULL,organizer TEXT NOT NULL,retained TEXT NOT NULL,PRIMARY KEY(wallet,hash));
       CREATE TABLE IF NOT EXISTS bw_ledger_payout(id TEXT PRIMARY KEY,bucket TEXT NOT NULL,hash TEXT NOT NULL UNIQUE,amount TEXT NOT NULL,fee_cap TEXT NOT NULL,state TEXT NOT NULL CHECK(state IN ('prepared','unknown','paid','cancelled')),fee TEXT);
+      CREATE TABLE IF NOT EXISTS bw_ledger_payout_invoice(payout TEXT PRIMARY KEY,document TEXT NOT NULL);
       CREATE TABLE IF NOT EXISTS bw_ledger_allocation(payout TEXT NOT NULL,wallet TEXT NOT NULL,hash TEXT NOT NULL,amount TEXT NOT NULL,PRIMARY KEY(payout,wallet,hash));`);
   }
   private transaction<T>(fn:()=>T):T{
@@ -89,17 +90,18 @@ export class PayoutLedger {
     const amount=(available<maximum?available:maximum)/1000n*1000n;
     return amount>=BigInt(minMsat)&&amount>0n?String(amount):null;
   }
-  /** The future worker must validate/store the exact BOLT11 before calling this.
+  /** The worker validates the exact BOLT11 and supplies its document here.
    * A stale quote cannot overdraw credits; allocation and attempt are atomic. */
-  reserve(input:PayoutBucket,id:string,hash:string,amountMsat:string,feeCapMsat:string){
+  reserve(input:PayoutBucket,id:string,hash:string,amountMsat:string,feeCapMsat:string,invoiceDocument?:string){
     const bucket=this.bucket(input);z.uuid().parse(id);hex.parse(hash);positive.parse(amountMsat);money.parse(feeCapMsat);
     if(BigInt(amountMsat)%1000n!==0n)throw new Error("Payout must use whole satoshis");
     this.transaction(()=>{
       const existing=this.attempt(id);
-      if(existing){if(existing.bucket!==bucket||existing.hash!==hash||existing.amount!==amountMsat||existing.fee_cap!==feeCapMsat||existing.state==="cancelled")throw new Error("Payout attempt conflict");return;}
+      if(existing){if(existing.bucket!==bucket||existing.hash!==hash||existing.amount!==amountMsat||existing.fee_cap!==feeCapMsat||existing.state==="cancelled"||this.invoiceDocument(id)!==invoiceDocument)throw new Error("Payout attempt conflict");return;}
       const credits=this.credits(bucket);let remaining=BigInt(amountMsat);
       if(credits.reduce((s,c)=>s+c.available,0n)<remaining)throw new Error("Insufficient unreserved obligation");
       this.db.prepare("INSERT INTO bw_ledger_payout VALUES(?,?,?,?,?,'prepared',NULL)").run(id,bucket,hash,amountMsat,feeCapMsat);
+      if(invoiceDocument!==undefined)this.db.prepare("INSERT INTO bw_ledger_payout_invoice VALUES(?,?)").run(id,invoiceDocument);
       for(const credit of credits){
         const take=credit.available<remaining?credit.available:remaining;
         if(take>0n)this.db.prepare("INSERT INTO bw_ledger_allocation VALUES(?,?,?,?)").run(id,credit.wallet,credit.hash,String(take));
@@ -108,6 +110,9 @@ export class PayoutLedger {
     });
   }
   private attempt(id:string){return this.db.prepare("SELECT * FROM bw_ledger_payout WHERE id=?").get(id) as Attempt|undefined;}
+  private invoiceDocument(id:string){return this.db.prepare("SELECT document FROM bw_ledger_payout_invoice WHERE payout=?").get(id)?.document as string|undefined;}
+  /** Private worker input; do not expose destinations or invoices through public status. */
+  workerInput(id:string){const row=this.attempt(id);return row?{...row,bucket:JSON.parse(row.bucket) as PayoutBucket,document:this.invoiceDocument(id)}:null;}
   /** Commit UNKNOWN before sending. A crashed worker is recovered by lookup only. */
   claimSend(id:string){
     return this.db.prepare("UPDATE bw_ledger_payout SET state='unknown' WHERE id=? AND state='prepared'").run(id).changes===1;
