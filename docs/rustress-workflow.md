@@ -1,7 +1,7 @@
 # BW-100 — durable app provisioning workflow
 
-8 October 2026. Implemented in app source; not deployed/enabled in staging or
-production. This integration can only prepare disabled configuration. It cannot
+8 October 2026. Deployed in staging app 0.3.197; not enabled for any pilot city
+and not deployed to production. This integration can only prepare disabled configuration. It cannot
 activate public NIP-05/LNURL endpoints, create invoices, or move money.
 
 ## Entry and recovery
@@ -15,9 +15,9 @@ Neither paying for Pro nor private super-admin attestation alone is sufficient.
 The feature requires `BITCOINWALK_RUSTRESS_FIXTURE_ENABLED=1`, an explicit bounded
 `BITCOINWALK_RUSTRESS_FIXTURE_CITIES` UUID allow-list (maximum ten), a mode-0600
 `BITCOINWALK_RUSTRESS_TOKEN_FILE`, loopback-only `BITCOINWALK_RUSTRESS_ORIGIN` and
-the exact artifact SHA-256 in `BITCOINWALK_RUSTRESS_REVISION`. No values have been
-installed in the app VPS environment. A durable restricted app-to-service SSH
-tunnel is still required before staging activation. No new public API is added.
+the exact artifact SHA-256 in `BITCOINWALK_RUSTRESS_REVISION`. The app pilot flag
+and city allow-list remain unset. The dedicated private token file and persistent
+restricted SSH transport are installed; no new public API is added.
 
 The internal resolver obtains current signed approval/creator authorization,
 anchored ownership, settled entitlement and moderation state. It requires the
@@ -77,10 +77,41 @@ deleted afterwards. No real city, payout identity or wallet was used.
 
 ## Remaining gates
 
-Deploy the app code and establish a least-privilege persistent app-to-VPS tunnel
-before enabling an explicitly agreed staging pilot. Full real-city integration
+Select a paid staging city and complete its owner/city-signer setup before
+enabling an explicitly agreed pilot. Full real-city integration
 acceptance, queue status/recovery UI, reviewed update/cancellation semantics,
 unknown-but-confirmed-absent recovery, security review, backup acceptance and
 BW-18/BW-19 live provisioning remain. Verified fixture state must never be
 presented as an active Lightning address. BW-109 standalone no-split addresses
 remain a separate resource contract; London/endo/donate are unchanged.
+
+## Staging deployment and transport evidence
+
+App `0.3.197` (source `acc2111`) passed Node-24 build/package smoke and was
+deployed as non-root bitcoinwalk. Archive SHA-256:
+`0bada485f0788fbd4b243669abef7ab318150718e0ef119a14958523c9896c06`.
+Backup/evidence: `/home/bitcoinwalk/backups/app-staging-deploy.NcaK5k`.
+Active release: `/opt/bitcoinwalk-app-staging/releases/0.3.197-0bada485f078`.
+Public/loopback health returns this version; `/admin/upgrade` returns 200.
+Previous release 0.3.196 is retained. No production deployment occurred.
+
+On `.138`, user service `bitcoinwalk-rustress-tunnel.service` binds only
+127.0.0.1:18890, forwarding to `.240` 127.0.0.1:8890. Its dedicated SSH key was
+generated on `.138`; the private key never left that host. `.240` trusts only
+that key from source 213.232.235.138, with restricted forwarding destinations
+and reverse listeners confined to 127.0.0.1:8890, forced `/bin/false`, and no
+PTY/agent/X11/user-rc. Host identity is pinned. Existing SSH keys were preserved
+with a private backup before appending this restricted key. No root or sudo was
+used. The dedicated fixture API token was transferred privately to
+`/home/bitcoinwalk/.config/bitcoinwalk-rustress-tunnel/api-token` on `.138`.
+
+`verify-staging-tunnel.py` passed authenticated pinned-capability read-back,
+unauthenticated denial, rejected shell execution, rejected live port-8889
+forwarding and rejected unrelated reverse-port forwarding. Both user services
+are active. App provisioning remains disabled; the tunnel alone grants no
+payment capability and activates no city.
+
+Read-only paid staging inventory: London (approved), Radom (archived), Cherokee
+County (signed submission found, no approval found). No Pro setup tasks or
+city-brand requests exist yet. The user must select a pilot; London remains MEP.
+No city was restored, approved or signed during this deployment.

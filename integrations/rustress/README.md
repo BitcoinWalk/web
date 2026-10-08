@@ -119,7 +119,8 @@ port 8889 are unchanged; its unauthenticated admin still returns HTTP 401.
 ## Remaining gates
 
 Any app-to-VPS access must use a reviewed private tunnel limited to this listener;
-no persistent app tunnel is installed yet. A temporary local SSH tunnel passed
+the persistent restricted staging transport is now installed and verified (see
+the workflow evidence below), while app provisioning remains disabled. A temporary local SSH tunnel passed
 the [durable app workflow acceptance](../../docs/rustress-workflow.md) and was
 closed; the local fixture token copy was removed. Never expose the fixture API publicly or supply
 wallet credentials to it.
