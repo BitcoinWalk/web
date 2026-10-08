@@ -343,6 +343,48 @@ and invalidated the old fence; new-fence retry remained recorded; database mode
 0600; loose token permissions rejected. No VPS, tunnel or wallet was accessed.
 Independent backup/restore and restricted transport still require staging review.
 
+### Isolated VPS deployment and off-host restore — 8 October 2026
+
+The user authorized the next isolated staging step. Installed as `bitcoinwalk`
+(UID 1004, no sudo/root) on the Rustress VPS `.240`, separately from Rustress:
+
+- Release/state root: `/home/bitcoinwalk/journal-staging-0.1.0`.
+- User unit: `bitcoinwalk-journal-staging.service`, active but **not enabled at boot**.
+- Listener: **127.0.0.1:8891 only**; no public proxy, DNS or firewall change.
+- Private Node v24.19.0 Linux x64 runtime, archive verified against its official
+  nodejs.org SHA-256 manifest. The host previously had no Node on PATH.
+- Package SHA-256: `92c37b9eae90f5d1453dcadabad3aa8ee352f6fc043a03b4ae6584497e719249`.
+- Dedicated fixture binding derived from `bitcoinwalk-isolated-journal-staging-no-wallet-v1`,
+  new private client/operator tokens, directory 0700 and files 0600. No wallet
+  binding, NWC connection or Rustress credential was read or reused.
+
+`scripts/install-staging-journal.py` is a one-time, fixed-account installer that
+refuses existing installation/unit paths. `scripts/rehearse-staging-journal.mjs`
+only accepts the synthetic binding and uses fixed fixture directories. The backup
+mode requires a new empty journal. Do not reuse these scripts for live state.
+
+Actual VPS checks passed: authentication denial, first durable claim, recorded
+retry, stopped-service outage, restart with unchanged service identity/record
+and a paused new fence. A fully stopped SQLite backup was copied off-host to the
+local private ignored release-build directory, then returned into a **separate**
+restore directory. All three copies matched SHA-256
+`5c48f32203e36290e1f70fbb7d5e807da0670652faffbe1fbbd0d8f911314f7c`.
+The isolated restored process on 127.0.0.1:8892 retained the identity and record,
+rejected the stale fence, and returned `recorded` after fixture-only activation:
+no renewed send permission. It was paused and stopped after verification.
+
+Final state: original service running **paused**, one synthetic claim retained,
+restore process stopped, 8892 not listening, unauthenticated status HTTP 403.
+Existing fixture service on 8890 remains present. No live payment or app rollout.
+The generated backup contains only synthetic journal data and no credentials.
+
+This proves a manual off-host fixture restore, **not** automated production backup
+retention, encryption, monitoring, provider failure-domain guarantees or safe live
+activation. Still required: separately restricted persistent private transport,
+app-side deployment verification, independent managed backups, authenticated
+complete wallet-history evidence and authorized wallet budgets/fee limits. No
+sender is wired to this service; do not activate the fixture as a live journal.
+
 ## Deliberate boundaries / next slice
 
 The ledger is an internal accounting primitive, not proof that a payment happened.

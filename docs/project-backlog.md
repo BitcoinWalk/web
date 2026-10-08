@@ -124,8 +124,15 @@ non-root journal package is now built and locally smoke-tested: private files,
 exclusive process lock, authentication, durable idempotent claims and paused
 restart all pass. All 1,070 tests remain passing. A user-service template is
 included but intentionally unconfigured; no installer or activation is supplied.
-Next: review isolated staging storage, restricted transport and independent
-backup/restore rehearsal. BW-18 remains In progress, with live payments disabled.
+Isolated VPS deployment and manual off-host backup/restore rehearsal now pass:
+non-root `.240` service at 127.0.0.1:8891, private fixture-only state, fresh
+credentials and private checksum-verified Node runtime. Durable retry, outage,
+paused restart and separate-directory restore retained identity/records and
+rejected old fences. Final service is paused, not enabled at boot; the temporary
+restore process is stopped. No wallet, Rustress configuration or app deployment
+changed. Next: restricted private transport, app-side staging integration and
+managed backup/history readiness. BW-18 remains In progress, with live payments
+disabled. See [deployment evidence](rustress-payout-ledger.md).
 
 | ID | Stage | Item | Status | Depends on | Acceptance |
 |---|---:|---|---|---|---|
