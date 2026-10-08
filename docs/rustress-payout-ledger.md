@@ -504,6 +504,44 @@ No VPS deployment or Hub permissions changed in this slice. Next: reviewed
 default-off runtime composition and real provider/history readiness evidence;
 budget/fee approval and bounded live acceptance remain separate gates.
 
+### Default-off runtime composition and readiness review — 8 October 2026
+
+`PayoutRuntime` now composes the reader, wallet, journal client, authenticated
+history collector, recovery gate, payout flow and settlement collector. Nothing
+starts on import; there is no timer, environment activation, public endpoint or
+automatic journal activation. Disabled startup does not even load credentials.
+The runtime receives explicit private providers and an existing ledger rather
+than silently discovering wallet settings.
+
+Startup requires exact wallet/journal-bound deployment evidence, current wallet
+readiness, then complete authenticated history and successful journal recovery.
+Deployment evidence expires within the runtime's 60-second freshness window.
+Operations serialize, pause invalidates pending startup and wallet permission,
+and the adapter rechecks its enable callback before publishing. A payment already
+published cannot be recalled by pause: stop/drain and reconciliation remain
+mandatory. Ten composition tests cover default-off credential isolation, verified
+settlement collection, missing/wrong/expired deployment evidence, journal refusal,
+expiry, concurrent startup, pause and disable during asynchronous checks.
+
+Read-only staging recheck: dedicated tunnel active (not enabled at boot); pinned
+synthetic journal reachable, paused, refusing claims and client-side operator
+commands. No wallet was queried and no application/Hub deployment changed.
+
+Readiness is **not granted**. Outstanding evidence and authority:
+
+| Gate | Current evidence | Still required |
+|---|---|---|
+| Private journal transport | Cross-host fixture checks and fresh paused read-back pass | Live-bound deployment provider; synthetic journal must not become a live journal |
+| Backup/recovery | Manual off-host synthetic restore passed | Managed encrypted retention, monitoring and restore evidence for live state |
+| Wallet grants and fees | Earlier pinned Hub source audit; synthetic adapter tests | Fresh authenticated connection inventory and provider proving actual enforced fees/budget; not a callback returning guessed values |
+| Complete history | Bounded collector and refusal tests | Independent retained-history/exclusive-sender proof provider |
+| Spending authorization | BitcoinWalk bears routing fees; arbitrary supported amounts remain valid | Explicit total pilot budget, maximum single payout and per-payout fee limit; no numeric values inferred from fixtures |
+
+Asked the user for pilot limits without requesting activation. No real credentials
+were loaded. All **1,108 tests across 191 files**, types, changed-file lint and
+backlog validation pass. BW-18 remains In progress. The next work is supplying
+reviewable evidence providers and the managed backup plan, not flipping a flag.
+
 ## Deliberate boundaries / next slice
 
 The ledger is an internal accounting primitive, not proof that a payment happened.
@@ -533,7 +571,7 @@ restart while outcome is unknown, restart after payment, preimage validation,
 fee conflicts and conservation of every allocated millisatoshi. They use only
 synthetic records and temporary local databases, not real invoices or funds.
 
-Verification: 1,098 tests across 190 files pass on Node 24, including 15 ledger
+Verification: 1,108 tests across 191 files pass on Node 24, including 15 ledger
 tests and 24 outgoing-invoice/worker tests. This slice adds 35 fixture tests for
 recipient retrieval, pinned HTTPS transport and outgoing wallet lookup validation.
 The authenticated reader adds 16 fixture tests for signatures, correlation,

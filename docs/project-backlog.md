@@ -148,9 +148,14 @@ wallet-enforced fee ceilings; checkout stays read-only. No automatic resend afte
 uncertainty. The collector deduplicates hints and scans saved pending invoices
 with authenticated lookup, bounded pages and concurrent-scan protection. No
 notification listener or automatic scheduler is installed. All 1,098 tests across
-190 files pass. Next: reviewed default-off runtime composition, actual fee/budget
-permit and retained-history providers, managed backup readiness, then explicitly
-authorized bounded live acceptance. BW-18 remains In progress; spending disabled.
+190 files pass at that checkpoint. Default-off runtime composition now connects
+all components, serializes operations and rejects missing/expired readiness before
+activation; disabled startup does not load credentials. Ten more tests pass
+(1,108 total across 191 files). Read-only staging check confirms the private
+journal remains paused. Live gates remain: actual wallet fee/budget and retained-
+history evidence providers, managed encrypted backups, and explicit numeric pilot
+limits (requested from the user, not inferred). No wallet queried or permissions
+changed. BW-18 remains In progress; spending disabled.
 See [deployment evidence](rustress-payout-ledger.md).
 
 | ID | Stage | Item | Status | Depends on | Acceptance |
