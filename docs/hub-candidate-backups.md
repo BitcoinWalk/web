@@ -27,15 +27,21 @@ spool files older than two days are deleted locally. A failed operation restarts
 the previously running container through its exit trap and does not claim
 success.
 
-The sender service and six-hour timer are installed on `.240`, but the timer is
-**disabled** and the service fails closed because
-`recipient-public.asc` is deliberately absent. A private decryption key must
-never be installed on either VPS. The key custodian must create or select an
-offline-held OpenPGP encryption key and provide only its armored public key.
-After the public key is reviewed and installed, enable the sender timer and run
-one first real encrypted backup. Record the public-key fingerprint and store an
-offline copy of the private key and its passphrase in separately controlled
-locations.
+The user created a dedicated RSA-4096 OpenPGP encryption key, expiring 7 October
+2029, and supplied only its armored public half. The pinned fingerprint is
+`A206 D095 A588 5B49 0A35 9B81 95B9 5ADD 2B41 B188`. The installed file was
+verified to contain exactly one public key and zero secret keys. A private
+decryption key must never be installed on either VPS.
+
+The first retained archive,
+`hub-feecap-20261008T232930Z-6bb8520025d7.tar.zst.gpg`, was accepted on `.138`
+at 5,935 bytes with receiver-generated SHA-256
+`1b3e8d7bcefbf4e7962d5c99a946d20ff102b5b59c686af9d02e868ee7eab386`.
+Independent checksum verification passed, its mode is 0600 and the candidate
+restarted on the exact reviewed image with HTTP 200. The six-hour `.240` sender
+timer is now enabled and active; receiver retention remains enabled and active.
+The key custodian must still store offline copies of the private key and its
+passphrase in separately controlled locations.
 
 ## Acceptance performed
 
@@ -47,8 +53,9 @@ locations.
   0600. The candidate restarted healthy.
 - The synthetic archive, local spool copy, test success marker, public recipient
   and disposable private key were removed afterwards.
-- The production sender remains disabled, with no recipient key, Hub recovery
-  file, wallet credentials, setup, unlock or funds.
+- The real public recipient, first encrypted archive and scheduled sender are
+  now active. There is still no Hub recovery file, wallet credential, setup,
+  unlock or funds.
 
 ## Restore boundary
 
@@ -60,7 +67,8 @@ restore into a new isolated candidate root, then reconcile against the complete
 independent wallet/journal history before enabling any sender. An older snapshot
 must never be treated as proof that an uncertain payment did not occur.
 
-This establishes an encrypted off-host staging path and receiver retention. It
-does not yet close production backup readiness: the offline public recipient,
-first retained real archive, independent decrypt/restore rehearsal, external
-timer-failure alerting and live wallet/history reconciliation remain required.
+This establishes an encrypted off-host staging path, retained archive and
+scheduled receiver retention. It does not yet close production backup readiness:
+confirmed independent private-key/passphrase custody, an independent human-run
+decrypt/restore rehearsal, external timer-failure alerting and live wallet/
+history reconciliation remain required.

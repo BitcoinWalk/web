@@ -542,14 +542,16 @@ HTTP 401. This completes the isolated no-spend HTTP runtime checkpoint only.
 Connection-bound wallet/history evidence, managed encrypted retention and any
 funded payout remain separate, explicitly authorized gates.
 
-The next backup checkpoint is partially installed. A non-root sender on `.240`
+The backup checkpoint is now scheduled. A non-root sender on `.240`
 now stops the candidate for a consistent snapshot, encrypts before transport and
 uploads through a dedicated shell-denied key to an append-only receiver on
-`.138`. Receiver-side retention is active; the production sender timer remains
-disabled and fails closed until the user supplies only an offline-held OpenPGP
-public key. A disposable-key end-to-end rehearsal passed and all synthetic key,
-archive and success artifacts were removed. No wallet setup or recovery file was
-created. See the [backup and key-custody runbook](hub-candidate-backups.md).
+`.138`. Receiver-side retention is active. The user supplied only public key
+`A206…B188`; it contains no secret key. The first retained ciphertext passed the
+receiver checksum and the six-hour sender timer is enabled. A disposable-key
+rehearsal also passed and all synthetic artifacts were removed. No wallet setup
+or recovery file was created. Independent private-key custody, human-controlled
+restore rehearsal and external failure alerting remain open. See the
+[backup and key-custody runbook](hub-candidate-backups.md).
 
 Reviewed official tag v1.24.0, commit
 `d8ef0e70e0d265a8424276daee0a595ac31993c0`:
