@@ -97,6 +97,12 @@ spending credentials until durable accounting and isolated acceptance pass.
 
 ## Next steps
 
+Expanded requirement: BW-19 must invoke this automatically after prerequisites,
+not require manual per-city Rustress administration. BW-109 adds a separate
+super-admin unsplit-address contract; the existing city client intentionally
+rejects anything other than 79/21 and must not be repurposed to create those
+addresses. See [standalone address plan](admin-lightning-addresses.md).
+
 Verification for this slice: 13 new adapter tests pass; complete suite is 860
 tests across 167 files on Node 24.19.0. TypeScript, changed-file lint, public
 backlog generation and diff checks pass. These are client/contract fixture tests,

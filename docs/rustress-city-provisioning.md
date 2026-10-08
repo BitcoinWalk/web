@@ -4,6 +4,25 @@ Implementation plan agreed in scope on 7 October 2026. Planning only: no wallet 
 
 ## Product behavior
 
+8 October requirement: once the existing payment, city-approval, identity and
+owner-payout authorization gates pass, all Rustress configuration must be
+automatic. No per-city Rustress dashboard edits, pasted NWC strings, manual
+mapping creation or manual Prism setup. A durable reconciler prepares/applies,
+independently verifies and activates each capability, retries safely after
+outages/restarts and notifies the organizer. This does not auto-approve cities,
+forge profile signatures or remove owner consent. The separately authorized
+city profile signature remains necessary to publish NIP-05/lud16 on Nostr.
+
+Super-admin also needs standalone **LNURL addresses without splits**, initially
+`endo@bitcoinwalk.org` and `donate@bitcoinwalk.org`. Track this separately under
+BW-109. These are not city upgrades and do not require an organizer payout,
+Pro entitlement or dedicated city identity. The user confirmed
+`bitcoinwalk@getalby.com` as the receiving destination for both. Verify its
+underlying wallet before creation; prefer direct invoice issuance without an
+extra forwarding hop. No city 79/21 split applies.
+Do not implicitly provision NIP-05 or claim NIP-57 support without a separately
+confirmed public key and supported receipt configuration.
+
 Public walk payment actions are tier-aware (BW-107). Pro keeps **Zap the host**, targeting the verified city Lightning address with the 79/21 split. Basic shows its organizer but offers **Support BitcoinWalk** instead of a host payment: all donated principal goes to the configured BitcoinWalk organization destination, with no organizer split. Confirm that destination before activation. The Basic card must not offer a competing personal Lightning payment shortcut. Donations do not purchase Pro; BW-99 remains a separate gift-upgrade action. Unknown tiers cannot select a recipient; Pro setup pending must not silently redirect a payment to BitcoinWalk. Verify tier and destination at invoice creation and clearly show the recipient.
 
 When an organizer selects Pro in registration Step 3, require **Your Lightning address or LNURL** before checkout. Accept a Lightning address such as `organizer@example.com` or a valid LNURL-pay `lnurl1…` value. Explain: “79% of payments to your city’s BitcoinWalk Lightning address goes to this destination. BitcoinWalk retains 21%.” Validate and confirm the destination before showing the existing 21,000-sat invoice. Basic registration has no required payout field.
@@ -61,6 +80,14 @@ Reviewed [Rustress source](https://github.com/frnandu/rustress/tree/c72fdeccd800
 
 ## Stage 1 — Rustress integration and wallet boundary (BW-100)
 
+The adapter must support distinct, explicitly discriminated resource types:
+paid-city provisioning (fixed 79/21) and super-admin standalone Lightning
+addresses (no Prism, 100% retained in the selected receiving wallet). The first
+implemented city client remains fixed at 79/21; do not overload it with a
+zero-percent recipient to simulate an unsplit address. Neither mode is active
+yet. Wallet credentials are configured once on the service; requests carry
+approved wallet references, never per-address connection strings.
+
 8 October checkpoint: the isolated app-side client and versioned disabled-only
 provisioning contract are implemented with fixture tests. The companion Rustress
 API is not yet implemented or deployed; the installed `.240:8889` instance still
@@ -95,6 +122,16 @@ The setup task is keyed by city and entitlement, records completion against a de
 Only the verified city owner can request payout changes by default; city-content editors cannot redirect revenue. Require a signed request, destination preview and explicit confirmation; retain an audit trail and notify the owner. Super-admin recovery is a distinct reviewed action, not an ordinary editor capability. Existing invoices retain their destination and split version; changes apply to newly issued invoices.
 
 ## Stage 3 — verified NIP-05 and Lightning activation (BW-19)
+
+Trigger automatically from durable entitlement, approved city, active branded
+identity and owner-confirmed destination records—not from an open browser or a
+manual provisioning button. Debounce/deduplicate concurrent triggers and compare
+the full authority/configuration version before each write and activation.
+Persist desired/applied/verified versions separately. Missing prerequisites show
+Setup required; a provider outage shows Provisioning/Needs attention, preserves
+entitlement and queues retry without another invoice. Configuration drift or an
+unknown write outcome requires reconciliation, never blind replacement. Alerts
+and a privileged retry action are recovery tools, not routine setup steps.
 
 Read the verified paid entitlement, signed approval, canonical slug, city identity and signed payout configuration. Reserve only the canonical city local part; alternative city names do not create extra financial identities. Reject name conflicts rather than replacing an existing Rustress user.
 

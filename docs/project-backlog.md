@@ -9,6 +9,15 @@ Tracking rule: keep this file current whenever an item changes status, scope, de
 
 ### Migrate existing paid (MEP) — 8 October 2026
 
+Rustress scope update: BW-19/BW-100 must automate provisioning and verification
+after existing authorization/payment prerequisites, with durable background
+reconciliation and no per-city Rustress dashboard work. Owner/signing consent
+is preserved; city auto-approval remains separate deferred scope.
+
+| ID | Stage | Item | Status | Depends on | Acceptance |
+|---|---:|---|---|---|---|
+| BW-109 | 9, 10 | Super-admin standalone Lightning addresses without splits | ⚪ Planned | BW-100 | Create/manage addresses from CMS with explicit receiving-wallet selection and signed super-admin-only commands; automatically provision and verify LNURL-pay with no Prism or 79/21 split; prefer direct receipt without an extra forwarding hop. Initial requested addresses: endo@bitcoinwalk.org and donate@bitcoinwalk.org; user confirmed bitcoinwalk@getalby.com as recipient for both; underlying wallet mapping still needs verification. Separate resource type from Pro cities, global address collision protection, no silent adoption, durable retries/read-back, disable/recovery and preserved old invoices. No NIP-05 or NIP-57 recipient invented. No live changes yet. See [plan](admin-lightning-addresses.md). |
+
 BW-106 implementation update, 8 October: the shared public host resolver and presentation are deployed to staging in app `0.3.196` for city/event routes, including cities with no upcoming walk. Complete admin-signed retained chains must agree across authoritative read relays. Active branding uses only the city profile/key; read failure, revocation or conflict never falls back to a personal identity. Branded payment actions remain gated on verified provisioning. Original signed event/nevent and CMS permissions are unchanged. Automated resolver, server-rendering and route-integration tests cover the slice; Node-24 build/package smoke, 847 tests, service health and London's unchanged-host/copy feedback checks pass; real branded binding/profile acceptance remains pending. BW-106 stays **In progress**, with recovery UI and future city-signed publishing still outstanding. See [authority and delivery details](city-brand-authority.md).
 
 | ID | Stage | Item | Status | Depends on | Acceptance |
