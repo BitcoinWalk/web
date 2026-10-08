@@ -61,6 +61,11 @@ Reviewed [Rustress source](https://github.com/frnandu/rustress/tree/c72fdeccd800
 
 ## Stage 1 — Rustress integration and wallet boundary (BW-100)
 
+8 October checkpoint: the isolated app-side client and versioned disabled-only
+provisioning contract are implemented with fixture tests. The companion Rustress
+API is not yet implemented or deployed; the installed `.240:8889` instance still
+needs non-root inventory access. See [adapter scope and remaining work](rustress-adapter.md).
+
 Inventory the existing Rustress instance, version, domains and NWC capabilities without printing credentials. Prepare a pinned deployment or maintained patch set for the integration and payout requirements below. Use the existing non-root VPS deployment account and a service identity with protected persistent storage. Keep Rustress administration private and route only required public NIP-05/LNURL endpoints through the apex reverse proxy; BitcoinWalk’s `/admin` continues to serve the CMS.
 
 Create a separate Rustress NWC connection, with a limited budget and preferably a dedicated wallet/sub-wallet funded for incoming payments and routing fees. Confirm supported permissions and notification behavior before enabling spending. Keep credentials server-side in protected storage, exclude them from API responses/logs and encrypt backups containing Rustress’s credential-bearing database. Define revocation, rotation and recovery. A paused or budget-exhausted wallet leaves an outstanding obligation visible.
