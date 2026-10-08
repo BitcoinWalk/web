@@ -25,7 +25,8 @@ Do not accept this evidence from browser JSON or a wallet's self-description.
   that same connection. Inventory/advertising alone does not establish these.
 - Explicit approved network, maximum pilot budget, maximum test payment and
   routing fee, expiry and evidence that the selected send path enforces the fee
-  cap. There is no assumed user budget or fee-policy approval.
+  cap. BitcoinWalk-paid routing fees were approved on 8 October; there is no
+  assumed user budget, numeric fee-cap approval or live-payment authorization.
 - Prefer a separate-balance wallet. Shared node balance requires explicit review.
   An isolated balance is not a substitute for a spending cap, and shared apps'
   reported zero app balance must not be mistaken for an empty node wallet.
@@ -120,3 +121,9 @@ lookup proof and unknown-send recovery before enabling public endpoints.
 
 The Alby Hub skill guided the read-only UI review and separation of permissions,
 budgets and isolated balances. No live NWC request or payment was made.
+
+User clarification: 100 sats is an example, not a restriction on incoming zaps.
+Every supported incoming amount follows the 79/21 allocation. BitcoinWalk has
+approved covering routing fees from its share/wallet, preserving the organizer's
+79%. Numeric spending budgets, fee ceilings and test authorization remain separate;
+the proposed 100-sat pilot budget above has not been approved.

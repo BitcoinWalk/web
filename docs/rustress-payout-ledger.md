@@ -37,8 +37,9 @@ never run this alongside legacy forwarding for the same incoming payment.
   Successful retries remain paid. Conflicting fee evidence requires review.
 - Fees are separate from the organizer's full share. A confirmed excessive fee
   is recorded as paid with a durable warning, never retried as another payout.
-  The proposed policy of BitcoinWalk covering routing fees still needs explicit
-  user approval before activation; this implementation does not approve spending.
+  User approved BitcoinWalk covering routing fees on 8 October 2026. Organizer
+  allocation remains 79%; BitcoinWalk nets 21% minus fees. This approval does
+  not authorize unlimited spending, a wallet budget or a live payment test.
 
 ## Outgoing invoice and worker slice
 
