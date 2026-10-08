@@ -89,6 +89,18 @@ history remain required; no live payment or deployment was performed.
 Verification: 1,028 tests across 184 files; TypeScript, changed-file lint and
 backlog checks pass.
 
+Recovery composition milestone: authenticated outgoing history explicitly includes
+unpaid records, validates page totals and compares two bounded full scans. The
+collector requires separate fresh retention/exclusive-connection/fencing evidence;
+it never infers coverage from an empty page. A composed recovery controller checks
+the actual SQLite paths for non-root ownership, private permissions, non-symlinked
+disjoint locations and separate filesystem devices before allowing reconciliation.
+No disks, permissions, Hub settings or live connections were changed. Deployment
+still requires independently audited journal storage and a real coverage/fencing
+provider; these code checks alone do not authorize live sending.
+Verification: 1,055 tests across 187 files; TypeScript, changed-file lint and
+backlog checks pass. BW-18 remains In progress.
+
 | ID | Stage | Item | Status | Depends on | Acceptance |
 |---|---:|---|---|---|---|
 | BW-109 | 9, 10 | Super-admin standalone Lightning addresses without splits | ⚪ Planned | BW-100 | Create/manage addresses from CMS with explicit receiving-wallet selection and signed super-admin-only commands; automatically provision and verify LNURL-pay with no Prism or 79/21 split; prefer direct receipt without an extra forwarding hop. Initial requested addresses: endo@bitcoinwalk.org and donate@bitcoinwalk.org; user confirmed bitcoinwalk@getalby.com as recipient for both; underlying wallet mapping still needs verification. Separate resource type from Pro cities, global address collision protection, no silent adoption, durable retries/read-back, disable/recovery and preserved old invoices. No NIP-05 or NIP-57 recipient invented. No live changes yet. See [plan](admin-lightning-addresses.md). |

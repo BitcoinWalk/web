@@ -53,6 +53,13 @@ describe("isolated authenticated read-only NWC integration",()=>{
   expect(()=>r.listTransactions(-1)).toThrow();expect(()=>r.listTransactions(0,101)).toThrow();
   expect("send" in r).toBe(false);expect("makeInvoice" in r).toBe(false);
  });
+ it("requests unpaid outgoing transactions explicitly for recovery",async()=>{
+  mock.publish.mockImplementation(async(event:Event)=>{const body=JSON.parse(nip44.decrypt(event.content,key));
+   expect(body).toEqual({method:"list_transactions",params:{offset:50,limit:50,type:"outgoing",unpaid:true}});
+   mock.reply?.(reply(event,{transactions:[],total_count:0},body.method));return "ok";});
+  const r=reader();expect(await r.listRecoveryTransactions(50,50)).toEqual({transactions:[],total_count:0});
+  expect(()=>r.listRecoveryTransactions(0,51)).toThrow();
+ });
  it("does not reuse checkout credentials, even with a different label",()=>{
   expect(()=>new RustressNwcReader("different",uri(client),uri(client))).toThrow("Separate");
   const r=reader();expect(r.binding).toHaveLength(64);expect(JSON.stringify(r)).not.toContain(Buffer.from(client).toString("hex"));

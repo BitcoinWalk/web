@@ -20,13 +20,18 @@ function fixture(){
  const history=vi.fn(async()=>({binding,complete:true,outgoingHashes:[] as string[]}));
  const paid={state:"paid" as const,walletRef:"fixture",paymentHash:hash,amountMsat:"79000",feeMsat:"1000",preimage};
  const lookup=vi.fn<PayoutWallet["lookup"]>(async()=>paid);
- const guard=()=>new PayoutRecovery(journal,ledger,"fixture",binding,history,lookup);
+ // Independent filesystem topology is simulated here, never approved for live use.
+ const guard=()=>new PayoutRecovery(journal,ledger,"fixture",binding,history,lookup,()=>true);
  const reserve=()=>ledger.reserve(bucket,id,hash,"79000","10000","private fixture invoice");
  const snapshot=()=>{db.close();copyFileSync(path,backup);db=open(path);ledger=new PayoutLedger(db);};
  const restore=()=>{db.close();copyFileSync(backup,path);db=open(path);ledger=new PayoutLedger(db);};
  return {get ledger(){return ledger;},get db(){return db;},journal,bucket,id,guard,reserve,snapshot,restore,history,lookup,paid};
 }
 describe("older-backup payout quarantine and independent journal",()=>{
+ it("requires a separate trusted storage preflight",async()=>{
+  const f=fixture(),g=new PayoutRecovery(f.journal,f.ledger,"fixture",binding,f.history,f.lookup);
+  expect(await g.reconcile()).toEqual({state:"blocked"});expect(f.history).not.toHaveBeenCalled();
+ });
  it("starts paused and permits only a fully reconciled empty exclusive wallet",async()=>{
   const f=fixture(),g=f.guard();expect(g.ready).toBe(false);expect(g.claim(f.id)).toBe(false);
   expect(await g.reconcile()).toEqual({state:"reconciled"});expect(g.ready).toBe(true);

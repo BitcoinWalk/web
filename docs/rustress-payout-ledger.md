@@ -183,6 +183,45 @@ This is isolated recovery logic, not a production restore tool. Before rollout:
 5. Only after full reconciliation may this harness enable claims; fresh wallet
    permission, fee/budget checks and live-test authorization still apply.
 
+## Full-history collector and storage preflight
+
+`recovery-history.ts` consumes the authenticated reader's recovery-specific
+history method. It requests outgoing transactions **including unpaid records**,
+uses pages of at most 50 and validates Hub's `total_count`. It rejects malformed
+records, duplicate hashes, early short pages, changing totals and inventories
+over 10,000 entries. Two scans must return identical normalized records. Failed
+and pending sends remain in the result, not filtered out. Errors return an
+incomplete result without wallet details. Exact settlement proof remains a
+separate lookup in the recovery gate.
+
+These parameters follow the reviewed
+[Hub v1.24.0 history controller](https://github.com/getAlby/hub/blob/d8ef0e70e0d265a8424276daee0a595ac31993c0/nip47/controllers/list_transactions_controller.go).
+The general history reader is unchanged; recovery uses its own unpaid-inclusive
+method. This collector intentionally fails closed for incompatible providers.
+
+Two stable scans do **not** prove that older history was never deleted. A separate
+trusted coverage provider must attest the exact connection binding, its start
+time, retained-history boundary, exclusive use and a current stopped-sender fence.
+Coverage expires, must be fresh within 60 seconds and is checked before/after
+the scans. The fence identity must remain unchanged. No real coverage provider
+has been installed: browser input or `get_info` must never supply this evidence.
+
+`journal-storage.ts` is a read-only deployment preflight. It requires existing
+canonical private files and parent directories owned by the non-root runtime
+user, no symlinks/hardlinks, disjoint directories and different filesystem device
+IDs. Memory-only, shared-device and nested paths fail closed. It does not create
+files, change permissions, mount disks or establish independent backups. A
+different device ID is necessary for this initial policy, not sufficient proof
+of independent physical failure/backup domains; operators must audit those.
+
+`recovery-controller.ts` composes the reader, collector, preflight and restore
+gate. Storage paths are taken from the actual open SQLite handles, not caller
+labels. The restore gate now requires storage readiness before reconciliation,
+before reopening and before journal claims. With no storage verifier it stays
+blocked. Tests simulate topology; no VPS mounts or live wallet queries were made.
+Restore operations must still stop all senders and re-open handles: replacing
+files under an existing SQLite connection is not a supported deployment workflow.
+
 ## Deliberate boundaries / next slice
 
 The ledger is an internal accounting primitive, not proof that a payment happened.
@@ -198,8 +237,9 @@ Before runtime integration, implement and test:
    unknown-send reconciliation. A missing lookup result is not a failed payment.
 3. Reviewed definitive-failure recovery and expired unsent invoice replacement;
    never release an uncertain payment merely because its invoice has expired.
-4. Production restore tooling, independent journal durability, sender fencing and
-   authenticated complete-history collection for the tested recovery gate.
+4. Production restore tooling, independently provisioned journal durability,
+   enforceable sender fencing and an audited retention-coverage provider for the
+   tested authenticated history collector. Never guess complete-history coverage.
 5. Rustress adapter integration, one forwarding authority, capability gates,
    alerts, private operational views and explicit authorization for a bounded
    live test. Keep checkout's receive-only connection unchanged.
@@ -211,7 +251,7 @@ restart while outcome is unknown, restart after payment, preimage validation,
 fee conflicts and conservation of every allocated millisatoshi. They use only
 synthetic records and temporary local databases, not real invoices or funds.
 
-Verification: 1,028 tests across 184 files pass on Node 24, including 15 ledger
+Verification: 1,055 tests across 187 files pass on Node 24, including 15 ledger
 tests and 24 outgoing-invoice/worker tests. This slice adds 35 fixture tests for
 recipient retrieval, pinned HTTPS transport and outgoing wallet lookup validation.
 The authenticated reader adds 16 fixture tests for signatures, correlation,
@@ -221,6 +261,8 @@ forged settlement, minimum/maximum payouts, endpoint outage, immutable recipient
 budget sharing, authorization failures, missed notifications and restart recovery.
 Restore coverage adds 15 independent-journal/older-backup tests plus an integrated
 missing-guard denial test. These use only synthetic wallets and temporary files.
+History/storage composition adds 27 tests covering pagination/coverage failures,
+unpaid-inclusive encrypted requests, private storage checks and default denial.
 TypeScript, changed-file lint and
 backlog checks pass. No staging/production
 release is needed for this unconnected component.

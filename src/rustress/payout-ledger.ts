@@ -32,6 +32,7 @@ export class PayoutLedger {
     try{const result=fn();this.db.exec("COMMIT");return result;}catch(error){this.db.exec("ROLLBACK");throw error;}
   }
   private bucket(value:PayoutBucket){return JSON.stringify(bucketSchema.parse(value));}
+  databasePath(){return String(this.db.prepare("PRAGMA database_list").all().find(row=>row.name==="main")?.file??"");}
   bindWallet(walletRef:string,binding:string){
     ref.parse(walletRef);hex.parse(binding);
     this.transaction(()=>{

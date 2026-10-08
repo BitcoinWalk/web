@@ -11,7 +11,8 @@ export class PayoutRecovery {
  #ready=false;
  #generation=0;
  constructor(private journal:DatabaseSync,private ledger:PayoutLedger,private walletRef:string,private binding:string,
-  private history:()=>Promise<History>,private lookup:PayoutWallet["lookup"]){
+  private history:()=>Promise<History>,private lookup:PayoutWallet["lookup"],
+  private storageReady:()=>boolean=()=>false){
   if(!/^[a-z0-9][a-z0-9-]{0,62}$/.test(walletRef)||!/^[0-9a-f]{64}$/.test(binding))throw new Error("Invalid recovery binding");
   journal.exec("PRAGMA synchronous=FULL; CREATE TABLE IF NOT EXISTS bw_send_journal(binding TEXT NOT NULL,id TEXT NOT NULL,hash TEXT NOT NULL,commitment TEXT NOT NULL,PRIMARY KEY(binding,id),UNIQUE(binding,hash));");
  }
@@ -24,6 +25,7 @@ export class PayoutRecovery {
   this.pause();
   const generation=this.#generation;
   try{
+   if(!this.storageReady())throw new Error();
    const history=await this.history();
    if(history.binding!==this.binding||!history.complete||history.outgoingHashes.some(h=>!/^[0-9a-f]{64}$/.test(h))||new Set(history.outgoingHashes).size!==history.outgoingHashes.length)throw new Error();
    const entries=this.journal.prepare("SELECT id,hash,commitment FROM bw_send_journal WHERE binding=?").all(this.binding) as Entry[];
@@ -41,7 +43,7 @@ export class PayoutRecovery {
     if(result.state!=="paid")throw new Error();
     this.ledger.confirmPaid(row.id,result.walletRef,result.paymentHash,result.amountMsat,result.feeMsat,result.preimage);
    }
-   if(generation!==this.#generation)throw new Error();
+   if(generation!==this.#generation||!this.storageReady())throw new Error();
    this.#ready=true;return {state:"reconciled" as const};
   }catch{return {state:"blocked" as const};}
  }
@@ -50,6 +52,7 @@ export class PayoutRecovery {
  claim(id:string){
   if(!this.#ready)return false;
   try{
+   if(!this.storageReady())throw new Error();
    const row=this.ledger.recoveryAttempts(this.walletRef).find(a=>a.id===id);
    if(!row||row.state!=="unknown")return false;
    this.journal.prepare("INSERT INTO bw_send_journal(binding,id,hash,commitment) VALUES(?,?,?,?)").run(this.binding,id,row.hash,row.commitment);

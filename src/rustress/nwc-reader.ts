@@ -46,6 +46,11 @@ export class RustressNwcReader {
   return this.call("list_transactions",{offset,limit});
  }
  lookupPayout(hash:string){return createPayoutLookup(this.walletRef,h=>this.lookupInvoice(h))(hash);}
+ listRecoveryTransactions(offset=0,limit=50){
+  if(!Number.isSafeInteger(offset)||offset<0||!Number.isSafeInteger(limit)||limit<1||limit>50)throw new Error("Invalid recovery page");
+  // Hub defaults omit unpaid transactions. Recovery must include uncertain sends.
+  return this.call("list_transactions",{offset,limit,type:"outgoing",unpaid:true});
+ }
  private async call(method:"get_info"|"lookup_invoice"|"list_transactions",params:Record<string,unknown>):Promise<Record<string,unknown>>{
   // Runtime guard as well as TypeScript: this class cannot be used to spend.
   if(!["get_info","lookup_invoice","list_transactions"].includes(method))throw new Error("Read-only wallet method required");
