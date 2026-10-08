@@ -68,6 +68,16 @@ Remaining work: trusted collectors,
 provider compatibility, failure recovery, backup audit and bounded live
 acceptance remain. See [ledger scope](rustress-payout-ledger.md).
 
+Integrated fixture milestone: incoming exact-wallet proof, idempotent allocation,
+missed-notification scans, immutable recipient selection, invoice retrieval and
+restart-safe payout reconciliation now run together. Wallet fingerprints are
+persistently pinned; atomic cross-city budget claims include uncertain sends and
+reserved fees. Organizer receives its full allocated 79%, with BitcoinWalk bearing
+fees. Full suite: 1,012 tests across 183 files, TypeScript and changed-file lint pass.
+No live sender, credentials, background service or deployment enabled. Real Hub
+inventory collection, approved spending limits, restored-backup reconciliation
+and bounded live acceptance remain gates; BW-18 stays In progress.
+
 | ID | Stage | Item | Status | Depends on | Acceptance |
 |---|---:|---|---|---|---|
 | BW-109 | 9, 10 | Super-admin standalone Lightning addresses without splits | ⚪ Planned | BW-100 | Create/manage addresses from CMS with explicit receiving-wallet selection and signed super-admin-only commands; automatically provision and verify LNURL-pay with no Prism or 79/21 split; prefer direct receipt without an extra forwarding hop. Initial requested addresses: endo@bitcoinwalk.org and donate@bitcoinwalk.org; user confirmed bitcoinwalk@getalby.com as recipient for both; underlying wallet mapping still needs verification. Separate resource type from Pro cities, global address collision protection, no silent adoption, durable retries/read-back, disable/recovery and preserved old invoices. No NIP-05 or NIP-57 recipient invented. No live changes yet. See [plan](admin-lightning-addresses.md). |

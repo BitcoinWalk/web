@@ -16,7 +16,8 @@ type Authorization={bucket:PayoutBucket;paymentHash:string;amountMsat:string;max
  * network and exact connection), not a browser flag or wallet advertisement. */
 export class PayoutWorker {
   constructor(private ledger:PayoutLedger,private wallet:PayoutWallet,
-    private authorize:(request:Authorization)=>Promise<boolean>,private now=()=>Math.floor(Date.now()/1000)){}
+    private authorize:(request:Authorization)=>Promise<boolean>,private now=()=>Math.floor(Date.now()/1000),
+    private claim=(id:string)=>ledger.claimSend(id)){}
   prepare(bucket:PayoutBucket,id:string,invoice:string,terms:OutgoingTerms,maximumFeeMsat:string){
     const checked=validateOutgoingInvoice(invoice,terms,this.now());
     if(bucket.walletRef!==this.wallet.walletRef||terms.network!==this.wallet.network)throw new Error("Payout wallet mismatch");
@@ -37,7 +38,7 @@ export class PayoutWorker {
         if(!await this.authorize({bucket:row.bucket,paymentHash:row.hash,amountMsat:row.amount,maximumFeeMsat:row.fee_cap}))return this.ledger.status(id);
         // The authorization call may have taken time: validate expiry again.
         validateOutgoingInvoice(document.invoice,document.terms,this.now());
-        if(this.ledger.claimSend(id)){
+        if(this.claim(id)){
           try{await this.wallet.send({invoice:checked.paymentRequest,maximumFeeMsat:row.fee_cap,paymentHash:row.hash});}
           catch{/* Timeout/rejection is not proof of non-payment. Lookup only. */}
         }

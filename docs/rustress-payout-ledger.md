@@ -111,6 +111,41 @@ is enforced: verify provider-specific fee control before adding sending. Keep
 explicit spending approval, budget/fee policy and restore reconciliation gates.
 All adapter tests use synthetic keys and mocked relays; none use the user's Hub.
 
+## Integrated isolated flow
+
+`payout-flow.ts` connects saved incoming invoice snapshots, exact bound-wallet
+settlement lookup, the allocation ledger, protected recipient retrieval and the
+restart-safe worker. A settled incoming response must match direction, hash,
+amount, timestamp and preimage before it is credited. Duplicate collection is
+idempotent. Unknown invoices never create obligations from wallet history alone.
+
+Bounded scans recheck registered unsettled invoices after missed notifications.
+Start each full scan at cursor zero; failed/pending rows remain eligible for the
+next scan. This is callable recovery logic, not a deployed background scheduler.
+Issuance must still register its verified snapshot before exposing an invoice.
+
+Payout preparation selects the immutable destination from a saved incoming hash,
+reads recipient limits, quotes the available whole-satoshi allocation, validates
+the returned invoice and atomically reserves credit. Retrying the same attempt
+reuses its stored invoice. Endpoint failures and recipient minimums retain debt.
+Recipient maximums/per-payout limits leave the remaining obligation available.
+
+Reader and sender fingerprints must agree and are persistently bound to the
+wallet reference. Reusing a label for a different connection fails closed;
+credential rotation needs an explicit reviewed migration. Authorization requires
+fresh matching readiness evidence, network, non-renewing budget and fee controls.
+An atomic wallet-wide lifetime claim counts paid principal/actual fees and unknown
+principal/reserved fees across cities. Two claims cannot each consume the same
+remaining local allowance. Prepared attempts denied a claim stay prepared.
+
+This remains an **isolated integration harness** with explicit injected sender,
+reader, evidence source and HTTP transport. There is no default live sender,
+credential loading, public endpoint or runtime import. Test budgets are fixtures,
+not approved real limits. The local lifetime budget is not Hub's entire wallet
+budget: it cannot account for payments outside this ledger, and does not replace
+fresh inventory, exclusive connection ownership or Hub-side enforcement. Restore
+of an older ledger must still be reconciled before any send is allowed.
+
 ## Deliberate boundaries / next slice
 
 The ledger is an internal accounting primitive, not proof that a payment happened.
@@ -119,8 +154,7 @@ it must never forward browser JSON or an unverified notification directly to set
 
 Before runtime integration, implement and test:
 
-1. Integrate the isolated recipient adapter with immutable obligations and the
-   worker; review provider compatibility, outbound egress policy and response
+1. Deploy neither harness nor sender yet. Review provider compatibility, outbound egress policy and response
    limits before real requests. Add reviewed IPv6/cross-origin support if needed.
 2. A connection-bound collector and real wallet adapter, notification deduplication plus paged
    settlement catch-up, authenticated wallet lookup, fee/budget enforcement and
@@ -140,11 +174,14 @@ restart while outcome is unknown, restart after payment, preimage validation,
 fee conflicts and conservation of every allocated millisatoshi. They use only
 synthetic records and temporary local databases, not real invoices or funds.
 
-Verification: 994 tests across 182 files pass on Node 24, including 15 ledger
+Verification: 1,012 tests across 183 files pass on Node 24, including 15 ledger
 tests and 24 outgoing-invoice/worker tests. This slice adds 35 fixture tests for
 recipient retrieval, pinned HTTPS transport and outgoing wallet lookup validation.
 The authenticated reader adds 16 fixture tests for signatures, correlation,
 checkout isolation, read-only methods, timeouts and integrated payout proof checks.
+The integrated flow adds 18 tests for multiple payment amounts, duplicate credit,
+forged settlement, minimum/maximum payouts, endpoint outage, immutable recipients,
+budget sharing, authorization failures, missed notifications and restart recovery.
 TypeScript, changed-file lint and
 backlog checks pass. No staging/production
 release is needed for this unconnected component.

@@ -50,13 +50,15 @@ export async function recipientJson(input:URL):Promise<unknown>{
 }
 /** Internal only: destination comes from the immutable obligation, never request
  * JSON. Invoice retrieval creates no reservation and has no wallet capability. */
-export async function retrieveRecipientInvoice(destination:string,amountMsat:string,network:OutgoingTerms["network"],
+export async function retrieveRecipientInvoice(destination:string,amount:string|((minMsat:string,maxMsat:string)=>string),network:OutgoingTerms["network"],
  options:{fetchJson?:(url:URL)=>Promise<unknown>;now?:()=>number}={}){
  try{
   const fetchJson=options.fetchJson??recipientJson;
   const endpoint=recipientUrl(normalizePayoutDestination(destination).endpoint);
   const body=await fetchJson(endpoint) as Record<string,unknown>;
   if(!body||body.tag!=="payRequest"||body.status==="ERROR"||!Number.isSafeInteger(body.minSendable)||!Number.isSafeInteger(body.maxSendable))throw new Error();
+  if(Number(body.minSendable)<=0||Number(body.maxSendable)<Number(body.minSendable))throw new Error();
+  const amountMsat=typeof amount==="function"?amount(String(body.minSendable),String(body.maxSendable)):amount;
   const terms=outgoingTermsSchema.parse({amountMsat,minMsat:String(body.minSendable),maxMsat:String(body.maxSendable),network,metadata:body.metadata});
   const metadata:unknown=JSON.parse(terms.metadata);
   if(!Array.isArray(metadata)||!metadata.every(row=>Array.isArray(row)&&row.length===2&&row.every(v=>typeof v==="string"))||!metadata.some(row=>row[0]==="text/plain"))throw new Error();

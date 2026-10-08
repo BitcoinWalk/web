@@ -19,6 +19,7 @@ type Attempt={id:string;bucket:string;hash:string;amount:string;fee_cap:string;s
 export class PayoutLedger {
   constructor(private db:DatabaseSync){
     db.exec(`PRAGMA busy_timeout=5000;
+      CREATE TABLE IF NOT EXISTS bw_ledger_wallet_binding(wallet TEXT PRIMARY KEY,binding TEXT NOT NULL);
       CREATE TABLE IF NOT EXISTS bw_ledger_destination(city TEXT NOT NULL,wallet TEXT NOT NULL,version INTEGER NOT NULL,bucket TEXT NOT NULL,PRIMARY KEY(city,wallet,version));
       CREATE TABLE IF NOT EXISTS bw_ledger_invoice(wallet TEXT NOT NULL,hash TEXT NOT NULL,snapshot TEXT NOT NULL,bucket TEXT NOT NULL,amount TEXT NOT NULL,settled INTEGER NOT NULL DEFAULT 0,PRIMARY KEY(wallet,hash));
       CREATE TABLE IF NOT EXISTS bw_ledger_credit(wallet TEXT NOT NULL,hash TEXT NOT NULL,organizer TEXT NOT NULL,retained TEXT NOT NULL,PRIMARY KEY(wallet,hash));
@@ -31,6 +32,35 @@ export class PayoutLedger {
     try{const result=fn();this.db.exec("COMMIT");return result;}catch(error){this.db.exec("ROLLBACK");throw error;}
   }
   private bucket(value:PayoutBucket){return JSON.stringify(bucketSchema.parse(value));}
+  bindWallet(walletRef:string,binding:string){
+    ref.parse(walletRef);hex.parse(binding);
+    this.transaction(()=>{
+      const old=this.db.prepare("SELECT binding FROM bw_ledger_wallet_binding WHERE wallet=?").get(walletRef);
+      if(old&&old.binding!==binding)throw new Error("Wallet binding conflict");
+      if(!old)this.db.prepare("INSERT INTO bw_ledger_wallet_binding VALUES(?,?)").run(walletRef,binding);
+    });
+  }
+  incoming(walletRef:string,hash:string):IncomingSnapshot|null{
+    const row=this.db.prepare("SELECT snapshot FROM bw_ledger_invoice WHERE wallet=? AND hash=?").get(walletRef,hash);
+    return row?JSON.parse(row.snapshot as string):null;
+  }
+  pendingIncoming(walletRef:string,after=0,limit=50){
+    ref.parse(walletRef);z.number().int().safe().nonnegative().parse(after);z.number().int().min(1).max(100).parse(limit);
+    return this.db.prepare("SELECT rowid AS cursor,hash FROM bw_ledger_invoice WHERE wallet=? AND settled=0 AND rowid>? ORDER BY rowid LIMIT ?").all(walletRef,after,limit) as {cursor:number;hash:string}[];
+  }
+  /** Atomic wallet-wide lifetime spending guard, including uncertain sends and
+   * reserved fees. This is not a renewing budget or a replacement for Hub limits. */
+  claimWithinBudget(id:string,walletRef:string,budgetMsat:string){
+    positive.parse(budgetMsat);
+    return this.transaction(()=>{
+      const current=this.attempt(id);
+      if(!current||current.state!=="prepared"||JSON.parse(current.bucket).walletRef!==walletRef)return false;
+      const rows=this.db.prepare("SELECT * FROM bw_ledger_payout WHERE state IN ('paid','unknown')").all() as Attempt[];
+      const spent=rows.filter(r=>JSON.parse(r.bucket).walletRef===walletRef).reduce((sum,r)=>sum+BigInt(r.amount)+BigInt(r.state==="paid"?r.fee!:r.fee_cap),0n);
+      if(spent+BigInt(current.amount)+BigInt(current.fee_cap)>BigInt(budgetMsat))return false;
+      return this.claimSend(id);
+    });
+  }
   /** Persist before exposing the receiving invoice. Retry cannot change its destination. */
   register(input:IncomingSnapshot){
     const s=invoiceSchema.parse(input),snapshot=JSON.stringify(s);
