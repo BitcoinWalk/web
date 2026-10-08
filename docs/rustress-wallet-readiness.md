@@ -150,11 +150,53 @@ server. Logs, executables and SHA-256 manifest are under ignored
 `release-build/alby-fee-cap-isolated/`. The manifest explicitly marks
 `productionReady: false`. No upstream patch has been published.
 
-Still required: controlled regtest/signet route rejection at the requested cap,
-no-route and uncertain/restart outcome tests, review of concurrent budget use and
+At this checkpoint, still required: controlled regtest/signet route rejection at
+the requested cap (subsequently covered below), no-route and uncertain/restart
+outcome tests, review of concurrent budget use and
 all supported backend semantics, installed-capability binding in the BitcoinWalk
 adapter, and backup/rollback review. Offline tests do not prove live fee
 enforcement. BW-18 remains In progress; spending remains disabled.
+
+### Private routed-fee acceptance — 8 October 2026
+
+User authorized the controlled test-network step. Followed the Alby Hub skill's
+test-network isolation safeguards: no saved token, real wallet, live configuration
+or public peer used. Docker access was unavailable; ran a temporary non-root
+Bitcoin Core process and three native LDK nodes instead. Bitcoin Core 29.3 came
+from the [official release directory](https://bitcoincore.org/bin/bitcoin-core-29.3/)
+and its archive matched the published SHA256SUMS (not a claim of PGP verification).
+RPC/P2P listeners were loopback-only, Bitcoin peer discovery/connections disabled,
+and the chain was explicitly checked as regtest before mining fixture coins.
+
+Three independently initialized runs passed (12.540 seconds total):
+
+- A 50,000-sat payment through a 101-sat route is rejected under a 100-sat cap.
+- Positive control: the same route succeeds with a **test-only** 101-sat cap,
+  reporting exactly 101 sats fee. This does not change the approved pilot policy.
+- A 100-sat route is rejected when the cap is one millisatoshi below 100 sats.
+- A 50,000-sat payment succeeds at exactly 100 sats fee.
+- Destroying/rebuilding the sender from its temporary storage retains the settled
+  amount and fee; attempting that exact invoice again returns DuplicatePayment.
+
+Initial fixture debugging found that ordinary private channels did not forward
+the control payment. Routing-enabled announced channels fixed the fixture; their
+announcements were confined to the local regtest peers. Negative-only runs were
+not counted as evidence. All temporary nodes stopped after testing.
+
+Reproduce after `build-isolated.py` with
+`python3 integrations/alby-fee-cap/run-regtest.py /path/to/patched-hub-checkout --bitcoind /path/to/verified/bitcoind --go /path/to/go`.
+The runner checks the upstream pin and applied patch, installs the opt-in test,
+runs it three times, and records code/binary/log hashes under ignored
+`release-build/alby-fee-cap-regtest/`. Without explicit `BW_REGTEST_BITCOIND`, the
+test skips. Never substitute a production data directory or wallet.
+
+**Scope:** real native LDK routing using the patched candidate's fee helper,
+not an end-to-end NWC request through the complete Hub service. The earlier
+controller/transaction mocks and this route test are separate layers. This proves
+neither crash-during-payment reconciliation nor concurrent Hub budget enforcement.
+Those checks, installed-capability binding, full backend review, encrypted backups
+and rollback rehearsal remain open. No Hub deployment, permissions or spending
+were enabled; BW-18 stays In progress.
 
 Reviewed official tag v1.24.0, commit
 `d8ef0e70e0d265a8424276daee0a595ac31993c0`:

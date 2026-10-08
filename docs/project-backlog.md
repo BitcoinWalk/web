@@ -172,7 +172,13 @@ admission and overflow acceptance before the patch; corrected transaction and
 NWC suites plus the offline LDK fee helper test pass in a fresh checkout.
 The 200,000-sat boundary includes fees and rejects a one-msat overrun. Test
 executables and a hash manifest are generated locally, not a deployable Hub.
-Real routed-fee rejection/recovery and rollout review remain required.
+Private routed-fee acceptance now passes three independent runs: a 101-sat route
+is rejected under the 100-sat cap; a separate test-only 101-sat positive control
+succeeds; the exact 100-sat boundary succeeds and a one-msat tighter cap rejects.
+A fresh sender instance reloads settled state and rejects duplicate payment.
+No real funds, external peers or live Hub used. Full Hub/NWC uncertain-payment
+recovery, concurrent budget checks and rollout review remain required; native LDK
+route evidence does not close those gates.
 No custom Hub deployment, backend switch, payment or limit change authorized.
 See [fee investigation](rustress-wallet-readiness.md).
 See [deployment evidence](rustress-payout-ledger.md).
