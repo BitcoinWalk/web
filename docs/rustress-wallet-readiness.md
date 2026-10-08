@@ -77,3 +77,46 @@ version check. Backend/network, fee enforcement, budget policy, backups and
 the connection-bound read-only collector remain unverified. Complete durable
 BW-18 accounting/uncertain-send recovery before granting a separate spending
 connection, then request explicit approval for scope, budget and expiry.
+
+## Installed-version fee and budget review — 8 October
+
+A subsequent read-only visit to Settings/About explicitly confirms **v1.24.0,
+LDK, SQLite** (not inferred from the update banner). Paid city remains receive-only.
+No backup page, secret, wallet credential, permission or payment was accessed/changed.
+
+Reviewed official tag v1.24.0, commit
+`d8ef0e70e0d265a8424276daee0a595ac31993c0`:
+
+- [Fee reserve and budget checks](https://github.com/getAlby/hub/blob/d8ef0e70e0d265a8424276daee0a595ac31993c0/transactions/transactions_service.go):
+  reserve is `max(ceil(amount_msat * 0.01), 10000)` msat. LDK uses this
+  as its routing-fee ceiling, not merely an accounting estimate.
+- [LDK BOLT11 send path](https://github.com/getAlby/hub/blob/d8ef0e70e0d265a8424276daee0a595ac31993c0/lnclient/ldk/ldk.go):
+  passes the calculated limit through `MaxTotalRoutingFeeMsat` to the node.
+- [Budget usage](https://github.com/getAlby/hub/blob/d8ef0e70e0d265a8424276daee0a595ac31993c0/db/queries/get_budget_usage.go):
+  pending and settled outgoing payments include amount, actual fees and reserved
+  fees. Never-renewing budgets have no renewal cutoff. Zero MaxAmountSat does not
+  impose a cap. Preflight must demand an explicit positive budget.
+- Budget admission converts millisatoshis to whole sats with integer division;
+  do not claim a byte-exact millisatoshi budget boundary. Keep our stricter
+  integer preflight/reservations and bounded pilot; audit fractional residuals.
+  Admission and pending creation are protected by an in-process mutex and DB
+  transaction. This is not proof of safety for multiple Hub processes sharing DB.
+- Isolated balances also subtract pending payments and fee reserves. They are
+  accounting isolation within a node, not a separate node or backup boundary.
+
+For a 79-sat payout this source applies a **10-sat maximum routing fee**. A
+100-sat incoming payment would allocate 79 sats to the organizer and retain
+21 sats before fees, at least 11 sats after fees within this source-enforced cap.
+Actual fees may be lower. A 1-sat cap cannot be promised on this installed path.
+Source review plus displayed version is not proof of the deployed binary or an
+end-to-end payment test; recheck installed artifact/backend before activation.
+
+Proposed first-pilot policy, **not approved or applied**: separate Rustress
+connection, isolated balance, 100-sat non-renewing spending budget, one 79-sat
+payout, maximum 10-sat routing fee paid by BitcoinWalk, 24-hour expiry. No funding
+or connection creation until permission/scope and safe credential handover are
+approved. Preserve receive-only checkout. Test budget rejection, fee handling,
+lookup proof and unknown-send recovery before enabling public endpoints.
+
+The Alby Hub skill guided the read-only UI review and separation of permissions,
+budgets and isolated balances. No live NWC request or payment was made.

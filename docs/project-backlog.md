@@ -54,7 +54,13 @@ An isolated authenticated NIP-44 reader now supports info, bounded history and
 exact-hash payout lookups; 16 mocked-relay tests cover signature/correlation checks,
 checkout-key separation and preimage verification. No sending, real credentials
 or runtime integration is enabled. Standard NWC does not specify a per-payment
-fee cap; provider fee enforcement must be verified before spending. Trusted collectors,
+fee cap; provider fee enforcement must be verified before spending.
+Installed-version review now confirms Hub v1.24.0/LDK in Settings/About. Official
+tag source applies a routing ceiling of max(10 sats, 1% of payout); pending fees
+count toward budget usage. This is source evidence, not live acceptance. A
+100-sat non-renewing isolated pilot budget with one 79-sat payout and up to
+10 sats routing fee is proposed, not approved. See [wallet review](rustress-wallet-readiness.md).
+Remaining work: trusted collectors,
 provider compatibility, failure recovery, backup audit and bounded live
 acceptance remain. See [ledger scope](rustress-payout-ledger.md).
 
