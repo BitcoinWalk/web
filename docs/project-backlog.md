@@ -161,6 +161,14 @@ until the approved 100-sat fee ceiling can be enforced. No silent fee increase,
 payout-cap reduction or workaround splitting. Activation/expiry window remains
 unset. No wallet queried or permissions changed; BW-18 stays In progress and
 spending disabled. See the approved-limits section in the ledger scope.
+
+Fee-cap follow-up: upstream Hub PR #2566 is open/unmerged at `a231ed34` (verified
+via public API). Its actual diff propagates `max_fee` to LDK but leaves default
+fee-reserve accounting unchanged; it is not an approved production upgrade.
+Current 50,000/100-sat combination remains blocked. Awaiting user direction on
+waiting for released support versus a separately scoped no-funds candidate build.
+No custom Hub deployment, backend switch, payment or limit change authorized.
+See [fee investigation](rustress-wallet-readiness.md).
 See [deployment evidence](rustress-payout-ledger.md).
 
 | ID | Stage | Item | Status | Depends on | Acceptance |

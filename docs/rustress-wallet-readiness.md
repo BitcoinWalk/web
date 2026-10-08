@@ -92,6 +92,33 @@ below is 500 sats at the approved maximum payout, so the adapter must block that
 amount until the 100-sat ceiling can actually be enforced. No wallet setting has
 been changed. See `rustress-payout-ledger.md` for exact units and remaining gates.
 
+### Fee-cap implementation investigation — 8 October 2026
+
+Read-only upstream check identified [Hub PR #2566](https://github.com/getAlby/hub/pull/2566),
+linked from [issue #2557](https://github.com/getAlby/hub/issues/2557), and the open
+[NIP-47 proposal #2444](https://github.com/nostr-protocol/nips/pull/2444).
+GitHub API confirmed #2566 is open and unmerged at head
+`a231ed34a660cd86c0bd7f36282f7eb0dc90223f`. This is a candidate, not verified
+released or installed capability. A search snippet misidentified another NIP PR;
+only the directly inspected proposal above is evidence.
+
+Inspected actual diff: the NWC controller accepts `max_fee` in millisats, the
+transaction service forwards it, and LDK overrides `MaxTotalRoutingFeeMsat` with
+that value. However, the transaction-service diff leaves the existing fee-reserve
+calculation unchanged. A requested cap greater than the default reserve therefore
+needs budget-accounting review; a tighter cap may over-reserve. For this pilot,
+100 sats is below the default 500-sat reserve at a 50,000-sat payout. This does
+not justify treating the whole branch as safe, nor proving installed support.
+
+Recommended choices requiring user direction: wait for reviewed released support,
+or separately authorize an isolated, no-funds candidate build and tests. Before
+any live adoption, review budget reservation/recovery, reject unsupported backends,
+prove requested cap reaches LDK on initial and recovery paths, test boundaries and
+no-route outcomes, bind capability to the exact installed revision, and plan Hub
+backup/rollback. Do not silently send an unknown `max_fee` field to the current
+Hub, install a custom build, switch wallet backend or relax the approved limits.
+No Hub, application or wallet changes were made during this investigation.
+
 Reviewed official tag v1.24.0, commit
 `d8ef0e70e0d265a8424276daee0a595ac31993c0`:
 
