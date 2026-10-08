@@ -113,7 +113,9 @@ Before/after SQLite record fingerprints and authenticated provider read-back agr
   issuance disabled. Fixture invoice count zero, wallet credentials absent.
 - Checkout invoice remains pending; real paid entitlement count zero.
 
-Server-side completed-state persistence and retry checks passed. Final user
-reload/Check after restart remains pending. This does not claim a live
+Server-side completed-state persistence and retry checks passed. The user also
+confirmed the final reload/Check after restart: both proofs Confirmed and fixture
+provisioning verified. The isolated Madeira retry/restart acceptance is complete.
+This does not claim a live
 interrupted-write or payment-recovery test; uncertain-write behavior is covered
 by the separate workflow fixture tests. BW-100 remains in progress.
