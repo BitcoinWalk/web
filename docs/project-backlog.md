@@ -28,6 +28,15 @@ BW-100 remains In progress for its broader live/security scope. Generic provisio
 disabled. BW-108's real MEP migration and BW-18/BW-19 activation remain separate.
 See [pilot instructions and boundaries](madeira-private-pilot.md).
 
+BW-100 next slice: local wallet-readiness evaluator implemented with 11 tests;
+rejects missing/stale grants, checkout connection reuse, excessive permissions
+and unapproved budgets/fee limits. It cannot enable payments and is not yet
+runtime-wired. User supplied https://hub.bitcoinwalk.org/; HTTPS login screen
+confirmed. Authenticated Hub inventory awaits user login; the read-only collector
+is still pending. Full suite: 904 tests across 175 files pass; TypeScript, lint
+and backlog checks pass. No NWC connection, funding or wallet changes.
+See [readiness scope](rustress-wallet-readiness.md). BW-100 remains In progress.
+
 | ID | Stage | Item | Status | Depends on | Acceptance |
 |---|---:|---|---|---|---|
 | BW-109 | 9, 10 | Super-admin standalone Lightning addresses without splits | ⚪ Planned | BW-100 | Create/manage addresses from CMS with explicit receiving-wallet selection and signed super-admin-only commands; automatically provision and verify LNURL-pay with no Prism or 79/21 split; prefer direct receipt without an extra forwarding hop. Initial requested addresses: endo@bitcoinwalk.org and donate@bitcoinwalk.org; user confirmed bitcoinwalk@getalby.com as recipient for both; underlying wallet mapping still needs verification. Separate resource type from Pro cities, global address collision protection, no silent adoption, durable retries/read-back, disable/recovery and preserved old invoices. No NIP-05 or NIP-57 recipient invented. No live changes yet. See [plan](admin-lightning-addresses.md). |

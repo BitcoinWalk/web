@@ -118,6 +118,14 @@ spending credentials until durable accounting and isolated acceptance pass.
 
 ## Next steps
 
+Wallet readiness checkpoint, 8 October: the private, non-activating evidence
+evaluator is implemented with 11 tests. It distinguishes authenticated grants
+from advertising, enforces separate checkout/Rustress connection references,
+fresh read-probe evidence and explicitly approved budget/network/fee limits.
+It is not a runtime activation gate yet and cannot enable spending. Real Hub
+inventory and the connection-bound collector await authenticated Hub access; no
+wallet was queried or changed. See [wallet preflight](rustress-wallet-readiness.md).
+
 The [durable app workflow](rustress-workflow.md) is now implemented with fresh
 authority checks, immutable task persistence, leases and read-before-retry
 recovery. Its default-off hooks are wired to branded-city publication and a
