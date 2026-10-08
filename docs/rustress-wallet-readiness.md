@@ -484,6 +484,51 @@ approval. Only after stopped/fenced backup readiness and fresh operational
 evidence may the candidate be started without spending; funded acceptance is a
 later and separately authorized gate.
 
+### Rootless Docker staging — 9 October 2026
+
+The user selected Docker and installed the single missing host prerequisite,
+`uidmap`. Docker 29.8.0 now runs in the existing `bitcoinwalk` UID 1004 user
+session on `.240` through RootlessKit 3.1.0 and its private user socket/storage.
+The account still cannot access `/var/run/docker.sock`; it received neither the
+root-equivalent Docker group nor sudo. The rootless daemon is enabled for that
+already-lingering user, while the candidate container itself has no restart
+policy and remains stopped.
+
+`build-candidate-container.py` converts the verified native archive into a
+deterministic Docker build-context bundle. The bundle SHA-256 is
+`c47c7ae87c29f69a46092f480eae4070962feab862f95c1e5ee372901ffa7826`.
+Both inputs are immutable amd64 manifests: Debian 12 slim
+`a4672c0c…ee91` supplies the runtime, and the official Go 1.26.2 Bookworm image
+`6b9b1ff2…4995` supplies only the CA certificate bundle missing from slim Debian.
+The first build correctly stopped on that absent trust bundle; no container was
+created and its temporary target was removed. The corrected build passed every
+embedded checksum and produced image ID
+`sha256:69f08f821ce7c41d43562f78ad75b973f10325fdd1c2853f2fbc230a6b5494df`
+(265,685,337 bytes). Unused builder layers and cache were pruned afterwards.
+
+The rootless container `bitcoinwalk-hub-feecap-candidate` is in Docker `created`
+state with `Running=false`: it has never run. Its entrypoint refused the disabled
+test with exit 78. The filesystem is read-only except for a new private bind
+mount; that state contains only the exact candidate marker and no `albyhub`
+directory, database, key, recovery material or wallet credential. The Compose
+policy drops every capability, sets no-new-privileges, caps memory/tasks, has no
+restart, exposes only candidate port 8080 to host loopback 127.0.0.1:18080 and
+sets neither automatic unlock nor wallet/backend configuration. Nothing is
+currently listening on 18080.
+
+Removal through the candidate-specific rollback script preserved image/state,
+and exact no-build rematerialization returned the same stopped image ID. The
+existing public Hub still returns HTTP 200 and Rustress admin still returns its
+expected unauthenticated HTTP 401. Rootless namespace isolation, rather than a
+generic Docker grant, prevents this deployment account from managing those
+root-owned containers. No Hub, Rustress or wallet state was read or changed.
+
+This completes stopped container staging, not no-spend runtime acceptance.
+Starting it requires a separate reviewed action that changes the explicit gate
+from `disabled` to `reviewed-no-spend`; do not configure a wallet, complete Hub
+setup, mount existing data or expose the port publicly. A funded payout remains
+a later independently authorized gate.
+
 Reviewed official tag v1.24.0, commit
 `d8ef0e70e0d265a8424276daee0a595ac31993c0`:
 

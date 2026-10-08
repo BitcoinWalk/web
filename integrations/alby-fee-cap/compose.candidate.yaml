@@ -1,0 +1,39 @@
+name: bitcoinwalk-hub-feecap-candidate
+
+services:
+  hub-candidate:
+    profiles: ["explicit-candidate"]
+    build:
+      context: .
+      dockerfile: Dockerfile.candidate
+      args:
+        BASE_IMAGE: debian:12-slim@sha256:a4672c0cb26fbdde88e38fa2dfb6c681942306680e41e4378b28770b6e79ee91
+        CERTIFICATE_IMAGE: golang:1.26.2-bookworm@sha256:6b9b1ff26b22fde9b31abc5c6994586f588107ee3aa54dba50626aaac5884995
+    image: bitcoinwalk/hub-feecap-candidate:6bb8520025d7
+    container_name: bitcoinwalk-hub-feecap-candidate
+    restart: "no"
+    read_only: true
+    init: true
+    cap_drop: ["ALL"]
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 128
+    mem_limit: 2g
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev,size=64m
+    ports:
+      - "127.0.0.1:18080:8080"
+    volumes:
+      - type: bind
+        source: ${BW_CANDIDATE_ROOT:?set BW_CANDIDATE_ROOT}/state
+        target: /data
+    environment:
+      BW_CANDIDATE_START: ${BW_CANDIDATE_START:-disabled}
+      WORK_DIR: /data/albyhub
+      PORT: "8080"
+      LOG_TO_FILE: "true"
+      SEND_EVENTS_TO_ALBY: "false"
+      AUTO_LINK_ALBY_ACCOUNT: "false"
+      HIDE_UPDATE_BANNER: "true"
+      ENABLE_ADVANCED_SETUP: "false"
+    stop_grace_period: 5m

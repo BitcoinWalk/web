@@ -598,6 +598,17 @@ No VPS or wallet changed. BW-18 remains In progress: non-spending host install,
 real connection-bound wallet/history evidence, managed retention and a later
 explicitly authorized funded acceptance are still separate gates.
 
+The user then selected Docker. The exact package is now built and staged on
+`.240` in a separate rootless Docker namespace owned by non-root `bitcoinwalk`.
+The digest-pinned context bundle, image ID and runtime policy are recorded in
+[wallet readiness](rustress-wallet-readiness.md#rootless-docker-staging--9-october-2026).
+The candidate container is stopped in `created` state, its disabled gate returns
+78, and its new private state contains only a candidate marker. Rollback/rematerialization
+preserved the same image and empty state. No live Docker socket, existing Hub/
+Rustress data, NWC credential or wallet was accessible. This closes packaging
+and stopped staging only; a separately reviewed no-spend start, live evidence
+providers, managed retention and funded acceptance remain open.
+
 ## Deliberate boundaries / next slice
 
 The ledger is an internal accounting primitive, not proof that a payment happened.

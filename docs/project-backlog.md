@@ -213,9 +213,16 @@ the server, migration binary, matching LDK library, patch-bound manifest and
 non-root stage/rollback scripts. It is explicitly non-production and start-disabled,
 contains no wallet data or credentials, and passed internal checksums, native
 linkage, isolated staging, rollback plus unsafe-archive/non-empty-state refusal.
-It has not been installed. Next is a separately authorized non-spending host
-installation under a reviewed, disabled service definition; live wallet/history
-evidence, managed retention and funded acceptance remain distinct gates.
+The user selected Docker. A digest-pinned context bundle now builds in a separate
+RootlessKit/Docker 29.8.0 namespace under non-root `bitcoinwalk` on `.240`; no
+root Docker group or sudo was granted. Image `sha256:69f08f82…494df` is staged
+as the stopped, never-run `bitcoinwalk-hub-feecap-candidate`, with a read-only
+root, dropped capabilities, no restart, loopback-only intended port 18080 and a
+new state directory containing only its safety marker. The disabled gate returns
+78; exact rollback/rematerialization passes and unused build cache is pruned.
+Existing public Hub/Rustress health remains unchanged. Next is a separately
+authorized no-spend start; live wallet/history evidence, managed retention and
+funded acceptance remain distinct gates.
 BW-18 remains In progress and live spending disabled; no live wallet code
 changed.
 No custom Hub deployment, backend switch, payment or limit change authorized.

@@ -1,0 +1,32 @@
+ARG BASE_IMAGE=debian:12-slim@sha256:a4672c0cb26fbdde88e38fa2dfb6c681942306680e41e4378b28770b6e79ee91
+ARG CERTIFICATE_IMAGE=golang:1.26.2-bookworm@sha256:6b9b1ff26b22fde9b31abc5c6994586f588107ee3aa54dba50626aaac5884995
+FROM ${CERTIFICATE_IMAGE} AS certificates
+FROM ${BASE_IMAGE}
+
+LABEL org.opencontainers.image.title="BitcoinWalk Hub fee-cap candidate" \
+      org.opencontainers.image.revision="6bb8520025d781f8570ef1a5d134fe545a1586f3ab46cfedd780e15a641cfa84" \
+      org.opencontainers.image.source="https://github.com/BitcoinWalk/web" \
+      org.opencontainers.image.vendor="BitcoinWalk" \
+      org.opencontainers.image.version="6bb8520025d7" \
+      org.bitcoinwalk.production-ready="false" \
+      org.bitcoinwalk.start-enabled="false"
+
+ENV LD_LIBRARY_PATH=/opt/bitcoinwalk-hub/lib \
+    WORK_DIR=/data/albyhub \
+    PORT=8080
+
+COPY release/ /opt/bitcoinwalk-hub/
+COPY container-entrypoint.sh /usr/local/bin/bitcoinwalk-candidate-entrypoint
+COPY --from=certificates /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
+
+RUN test -x /opt/bitcoinwalk-hub/bin/albyhub \
+    && test -x /opt/bitcoinwalk-hub/bin/db_migrate \
+    && test -s /opt/bitcoinwalk-hub/lib/libldk_node.so \
+    && test -s /opt/bitcoinwalk-hub/manifest.json \
+    && test -s /etc/ssl/certs/ca-certificates.crt \
+    && test -x /usr/local/bin/bitcoinwalk-candidate-entrypoint
+
+WORKDIR /data
+EXPOSE 8080
+ENTRYPOINT ["/usr/local/bin/bitcoinwalk-candidate-entrypoint"]
+CMD ["/opt/bitcoinwalk-hub/bin/albyhub"]
