@@ -396,8 +396,36 @@ patches to the pinned source, passes the Hub statement/controller tests three
 times under Go's race detector, and passes the app capability, payout-runtime
 and authenticated transport suites. The complete Rustress suite also passes:
 257 tests. No live Hub, wallet, connection secret, relay or funds were used.
-Production remains disabled until backup/restore/rollback and bounded staging
-relay acceptance are complete.
+Production remains disabled until bounded staging relay acceptance is complete.
+
+### Authenticated backup, restore and rollback accepted in isolation — 8 October 2026
+
+`integrations/alby-fee-cap/run-backup-restore.py` now exercises the exact
+five-patch candidate three times under Go's race detector. It closes a synthetic
+Hub database, archives its complete temporary workdir, authenticates and encrypts
+the archive with AES-256-GCM, restores it elsewhere, runs the exact legacy FAILED
+payment audit/quarantine, backs up and restores the migrated state, repeats the
+same fingerprinted operation without duplicate records, and finally restores the
+original encrypted backup to prove rollback leaves the old rows FAILED and
+unreserved. A synthetic `ldk/` static-backup marker survives intact. Wrong keys,
+changed context and corrupted ciphertext fail before extraction.
+
+The application ledger and independent journal use separate authenticated
+envelopes and keys. Their rehearsal restores an unknown payout, reconciles it
+from exact wallet-history/lookup evidence, records it paid without another send,
+and proves the original pre-reconciliation artifacts remain byte-for-byte
+recoverable. Backup keys are caller-supplied and deliberately absent from the
+artifacts; the byte-transform module never discovers paths, credentials or
+runtime configuration.
+
+This closes the isolated encrypted backup/restore/rollback gate, not live backup
+operations. The test uses temporary SQLite, a synthetic marker and in-memory
+keys. It does **not** open or validate a real LDK recovery phrase (`.recovery`),
+channel backup, Hub workdir, production database, wallet credential or funds.
+Before activation, operators must provision encrypted retention/key custody,
+monitoring and a stopped/fenced restore procedure for the actual hosts. The only
+remaining candidate acceptance gate is real relay delivery plus bounded,
+no-funds staging validation; spending and public endpoints remain disabled.
 
 Reviewed official tag v1.24.0, commit
 `d8ef0e70e0d265a8424276daee0a595ac31993c0`:

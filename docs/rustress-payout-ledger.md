@@ -537,15 +537,17 @@ Readiness is **not granted**. Outstanding evidence and authority:
 | Gate | Current evidence | Still required |
 |---|---|---|
 | Private journal transport | Cross-host fixture checks and fresh paused read-back pass | Live-bound deployment provider; synthetic journal must not become a live journal |
-| Backup/recovery | Manual off-host synthetic restore passed | Managed encrypted retention, monitoring and restore evidence for live state |
+| Backup/recovery | Authenticated encrypted synthetic ledger, independent-journal and exact candidate-workdir restore/rollback passed | Provision managed encrypted retention, key custody and monitoring for live state; rehearse actual stopped/fenced host procedure before activation |
 | Wallet grants and fees | Earlier pinned Hub source audit; synthetic adapter tests | Fresh authenticated connection inventory and provider proving actual enforced fees/budget; not a callback returning guessed values |
 | Complete history | Bounded collector and refusal tests | Independent retained-history/exclusive-sender proof provider |
 | Spending authorization | User approved 50,000 sats maximum payout, 100 sats maximum fee per payout, 200,000 sats total non-renewing budget including fees | Wallet enforcement and remaining readiness gates; limits alone do not authorize activation |
 
 Asked the user for pilot limits without requesting activation. No real credentials
-were loaded. All **1,108 tests across 191 files**, types, changed-file lint and
-backlog validation pass. BW-18 remains In progress. The next work is supplying
-reviewable evidence providers and the managed backup plan, not flipping a flag.
+were loaded. BW-18 remains In progress. Authenticated synthetic backup/restore/
+rollback subsequently passed for the app ledger, independent journal and exact
+five-patch Hub candidate; managed live-host retention remains operational work.
+The next candidate gate is bounded no-funds staging relay acceptance, not flipping
+a production flag.
 
 ### Approved pilot limits — 8 October 2026
 
@@ -596,9 +598,10 @@ Before runtime integration, implement and test:
    unknown-send reconciliation. A missing lookup result is not a failed payment.
 3. Reviewed definitive-failure recovery and expired unsent invoice replacement;
    never release an uncertain payment merely because its invoice has expired.
-4. Production restore tooling, independently provisioned journal durability,
-   enforceable sender fencing and an audited retention-coverage provider for the
-   tested authenticated history collector. Never guess complete-history coverage.
+4. Provision the tested encrypted-backup policy on managed live storage, including
+   independent key custody, retention/monitoring, journal durability, enforceable
+   sender fencing and an audited retention-coverage provider. Never guess
+   complete-history coverage or replace a SQLite file under an open connection.
 5. Rustress adapter integration, one forwarding authority, capability gates,
    alerts, private operational views and explicit authorization for a bounded
    live test. Keep checkout's receive-only connection unchanged.
