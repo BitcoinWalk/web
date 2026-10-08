@@ -30,11 +30,17 @@ function fixture(path=":memory:",amount="100000"){
   sentAmount=url.searchParams.get("amount")!;
   return {pr:sign(encode({millisatoshis:sentAmount,timestamp:now,tags:[{tagName:"payment_hash",data:outgoingHash},{tagName:"purpose_commit_hash",data:createHash("sha256").update(metadata).digest("hex")},{tagName:"expire_time",data:3600}]}),"56".repeat(32)).paymentRequest!};
  });
- const deps={reader,wallet,fetchJson,evidence:vi.fn(async()=>({binding,readiness}))};
+ // Synthetic fresh-wallet permit; durable restore behavior has separate tests.
+ const deps={reader,wallet,fetchJson,evidence:vi.fn(async()=>({binding,readiness})),recovery:{ready:true,claim:vi.fn(()=>true)}};
  const flow=new PayoutFlow(ledger,deps,policy,()=>time);flow.register({...bucket,paymentHash:hash,amountMsat:amount});
  return {db,ledger,bucket,policy,deps,flow,readiness,advance:()=>{time+=1000;}};
 }
 describe("isolated end-to-end payout flow",()=>{
+ it("cannot send without a reconciled recovery guard",async()=>{
+  const f=fixture();await f.flow.collect(hash);const id=randomUUID();await f.flow.prepare(hash,id);
+  const flow=new PayoutFlow(f.ledger,{...f.deps,recovery:undefined},f.policy,()=>now);
+  expect((await flow.run(id))?.state).toBe("prepared");expect(f.deps.wallet.send).not.toHaveBeenCalled();
+ });
  it.each(["100000","250000","12345000"])("allocates arbitrary incoming %s msat without a 100-sat product limit",async amount=>{
   const f=fixture(":memory:",amount);await f.flow.collect(hash);await f.flow.collect(hash);
   const id=randomUUID();await f.flow.prepare(hash,id);await f.flow.run(id);await f.flow.run(id);

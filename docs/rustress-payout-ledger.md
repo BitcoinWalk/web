@@ -146,6 +146,43 @@ budget: it cannot account for payments outside this ledger, and does not replace
 fresh inventory, exclusive connection ownership or Hub-side enforcement. Restore
 of an older ledger must still be reconciled before any send is allowed.
 
+## Older-backup restore quarantine
+
+`payout-recovery.ts` adds a separately persisted send journal and an in-memory
+startup gate. The integrated flow now refuses new send claims if the recovery
+guard is absent or paused. A successful budget claim changes the local attempt
+to unknown, then the journal durably records its immutable allocation/invoice
+commitment **before** the wallet send. A failed journal write cannot send and
+leaves the allocation reserved. Journal uniqueness prevents a second claim.
+
+Reconciliation requires complete authenticated outgoing history for the exact
+exclusive wallet connection and exact lookups/preimages for journaled payments.
+A restored prepared attempt with an exact journal commitment is quarantined as
+unknown and, only with matching proof, confirmed paid without being sent again.
+If the backup lacks the attempt or its allocations, recovery blocks rather than
+guessing which city was paid. Unknown outgoing history, altered allocations,
+cancelled-but-journaled attempts, missing journal records, invalid proof, incomplete
+history, pending/failed/missing payments and unavailable wallets all block sends.
+An explicit pause cannot be overridden by a late audit response.
+
+This is isolated recovery logic, not a production restore tool. Before rollout:
+
+1. Stop and fence **all** sender processes before restore/audit. Process-wide or
+   distributed fencing is not implemented by this in-memory gate. Never replace
+   a database underneath a running sender.
+2. Keep the send journal outside the ledger's restore/rollback failure domain,
+   with protected durable storage and independent backups. Tests use separate
+   SQLite files; this does not establish real infrastructure durability.
+3. Supply a real authenticated history collector that proves full pagination and
+   retention coverage. The injected `complete` flag is a trusted collector result,
+   not a browser input or proof derived from one empty page. Missing history
+   coverage means blocked, including when both databases were rolled back.
+4. If allocations are missing, recover a consistent newer ledger/journal from
+   independent evidence. No automatic reconstruction or manual “mark unpaid”
+   bypass is supplied. Uncertain funds stay reserved even if no send occurred.
+5. Only after full reconciliation may this harness enable claims; fresh wallet
+   permission, fee/budget checks and live-test authorization still apply.
+
 ## Deliberate boundaries / next slice
 
 The ledger is an internal accounting primitive, not proof that a payment happened.
@@ -161,8 +198,8 @@ Before runtime integration, implement and test:
    unknown-send reconciliation. A missing lookup result is not a failed payment.
 3. Reviewed definitive-failure recovery and expired unsent invoice replacement;
    never release an uncertain payment merely because its invoice has expired.
-4. Backup/restore reconciliation against wallet history before resuming sends;
-   restoring an old database must not replay already completed payments.
+4. Production restore tooling, independent journal durability, sender fencing and
+   authenticated complete-history collection for the tested recovery gate.
 5. Rustress adapter integration, one forwarding authority, capability gates,
    alerts, private operational views and explicit authorization for a bounded
    live test. Keep checkout's receive-only connection unchanged.
@@ -174,7 +211,7 @@ restart while outcome is unknown, restart after payment, preimage validation,
 fee conflicts and conservation of every allocated millisatoshi. They use only
 synthetic records and temporary local databases, not real invoices or funds.
 
-Verification: 1,012 tests across 183 files pass on Node 24, including 15 ledger
+Verification: 1,028 tests across 184 files pass on Node 24, including 15 ledger
 tests and 24 outgoing-invoice/worker tests. This slice adds 35 fixture tests for
 recipient retrieval, pinned HTTPS transport and outgoing wallet lookup validation.
 The authenticated reader adds 16 fixture tests for signatures, correlation,
@@ -182,6 +219,8 @@ checkout isolation, read-only methods, timeouts and integrated payout proof chec
 The integrated flow adds 18 tests for multiple payment amounts, duplicate credit,
 forged settlement, minimum/maximum payouts, endpoint outage, immutable recipients,
 budget sharing, authorization failures, missed notifications and restart recovery.
+Restore coverage adds 15 independent-journal/older-backup tests plus an integrated
+missing-guard denial test. These use only synthetic wallets and temporary files.
 TypeScript, changed-file lint and
 backlog checks pass. No staging/production
 release is needed for this unconnected component.

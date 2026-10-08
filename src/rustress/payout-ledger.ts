@@ -44,6 +44,19 @@ export class PayoutLedger {
     const row=this.db.prepare("SELECT snapshot FROM bw_ledger_invoice WHERE wallet=? AND hash=?").get(walletRef,hash);
     return row?JSON.parse(row.snapshot as string):null;
   }
+  recoveryAttempts(walletRef:string){
+    return (this.db.prepare("SELECT id,bucket FROM bw_ledger_payout ORDER BY id").all() as {id:string;bucket:string}[])
+      .filter(row=>JSON.parse(row.bucket).walletRef===walletRef).map(row=>{
+        const input=this.workerInput(row.id)!;
+        const allocations=this.db.prepare("SELECT wallet,hash,amount FROM bw_ledger_allocation WHERE payout=? ORDER BY wallet,hash").all(row.id);
+        const commitment=createHash("sha256").update(JSON.stringify({id:row.id,bucket:input.bucket,hash:input.hash,amount:input.amount,feeCap:input.fee_cap,document:input.document,allocations})).digest("hex");
+        return {...input,commitment};
+      });
+  }
+  quarantineAttempt(id:string){
+    // Recovery-only: remove send eligibility without initiating a payment.
+    this.db.prepare("UPDATE bw_ledger_payout SET state='unknown' WHERE id=? AND state='prepared'").run(id);
+  }
   pendingIncoming(walletRef:string,after=0,limit=50){
     ref.parse(walletRef);z.number().int().safe().nonnegative().parse(after);z.number().int().min(1).max(100).parse(limit);
     return this.db.prepare("SELECT rowid AS cursor,hash FROM bw_ledger_invoice WHERE wallet=? AND settled=0 AND rowid>? ORDER BY rowid LIMIT ?").all(walletRef,after,limit) as {cursor:number;hash:string}[];

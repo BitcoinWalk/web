@@ -78,6 +78,17 @@ No live sender, credentials, background service or deployment enabled. Real Hub
 inventory collection, approved spending limits, restored-backup reconciliation
 and bounded live acceptance remain gates; BW-18 stays In progress.
 
+Restore safety fixture milestone: the flow defaults to paused without a reconciled
+recovery guard. A separate durable send journal commits exact payout allocations
+before wallet sends. Restoring a prepared snapshot after payment reconciles to
+paid without resending; a snapshot missing the whole payout stays blocked.
+Incomplete history, mismatched allocations/proofs, pending outcomes and journal
+failures also block. Tests restore real temporary SQLite copies. Production
+sender fencing, independently stored journals and complete authenticated wallet
+history remain required; no live payment or deployment was performed.
+Verification: 1,028 tests across 184 files; TypeScript, changed-file lint and
+backlog checks pass.
+
 | ID | Stage | Item | Status | Depends on | Acceptance |
 |---|---:|---|---|---|---|
 | BW-109 | 9, 10 | Super-admin standalone Lightning addresses without splits | ⚪ Planned | BW-100 | Create/manage addresses from CMS with explicit receiving-wallet selection and signed super-admin-only commands; automatically provision and verify LNURL-pay with no Prism or 79/21 split; prefer direct receipt without an extra forwarding hop. Initial requested addresses: endo@bitcoinwalk.org and donate@bitcoinwalk.org; user confirmed bitcoinwalk@getalby.com as recipient for both; underlying wallet mapping still needs verification. Separate resource type from Pro cities, global address collision protection, no silent adoption, durable retries/read-back, disable/recovery and preserved old invoices. No NIP-05 or NIP-57 recipient invented. No live changes yet. See [plan](admin-lightning-addresses.md). |
