@@ -265,8 +265,7 @@ by this choice.
 
 Option two now has a server factory, persistent store, bounded client and remote
 recovery adapter under `src/rustress/remote-journal-*.ts`. No listener starts on
-import, no environment flag activates it and no deployment package is supplied
-yet. A localhost HTTP test exercises the real request handler using synthetic
+import and no environment flag activates it. A localhost HTTP test exercises the real request handler using synthetic
 credentials and temporary databases, not either VPS or a wallet.
 
 - One immutable wallet binding and pinned service identity per database.
@@ -294,13 +293,55 @@ credentials and temporary databases, not either VPS or a wallet.
   budget claim and before calling the injected sender. It rechecks policy expiry
   and recovery readiness after waiting. No real NWC sender has been enabled.
 
-Before deploying: package a non-root service, provision private journal storage
+Before deploying: review the non-root package, provision private journal storage
 on the other VPS with independently tested backups, establish restricted private
 transport and separate credentials without displaying them, verify retention and
 sender stopping, then rehearse restart/outage/restore on isolated staging data.
 Loss or rollback of both stores still requires independent wallet history and
 operator recovery. This implementation does not assert provider-level physical
 independence or authorize a live payment test.
+
+### Standalone package — local acceptance only
+
+`npm run journal:package` produces `release-build/bitcoinwalk-remote-journal-0.1.0.tar.gz`
+and its SHA-256 manifest. The archive contains the bundled Node service, this
+operating guide and an intentionally unconfigured user-service template. It has
+no tokens, wallet connection, database, installer or automatic activation.
+`npm run journal:smoke` extracts and starts that exact archive as the current
+non-root user with synthetic credentials and a temporary loopback port.
+
+Runtime requires Node 24+ and one canonical absolute state-directory argument.
+Provision that dedicated directory as the service user, mode 0700. It must contain
+only regular, singly linked files owned by that user, mode 0600 (no symlinks):
+
+- `config.json`: strict object with `binding` (the reviewed 64-character lowercase
+  hexadecimal wallet-binding digest) and `port` (1024–65535).
+- `client.token` and `operator.token`: distinct cryptographically random base64url
+  tokens, 43–256 characters each. Generate and install privately; never put them
+  in command arguments, Git, a browser or service logs. The operator credential
+  must not be supplied to the payout worker.
+
+Startup refuses root, loose permissions, symlinked paths, invalid credentials,
+unexpected configuration or an existing `service.lock`. It never repairs
+permissions. SQLite files are created under umask 0077; the listener is fixed to
+127.0.0.1. New journals and every restart are paused. SIGTERM/SIGINT closes requests
+and SQLite before removing the exclusive lock. A crash deliberately leaves the
+lock: verify the service and all senders are stopped before removing only that
+lock and restarting. Never remove journal records to get past an error.
+
+The example systemd user unit has placeholder absolute runtime/release paths and
+no automatic restart. Review paths and provision credentials before installing it;
+it is not a deployment script. A backup must use SQLite's consistent backup
+mechanism or a fully stopped database, not a raw copy of an active WAL database.
+Restore requires stopped/drained senders, independent retained history and the
+existing recovery checks; operator activation alone is not recovery evidence.
+
+Local packaged acceptance passed: unauthorized requests and client-side operator
+commands denied; concurrent instance rejected without pausing the owner; first
+claim created, exact retry recorded; restart retained identity/records but paused
+and invalidated the old fence; new-fence retry remained recorded; database mode
+0600; loose token permissions rejected. No VPS, tunnel or wallet was accessed.
+Independent backup/restore and restricted transport still require staging review.
 
 ## Deliberate boundaries / next slice
 

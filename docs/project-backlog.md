@@ -119,8 +119,13 @@ permit one send; retries only confirm prior recording. The payout worker awaits
 the remote claim before sending, and remote recovery rejects missing allocations,
 unstable journal snapshots and uncertain wallet outcomes. Local tests include
 HTTP authentication, restart, outage and lost-acknowledgement cases. No VPS
-service, tunnel, credential or wallet setting has changed. Next: package and
-review a non-root staging deployment and independent backup/restore rehearsal.
+service, tunnel, credential or wallet setting has changed. The standalone
+non-root journal package is now built and locally smoke-tested: private files,
+exclusive process lock, authentication, durable idempotent claims and paused
+restart all pass. All 1,070 tests remain passing. A user-service template is
+included but intentionally unconfigured; no installer or activation is supplied.
+Next: review isolated staging storage, restricted transport and independent
+backup/restore rehearsal. BW-18 remains In progress, with live payments disabled.
 
 | ID | Stage | Item | Status | Depends on | Acceptance |
 |---|---:|---|---|---|---|

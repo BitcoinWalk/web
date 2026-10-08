@@ -1,0 +1,16 @@
+# User-service template only. Replace both absolute runtime/release paths after
+# staging review. No sudo, no public listener, no wallet credential required.
+[Unit]
+Description=BitcoinWalk private payout journal (starts paused)
+
+[Service]
+Type=simple
+ExecStart=/REVIEWED/NODE24/PATH /REVIEWED/RELEASE/PATH/journal.cjs %h/.local/state/bitcoinwalk-remote-journal
+UMask=0077
+NoNewPrivileges=true
+LimitCORE=0
+Restart=no
+TimeoutStopSec=15
+
+[Install]
+WantedBy=default.target
