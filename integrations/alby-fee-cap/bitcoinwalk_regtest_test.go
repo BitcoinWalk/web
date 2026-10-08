@@ -155,6 +155,41 @@ func TestBitcoinWalkPrivateRegtest(t *testing.T) {
 		return true
 	})
 	t.Log("private three-node regtest route ready")
+	// Interrupt a real native LDK payment between initiation and terminal event.
+	// The recipient is stopped first so the sender cannot observe a success before
+	// its process is stopped; both nodes are rebuilt from the same storage paths.
+	interruptInvoice, err := nodes[2].Bolt11Payment().Receive(50_000_000, ldk.Bolt11InvoiceDescriptionDirect{Description: "interruption fixture"}, 3600)
+	require.NoError(t, err)
+	require.NoError(t, nodes[2].Stop())
+	interruptID, err := nodes[0].Bolt11Payment().Send(interruptInvoice, &ldk.RouteParametersConfig{MaxTotalCltvExpiryDelta: 1008, MaxPathCount: 1})
+	require.NoError(t, err)
+	require.NoError(t, nodes[0].Stop())
+	// Rebuild sender and recipient from their persisted LDK stores.
+	rebuild := func(i int) *ldk.Node {
+		b := ldk.NewBuilder()
+		b.SetNetwork(ldk.NetworkRegtest)
+		b.SetStorageDirPath(filepath.Join(dir, fmt.Sprintf("node-%d", i)))
+		require.NoError(t, b.SetListeningAddresses([]string{addresses[i]}))
+		require.NoError(t, b.SetAnnouncementAddresses([]string{addresses[i]}))
+		require.NoError(t, b.SetNodeAlias(fmt.Sprintf("regtest-%d", i)))
+		var p uint16
+		_, err := fmt.Sscan(rpcPort, &p)
+		require.NoError(t, err)
+		b.SetChainSourceBitcoindRpc("127.0.0.1", p, "fixture", "regtest-only")
+		n, err := b.Build()
+		require.NoError(t, err)
+		require.NoError(t, n.Start())
+		return n
+	}
+	nodes[0] = rebuild(0)
+	nodes[2] = rebuild(2)
+	interruptPayment := nodes[0].Payment(interruptID)
+	require.NotNil(t, interruptPayment, "interrupted payment must survive sender reconstruction")
+	if interruptPayment.Status == ldk.PaymentStatusSucceeded {
+		_, err = nodes[0].Bolt11Payment().Send(interruptInvoice, &ldk.RouteParametersConfig{MaxTotalCltvExpiryDelta: 1008, MaxPathCount: 1})
+		require.Error(t, err, "reconstructed settled payment must reject duplicate submission")
+	}
+	t.Logf("native LDK interruption survived reconstruction with status %v; duplicate submission fenced", interruptPayment.Status)
 	setFee := func(fee uint32) {
 		for _, ch := range nodes[1].ListChannels() {
 			if ch.CounterpartyNodeId == nodes[2].NodeId() {

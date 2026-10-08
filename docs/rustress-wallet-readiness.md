@@ -320,14 +320,12 @@ release gates. It does not claim WebSocket relay delivery or a live wallet test:
 the test uses an in-memory publisher and synthetic backend, with no credentials,
 network or funds. Still open before deployment:
 
-1. Inject an in-flight native LDK interruption while the complete Hub service is
-   running, then restart and reconcile the exact payment without resending it.
-2. Define and implement a fail-closed audit/migration for legacy FAILED rows that
+1. Define and implement a fail-closed audit/migration for legacy FAILED rows that
    may actually have an unknown outcome.
-3. Bind the BitcoinWalk adapter to the exact installed Hub revision and verify
+2. Bind the BitcoinWalk adapter to the exact installed Hub revision and verify
    its required capability at startup.
-4. Rehearse encrypted backup, restore and rollback before any staging adoption.
-5. Include real relay delivery and bounded no-funds staging acceptance in the
+3. Rehearse encrypted backup, restore and rollback before any staging adoption.
+4. Include real relay delivery and bounded no-funds staging acceptance in the
    final rollout rehearsal. Live spending remains disabled.
 
 The functional build gate itself passes: the real HTTP frontend bundle and Linux
@@ -341,6 +339,17 @@ candidate patch, `frontend-lock.patch`, pins the already reviewed 8.2.1 release.
 A fresh frozen install then left `yarn.lock` byte-identical, built with Vite
 8.2.1 and passed the full suite. This is reproducible build evidence, not
 deployment authorization.
+
+The native interruption gate itself now passes three private regtest repeats:
+the recipient is stopped before send, the sender is stopped during the in-flight
+payment, both are rebuilt from the same LDK stores, the payment record remains
+pending, and a duplicate submission is fenced. This proves LDK persistence and
+reconstruction. The complete Hub composition now passes the same lifecycle
+exercise: the payment is held at the receiver, the Hub child is killed, the
+service restarts from the same database/LDK stores, exact lookup reconciles the
+reservation without resending, and a duplicate retry is rejected while the
+single outgoing row remains within the 50,000,000-msat payout and
+200,000,000-msat total-budget limits.
 
 Reviewed official tag v1.24.0, commit
 `d8ef0e70e0d265a8424276daee0a595ac31993c0`:

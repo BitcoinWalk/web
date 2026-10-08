@@ -190,11 +190,14 @@ detector repeats through the real Hub event handler, controller and SQLite with
 the exact 100-sat ceiling; a proven terminal routing failure returns an encrypted
 error and releases both principal and fee reservation. The surrounding NIP-47,
 controller and transaction suites pass. This is synthetic and uses neither relay
-delivery nor a wallet. Still required before rollout: complete-Hub native LDK
-interruption/restart reconciliation, a legacy-row audit/migration, exact adapter
-capability binding, encrypted backup and rollback, and final bounded relay
-delivery acceptance. The real frontend bundle, Linux server and full serial Go
-suite now build/pass from the patched pin. A third candidate patch pins Vite to
+delivery nor a wallet. Native LDK interruption/reconstruction now passes three
+private regtest repeats, and the complete Hub composition passes its held-payment
+SIGKILL/restart, exact-reconciliation and duplicate-fencing rehearsal. Still
+required before rollout is a legacy-row audit/migration, exact adapter capability
+binding, encrypted backup and rollback, and final bounded relay delivery
+acceptance. The real frontend bundle, Linux
+server and full serial Go suite now build/pass from the patched pin. A third
+candidate patch pins Vite to
 the lockfile's reviewed 8.2.1 version: a fresh frozen install leaves the lockfile
 byte-identical, whereas the upstream floating range silently selected 8.3.4.
 BW-18 remains In progress and live spending disabled; no live wallet code
