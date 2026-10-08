@@ -535,12 +535,40 @@ Readiness is **not granted**. Outstanding evidence and authority:
 | Backup/recovery | Manual off-host synthetic restore passed | Managed encrypted retention, monitoring and restore evidence for live state |
 | Wallet grants and fees | Earlier pinned Hub source audit; synthetic adapter tests | Fresh authenticated connection inventory and provider proving actual enforced fees/budget; not a callback returning guessed values |
 | Complete history | Bounded collector and refusal tests | Independent retained-history/exclusive-sender proof provider |
-| Spending authorization | BitcoinWalk bears routing fees; arbitrary supported amounts remain valid | Explicit total pilot budget, maximum single payout and per-payout fee limit; no numeric values inferred from fixtures |
+| Spending authorization | User approved 50,000 sats maximum payout, 100 sats maximum fee per payout, 200,000 sats total non-renewing budget including fees | Wallet enforcement and remaining readiness gates; limits alone do not authorize activation |
 
 Asked the user for pilot limits without requesting activation. No real credentials
 were loaded. All **1,108 tests across 191 files**, types, changed-file lint and
 backlog validation pass. BW-18 remains In progress. The next work is supplying
 reviewable evidence providers and the managed backup plan, not flipping a flag.
+
+### Approved pilot limits — 8 October 2026
+
+Explicit user approval replaces the earlier proposed pilot numbers:
+
+| Limit | Sats | Integer msat value |
+|---|---:|---:|
+| Maximum single organizer payout | 50,000 | 50,000,000 |
+| Maximum routing fee per payout | 100 | 100,000 |
+| Total non-renewing budget, principal plus fees | 200,000 | 200,000,000 |
+
+The budget is shared across the pilot wallet, not renewed per city or payment.
+Unknown attempts retain their principal and fee reservation. The organizer keeps
+the full 79% allocation; BitcoinWalk covers routing fees. These are pilot ceilings,
+not target payment sizes, invoice amounts or changes to the 79/21 allocation.
+No reset schedule or automatic budget replenishment is approved.
+
+**Still disabled:** the audited Hub v1.24.0 LDK backend's
+`max(ceil(amount_msat * 0.01), 10000)` fee ceiling would permit 500 sats on a
+50,000-sat payout, exceeding the approved 100 sats. The existing guard must refuse
+such a payout until an actual wallet-side ceiling no higher than 100 sats is
+verified. Under the audited formula, amounts above 10,000 sats fail that fee
+gate. Do not silently raise the fee limit, label a UI cap as enforcement, reduce
+the approved payout ceiling, or split a payout to circumvent the gate.
+
+No live policy/credentials were installed and no wallet permissions, payments or
+services changed when recording this approval. A concrete activation/expiry
+window and remaining deployment, history and backup evidence are still required.
 
 ## Deliberate boundaries / next slice
 

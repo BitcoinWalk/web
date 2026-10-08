@@ -85,6 +85,13 @@ A subsequent read-only visit to Settings/About explicitly confirms **v1.24.0,
 LDK, SQLite** (not inferred from the update banner). Paid city remains receive-only.
 No backup page, secret, wallet credential, permission or payment was accessed/changed.
 
+Later explicit pilot-limit approval, 8 October: maximum payout **50,000 sats**,
+maximum fee **100 sats per payout**, and **200,000 sats total non-renewing budget
+including fees**. This is not activation approval. The source-audited LDK ceiling
+below is 500 sats at the approved maximum payout, so the adapter must block that
+amount until the 100-sat ceiling can actually be enforced. No wallet setting has
+been changed. See `rustress-payout-ledger.md` for exact units and remaining gates.
+
 Reviewed official tag v1.24.0, commit
 `d8ef0e70e0d265a8424276daee0a595ac31993c0`:
 

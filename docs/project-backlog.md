@@ -153,9 +153,14 @@ all components, serializes operations and rejects missing/expired readiness befo
 activation; disabled startup does not load credentials. Ten more tests pass
 (1,108 total across 191 files). Read-only staging check confirms the private
 journal remains paused. Live gates remain: actual wallet fee/budget and retained-
-history evidence providers, managed encrypted backups, and explicit numeric pilot
-limits (requested from the user, not inferred). No wallet queried or permissions
-changed. BW-18 remains In progress; spending disabled.
+history evidence providers and managed encrypted backups. User approved pilot
+ceilings: **50,000 sats per payout; 100 sats routing fee per payout; 200,000 sats
+total non-renewing budget including fees**. No activation is implied. The audited
+LDK ceiling permits 500 sats on a 50,000-sat payment, so that payment stays blocked
+until the approved 100-sat fee ceiling can be enforced. No silent fee increase,
+payout-cap reduction or workaround splitting. Activation/expiry window remains
+unset. No wallet queried or permissions changed; BW-18 stays In progress and
+spending disabled. See the approved-limits section in the ledger scope.
 See [deployment evidence](rustress-payout-ledger.md).
 
 | ID | Stage | Item | Status | Depends on | Acceptance |
