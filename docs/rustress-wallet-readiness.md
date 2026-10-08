@@ -266,6 +266,45 @@ Recommended next implementation, separately reviewed before adoption:
 The BitcoinWalk sender remains disabled. This candidate must not replace the
 live Hub until this gate and the previously recorded rollout gates pass.
 
+### Unknown-outcome correction accepted in isolation — 8 October 2026
+
+The blocker above is now corrected in the local candidate, not in the live Hub.
+The second reproducible patch, `integrations/alby-fee-cap/unknown-outcome.patch`,
+applies after the pinned fee-cap patch and makes these scoped changes:
+
+- An explicit unknown-outcome error preserves the pending row, principal and
+  exact requested fee reserve. Context cancellation and deadline expiry are
+  treated as unknown even if a backend fails to wrap them.
+- LDK wraps shutdown while waiting for its terminal event as unknown. Its
+  explicit `EventPaymentFailed` path remains a definitive failure, while an
+  immediate error before a payment ID retains existing behaviour.
+- LDK alone opts into authoritative outgoing lookup reconciliation. The earlier
+  notification shortcut remains unchanged for other backends, avoiding the
+  cross-backend behaviour change caught by the full transaction suite.
+- Exact lookup settlement changes PENDING to SETTLED, replaces the reserve with
+  the actual fee and keeps the same 50,100-sat total budget use. Until lookup
+  proves settlement, retries remain fenced and missing evidence releases nothing.
+
+Acceptance from a fresh pinned checkout:
+
+- Complete transaction and NWC controller suites pass.
+- All backend Go packages that do not depend on the separately generated
+  frontend bundle pass serially. A parallel attempt was invalid because upstream
+  packages share `test.db`; the serial run avoids that fixture collision.
+- Recovery acceptance passes three repeats under Go's race detector: 20-way
+  budget concurrency, cancellation, deadline, typed disconnect, exact lookup
+  settlement, lost success response and abrupt child-process exit. No race was
+  reported.
+- Private three-node regtest passes three repeats: above-cap and one-msat boundary
+  rejection, exact 100-sat success, reconstruction and duplicate rejection.
+
+This closes the reproduced reservation-release defect for the tested LDK path.
+It does not authorize deployment. Still open: encrypted NWC transport acceptance,
+a native LDK interruption injected while the complete Hub service is running,
+definitive-failure release verification, legacy misclassified-row migration,
+full frontend/server build, capability binding in the BitcoinWalk adapter,
+encrypted backup and rollback rehearsal. Live spending remains disabled.
+
 Reviewed official tag v1.24.0, commit
 `d8ef0e70e0d265a8424276daee0a595ac31993c0`:
 

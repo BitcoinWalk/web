@@ -21,7 +21,9 @@ if os.getuid() == 0:
     raise SystemExit('Non-root only')
 if subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=checkout, text=True).strip() != pin:
     raise SystemExit('Wrong upstream revision')
-subprocess.run(['git', 'apply', '--reverse', '--check', str(base / 'isolated-candidate.patch')], cwd=checkout, check=True)
+patches = [base / name for name in ('isolated-candidate.patch', 'unknown-outcome.patch')]
+for patch in reversed(patches):
+    subprocess.run(['git', 'apply', '--reverse', '--check', str(patch)], cwd=checkout, check=True)
 source = base / 'bitcoinwalk_regtest_test.go'
 target = checkout / 'lnclient/ldk/bitcoinwalk_regtest_test.go'
 if target.exists() and target.read_bytes() != source.read_bytes():
@@ -37,7 +39,7 @@ with (output / 'regtest.log').open('w') as log:
     subprocess.run([args.go, 'test', './lnclient/ldk', '-run', '^TestBitcoinWalkPrivateRegtest$', '-count=3', '-timeout=8m', '-v'], cwd=checkout, env=env, stdout=log, stderr=subprocess.STDOUT, check=True)
 manifest = {
     'upstream': pin,
-    'patchSha256': hashlib.sha256((base / 'isolated-candidate.patch').read_bytes()).hexdigest(),
+    'patches': {p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in patches},
     'testSha256': hashlib.sha256(source.read_bytes()).hexdigest(),
     'bitcoindSha256': hashlib.sha256(binary.read_bytes()).hexdigest(),
     'logSha256': hashlib.sha256((output / 'regtest.log').read_bytes()).hexdigest(),

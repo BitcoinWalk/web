@@ -20,7 +20,9 @@ if os.getuid() == 0:
     raise SystemExit('Non-root only')
 if subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=checkout, text=True).strip() != pin:
     raise SystemExit('Wrong upstream revision')
-subprocess.run(['git', 'apply', '--reverse', '--check', str(base / 'isolated-candidate.patch')], cwd=checkout, check=True)
+patches = [base / name for name in ('isolated-candidate.patch', 'unknown-outcome.patch')]
+for patch in reversed(patches):
+    subprocess.run(['git', 'apply', '--reverse', '--check', str(patch)], cwd=checkout, check=True)
 source = base / 'bitcoinwalk_recovery_test.go'
 target = checkout / 'nip47/controllers/bitcoinwalk_recovery_test.go'
 if target.exists() and target.read_bytes() != source.read_bytes():
@@ -47,7 +49,7 @@ manifest.write_text(json.dumps({
     'upstream': pin, 'productionReady': False, 'exitCode': result.returncode,
     'status': 'blocked' if result.returncode else 'tested-only', 'raceDetector': args.race,
     'testSha256': hashlib.sha256(source.read_bytes()).hexdigest(),
-    'patchSha256': hashlib.sha256((base / 'isolated-candidate.patch').read_bytes()).hexdigest(),
+    'patches': {p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in patches},
     'logSha256': hashlib.sha256((output / 'recovery.jsonl').read_bytes()).hexdigest(),
     'scope': 'NWC pay controller + actual SQLite; injected backend, no transport or live LDK',
     'outcomes': outcomes,

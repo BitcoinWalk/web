@@ -37,12 +37,22 @@ import (
 
 type bwFaultBackend struct {
 	lnclient.LNClient
-	send func(string, *uint64, *uint64) (*lnclient.PayInvoiceResponse, error)
+	send   func(string, *uint64, *uint64) (*lnclient.PayInvoiceResponse, error)
+	lookup func(context.Context, string) (*lnclient.Transaction, error)
 }
 
 func (b bwFaultBackend) SendPaymentSync(i string, a, f *uint64) (*lnclient.PayInvoiceResponse, error) {
 	return b.send(i, a, f)
 }
+
+func (b bwFaultBackend) LookupInvoice(ctx context.Context, hash string) (*lnclient.Transaction, error) {
+	if b.lookup != nil {
+		return b.lookup(ctx, hash)
+	}
+	return b.LNClient.LookupInvoice(ctx, hash)
+}
+
+func (b bwFaultBackend) SupportsOutgoingPaymentLookupReconciliation() bool { return true }
 
 func bwRecoveryService(t *testing.T) *tests.TestService {
 	t.Helper()
@@ -162,11 +172,11 @@ func TestBitcoinWalkConcurrentNwcBudget(t *testing.T) {
 }
 
 func TestBitcoinWalkUncertainSendMustRetainReservation(t *testing.T) {
-	for _, fault := range []error{context.Canceled, context.DeadlineExceeded} {
+	for _, fault := range []error{context.Canceled, context.DeadlineExceeded, lnclient.NewPaymentOutcomeUnknownError(errors.New("transport disconnected after send"))} {
 		t.Run(fault.Error(), func(t *testing.T) {
 			svc := bwRecoveryService(t)
 			app, perm := bwRecoveryApp(t, svc)
-			inv, hash, _ := bwInvoice(t, 100)
+			inv, hash, preimage := bwInvoice(t, 100)
 			req, id := bwPayRequest(t, svc, inv)
 			// The fake backend accepts the attempt, but does not provide a terminal outcome.
 			svc.LNClient = bwFaultBackend{LNClient: svc.LNClient, send: func(string, *uint64, *uint64) (*lnclient.PayInvoiceResponse, error) { return nil, fault }}
@@ -188,6 +198,19 @@ func TestBitcoinWalkUncertainSendMustRetainReservation(t *testing.T) {
 			req, id = bwPayRequest(t, svc, inv)
 			_ = bwInvoke(svc, app, req, id)
 			assert.Zero(t, retried.Load(), "retry reached backend before unknown first attempt was reconciled")
+
+			settledAt := time.Now().Unix()
+			svc.LNClient = bwFaultBackend{LNClient: svc.LNClient, lookup: func(_ context.Context, got string) (*lnclient.Transaction, error) {
+				require.Equal(t, hash, got)
+				return &lnclient.Transaction{PaymentHash: hash, Preimage: preimage, AmountMsat: 50_000_000, FeesPaidMsat: 100000, SettledAt: &settledAt}, nil
+			}}
+			transactionType := constants.TRANSACTION_TYPE_OUTGOING
+			transaction, err := NewTestNip47Controller(svc).transactionsService.LookupTransaction(context.Background(), hash, &transactionType, svc.LNClient, &app.ID)
+			require.NoError(t, err)
+			require.Equal(t, constants.TRANSACTION_STATE_SETTLED, transaction.State)
+			usage, err = queries.GetBudgetUsageMsat(svc.DB, perm)
+			require.NoError(t, err)
+			require.Equal(t, uint64(50100000), usage)
 		})
 	}
 }

@@ -1,0 +1,118 @@
+diff --git a/lnclient/models.go b/lnclient/models.go
+--- a/lnclient/models.go
++++ b/lnclient/models.go
+@@ -3,8 +3,38 @@
+ import (
+ 	"context"
+ 	"errors"
++	"fmt"
+ )
+ 
++// PaymentOutcomeUnknownError means a send was attempted but the caller did not
++// observe a terminal wallet outcome. Callers must retain principal and fee
++// reservations and reconcile by payment hash before permitting a retry.
++type PaymentOutcomeUnknownError struct{ Err error }
++
++func NewPaymentOutcomeUnknownError(err error) error {
++	if err == nil {
++		err = errors.New("payment outcome unknown")
++	}
++	return &PaymentOutcomeUnknownError{Err: err}
++}
++
++func (err *PaymentOutcomeUnknownError) Error() string {
++	return fmt.Sprintf("payment outcome unknown: %v", err.Err)
++}
++func (err *PaymentOutcomeUnknownError) Unwrap() error { return err.Err }
++
++func IsPaymentOutcomeUnknown(err error) bool {
++	var unknown *PaymentOutcomeUnknownError
++	return errors.As(err, &unknown) || errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded)
++}
++
++// OutgoingPaymentLookupReconciler is an opt-in capability. A backend must only
++// return true when LookupInvoice can authoritatively reconcile outgoing pending
++// payments by their exact payment hash.
++type OutgoingPaymentLookupReconciler interface {
++	SupportsOutgoingPaymentLookupReconciliation() bool
++}
++
+ // TLVRecord JSON tags are kept because values flow through the freeform
+ // transaction Metadata blob and are surfaced to NIP-47 clients via
+ // lookup_invoice / list_transactions.
+diff --git a/lnclient/ldk/ldk.go b/lnclient/ldk/ldk.go
+--- a/lnclient/ldk/ldk.go
++++ b/lnclient/ldk/ldk.go
+@@ -648,7 +648,7 @@
+ 	for {
+ 		select {
+ 		case <-ls.ctx.Done():
+-			return nil, ls.ctx.Err()
++			return nil, lnclient.NewPaymentOutcomeUnknownError(ls.ctx.Err())
+ 
+ 		case ev := <-ldkEventSubscription:
+ 			switch event := (*ev).(type) {
+@@ -2173,6 +2173,10 @@
+ 	}
+ }
+ 
++func (ls *LDKService) SupportsOutgoingPaymentLookupReconciliation() bool {
++	return true
++}
++
+ func (ls *LDKService) getPaymentFailReason(eventPaymentFailed *ldk_node.EventPaymentFailed) string {
+ 	var failureReason ldk_node.PaymentFailureReason
+ 	var failureReasonMessage string
+diff --git a/transactions/transactions_service.go b/transactions/transactions_service.go
+--- a/transactions/transactions_service.go
++++ b/transactions/transactions_service.go
+@@ -456,6 +456,14 @@
+ 			"bolt11": payReq,
+ 		}).WithError(err).Error("Failed to send payment")
+ 
++		if lnclient.IsPaymentOutcomeUnknown(err) {
++			logger.Logger.WithFields(logrus.Fields{
++				"payment_hash":   dbTransaction.PaymentHash,
++				"transaction_id": dbTransaction.ID,
++			}).Warn("Payment outcome is unknown; retaining pending principal and fee reservation")
++			return nil, err
++		}
++
+ 		if _, markFailedErr := svc.markPaymentFailed(&dbTransaction, err.Error()); markFailedErr != nil {
+ 			logger.Logger.WithFields(logrus.Fields{
+ 				"bolt11": payReq,
+@@ -765,9 +773,11 @@
+ }
+ 
+ func (svc *transactionsService) checkUnsettledTransactions(ctx context.Context, lnClient lnclient.LNClient) {
+-	// Only check unsettled transactions for clients that don't support async events
++	// Notification support does not necessarily imply that outgoing pending
++	// payments can be looked up authoritatively. Reconcile only when the backend
++	// explicitly advertises that capability.
+ 	// checkUnsettledTransactions does not work for keysend payments!
+-	if slices.Contains(lnClient.GetSupportedNIP47NotificationTypes(), "payment_received") {
++	if slices.Contains(lnClient.GetSupportedNIP47NotificationTypes(), "payment_received") && !supportsOutgoingPaymentLookupReconciliation(lnClient) {
+ 		return
+ 	}
+ 
+@@ -783,7 +793,7 @@
+ 	}
+ }
+ func (svc *transactionsService) checkUnsettledTransaction(ctx context.Context, transaction *db.Transaction, lnClient lnclient.LNClient) {
+-	if slices.Contains(lnClient.GetSupportedNIP47NotificationTypes(), "payment_received") {
++	if slices.Contains(lnClient.GetSupportedNIP47NotificationTypes(), "payment_received") && !supportsOutgoingPaymentLookupReconciliation(lnClient) {
+ 		return
+ 	}
+ 
+@@ -803,6 +813,11 @@
+ 	}
+ }
+ 
++func supportsOutgoingPaymentLookupReconciliation(lnClient lnclient.LNClient) bool {
++	reconciler, ok := lnClient.(lnclient.OutgoingPaymentLookupReconciler)
++	return ok && reconciler.SupportsOutgoingPaymentLookupReconciliation()
++}
++
+ func (svc *transactionsService) ConsumeEvent(ctx context.Context, event *events.Event, globalProperties map[string]interface{}) {
+ 	switch event.Event {
+ 	case "nwc_lnclient_payment_received":
