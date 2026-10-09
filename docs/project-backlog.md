@@ -28,6 +28,18 @@ BW-100 remains In progress for its broader live/security scope. Generic provisio
 disabled. BW-108's real MEP migration and BW-18/BW-19 activation remain separate.
 See [pilot instructions and boundaries](madeira-private-pilot.md).
 
+BW-19 Madeira managed-reservation checkpoint, 9 October: managed Rustress `0.1.2`,
+the single-port private tunnel and app `0.3.199` passed default-off deployment.
+The managed token was then copied directly between the two non-root VPS accounts;
+mode, ownership and digest match and the value was never printed or stored locally.
+App `0.3.200` adds a separate Madeira-only owner/admin challenge whose exact scope
+is one disabled reservation on the managed service. It creates no paid entitlement
+and cannot authorize public activation. Signing controls are live at
+`/admin/madeira-pilot`; both managed feature gates remain off. Next: collect the
+fresh Madeira-owner and super-admin signatures, enable reservation only, verify
+read-before-retry/restart recovery, then design and approve a separate activation
+grant before any NIP-05 or LNURL becomes public.
+
 BW-100 next slice: local wallet-readiness evaluator implemented with 11 tests;
 rejects missing/stale grants, checkout connection reuse, excessive permissions
 and unapproved budgets/fee limits. It cannot enable payments and is not yet
