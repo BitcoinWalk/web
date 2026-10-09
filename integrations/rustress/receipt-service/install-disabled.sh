@@ -1,6 +1,7 @@
 #!/bin/sh
 set -eu
-service=bitcoinwalk-rustress-receipt;version=0.1.0;worker_image="$service-worker:$version";signer_image="$service-signer:$version"
+service=bitcoinwalk-rustress-receipt;version=0.1.0;worker_image="$service-worker:$version";signer_image="$service-signer:$version";egress_image="$service-relay-egress:$version"
+service_egress="$service-relay-egress"
 root="$HOME/.local/state/bitcoinwalk-rustress/receipt-service";worker="$root/worker";signer="$root/signer";socket="$root/socket";mode="$root/receipt-mode"
 fail(){ printf '%s\n' "Receipt service installation failed." >&2;exit 1; }
 [ "$(id -u)" -ne 0 ]&&[ "$(id -un)" = bitcoinwalk ]||fail
@@ -11,8 +12,10 @@ for path in "$worker" "$signer" "$socket";do mkdir -p "$path";chmod 700 "$path";
 if [ ! -e "$mode" ];then umask 077;printf '%s\n' disabled>"$mode";fi
 [ -f "$mode" ]&&[ ! -L "$mode" ]&&[ "$(stat -c '%U:%G:%a' "$mode")" = bitcoinwalk:bitcoinwalk:600 ]&&[ "$(tr -d '\n'<"$mode")" = disabled ]||fail
 docker container inspect "$service-signer" >/dev/null 2>&1&&fail
+docker container inspect "$service_egress" >/dev/null 2>&1&&fail
 docker build --pull=false --network=none -f Dockerfile.worker --label "org.bitcoinwalk.version=$version" -t "$worker_image" . >/dev/null
 docker build --pull=false --network=none -f Dockerfile.signer --label "org.bitcoinwalk.version=$version" -t "$signer_image" . >/dev/null
+docker build --pull=false --network=none -f Dockerfile.egress --label "org.bitcoinwalk.version=$version" -t "$egress_image" . >/dev/null
 docker run --rm --network none --read-only --cap-drop ALL --security-opt no-new-privileges:true --user 0:0 --mount "type=bind,src=$worker,dst=/var/lib/bitcoinwalk-receipt-worker" --entrypoint node "$worker_image" /app/initialize-rustress-receipt-worker.cjs|grep -qx RECEIPT_WORKER_STATE_INITIALIZED||fail
 if docker container inspect "$service-worker" >/dev/null 2>&1;then [ "$(docker container inspect "$service-worker" --format '{{index .Config.Labels "org.bitcoinwalk.service"}}')" = rustress-receipt-worker ]||fail;fi
 old="";if docker container inspect "$service-worker" >/dev/null 2>&1;then old="$service-worker-rollback-$(date -u +%Y%m%dT%H%M%SZ)";docker stop "$service-worker" >/dev/null;docker rename "$service-worker" "$old";fi
@@ -25,4 +28,4 @@ ready=0;i=0;while [ "$i" -lt 20 ];do if docker exec "$service-worker" node /app/
 [ "$(docker exec "$service-worker" awk '/^Uid:/{print $2":"$3":"$4":"$5} /^CapEff:/{print $2}' /proc/1/status)" = '0:0:0:0
 0000000000000000' ]||rollback
 if [ -n "$old" ];then docker rm "$old" >/dev/null;fi
-printf '%s\n' "Receipt worker $version is installed disabled and network-isolated. Signer image built but not started."
+printf '%s\n' "Receipt worker $version is installed disabled and network-isolated. Signer and relay-egress images built but not started."

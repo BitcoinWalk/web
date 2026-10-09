@@ -17,9 +17,13 @@ sizes are bounded before extraction. A later installer-only correction changed
 the rootless-Docker spelling check and added an embedded assertion for it. The
 resulting installed disabled package SHA-256 is
 `ec220d284ae4222c1a58fc53a793acceaa5ad7ef44af90995d037f5db0b788eb`.
-Only the credential-free, `network=none` worker is installed; the signer is not
-started and no provider identity or activation exists. The original review target
-and digest below are retained as the immutable input to that review.
+A later BW-100 checkpoint packages the relay transport into a separate
+credential-free Unix-socket gateway and has package SHA-256
+`0c2f22a6a8696ab8403f52b01eaa3682cd4c4be9cec5707e0e8aca0ceccd2363`.
+Only the credential-free, `network=none` worker is running; the signer and relay
+gateway are not started. The supplemental gateway change requires review before
+activation. The original review target and digest below are retained as the
+immutable input to that review.
 
 ## Review purpose
 
@@ -38,13 +42,16 @@ receipt or relay publication is part of this review.
 
 - The disabled installer may start only the worker, with `network=none`, no
   receipt credentials and no signer socket. It must fail if a signer container
-  already exists.
+  or relay-gateway container already exists.
 - The signer must have no network and no wallet, payout-destination or relay
   capability. It can sign only a fully verified NIP-57 receipt over its owner-only
   Unix socket.
-- The worker must never receive the provider secret or an NWC URI. Its three
-  bearer capabilities—settlement evidence, signer and receipt claim—must be
-  distinct and narrowly scoped.
+- The worker must never receive the provider secret or an NWC URI. Its four
+  bearer capabilities—settlement evidence, signer, relay egress and receipt
+  claim—must be distinct and narrowly scoped.
+- The relay gateway must receive no provider secret, settlement evidence, NWC
+  URI or wallet capability. It may publish only a valid kind-9735 event from the
+  pinned provider to the operator-approved relay allowlist.
 - A settled incoming invoice is necessary but insufficient. The invoice,
   payment hash, amount, description commitment, preimage, city/version and
   settlement time must all agree with the exact signed kind-9734 request.
@@ -74,8 +81,10 @@ receipt or relay publication is part of this review.
 4. The signer independently repeats the protocol checks, stores the exact signed
    event durably by payment hash and returns it over the Unix socket.
 5. The worker verifies the returned signature and template, stores the event
-   before publication, and publishes the exact stored event through the pinned
-   relay transport.
+   before publication, and submits the exact stored event over an owner-only
+   Unix socket to the credential-free relay gateway.
+6. The gateway repeats event/provider validation and publishes only through the
+   pinned allowlist, DNS and WSS transport.
 
 Compromise of the public web app or Rustress adapter must not yield the provider
 key or wallet-spending capability. Compromise of the worker's claim credential
@@ -93,12 +102,14 @@ Core protocol and persistence:
 - `src/rustress/receipt-evidence-client.ts`
 - `src/rustress/zap-relay-publisher.ts`
 - `src/rustress/pinned-zap-websocket.ts`
+- `src/rustress/receipt-relay-egress.ts`
 - receipt-related changes in `src/rustress/payout-control-api.ts` and
   `src/rustress/payout-invoice-issuer.ts`
 
 Runtime, packaging and recovery:
 
 - `scripts/run-rustress-receipt-worker.ts`
+- `scripts/run-rustress-receipt-relay-egress.ts`
 - `scripts/run-rustress-receipt-signer.ts`
 - `scripts/verify-rustress-receipt-worker.ts`
 - `scripts/verify-rustress-receipt-restore.ts`

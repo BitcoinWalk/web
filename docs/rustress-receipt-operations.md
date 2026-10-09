@@ -6,19 +6,25 @@ Last reviewed: 9 October 2026
 
 The remediated `0.1.0` receipt-service package is installed on `.240` in its
 strict disabled state. Package SHA-256 is
-`ec220d284ae4222c1a58fc53a793acceaa5ad7ef44af90995d037f5db0b788eb`.
-The embedded package checks and 67 focused receipt tests pass. It creates two
+`0c2f22a6a8696ab8403f52b01eaa3682cd4c4be9cec5707e0e8aca0ceccd2363`.
+The embedded package checks and 77 focused receipt tests pass. It creates three
 different rootless images:
 
 - `bitcoinwalk-rustress-receipt-worker` owns the receipt database, authenticated
-  claim endpoint, payout-evidence client, relay allowlist, fresh DNS policy and
-  pinned WSS transport. The installed worker is `disabled`, `network=none`, has
+  claim endpoint, payout-evidence client and Unix-socket clients for signing and
+  relay publication. The installed worker is `disabled`, `network=none`, has
   no published port and mounts only its state plus the read-only disabled-mode
   file. It has no receipt, signer, payout or wallet credential.
 - `bitcoinwalk-rustress-receipt-signer` owns the provider key and signer database.
   It has no exposed port and must always run with `network=none`. The worker can
   reach it only through an owner-only Unix socket. The signer image is built but
   no signer container exists.
+- `bitcoinwalk-rustress-receipt-relay-egress` owns the approved relay allowlist,
+  fresh DNS policy and IP-pinned, TLS-hostname-preserving WSS transport. It has
+  no provider key, wallet, NWC or settlement-evidence capability, accepts only a
+  valid kind-9735 event from the pinned provider over an authenticated owner-only
+  Unix socket, and returns only exact positive relay acknowledgements. Its image
+  is built, but no gateway container exists.
 
 The package has no activation command. Activation is intentionally withheld until
 the encrypted recovery rehearsal, conservative public relay allowlist, egress
@@ -51,12 +57,13 @@ directory. It independently verifies the complete NIP-57 proof and refuses host
 root, unexpected ownership/modes, symlinks, hard-linked secrets, a mismatched key,
 changed retries and invalid SQLite state.
 
-The armed worker will require three mutually distinct capabilities: payout
-receipt-evidence, signer and claim intake. It may call only the payout evidence
-endpoint on loopback, the signer Unix socket and allowlisted public WSS relays.
-The worker's pinned transport disables redirect and compression, preserves TLS
-hostname verification and accepts only the exact positive `OK` acknowledgement.
-The signer never receives wallet access, NWC, payout destinations or relay access.
+The armed worker will require four mutually distinct capabilities: payout
+receipt-evidence, signer, relay egress and claim intake. It remains
+`network=none`; signing and relay publication use separate owner-only Unix
+sockets. The gateway independently verifies the exact signed event and pinned
+provider before the existing allowlist, public-address DNS and WSS policy runs.
+The signer never receives wallet access, NWC, payout destinations or relay access,
+and the gateway never receives a signing key or wallet capability.
 
 ## Backup and recovery candidate
 
@@ -99,8 +106,11 @@ The approved allowlist is `nos.lol`, `relay.damus.io`, `relay.primal.net` and
 NAT64, local NAT64, Teredo and 6to4 transition ranges are explicitly rejected
 before transport; the focused relay policy/transport suite passes 30 tests.
 
-1. Isolate outbound relay publication behind a credential-free egress boundary
-   so the receipt worker itself stays without general network access.
-2. Add a separately reviewed, time-bounded activation package and rollback.
-3. Only after explicit authorization, run BW-102 and then expose public NIP-57
+1. Replace the worker's loopback settlement-evidence call with an owner-only Unix
+   boundary so the armed worker can remain `network=none` end to end.
+2. Supplementally review and runtime-rehearse the stopped relay gateway, including
+   socket ownership, credential separation, public relay acknowledgements and
+   rollback. Its image being installed is not activation acceptance.
+3. Add a separately reviewed, time-bounded activation package and rollback.
+4. Only after explicit authorization, run BW-102 and then expose public NIP-57
    metadata.
