@@ -38,6 +38,12 @@ trap rollback EXIT
 install -m 600 "$source" "$dropin"
 systemctl --user daemon-reload
 systemctl --user restart bitcoinwalk-app-staging.service
-test "$(curl -fsS --max-time 10 http://127.0.0.1:3338/api/healthz)" = '{"status":"ok","app":"bitcoinwalk-web","release":"app-staging-0.3.200"}'
+health=
+for attempt in $(seq 1 20); do
+  health=$(curl -fsS --max-time 2 http://127.0.0.1:3338/api/healthz 2>/dev/null || true)
+  test "$health" = '{"status":"ok","app":"bitcoinwalk-web","release":"app-staging-0.3.200"}' && break
+  sleep 1
+done
+test "$health" = '{"status":"ok","app":"bitcoinwalk-web","release":"app-staging-0.3.200"}'
 trap - EXIT
 echo "Madeira disabled managed reservation worker enabled; activation remains off. Evidence: $backup"
