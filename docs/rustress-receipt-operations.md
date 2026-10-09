@@ -6,8 +6,8 @@ Last reviewed: 9 October 2026
 
 The remediated `0.1.0` receipt-service package is installed on `.240` in its
 strict disabled state. Package SHA-256 is
-`0c2f22a6a8696ab8403f52b01eaa3682cd4c4be9cec5707e0e8aca0ceccd2363`.
-The embedded package checks and 77 focused receipt tests pass. It creates three
+`eab59f707f949fa4dd84109e353bc65c0ae8d1e6d4ee7731ee2406664743ad1c`.
+The embedded package checks and the 108-test focused payout/receipt suite pass. It creates three
 different rootless images:
 
 - `bitcoinwalk-rustress-receipt-worker` owns the receipt database, authenticated
@@ -59,9 +59,11 @@ changed retries and invalid SQLite state.
 
 The armed worker will require four mutually distinct capabilities: payout
 receipt-evidence, signer, relay egress and claim intake. It remains
-`network=none`; signing and relay publication use separate owner-only Unix
-sockets. The gateway independently verifies the exact signed event and pinned
-provider before the existing allowlist, public-address DNS and WSS policy runs.
+`network=none`; settlement evidence, signing and relay publication use three
+separate owner-only Unix sockets. Payout `0.2.4` exposes only the exact evidence
+route on its socket; status, authority and invoice routes are unreachable there.
+The gateway independently verifies the exact signed event and pinned provider
+before the existing allowlist, public-address DNS and WSS policy runs.
 The signer never receives wallet access, NWC, payout destinations or relay access,
 and the gateway never receives a signing key or wallet capability.
 
@@ -93,10 +95,11 @@ BitcoinWalk recovery record, never from the archive being tested:
 ./verify-receipt-backup-restore.sh receipt-signer-….tar.zst.gpg signer EXPECTED_PROVIDER_PUBKEY
 ```
 
-A production rehearsal remains mandatory. It must use the existing offline GPG
-private key, restore into an isolated directory, prove the same provider pubkey,
-start no networked service and publish no receipt. The agent must never read or
-display the decrypted provider key or encrypted backup contents.
+The production rehearsal used the existing offline GPG private key in an isolated
+directory, proved the same provider pubkey, started no networked service and
+published no receipt. The verifier removed decrypted material on exit. Future
+rehearsals must preserve those properties; the agent must never read or display
+the decrypted provider key or encrypted backup contents.
 
 ## Remaining acceptance gates
 
@@ -106,11 +109,11 @@ The approved allowlist is `nos.lol`, `relay.damus.io`, `relay.primal.net` and
 NAT64, local NAT64, Teredo and 6to4 transition ranges are explicitly rejected
 before transport; the focused relay policy/transport suite passes 30 tests.
 
-1. Replace the worker's loopback settlement-evidence call with an owner-only Unix
-   boundary so the armed worker can remain `network=none` end to end.
-2. Supplementally review and runtime-rehearse the stopped relay gateway, including
+1. Supplementally review and runtime-rehearse the stopped evidence and relay
+   boundaries together, including
    socket ownership, credential separation, public relay acknowledgements and
-   rollback. Its image being installed is not activation acceptance.
-3. Add a separately reviewed, time-bounded activation package and rollback.
-4. Only after explicit authorization, run BW-102 and then expose public NIP-57
+   rollback. Installed code/images are not activation acceptance.
+2. Add a separately reviewed, time-bounded activation package and rollback. The
+   existing older payout activation grant intentionally cannot arm release 0.2.4.
+3. Only after explicit authorization, run BW-102 and then expose public NIP-57
    metadata.

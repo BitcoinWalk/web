@@ -1,6 +1,6 @@
 import {createServer} from "node:http";
-import {lstatSync,readFileSync,realpathSync,renameSync,rmSync,writeFileSync} from "node:fs";
-import {join} from "node:path";
+import {chmodSync,lstatSync,readFileSync,realpathSync,renameSync,rmSync,writeFileSync} from "node:fs";
+import {dirname,join} from "node:path";
 import {backup,DatabaseSync} from "node:sqlite";
 import {z} from "zod";
 import {PayoutLedger} from "../src/rustress/payout-ledger";
@@ -16,9 +16,11 @@ import {PayoutServiceController} from "../src/rustress/payout-service-controller
 import {RemoteJournalClient} from "../src/rustress/remote-journal-client";
 import {recipientJson} from "../src/rustress/recipient-invoice";
 import {PrivateNwcTransport} from "../src/rustress/nwc-transport";
+import {receiptEvidenceSocketHandler} from "../src/rustress/receipt-evidence-socket";
 
-const version="0.2.3",admin="90cf043861e5b5a9972cb7b529a5ba71b215d6d1e314c749d5526ec133f1db73",walletRef="bitcoinwalk-rustress";
+const version="0.2.4",admin="90cf043861e5b5a9972cb7b529a5ba71b215d6d1e314c749d5526ec133f1db73",walletRef="bitcoinwalk-rustress";
 const configRoot="/run/bitcoinwalk-config",secretRoot="/run/bitcoinwalk-secrets",stateRoot="/var/lib/bitcoinwalk-payout";
+const evidenceSocket="/run/bitcoinwalk-payout-evidence/socket/evidence.sock";
 const tokenPattern=/^[A-Za-z0-9_-]{43,256}$/;
 
 function protectedPath(path:string,type:"file"|"directory",mode:number){
@@ -50,7 +52,7 @@ async function main(){
   const server=createServer((request,response)=>{const ok=request.method==="GET"&&(request.url==="/health"||request.url==="/v1/status");response.writeHead(ok?200:404,{"content-type":"application/json","cache-control":"no-store","x-content-type-options":"nosniff"});response.end(JSON.stringify(ok?status:{error:"not-found"}));});
   server.listen(8893,"127.0.0.1");const timer=setInterval(()=>{const db=new DatabaseSync(join(stateRoot,"ledger.sqlite"),{readOnly:true});void snapshot(db).catch(()=>{process.stderr.write("Managed payout snapshot failed.\n");}).finally(()=>db.close());},21600000);timer.unref?.();let stopping=false;const stop=()=>{if(stopping)return;stopping=true;clearInterval(timer);server.close(()=>process.exit(0));};process.on("SIGTERM",stop);process.on("SIGINT",stop);return;
  }
- let db:DatabaseSync|undefined,server:ReturnType<typeof createServer>|undefined,controller:PayoutServiceController|undefined;
+ let db:DatabaseSync|undefined,server:ReturnType<typeof createServer>|undefined,evidenceServer:ReturnType<typeof createServer>|undefined,controller:PayoutServiceController|undefined;
  try{
   const pin=z.object({serviceId:z.uuid(),binding:z.string().regex(/^[0-9a-f]{64}$/)}).strict().parse(json(join(configRoot,"journal-pin.json")));
   const nwc=read(join(secretRoot,"nwc-uri"),/^nostr\+walletconnect:\/\//,8192),checkout={clientPubkey:read(join(configRoot,"checkout-client-pubkey"),/^[0-9a-f]{64}$/)};
@@ -72,10 +74,13 @@ async function main(){
   if(invoiceTransport.binding!==pin.binding)throw new Error();
   const issuer=new PayoutInvoiceIssuer(db,intake,(city,revision)=>Promise.resolve(authority.resolveInvoice(city,revision)),{makeInvoice:input=>invoiceTransport.call("make_invoice",{amount:Number(input.amountMsat),description_hash:input.descriptionHash,expiry:input.expirySeconds})},hash=>ledger.incomingStatus(walletRef,hash),undefined,hash=>invoiceTransport.lookupInvoice(hash));
   const api=new PayoutControlApi(authority,intake,ledger,walletRef,enabled,()=>holder.current!.status(),tokens,issuer);
+  protectedPath(dirname(evidenceSocket),"directory",0o700);try{const stat=lstatSync(evidenceSocket);if(!stat.isSocket()||stat.isSymbolicLink())throw new Error();rmSync(evidenceSocket);}catch(error){if((error as NodeJS.ErrnoException).code!=="ENOENT")throw error;}
+  evidenceServer=createServer(receiptEvidenceSocketHandler(api));evidenceServer.requestTimeout=10000;evidenceServer.headersTimeout=5000;evidenceServer.maxRequestsPerSocket=4;
   server=createServer((request,response)=>{void (async()=>{let result;try{result=await api.route(request.method,request.url,request.headers.authorization,request.method==="POST"?await body(request):undefined);}catch{result={status:400,body:{error:"request-rejected"}};}response.writeHead(result.status,{"content-type":"application/json","cache-control":"no-store","x-content-type-options":"nosniff"});response.end(JSON.stringify(result.body));})();});
   await snapshot(db);const snapshotTimer=setInterval(()=>{if(db)void snapshot(db).catch(()=>{controller?.stop();process.stderr.write("Managed payout snapshot failed.\n");});},21600000);snapshotTimer.unref?.();
+  await new Promise<void>((resolve,reject)=>{evidenceServer!.once("error",reject);evidenceServer!.listen(evidenceSocket,()=>{chmodSync(evidenceSocket,0o600);resolve();});});
   await new Promise<void>((resolve,reject)=>{server!.once("error",reject);server!.listen(8893,"127.0.0.1",resolve);});controller.start();atomicStatus({service:"bitcoinwalk-rustress-payout",version,...controller.status(),...ledger.operationalStatus(walletRef)});
-  let stopping=false;const stop=()=>{if(stopping)return;stopping=true;clearInterval(snapshotTimer);controller!.stop();server!.close(()=>{db!.close();process.exit(0);});};process.on("SIGTERM",stop);process.on("SIGINT",stop);
- }catch(error){controller?.stop();server?.close();db?.close();throw error;}
+  let stopping=false;const stop=()=>{if(stopping)return;stopping=true;clearInterval(snapshotTimer);controller!.stop();server!.close(()=>evidenceServer!.close(()=>{rmSync(evidenceSocket,{force:true});db!.close();process.exit(0);}));};process.on("SIGTERM",stop);process.on("SIGINT",stop);
+ }catch(error){controller?.stop();server?.close();evidenceServer?.close();rmSync(evidenceSocket,{force:true});db?.close();throw error;}
 }
 main().catch(()=>{process.stderr.write("Rustress payout service refused to start.\n");process.exitCode=1;});

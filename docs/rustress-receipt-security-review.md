@@ -18,10 +18,14 @@ the rootless-Docker spelling check and added an embedded assertion for it. The
 resulting installed disabled package SHA-256 is
 `ec220d284ae4222c1a58fc53a793acceaa5ad7ef44af90995d037f5db0b788eb`.
 A later BW-100 checkpoint packages the relay transport into a separate
-credential-free Unix-socket gateway and has package SHA-256
-`0c2f22a6a8696ab8403f52b01eaa3682cd4c4be9cec5707e0e8aca0ceccd2363`.
+credential-free Unix-socket gateway and moves settlement evidence to a separate,
+route-restricted Unix socket. Receipt package SHA-256 is
+`eab59f707f949fa4dd84109e353bc65c0ae8d1e6d4ee7731ee2406664743ad1c`;
+payout 0.2.4 package SHA-256 is
+`c41809128d1ea86686b65c4706b15197b84756654a6eb6b29e1d84080529b171`.
 Only the credential-free, `network=none` worker is running; the signer and relay
-gateway are not started. The supplemental gateway change requires review before
+gateway are not started, and the evidence socket is absent while payout is
+disabled. The supplemental socket-boundary changes require review before
 activation. The original review target and digest below are retained as the
 immutable input to that review.
 
@@ -49,6 +53,9 @@ receipt or relay publication is part of this review.
 - The worker must never receive the provider secret or an NWC URI. Its four
   bearer capabilities—settlement evidence, signer, relay egress and receipt
   claim—must be distinct and narrowly scoped.
+- The settlement-evidence socket must expose exactly the evidence route. Receipt
+  clients must not be able to reach payout status, authority, invoice issuance or
+  payment operations through the shared socket.
 - The relay gateway must receive no provider secret, settlement evidence, NWC
   URI or wallet capability. It may publish only a valid kind-9735 event from the
   pinned provider to the operator-approved relay allowlist.
@@ -73,9 +80,10 @@ receipt or relay publication is part of this review.
 
 1. Rustress validates a kind-9734 request and issues an invoice whose description
    hash commits to the exact request JSON.
-2. The payout service uses a dedicated receipt-only capability to return evidence
-   for one already-issued, freshly verified incoming payment. It does not expose
-   general wallet operations through this endpoint.
+2. The payout service uses a dedicated receipt-only capability and owner-only
+   Unix socket to return evidence for one already-issued, freshly verified
+   incoming payment. It does not expose general wallet operations through this
+   socket.
 3. The receipt worker independently verifies the claim and asks the offline-
    network signer to sign one exact event template.
 4. The signer independently repeats the protocol checks, stores the exact signed
@@ -100,6 +108,7 @@ Core protocol and persistence:
 - `src/rustress/receipt-signer.ts`
 - `src/rustress/receipt-signer-socket.ts`
 - `src/rustress/receipt-evidence-client.ts`
+- `src/rustress/receipt-evidence-socket.ts`
 - `src/rustress/zap-relay-publisher.ts`
 - `src/rustress/pinned-zap-websocket.ts`
 - `src/rustress/receipt-relay-egress.ts`
@@ -109,6 +118,7 @@ Core protocol and persistence:
 Runtime, packaging and recovery:
 
 - `scripts/run-rustress-receipt-worker.ts`
+- `scripts/run-rustress-payout-service.ts`
 - `scripts/run-rustress-receipt-relay-egress.ts`
 - `scripts/run-rustress-receipt-signer.ts`
 - `scripts/verify-rustress-receipt-worker.ts`

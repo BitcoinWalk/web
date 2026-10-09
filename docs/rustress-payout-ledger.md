@@ -916,6 +916,22 @@ is not installed; deployed payout remains disabled `0.2.2`. The actual pinned WS
 transport, isolated signer service/key recovery and genuinely independent review
 remain required before BW-102.
 
+Payout `0.2.4` replaces that receipt worker loopback with an authenticated,
+owner-only Unix socket. The payout process serves exactly
+`POST /v1/receipts/evidence` on this socket; status, authority, invoice issuance
+and payment operations are unreachable through it. The `network=none` receipt
+worker validates socket ownership/mode before connecting and no longer contains
+the loopback evidence URL. Package
+`c41809128d1ea86686b65c4706b15197b84756654a6eb6b29e1d84080529b171`
+is installed disabled on `.240`; receipt package
+`eab59f707f949fa4dd84109e353bc65c0ae8d1e6d4ee7731ee2406664743ad1c`
+contains the matching client. Both services remain `network=none`; the evidence
+socket, signer and relay gateway are absent while disabled. A real
+`0.2.4` → `0.2.3` → `0.2.4` disabled rollback preserved the ledger and passed
+verification. The first install correctly rolled back when the ledger monitor's
+old 0.2.3 version pin rejected the candidate; the pin and package check were then
+updated. All five backup/monitor timers are enabled, and no activation occurred.
+
 ## Deliberate boundaries / next slice
 
 The ledger is an internal accounting primitive, not proof that a payment happened.

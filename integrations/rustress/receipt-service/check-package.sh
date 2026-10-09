@@ -17,6 +17,8 @@ test -x "$here/bootstrap-provider-identity.sh" -a -f "$here/initialize-rustress-
 test -f "$here/initialize-rustress-receipt-worker.cjs"
 test -f "$here/rustress-receipt-relay-egress.cjs"
 ! grep -Eq 'nwc:|provider-secret|receipt-evidence-token' "$here/rustress-receipt-relay-egress.cjs"
+grep -q '/run/bitcoinwalk-payout-evidence/socket/evidence.sock' "$here/rustress-receipt-worker.cjs"
+! grep -q '127.0.0.1:8893/v1/receipts/evidence' "$here/rustress-receipt-worker.cjs"
 grep -q -- '--network none' "$here/bootstrap-provider-identity.sh"
 grep -q 'docker container inspect "$signer"' "$here/bootstrap-provider-identity.sh"
 grep -q 'receipt-(worker|signer)' "$here/offhost-receive-encrypted-backup.sh"

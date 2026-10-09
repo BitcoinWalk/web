@@ -9,7 +9,7 @@ import {ReceiptRelayEgressClient} from "../src/rustress/receipt-relay-egress";
 import {ReceiptSignerSocketClient} from "../src/rustress/receipt-signer-socket";
 import {ZapReceiptAuthority} from "../src/rustress/zap-receipt-authority";
 
-const version="0.1.0",configRoot="/run/bitcoinwalk-receipt-worker/config",secretRoot="/run/bitcoinwalk-receipt-worker/secrets",stateRoot="/var/lib/bitcoinwalk-receipt-worker",signerSocket="/run/bitcoinwalk-receipt-signer/socket/signer.sock",egressSocket="/run/bitcoinwalk-receipt-egress/socket/relay.sock";
+const version="0.1.0",configRoot="/run/bitcoinwalk-receipt-worker/config",secretRoot="/run/bitcoinwalk-receipt-worker/secrets",stateRoot="/var/lib/bitcoinwalk-receipt-worker",evidenceSocket="/run/bitcoinwalk-payout-evidence/socket/evidence.sock",signerSocket="/run/bitcoinwalk-receipt-signer/socket/signer.sock",egressSocket="/run/bitcoinwalk-receipt-egress/socket/relay.sock";
 const tokenPattern=/^[A-Za-z0-9_-]{43,256}$/;
 function protectedPath(path:string,type:"file"|"directory",mode:number){const stat=lstatSync(path);if(stat.isSymbolicLink()||(type==="file"?!stat.isFile():!stat.isDirectory())||(stat.mode&0o777)!==mode||stat.uid!==0||realpathSync(path)!==path||type==="file"&&stat.nlink!==1)throw new Error();return stat;}
 function protectedSocket(path:string){const stat=lstatSync(path);if(stat.isSymbolicLink()||!stat.isSocket()||(stat.mode&0o777)!==0o600||stat.uid!==0||realpathSync(path)!==path)throw new Error();}
@@ -31,10 +31,10 @@ async function main(){
  try{
   const provider=read(join(configRoot,"provider-pubkey"),/^[0-9a-f]{64}$/),evidenceToken=read(join(secretRoot,"receipt-evidence-token"),tokenPattern),signerToken=read(join(secretRoot,"signer-api-token"),tokenPattern),claimToken=read(join(secretRoot,"claim-api-token"),tokenPattern),egressToken=read(join(secretRoot,"relay-egress-api-token"),tokenPattern);
   if(new Set([evidenceToken,signerToken,claimToken,egressToken]).size!==4)throw new Error();
-  protectedSocket(signerSocket);protectedSocket(egressSocket);
+  protectedSocket(evidenceSocket);protectedSocket(signerSocket);protectedSocket(egressSocket);
   const databasePath=join(stateRoot,"authority.sqlite");try{protectedPath(databasePath,"file",0o600);}catch(error){if((error as NodeJS.ErrnoException).code!=="ENOENT")throw error;}
   db=new DatabaseSync(databasePath);chmodSync(databasePath,0o600);db.exec("PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL;");
-  const evidence=new ReceiptEvidenceClient(evidenceToken),signer=new ReceiptSignerSocketClient(provider,signerSocket,signerToken),publisher=new ReceiptRelayEgressClient(egressSocket,egressToken);
+  const evidence=new ReceiptEvidenceClient(evidenceToken,evidenceSocket),signer=new ReceiptSignerSocketClient(provider,signerSocket,signerToken),publisher=new ReceiptRelayEgressClient(egressSocket,egressToken);
   const authority=new ZapReceiptAuthority(db,signer,claim=>evidence.get(claim),publisher);
   const listener=server(async request=>{
    if(request.method==="GET"&&request.url==="/health")return {status:200,body:status("armed",authority)};

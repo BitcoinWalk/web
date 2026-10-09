@@ -2,12 +2,13 @@
 set -eu
 
 service=bitcoinwalk-rustress-payout
-version=0.2.3
+version=0.2.4
 image="$service:$version"
 root="$HOME/.local/state/bitcoinwalk-rustress"
 secrets="$root/secrets"
 state="$root/payout-service"
 mode="$root/payout-mode"
+evidence_socket="$root/payout-evidence-socket"
 nwc="$secrets/nwc-uri"
 monitor="$HOME/.local/libexec/bitcoinwalk-payout-backup/monitor-payout-state.sh"
 monitor_previous="$monitor.previous-0.2.1"
@@ -24,6 +25,9 @@ sha256sum -c SHA256SUMS
 mkdir -p "$state"; chmod 700 "$state"
 [ -d "$state" ] && [ ! -L "$state" ] || fail
 [ "$(stat -c '%U:%G:%a' "$state")" = "bitcoinwalk:bitcoinwalk:700" ] || fail
+mkdir -p "$evidence_socket";chmod 700 "$evidence_socket"
+[ -d "$evidence_socket" ] && [ ! -L "$evidence_socket" ] && [ "$(stat -c '%U:%G:%a' "$evidence_socket")" = "bitcoinwalk:bitcoinwalk:700" ] || fail
+[ ! -e "$evidence_socket/evidence.sock" ] || fail
 if [ ! -e "$mode" ]; then umask 077; printf '%s\n' disabled > "$mode"; fi
 [ -f "$mode" ] && [ ! -L "$mode" ] || fail
 [ "$(stat -c '%U:%G:%a:%s' "$mode")" = "bitcoinwalk:bitcoinwalk:600:9" ] || fail
