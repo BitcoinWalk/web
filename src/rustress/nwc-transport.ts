@@ -22,6 +22,11 @@ function valid(event:Event){
  if(event.content.length>60000||event.tags.length>32||event.tags.some(t=>t.length>4||t.some(v=>v.length>256)))return false;
  return verifyEvent({id:event.id,sig:event.sig,pubkey:event.pubkey,kind:event.kind,created_at:event.created_at,tags:event.tags,content:event.content});
 }
+export function supportsPaymentReceivedNotification(event:Event,walletPubkey:string){
+ if(event.kind!==13194||event.pubkey!==walletPubkey||!valid(event))return false;
+ const tags=event.tags.filter(tag=>tag[0]==="notifications");
+ return tags.length===1&&tags[0].length===2&&tags[0][1].split(/\s+/).includes("payment_received");
+}
 
 /** Internal authenticated transport. Only narrow reader/wallet wrappers are
  * application interfaces; never expose this RPC to browser input. */
@@ -50,8 +55,8 @@ export class PrivateNwcTransport {
   // Hub defaults omit unpaid transactions. Recovery must include uncertain sends.
   return this.call("list_transactions",{offset,limit,type:"outgoing",unpaid:true});
  }
- async call(method:"get_info"|"lookup_invoice"|"list_transactions"|"pay_invoice",params:Record<string,unknown>,beforePublish?:()=>void):Promise<Record<string,unknown>>{
-  if(!["get_info","lookup_invoice","list_transactions","pay_invoice"].includes(method))throw new Error("Unsupported wallet method");
+ async call(method:"get_info"|"make_invoice"|"lookup_invoice"|"list_transactions"|"pay_invoice",params:Record<string,unknown>,beforePublish?:()=>void):Promise<Record<string,unknown>>{
+  if(!["get_info","make_invoice","lookup_invoice","list_transactions","pay_invoice"].includes(method))throw new Error("Unsupported wallet method");
   const c=this.#connection;let relay:Relay|undefined;
   try{
    for(const address of c.relays){
@@ -107,4 +112,48 @@ export class PrivateNwcReadProbe {
  }
  getInfo(){return this.#transport.getInfo();}
  listTransactions(offset=0,limit=1){return this.#transport.listTransactions(offset,limit);}
+}
+
+/** One-shot, non-payment acceptance probe. This is not used by the service or
+ * exposed over HTTP. It creates one short-lived 1-sat invoice, proves an exact
+ * lookup, and checks the wallet's notification advertisement plus relay EOSE.
+ * A genuine payment_received delivery still requires separate funded consent. */
+export class PrivateNwcUnpaidAcceptance {
+ #connection:ReturnType<typeof connection>;
+ #transport:PrivateNwcTransport;
+ constructor(value:string){
+  const own=connection(value),ephemeral=randomBytes(32),checkout=new URL(`nostr+walletconnect://${own.pubkey}`);
+  for(const relay of own.relays)checkout.searchParams.append("relay",relay);
+  checkout.searchParams.set("secret",ephemeral.toString("hex"));
+  this.#connection=own;this.#transport=new PrivateNwcTransport("bitcoinwalk-rustress",value,checkout.toString());
+ }
+ async run(description:string){
+  if(!/^BitcoinWalk Rustress unpaid acceptance [0-9a-f-]{36}$/.test(description))throw new Error("Invalid acceptance description");
+  const channel=await this.#notificationChannel();
+  const created=await this.#transport.call("make_invoice",{amount:1000,description,expiry:300});
+  const hash=created.payment_hash;
+  if(typeof hash!=="string"||!/^[0-9a-f]{64}$/.test(hash))throw new Error("Wallet acceptance could not be verified");
+  const lookedUp=await this.#transport.lookupInvoice(hash);
+  return {created,lookedUp,notificationCapability:channel.capability,notificationSubscriptionEstablished:channel.subscribed};
+ }
+ async #notificationChannel(){
+  const c=this.#connection;let relay:Relay|undefined;
+  try{
+   for(const address of c.relays){const candidate=new Relay(address,{enableReconnect:false});candidate.onauth=async template=>finalizeEvent(template,c.secret);
+    try{await candidate.connect({timeout:5000});relay=candidate;break;}catch{candidate.close();}}
+   if(!relay)throw new Error();
+   const active=relay,now=Math.floor(Date.now()/1000);
+   const subscribed=await new Promise<boolean>((resolve,reject)=>{
+    let done=false;const finish=(value:boolean)=>{if(done)return;done=true;clearTimeout(timer);sub.close();resolve(value);};
+    const timer=setTimeout(()=>{sub.close();reject(new Error());},10000);
+    const sub=active.subscribe([{kinds:[23196,23197],authors:[c.pubkey],"#p":[c.client],since:now}],{oneose:()=>finish(true),onevent:()=>{}});
+   });
+   const capability=await new Promise<boolean>((resolve,reject)=>{
+    let done=false,seen=false;const finish=()=>{if(done)return;done=true;clearTimeout(timer);sub.close();resolve(seen);};
+    const timer=setTimeout(()=>{sub.close();reject(new Error());},10000);
+    const sub=active.subscribe([{kinds:[13194],authors:[c.pubkey],limit:1}],{onevent:event=>{if(supportsPaymentReceivedNotification(event,c.pubkey))seen=true;},oneose:finish});
+   });
+   return {subscribed,capability};
+  }catch{throw new Error("Wallet notification channel could not be verified");}finally{relay?.close();}
+ }
 }

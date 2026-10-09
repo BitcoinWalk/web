@@ -82,7 +82,24 @@ in a separate root-owned Docker daemon that the deployment user cannot inspect
 or modify.
 
 This closes protected-file consumption and persistent non-spending health
-probing. It does not close authenticated Hub app inventory, known-invoice
-lookup, notification delivery, retained-history/backup monitoring or any funded
-acceptance. The shadow intentionally has no invoice-creation, invoice-lookup or
+probing. The shadow intentionally has no invoice-creation, invoice-lookup or
 payment interface.
+
+## Unpaid invoice and notification-channel checkpoint — 9 October 2026
+
+A separate checksum-verified one-shot tool used the same rootless, mode-0600
+credential boundary to create one hidden 1-sat invoice with a five-minute
+expiry. It did not print the invoice or payment hash. Exact lookup returned the
+same incoming amount, invoice, description and payment hash in `pending` state;
+the decoded BOLT-11 amount was exactly 1,000 msats. No payment was sent.
+
+Before invoice creation, the tool verified the exact wallet-signed NWC info
+event advertises `payment_received` and received EOSE for a connection-bound
+subscription to both legacy and current notification kinds. This proves the
+permission advertisement and relay subscription path. It does **not** prove
+delivery of `payment_received`: that event is emitted only after settlement,
+which would move funds and requires separate explicit authorization.
+
+Known-invoice lookup is therefore closed. Authenticated Hub app inventory,
+actual notification delivery, retained-history/backup monitoring, credential
+rotation and funded acceptance remain open.

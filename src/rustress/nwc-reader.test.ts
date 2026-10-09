@@ -8,7 +8,7 @@ vi.mock("nostr-tools/relay",()=>({Relay:class{
  publish=mock.publish;
 }}));
 import {RustressNwcReader} from "./nwc-reader";
-import {PrivateNwcReadProbe} from "./nwc-transport";
+import {PrivateNwcReadProbe,PrivateNwcTransport,supportsPaymentReceivedNotification} from "./nwc-transport";
 import {RustressNwcWallet,type WalletSendPermit} from "./nwc-wallet";
 import {encode,sign} from "bolt11";
 const wallet=Buffer.from("23".repeat(32),"hex"),client=Buffer.from("12".repeat(32),"hex"),checkout=Buffer.from("34".repeat(32),"hex");
@@ -58,6 +58,20 @@ describe("default-off real NWC payout adapter",()=>{
  });
 });
 describe("isolated authenticated read-only NWC integration",()=>{
+ it("recognizes only an exact signed payment-received capability",()=>{
+  const event=finalizeEvent({kind:13194,created_at:1800000000,tags:[["notifications","payment_received payment_sent"]],content:"notifications"},wallet);
+  expect(supportsPaymentReceivedNotification(event,walletKey)).toBe(true);
+  expect(supportsPaymentReceivedNotification({...event,sig:"00".repeat(64)},walletKey)).toBe(false);
+  expect(supportsPaymentReceivedNotification(event,clientKey)).toBe(false);
+  expect(supportsPaymentReceivedNotification(finalizeEvent({...event,tags:[["notifications","payment_sent"]]},wallet),walletKey)).toBe(false);
+ });
+ it("binds a one-shot invoice creation response to the exact request",async()=>{
+  const transport=new PrivateNwcTransport("fixture",uri(client),uri(checkout));
+  mock.publish.mockImplementation(async(event:Event)=>{const body=JSON.parse(nip44.decrypt(event.content,key));
+   expect(body).toEqual({method:"make_invoice",params:{amount:1000,description:"unpaid acceptance",expiry:300}});
+   mock.reply?.(reply(event,{type:"incoming",state:"pending",payment_hash:"ab".repeat(32),amount:1000},"make_invoice"));return "ok";});
+  expect(await transport.call("make_invoice",{amount:1000,description:"unpaid acceptance",expiry:300})).toMatchObject({state:"pending",amount:1000});
+ });
  it("bootstraps only info and bounded history without a checkout credential",async()=>{
   mock.publish.mockImplementation(async(event:Event)=>{const body=JSON.parse(nip44.decrypt(event.content,key));
    mock.reply?.(reply(event,body.method==="get_info"?{network:"mainnet",methods:["get_info","list_transactions"]}:{transactions:[]},body.method));return "ok";});
