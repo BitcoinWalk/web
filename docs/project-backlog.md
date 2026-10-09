@@ -205,6 +205,22 @@ live incoming-notification and exact-settlement-read-back gates, but does not
 test or enable the 79-sat organizer payout, routing fees, automated Rustress
 forwarding or production activation. BW-18 and BW-100 remain In progress.
 
+Bounded outgoing acceptance then passed on 9 October with explicit confirmation
+immediately before payment: BitcoinWalk Hub sent exactly **79 sats** to Madeira's
+saved organizer destination, `liberatelife@getalby.com`. The provider invoice was
+independently validated against its LNURL metadata and exact amount. A durable
+claim was synced before the wallet request; wallet-signed exact lookup verified
+the preimage and an actual routing fee of **1.786 sats**, below the confirmed
+10-sat ceiling. A fresh rootless recovery process mounted both state and claim
+read-only, performed exact lookup and did not resend. The organizer separately
+confirmed receipt of 79 sats. A dual-stack recipient bug found during preparation
+was fixed so the IPv4-only adapter selects a validated public IPv4 while ignoring
+unused public IPv6 records and still rejects any private/reserved IPv4 result.
+This closes the bounded one-payout and restart/no-resend acceptance checkpoint;
+automatic Rustress ingestion, durable production journal composition, retained
+history/backup reconciliation, alerts and controlled activation remain. BW-18
+and BW-100 therefore remain In progress.
+
 Fee-cap follow-up: upstream Hub PR #2566 is open/unmerged at `a231ed34` (verified
 via public API). Its actual diff propagates `max_fee` to LDK but leaves default
 fee-reserve accounting unchanged; it is not an approved production upgrade.

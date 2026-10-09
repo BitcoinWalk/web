@@ -624,6 +624,36 @@ it does **not** prove the 79% forwarding payment, routing-fee accounting,
 uncertain-send recovery, retained-history coverage or automatic Rustress
 activation. Spending remains disabled until those independent gates pass.
 
+### Bounded live organizer payout acceptance — 9 October 2026
+
+After the funded incoming checkpoint, the user separately confirmed an exact
+**79-sat** payment from BitcoinWalk Hub to Madeira's saved organizer destination,
+`liberatelife@getalby.com`, with up to **10 sats** of routing fee. Preparation
+validated the public LNURL-pay metadata, same-origin callback, exact signed
+BOLT11 amount, metadata commitment, mainnet network, payment hash and expiry.
+No payment was made during preparation.
+
+The constrained send process synced a durable exact-hash claim before publishing
+the wallet request. Wallet-signed lookup then verified the exact outgoing amount,
+preimage and an actual **1.786-sat** routing fee. A fresh process mounted the
+retained invoice and claim read-only, found the same paid transaction and reported
+`sendAttempted=false` and `recoveryNoResend=true`. The organizer independently
+confirmed receiving 79 sats. This moved 79 sats plus the 1.786-sat fee from the
+production BitcoinWalk Hub under the user's explicit authorization.
+
+Preparation also exposed a fail-closed bug for dual-stack recipients: the
+IPv4-only adapter rejected a domain merely because DNS also returned public IPv6.
+It now filters to IPv4, requires at least one validated public IPv4, rejects the
+entire set if any selected-family address is private/reserved, and connects only
+to the pinned validated IPv4. Tests retain IPv6-only and mixed public/private IPv4
+denials.
+
+This is one bounded live acceptance, not runtime activation. The temporary tool
+is not a daemon or public endpoint. Automatic Rustress settlement ingestion,
+production ledger/remote-journal composition, complete retained-history and
+backup reconciliation, monitoring/alerts, uncertain network-failure drills and
+a controlled activation/rollback window remain required.
+
 **Historical superseded pilot gate:** the audited Hub v1.24.0 LDK backend's
 `max(ceil(amount_msat * 0.01), 10000)` fee ceiling would permit 500 sats on a
 50,000-sat payout, exceeding the approved 100 sats. The existing guard must refuse

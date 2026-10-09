@@ -1,7 +1,7 @@
 import {createHash} from "node:crypto";
 import {encode,sign} from "bolt11";
 import {describe,it,expect,vi} from "vitest";
-import {publicIPv4,recipientUrl,retrieveRecipientInvoice} from "./recipient-invoice";
+import {publicIPv4,recipientUrl,retrieveRecipientInvoice,selectPublicIPv4} from "./recipient-invoice";
 const metadata='[["text/plain","fixture"]]',now=1800000000;
 const pr=sign(encode({satoshis:79,timestamp:now,tags:[{tagName:"payment_hash",data:"ab".repeat(32)},{tagName:"purpose_commit_hash",data:createHash("sha256").update(metadata).digest("hex")},{tagName:"expire_time",data:3600}]}),"12".repeat(32)).paymentRequest!;
 const body={tag:"payRequest",callback:"https://wallet.example/pay?token=fixture&amount=1",minSendable:1000,maxSendable:100000,metadata};
@@ -25,6 +25,9 @@ describe("isolated recipient invoice retrieval",()=>{
  it("rejects unsafe URLs and conservatively excludes non-public addresses",()=>{
   for(const value of ["http://wallet.example","https://wallet.example:8080","https://a:b@wallet.example","https://wallet.example/#x","https://city.bitcoinwalk.org/pay","https://wallet.example./pay","https://[::1]/"] )expect(()=>recipientUrl(value)).toThrow();
   for(const ip of ["127.0.0.1","10.0.0.1","169.254.169.254","172.16.1.1","192.168.1.1","100.64.0.1","198.18.0.1","203.0.113.1","0.0.0.0","224.0.0.1","::1","2001:4860:4860::8888","::ffff:8.8.8.8"])expect(publicIPv4(ip)).toBe(false);
-  expect(publicIPv4("8.8.8.8")).toBe(true);
+ expect(publicIPv4("8.8.8.8")).toBe(true);
+  expect(selectPublicIPv4([{address:"2001:4860:4860::8888"},{address:"8.8.8.8"}])).toBe("8.8.8.8");
+  expect(()=>selectPublicIPv4([{address:"2001:4860:4860::8888"}])).toThrow();
+  expect(()=>selectPublicIPv4([{address:"8.8.8.8"},{address:"10.0.0.1"}])).toThrow();
  });
 });

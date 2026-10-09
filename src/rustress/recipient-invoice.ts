@@ -13,6 +13,11 @@ export function publicIPv4(value:string){
   a===192&&(b===0||b===168||b===88&&c===99)||a===100&&b>=64&&b<=127||a===198&&(b===18||b===19)||
   a===198&&b===51&&c===100||a===203&&b===0&&c===113);
 }
+export function selectPublicIPv4(rows:{address:string}[]){
+ const ipv4=rows.filter(row=>isIP(row.address)===4);
+ if(!ipv4.length||ipv4.some(row=>!publicIPv4(row.address)))throw new Error("No safe IPv4 address");
+ return ipv4[0].address;
+}
 export function recipientUrl(value:string){
  const url=new URL(value);
  if(value.length>4096||url.protocol!=="https:"||url.username||url.password||url.hash||
@@ -30,8 +35,7 @@ export async function recipientJson(input:URL):Promise<unknown>{
   const timer=setTimeout(()=>finish(new Error()),7000);
   void lookup(url.hostname,{all:true,verbatim:true}).then(rows=>{
    if(done)return;
-   if(!rows.length||rows.some(row=>!publicIPv4(row.address))){finish(new Error());return;}
-   const address=rows[0].address;
+   let address:string;try{address=selectPublicIPv4(rows);}catch{finish(new Error());return;}
    active=request({hostname:url.hostname,port:443,path:url.pathname+url.search,method:"GET",
     // Keep hostname for TLS certificate verification; pin the validated address.
     lookup:(_hostname,_options,callback)=>callback(null,address,4),agent:false,family:4,
