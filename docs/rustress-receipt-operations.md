@@ -4,22 +4,32 @@ Last reviewed: 9 October 2026
 
 ## Current state
 
-The `0.1.0` receipt-service candidate is packaged but not installed. It creates
-two different rootless images:
+The remediated `0.1.0` receipt-service package is installed on `.240` in its
+strict disabled state. Package SHA-256 is
+`c0a53092988d0bb40513cac6d2fc2901539a700cb5db7e1d17cd710dfb765b58`.
+The embedded package checks and 67 focused receipt tests pass. It creates two
+different rootless images:
 
 - `bitcoinwalk-rustress-receipt-worker` owns the receipt database, authenticated
   claim endpoint, payout-evidence client, relay allowlist, fresh DNS policy and
-  pinned WSS transport. Its safe installation state is `disabled`, `network=none`
-  and has no receipt, signer or payout credentials mounted.
+  pinned WSS transport. The installed worker is `disabled`, `network=none`, has
+  no published port and mounts only its state plus the read-only disabled-mode
+  file. It has no receipt, signer, payout or wallet credential.
 - `bitcoinwalk-rustress-receipt-signer` owns the provider key and signer database.
   It has no exposed port and must always run with `network=none`. The worker can
-  reach it only through an owner-only Unix socket. The disabled installer builds
-  this image but deliberately does not start it or create a provider key.
+  reach it only through an owner-only Unix socket. The signer image is built but
+  no signer container exists, and no provider key has been created.
 
 The package has no activation command. Activation is intentionally withheld until
 the encrypted recovery rehearsal, conservative public relay allowlist, egress
 policy and independent review are accepted. Installing `0.1.0` therefore cannot
 enable NIP-57 metadata, create an invoice, sign a receipt or publish an event.
+
+The first installation attempt failed closed before creating state because its
+rootless-Docker check expected the wrong JSON spelling. The check and its package
+test were corrected, the package was rebuilt under the digest above, and the
+successful installation was independently inspected for mode, network, mounts,
+ports, signer absence and provider-key absence.
 
 ## Runtime boundaries
 

@@ -93,14 +93,15 @@ provider pubkey. It also refuses ordinary host-root execution; the intended
 container has no network namespace access and shares only the Unix socket with
 the receipt worker.
 
-Candidate `0.2.3` and receipt-service `0.1.0` both build. The receipt package has
-separate rootless worker/signer images; its installer can start only the disabled,
-`network=none` worker and deliberately has no activation command. Encrypted worker
-and signer backup fixtures restore successfully, including SQLite integrity and
-proof that the restored secret derives the pinned provider pubkey. Nothing has
-been installed. The currently deployed payout service remains disabled `0.2.2`. No
-receipt or signer credential, provider key, allowlist or receipt database has
-been created on the VPS. No real relay connection or publication was attempted.
+Payout `0.2.3` and receipt-service `0.1.0` are installed on `.240` in their safe
+disabled states. Payout is rootless, `network=none`, has no published port and no
+activation grant. The receipt package has separate rootless worker/signer images;
+only the disabled `network=none` worker runs, and it mounts no credential or
+signer socket. The signer image is built but no signer container, provider key or
+relay allowlist exists. Encrypted worker and signer backup fixtures restore
+successfully, including SQLite integrity and proof that the restored secret
+derives the independently pinned provider pubkey. No real relay connection,
+receipt signature or publication was attempted.
 
 This component is deliberately not exposed through `PayoutControlApi`, not built
 into either deployed service and not connected to a signing key. No public LNURL

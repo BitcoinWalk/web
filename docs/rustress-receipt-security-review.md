@@ -10,6 +10,17 @@ Candidate SHA-256: `a31e0f2c3af8e6ce99e010703be6326cec7066219b7f145c06409b4b9714
 
 Prepared: 9 October 2026
 
+Current disposition, 9 October 2026: the independent review found two issues,
+both subsequently remediated and re-tested. The identity anchor now comes from
+an independently retained expected provider pubkey, and decompression/member
+sizes are bounded before extraction. A later installer-only correction changed
+the rootless-Docker spelling check and added an embedded assertion for it. The
+resulting installed disabled package SHA-256 is
+`c0a53092988d0bb40513cac6d2fc2901539a700cb5db7e1d17cd710dfb765b58`.
+Only the credential-free, `network=none` worker is installed; the signer is not
+started and no provider identity or activation exists. The original review target
+and digest below are retained as the immutable input to that review.
+
 ## Review purpose
 
 This review is a mandatory gate before a BitcoinWalk NIP-57 receipt authority can
