@@ -111,12 +111,15 @@ The approved allowlist is `nos.lol`, `relay.damus.io`, `relay.primal.net` and
 NAT64, local NAT64, Teredo and 6to4 transition ranges are explicitly rejected
 before transport; the focused relay policy/transport suite passes 30 tests.
 
-1. Payout `0.2.5` is installed through the non-root service owner and accepted
+1. Payout `0.2.6` is installed through the non-root service owner and accepted
    while disabled: `network=none`, no host port, no evidence socket, healthy
-   monitor and ledger-preserving `0.2.5` → `0.2.4` → `0.2.5` rollback. The
+   monitor and ledger-preserving `0.2.6` → `0.2.5` → `0.2.6` rollback. The
    supplemental source review and joint synthetic three-socket outage/restart
    rehearsal also pass. Installed code/images are not activation acceptance.
-2. Add a separately reviewed, time-bounded activation package and rollback. The
-   existing older payout activation grant intentionally cannot arm release 0.2.5.
+2. The separately reviewed activation package now enforces an exact signed
+   15-minute maximum, no armed-container restart, process self-expiry and timed
+   restoration of the parked disabled baseline. It is installed but has no grant
+   and has never been armed. Exercise one explicitly authorized window and prove
+   automatic rollback. Older grants intentionally cannot arm release 0.2.6.
 3. Only after explicit authorization, run BW-102 and then expose public NIP-57
    metadata.

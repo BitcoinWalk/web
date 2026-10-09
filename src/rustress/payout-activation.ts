@@ -7,6 +7,7 @@ const contentSchema=z.object({contract:z.literal(PAYOUT_ACTIVATION_CONTRACT),rel
  binding:hex,journalServiceId:z.uuid(),budgetMsat:money,maximumPayoutMsat:money,maximumFeeMsat:money,
  notBefore:z.number().int().safe().positive(),expiresAt:z.number().int().safe().positive(),nonce:z.uuid()}).strict();
 export type PayoutActivation=z.infer<typeof contentSchema>;
+export const MAXIMUM_PAYOUT_ACTIVATION_WINDOW_SECONDS=900;
 
 /** Offline-verifiable operator grant. It contains no credential and cannot
  * activate a mismatched release, wallet, journal or policy. */
@@ -20,5 +21,13 @@ export function verifyPayoutActivation(input:unknown,expected:{admin:string;rele
  if(Number(expiration[0][1])!==content.expiresAt||content.notBefore>now||content.expiresAt<=now||content.expiresAt-content.notBefore>86400||
   content.release!==expected.release||content.binding!==expected.binding||content.journalServiceId!==expected.journalServiceId||content.budgetMsat!==expected.budgetMsat||
   content.maximumPayoutMsat!==expected.maximumPayoutMsat||content.maximumFeeMsat!==expected.maximumFeeMsat)throw new Error("Payout activation does not match deployment");
+ return content;
+}
+
+export function verifyPayoutActivationWindow(input:unknown,expected:Parameters<typeof verifyPayoutActivation>[1],
+ maximumWindowSeconds=MAXIMUM_PAYOUT_ACTIVATION_WINDOW_SECONDS,now=Math.floor(Date.now()/1000)){
+ if(!Number.isSafeInteger(maximumWindowSeconds)||maximumWindowSeconds<60||maximumWindowSeconds>MAXIMUM_PAYOUT_ACTIVATION_WINDOW_SECONDS)throw new Error("Invalid payout activation window");
+ const content=verifyPayoutActivation(input,expected,now);
+ if(content.expiresAt-content.notBefore>maximumWindowSeconds||content.expiresAt-now>maximumWindowSeconds)throw new Error("Payout activation window is too long");
  return content;
 }

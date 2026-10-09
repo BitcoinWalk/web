@@ -952,6 +952,25 @@ verifier, backup monitor and ledger-preserving
 `0.2.5` → `0.2.4` → `0.2.5` rollback rehearsal all pass. No payout,
 public endpoint or activation grant was enabled.
 
+Payout `0.2.6` adds the reviewed activation-window boundary without activating
+it. A valid super-admin grant must bind the exact release, wallet, journal,
+budget, maximum payout and maximum fee, and both its total and remaining lifetime
+must be at most 15 minutes. Preflight uses a separate temporary mode file, so it
+does not arm the installed baseline. The armed container has no restart policy;
+the runtime stops itself at signed expiry, while a collected user-systemd timer
+restores the parked disabled `network=none` container. Startup, verification or
+timer failure invokes the same fail-closed rollback. Security diff scan
+`93611018-b233-40c3-8c2c-c6d3669c09cc` covered all 12 changed files with no
+reportable findings; the full Rustress suite passes 433/433 tests. A stale monitor
+backup lifecycle defect found during the first disabled install was corrected so
+successful upgrades remove their version-specific temporary rollback copy.
+Final package SHA-256 is
+`f57cb210cdbc4bfff4647caf325ae6124d9c0d8147258102430367564c93887b`.
+It is installed on `.240` through the non-root account, remains
+`disabled|network=none`, has no port, evidence socket or activation file, and the
+live verifier, monitor and ledger-preserving
+`0.2.6` → `0.2.5` → `0.2.6` rehearsal pass. No wallet operation occurred.
+
 ## Deliberate boundaries / next slice
 
 The ledger is an internal accounting primitive, not proof that a payment happened.

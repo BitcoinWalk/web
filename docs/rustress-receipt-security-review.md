@@ -49,6 +49,17 @@ disabled: `network=none`, no host port, no evidence socket, healthy backup monit
 and ledger-preserving `0.2.5` → `0.2.4` → `0.2.5` rollback. This record does
 not authorize activation.
 
+Activation-boundary follow-up, 9 October 2026: payout `0.2.6` introduces a
+maximum 15-minute exact signed grant, a no-restart armed container, process
+self-expiry and a collected user-systemd rollback timer. Diff scan
+`93611018-b233-40c3-8c2c-c6d3669c09cc` reviewed all 12 changed files and reported
+no findings (5,801,948 measured tokens). The full Rustress suite passes 433/433.
+The final package digest is
+`f57cb210cdbc4bfff4647caf325ae6124d9c0d8147258102430367564c93887b`.
+It is installed non-root and accepted only while disabled; the live
+`0.2.6` → `0.2.5` → `0.2.6` rollback passes and no activation file exists.
+This closes package preparation, not the separately authorized live window.
+
 ## Review purpose
 
 This review is a mandatory gate before a BitcoinWalk NIP-57 receipt authority can

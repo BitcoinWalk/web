@@ -81,7 +81,7 @@ def main() -> None:
         choices=["ledger-and-journal"],
         help="explicit human confirmation that both real encrypted archives passed the offline restore verifier",
     )
-    parser.add_argument("--release", required=True, choices=["0.2.1", "0.2.2", "0.2.3", "0.2.4", "0.2.5"])
+    parser.add_argument("--release", required=True, choices=["0.2.1", "0.2.2", "0.2.3", "0.2.4", "0.2.5", "0.2.6"])
     args = parser.parse_args()
     if args.restore_rehearsal_verified != "ledger-and-journal":
         fail("both restore rehearsals must be confirmed")

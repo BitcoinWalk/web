@@ -1,6 +1,6 @@
 import {describe,expect,it} from "vitest";
 import {finalizeEvent,getPublicKey} from "nostr-tools";
-import {PAYOUT_ACTIVATION_CONTRACT,verifyPayoutActivation} from "./payout-activation";
+import {MAXIMUM_PAYOUT_ACTIVATION_WINDOW_SECONDS,PAYOUT_ACTIVATION_CONTRACT,verifyPayoutActivation,verifyPayoutActivationWindow} from "./payout-activation";
 const secret=Buffer.from("12".repeat(32),"hex"),admin=getPublicKey(secret),now=1800000000;
 const expected={admin,release:"0.2.0",binding:"ab".repeat(32),journalServiceId:"ce72e914-5890-4902-8e8c-16fb30d80f11",budgetMsat:"797900000",maximumPayoutMsat:"790000000",maximumFeeMsat:"7900000"};
 function event(changes:Record<string,unknown>={}){const content={contract:PAYOUT_ACTIVATION_CONTRACT,release:expected.release,binding:expected.binding,journalServiceId:expected.journalServiceId,
@@ -16,6 +16,12 @@ describe("signed payout activation",()=>{
   expect(()=>verifyPayoutActivation(event(),{...expected,admin:"cd".repeat(32)},now)).toThrow();
   expect(()=>verifyPayoutActivation({...event(),sig:"00".repeat(64)},expected,now)).toThrow();
   expect(()=>verifyPayoutActivation({...event(),kind:1},expected,now)).toThrow();
-  expect(()=>verifyPayoutActivation(event(),expected,now+4000)).toThrow();
+ expect(()=>verifyPayoutActivation(event(),expected,now+4000)).toThrow();
+ });
+ it("limits an operational activation to fifteen minutes",()=>{
+  const grant=event({notBefore:now-10,expiresAt:now+MAXIMUM_PAYOUT_ACTIVATION_WINDOW_SECONDS-10});
+  expect(verifyPayoutActivationWindow(grant,expected,MAXIMUM_PAYOUT_ACTIVATION_WINDOW_SECONDS,now)).toMatchObject({expiresAt:now+890});
+  expect(()=>verifyPayoutActivationWindow(event(),expected,MAXIMUM_PAYOUT_ACTIVATION_WINDOW_SECONDS,now)).toThrow("too long");
+  expect(()=>verifyPayoutActivationWindow(grant,expected,59,now)).toThrow("Invalid");
  });
 });

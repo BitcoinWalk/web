@@ -2,16 +2,17 @@
 set -eu
 
 service=bitcoinwalk-rustress-payout
-version=0.2.5
+version=0.2.6
 image="$service:$version"
 root="$HOME/.local/state/bitcoinwalk-rustress"
 secrets="$root/secrets"
 state="$root/payout-service"
 mode="$root/payout-mode"
 evidence_socket="$root/payout-evidence-socket"
+window_bin="$HOME/.local/libexec/bitcoinwalk-rustress-payout-window"
 nwc="$secrets/nwc-uri"
 monitor="$HOME/.local/libexec/bitcoinwalk-payout-backup/monitor-payout-state.sh"
-monitor_previous="$monitor.previous-0.2.1"
+monitor_previous="$monitor.previous-$version"
 
 fail(){ printf '%s\n' "Payout service installation failed." >&2; exit 1; }
 [ "$(id -u)" -ne 0 ] || fail
@@ -40,6 +41,10 @@ if [ ! -e "$receipt" ]; then
 fi
 [ -f "$receipt" ] && [ ! -L "$receipt" ] && [ "$(stat -c '%U:%G:%a' "$receipt")" = "bitcoinwalk:bitcoinwalk:600" ] || fail
 grep -Eq '^[A-Za-z0-9_-]{43,256}$' "$receipt" || fail
+
+mkdir -p "$window_bin";chmod 700 "$window_bin"
+[ -d "$window_bin" ] && [ ! -L "$window_bin" ] && [ "$(stat -c '%U:%G:%a' "$window_bin")" = bitcoinwalk:bitcoinwalk:700 ] || fail
+cp arm.sh "$window_bin/arm.sh";cp disarm.sh "$window_bin/disarm.sh";chmod 700 "$window_bin/arm.sh" "$window_bin/disarm.sh"
 
 if docker container inspect "$service" >/dev/null 2>&1; then
   [ "$(docker container inspect "$service" --format '{{index .Config.Labels "org.bitcoinwalk.service"}}')" = rustress-payout ] || fail
@@ -88,5 +93,6 @@ chmod 700 "$monitor_previous" || rollback
 cp monitor-payout-state.sh "$monitor" || rollback
 chmod 700 "$monitor" || rollback
 "$monitor" ledger || rollback
-if [ -n "$old" ]; then docker rm "$old" >/dev/null; fi
+if [ -n "$old" ]; then docker rm "$old" >/dev/null || rollback; fi
+rm -f "$monitor_previous"
 printf '%s\n' "Rustress payout service $version is running safely disabled in rootless Docker."
