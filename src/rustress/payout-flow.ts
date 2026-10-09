@@ -7,7 +7,7 @@ import {assessRustressWallet,type WalletReadinessEvidence} from "./wallet-readin
 
 const money=z.string().regex(/^(0|[1-9][0-9]{0,15})$/).refine(v=>BigInt(v)<=BigInt(Number.MAX_SAFE_INTEGER));
 const policySchema=z.object({binding:z.string().regex(/^[0-9a-f]{64}$/),budgetMsat:money.refine(v=>BigInt(v)>0n),
- maximumPayoutMsat:money.refine(v=>BigInt(v)>=1000n),maximumFeeMsat:money,expiresAt:z.number().int().safe().positive()}).strict();
+ maximumPayoutMsat:money.refine(v=>BigInt(v)>=1000n),maximumFeeMsat:money,feePolicy:z.literal("ldk-native-v1"),expiresAt:z.number().int().safe().positive()}).strict();
 type Policy=z.infer<typeof policySchema>;
 type Dependencies={
  wallet:PayoutWallet&{binding:string};
@@ -73,7 +73,9 @@ export class PayoutFlow {
     const cap=BigInt(max)<BigInt(this.#policy.maximumPayoutMsat)?max:this.#policy.maximumPayoutMsat;
     const amount=this.ledger.quote(bucket,min,cap);if(!amount)throw new Error();return amount;
    },this.deps.wallet.network,{fetchJson:this.deps.fetchJson,now:this.now});
-   return this.#worker.prepare(bucket,id,invoice.paymentRequest,invoice.terms,this.#policy.maximumFeeMsat);
+   const native=(BigInt(invoice.amountMsat)+99n)/100n,fee=native>10000n?native:10000n;
+   if(fee>BigInt(this.#policy.maximumFeeMsat))throw new Error();
+   return this.#worker.prepare(bucket,id,invoice.paymentRequest,invoice.terms,String(fee));
   }catch{throw new Error("Payout preparation unavailable; obligation retained");}
  }
  run(id:string){return this.#worker.run(id);}

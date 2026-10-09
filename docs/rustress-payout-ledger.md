@@ -654,6 +654,56 @@ production ledger/remote-journal composition, complete retained-history and
 backup reconciliation, monitoring/alerts, uncertain network-failure drills and
 a controlled activation/rollback window remain required.
 
+### Default-off automatic workflow composition — 9 October 2026
+
+The previously isolated components now have a bounded supervisor and private
+issuance boundary, but there is still no deployed daemon or activation grant.
+
+- `PayoutInvoiceIntake` accepts only invoice facts (city/version, exact hash,
+  amount and bounded timestamps). It resolves the wallet, versioned personal
+  destination and city bucket from trusted server-side authority, then commits
+  the immutable snapshot before an invoice may be presented. Extra recipient or
+  wallet fields are rejected; exact retries are idempotent and conflicts fail.
+- `PrivateNwcPaymentNotifications` subscribes to the exact wallet author and
+  connection recipient for legacy kind 23196/NIP-04 and current kind 23197/NIP-44.
+  It verifies signatures, time bounds, tags, direction, amount and hash. A valid
+  event is only a hint; it never credits or pays without exact wallet lookup.
+  Relay loss pauses the runtime. Bounded sweeps cover missed notifications.
+- `PayoutAutomation` is inert unless an external enable provider is true. Each
+  serialized cycle reconciles readiness when needed, resumes every durable
+  `prepared`/`unknown` attempt before new work, sweeps pending incoming invoices,
+  and prepares at most one new payout per eligible destination bucket. A bucket
+  with unfinished work cannot receive another outgoing invoice. Any failed gate
+  pauses the runtime; the supervisor has no remote-journal operator credential.
+- Fee reservations now follow the approved installed LDK policy per payout:
+  `max(10 sats, ceil(1%))`, bounded by the policy maximum. Thus a 79-sat payout
+  reserves 10 sats, while the 790,000-sat maximum reserves 7,900 sats. The
+  wallet-wide non-renewing budget still includes principal, paid fees and fees
+  reserved for uncertain sends.
+- Runtime safety can accept the exact reviewed patched-Hub capability or fresh
+  private inventory for the approved native Alby Hub **v1.24.0 / LDK** connection.
+  Native evidence must bind the wallet fingerprint, exact non-renewing budget,
+  version/backend/fee policy, exclusivity and a 60-second freshness window;
+  authenticated `get_info` must still report mainnet and all required methods.
+  Generic method advertising alone remains insufficient.
+
+New tests cover immutable intake, stale/conflicting issuance, forged/unbound
+notifications, missed-event sweep, overlapping cycles, resume-before-new-work,
+unfinished-bucket exclusion, dynamic native fees, default denial, stream failure
+and native-evidence binding. The full suite now passes **1,152 tests across 196
+files**, plus typecheck, lint and backlog generation.
+
+No process, timer, listener, API route, credential, journal fence or wallet was
+changed by this slice. Deployment still needs one reviewed topology: either move
+the isolated NWC credential to the app host while retaining the remote journal on
+the Rustress host, or keep the credential/runtime beside Rustress and deploy the
+production journal on the app host. The latter avoids duplicating the NWC secret
+and keeps invoice intake local, but requires reversing the current fixture tunnel.
+After topology selection, implement the private intake transport, host-derived
+deployment/Hub/history/permit providers, encrypted ledger+journal backups,
+monitoring, a default-disabled package and controlled rollback rehearsal before
+any automatic live payment.
+
 **Historical superseded pilot gate:** the audited Hub v1.24.0 LDK backend's
 `max(ceil(amount_msat * 0.01), 10000)` fee ceiling would permit 500 sats on a
 50,000-sat payout, exceeding the approved 100 sats. The existing guard must refuse

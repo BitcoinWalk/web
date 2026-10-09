@@ -110,4 +110,9 @@ describe("isolated durable 79/21 ledger",()=>{
   const recovered=open(path).ledger;credit(recovered);expect(recovered.claimSend(id)).toBe(false);
   expect(recovered.status(id)).toMatchObject({state:"paid",feeLimitExceeded:true});expect(recovered.balance(bucket).availableMsat).toBe("0");
  });
+ it("lists resumable attempts and only payable buckets without unfinished sends",()=>{
+  const {ledger}=open();credit(ledger);expect(ledger.payableBuckets(bucket.walletRef)).toEqual([{bucket,sourceHash:incoming}]);
+  const id=randomUUID();ledger.reserve(bucket,id,outgoing,"79000","1000");expect(ledger.pendingPayoutIds(bucket.walletRef)).toEqual([id]);expect(ledger.payableBuckets(bucket.walletRef)).toEqual([]);
+  ledger.claimSend(id);expect(ledger.pendingPayoutIds(bucket.walletRef)).toEqual([id]);ledger.confirmPaid(id,bucket.walletRef,outgoing,"79000","1",preimage);expect(ledger.pendingPayoutIds(bucket.walletRef)).toEqual([]);
+ });
 });

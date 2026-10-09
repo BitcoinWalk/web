@@ -62,6 +62,23 @@ export class PayoutLedger {
     ref.parse(walletRef);z.number().int().safe().nonnegative().parse(after);z.number().int().min(1).max(100).parse(limit);
     return this.db.prepare("SELECT rowid AS cursor,hash FROM bw_ledger_invoice WHERE wallet=? AND settled=0 AND rowid>? ORDER BY rowid LIMIT ?").all(walletRef,after,limit) as {cursor:number;hash:string}[];
   }
+  pendingPayoutIds(walletRef:string,limit=50){
+    ref.parse(walletRef);z.number().int().min(1).max(100).parse(limit);
+    return (this.db.prepare("SELECT id,bucket FROM bw_ledger_payout WHERE state IN ('prepared','unknown') ORDER BY rowid LIMIT ?").all(limit) as {id:string;bucket:string}[])
+      .filter(row=>JSON.parse(row.bucket).walletRef===walletRef).map(row=>row.id);
+  }
+  /** Private scheduler inventory. A source hash selects the immutable bucket;
+   * destinations never come from notification or timer input. Buckets with an
+   * unfinished attempt are resumed before another invoice can be requested. */
+  payableBuckets(walletRef:string,limit=20){
+    ref.parse(walletRef);z.number().int().min(1).max(50).parse(limit);
+    const rows=this.db.prepare(`SELECT i.bucket,MIN(i.hash) sourceHash FROM bw_ledger_invoice i
+      JOIN bw_ledger_credit c ON c.wallet=i.wallet AND c.hash=i.hash
+      WHERE i.wallet=? AND NOT EXISTS(SELECT 1 FROM bw_ledger_payout p WHERE p.bucket=i.bucket AND p.state IN ('prepared','unknown'))
+      GROUP BY i.bucket ORDER BY MIN(i.rowid) LIMIT ?`).all(walletRef,limit) as {bucket:string;sourceHash:string}[];
+    return rows.map(row=>({bucket:bucketSchema.parse(JSON.parse(row.bucket)),sourceHash:hex.parse(row.sourceHash)}))
+      .filter(row=>BigInt(this.balance(row.bucket).availableMsat)>=1000n);
+  }
   /** Atomic wallet-wide lifetime spending guard, including uncertain sends and
    * reserved fees. This is not a renewing budget or a replacement for Hub limits. */
   claimWithinBudget(id:string,walletRef:string,budgetMsat:string){

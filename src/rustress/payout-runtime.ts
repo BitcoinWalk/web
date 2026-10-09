@@ -1,13 +1,14 @@
 import {z} from "zod";
 import {PayoutFlow} from "./payout-flow";
 import {RustressNwcReader} from "./nwc-reader";
+import {PrivateNwcPaymentNotifications,type PaymentNotificationHandle} from "./nwc-transport";
 import {RustressNwcWallet,type WalletSendPermit} from "./nwc-wallet";
 import {RemoteJournalClient} from "./remote-journal-client";
 import {RemoteJournalRecovery} from "./remote-journal-recovery";
 import {createRecoveryHistory,type RecoveryCoverage} from "./recovery-history";
 import {SettlementCollector} from "./settlement-collector";
 import {assessRustressWallet,type WalletReadinessEvidence} from "./wallet-readiness";
-import {requireHubPaymentSafetyCapability} from "./hub-capability";
+import {requireRuntimeHubSafety,type NativeHubSafetyEvidence} from "./hub-capability";
 import type {PayoutLedger,IncomingSnapshot} from "./payout-ledger";
 
 const deploymentSchema=z.object({binding:z.string(),serviceId:z.uuid(),checkedAt:z.number().int().safe(),expiresAt:z.number().int().safe(),
@@ -26,6 +27,8 @@ export type PayoutRuntimeDependencies={
  coverage:()=>Promise<RecoveryCoverage>;
  permit:(r:PermitRequest)=>Promise<WalletSendPermit|null>;
  fetchJson:(url:URL)=>Promise<unknown>;
+ notifications?:(wallet:string)=>Pick<PrivateNwcPaymentNotifications,"start">;
+ hubSafety?:()=>Promise<NativeHubSafetyEvidence>;
 };
 
 /** Server-only composition. No listeners, timer, automatic activation or journal
@@ -34,9 +37,10 @@ export type PayoutRuntimeDependencies={
 export class PayoutRuntime {
  #busy=false;#generation=0;#ready=false;
  #flow?:PayoutFlow;#recovery?:RemoteJournalRecovery;#collector?:SettlementCollector;
+ #notifications?:PaymentNotificationHandle;
  #deployment?:PayoutDeploymentEvidence;
  constructor(private deps:PayoutRuntimeDependencies,private enabled:()=>boolean=()=>false,private now=()=>Math.floor(Date.now()/1000)){}
- pause(){this.#generation++;this.#ready=false;this.#recovery?.pause();}
+ pause(){this.#generation++;this.#ready=false;this.#recovery?.pause();this.#notifications?.close();this.#notifications=undefined;}
  private active(){
   const d=this.#deployment,time=this.now();
   return this.enabled()&&!!d&&d.binding===this.deps.policy.binding&&d.serviceId===this.deps.journal.serviceId&&
@@ -56,7 +60,8 @@ export class PayoutRuntime {
    if(!this.active()||generation!==this.#generation)throw new Error();
    const reader=new RustressNwcReader(this.deps.walletRef,c.wallet,c.checkout);
    if(reader.binding!==this.deps.policy.binding)throw new Error();
-   requireHubPaymentSafetyCapability(await reader.getInfo());
+   const info=await reader.getInfo(),native=this.deps.hubSafety?await this.deps.hubSafety():undefined;
+   requireRuntimeHubSafety(info,native,{binding:reader.binding,budgetMsat:this.deps.policy.budgetMsat},this.now());
    if(!this.active()||generation!==this.#generation)throw new Error();
    const wallet=new RustressNwcWallet(this.deps.walletRef,c.wallet,c.checkout,this.deps.network,this.deps.permit,()=>this.ready&&generation===this.#generation,this.now);
    if(wallet.binding!==reader.binding)throw new Error();
@@ -67,7 +72,11 @@ export class PayoutRuntime {
    if((await recovery.reconcile()).state!=="reconciled"||!this.active()||generation!==this.#generation)throw new Error();
    this.#flow=new PayoutFlow(this.deps.ledger,{wallet,reader,evidence:this.deps.evidence,fetchJson:this.deps.fetchJson,recovery},this.deps.policy,this.now);
    this.#collector=new SettlementCollector(this.#flow,()=>this.ready&&generation===this.#generation);
-   this.#ready=true;return {state:"reconciled" as const};
+   this.#ready=true;
+   const source=(this.deps.notifications??(value=>new PrivateNwcPaymentNotifications(value)))(c.wallet);
+   this.#notifications=await source.start(hash=>{this.hint(hash);},()=>{this.pause();},()=>this.ready&&generation===this.#generation);
+   if(!this.ready||generation!==this.#generation)throw new Error();
+   return {state:"reconciled" as const};
   }catch{this.pause();return {state:"blocked" as const};}finally{this.#busy=false;}
  }
  private async operation<T>(run:()=>Promise<T>){

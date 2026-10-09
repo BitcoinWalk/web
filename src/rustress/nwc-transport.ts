@@ -28,6 +28,39 @@ export function supportsPaymentReceivedNotification(event:Event,walletPubkey:str
  return tags.length===1&&tags[0].length===2&&tags[0][1].split(/\s+/).includes("payment_received");
 }
 
+export type PaymentNotificationHandle={close:()=>void};
+/** Private connection-bound hint stream. Events never settle the ledger; their
+ * exact hash is re-read through authenticated lookup by SettlementCollector. */
+export class PrivateNwcPaymentNotifications {
+ #connection:ReturnType<typeof connection>;
+ constructor(value:string){this.#connection=connection(value);}
+ async start(onPayment:(hash:string)=>void,onFailure:()=>void=()=>{},enabled:()=>boolean=()=>false):Promise<PaymentNotificationHandle>{
+  const c=this.#connection;let relay:Relay|undefined,sub:{close:()=>void}|undefined,closed=false;
+  const close=()=>{if(closed)return;closed=true;sub?.close();relay?.close();};
+  try{
+   for(const address of c.relays){const candidate=new Relay(address,{enableReconnect:false});candidate.onauth=async template=>finalizeEvent(template,c.secret);
+    try{await candidate.connect({timeout:5000});relay=candidate;break;}catch{candidate.close();}}
+   if(!relay)throw new Error();
+   const active=relay,start=Math.floor(Date.now()/1000),key=nip44.getConversationKey(c.secret,c.pubkey);
+   const ready=new Promise<void>((resolve,reject)=>{
+    const timer=setTimeout(()=>{sub?.close();reject(new Error());},10000);
+    sub=active.subscribe([{kinds:[23196,23197],authors:[c.pubkey],"#p":[c.client],since:start-5}],{oneose:()=>{clearTimeout(timer);resolve();},onevent:event=>{void (async()=>{
+     try{
+      const p=event.tags.filter(tag=>tag[0]==="p");
+      if(closed||!enabled()||![23196,23197].includes(event.kind)||event.pubkey!==c.pubkey||!valid(event)||event.created_at<start-30||event.created_at>Math.floor(Date.now()/1000)+30||p.length!==1||p[0].length!==2||p[0][1]!==c.client)return;
+      const plaintext=event.kind===23196?await nip04.decrypt(c.secret,c.pubkey,event.content):nip44.decrypt(event.content,key),body=JSON.parse(plaintext),notice=body.notification;
+      if(body.notification_type!=="payment_received"||!notice||typeof notice!=="object"||notice.type!=="incoming"||typeof notice.payment_hash!=="string"||!/^[0-9a-f]{64}$/.test(notice.payment_hash)||!Number.isSafeInteger(notice.amount)||notice.amount<=0)return;
+      onPayment(notice.payment_hash);
+     }catch{}
+    })();}});
+   });
+   await ready;if(closed)throw new Error();
+   active.onclose=()=>{if(closed)return;closed=true;sub?.close();onFailure();};
+   return {close};
+  }catch{close();throw new Error("Wallet notification stream could not be verified");}
+ }
+}
+
 /** Internal authenticated transport. Only narrow reader/wallet wrappers are
  * application interfaces; never expose this RPC to browser input. */
 export class PrivateNwcTransport {

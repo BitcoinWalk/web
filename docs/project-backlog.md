@@ -221,6 +221,27 @@ automatic Rustress ingestion, durable production journal composition, retained
 history/backup reconciliation, alerts and controlled activation remain. BW-18
 and BW-100 therefore remain In progress.
 
+Default-off automation slice, 9 October: the tested components are now composed
+behind an explicit external enable grant. A private invoice-intake boundary saves
+the exact incoming hash/amount before presentation while resolving wallet and
+personal destination from trusted BitcoinWalk configuration—Rustress/browser
+input cannot select a recipient. A connection-bound NIP-47 listener validates
+signed NIP-44/NIP-04 `payment_received` events as hints only; every settlement is
+still confirmed by exact authenticated lookup and bounded sweeps recover missed
+events. The supervisor first resumes durable prepared/unknown attempts, then
+sweeps incoming invoices and prepares at most one new payout per eligible bucket.
+It stops and pauses the runtime on any gate failure, has no operator/journal
+activation authority, and is inert by default. Native Hub fees are now reserved
+per payment as `max(10 sats, 1%)`, capped by policy, instead of granting every
+payout the 7,900-sat worst case. Runtime readiness accepts either the exact
+reviewed candidate capability or fresh server-side evidence bound to the approved
+Alby Hub v1.24.0/LDK connection, native fee policy and non-renewing budget; generic
+NWC method advertising is insufficient. Full suite: **1,152 tests across 196
+files**. No daemon/package was deployed, no credential was moved and no payment
+was made in this slice. Production topology, private intake transport, journal
+activation/backup evidence, history coverage, permit provider, monitoring and
+rollback remain before activation; BW-18/BW-100 stay In progress.
+
 Fee-cap follow-up: upstream Hub PR #2566 is open/unmerged at `a231ed34` (verified
 via public API). Its actual diff propagates `max_fee` to LDK but leaves default
 fee-reserve accounting unchanged; it is not an approved production upgrade.

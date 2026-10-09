@@ -4,11 +4,11 @@ import {finalizeEvent,getPublicKey,nip44,type Event} from "nostr-tools";
 const mock=vi.hoisted(()=>({reply:undefined as ((event:Event)=>void)|undefined,publish:vi.fn(),connect:vi.fn(),close:vi.fn(),subclose:vi.fn()}));
 vi.mock("nostr-tools/relay",()=>({Relay:class{
  connect=mock.connect;close=mock.close;
- subscribe(_filter:unknown,handlers:{onevent:(e:Event)=>void}){mock.reply=handlers.onevent;return {close:mock.subclose};}
+ subscribe(_filter:unknown,handlers:{onevent:(e:Event)=>void;oneose?:()=>void}){mock.reply=handlers.onevent;queueMicrotask(()=>handlers.oneose?.());return {close:mock.subclose};}
  publish=mock.publish;
 }}));
 import {RustressNwcReader} from "./nwc-reader";
-import {PrivateNwcReadProbe,PrivateNwcTransport,supportsPaymentReceivedNotification} from "./nwc-transport";
+import {PrivateNwcPaymentNotifications,PrivateNwcReadProbe,PrivateNwcTransport,supportsPaymentReceivedNotification} from "./nwc-transport";
 import {RustressNwcWallet,type WalletSendPermit} from "./nwc-wallet";
 import {encode,sign} from "bolt11";
 const wallet=Buffer.from("23".repeat(32),"hex"),client=Buffer.from("12".repeat(32),"hex"),checkout=Buffer.from("34".repeat(32),"hex");
@@ -58,6 +58,12 @@ describe("default-off real NWC payout adapter",()=>{
  });
 });
 describe("isolated authenticated read-only NWC integration",()=>{
+ it("accepts only a signed connection-bound incoming payment hint",async()=>{
+  let enabled=true;const hints:string[]=[];const source=new PrivateNwcPaymentNotifications(uri(client)),handle=await source.start(hash=>hints.push(hash),vi.fn(),()=>enabled);
+  const hash="ab".repeat(32),event=finalizeEvent({kind:23197,created_at:Math.floor(Date.now()/1000),tags:[["p",clientKey]],content:nip44.encrypt(JSON.stringify({notification_type:"payment_received",notification:{type:"incoming",payment_hash:hash,amount:100000}}),key)},wallet);
+  mock.reply?.({...event,sig:"00".repeat(64)});mock.reply?.(finalizeEvent({...event,tags:[["p",walletKey]]},wallet));await Promise.resolve();expect(hints).toEqual([]);
+  mock.reply?.(event);await Promise.resolve();await Promise.resolve();expect(hints).toEqual([hash]);enabled=false;mock.reply?.(event);await Promise.resolve();expect(hints).toHaveLength(1);handle.close();
+ });
  it("recognizes only an exact signed payment-received capability",()=>{
   const event=finalizeEvent({kind:13194,created_at:1800000000,tags:[["notifications","payment_received payment_sent"]],content:"notifications"},wallet);
   expect(supportsPaymentReceivedNotification(event,walletKey)).toBe(true);

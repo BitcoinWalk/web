@@ -17,14 +17,14 @@ afterEach(()=>{for(const db of dbs.splice(0))if(db.isOpen)db.close();for(const d
 function fixture(path=":memory:",amount="100000"){
  const db=new DatabaseSync(path);dbs.push(db);const ledger=new PayoutLedger(db);
  const bucket={cityId:randomUUID(),walletRef:"fixture",destinationVersion:1,destination:"fixture@wallet.example"};
- const policy={binding,budgetMsat:"10000000",maximumPayoutMsat:"10000000",maximumFeeMsat:"10000",expiresAt:now+900};
+ const policy={binding,budgetMsat:"10000000",maximumPayoutMsat:"10000000",maximumFeeMsat:"100000",feePolicy:"ldk-native-v1" as const,expiresAt:now+900};
  const readiness:WalletReadinessEvidence={connectionRef:"fixture",checkoutConnectionRef:"checkout",network:"mainnet",
-  inventory:{checkedAt:now,expiresAt:now+900,grantedMethods:[...RUSTRESS_WALLET_REQUIREMENTS.methods],notificationsGranted:true,revoked:false,budgetMsat:10000000,remainingBudgetMsat:10000000,budgetRenewal:"never",isolated:true},
+   inventory:{checkedAt:now,expiresAt:now+900,grantedMethods:[...RUSTRESS_WALLET_REQUIREMENTS.methods],notificationsGranted:true,revoked:false,budgetMsat:10000000,remainingBudgetMsat:10000000,budgetRenewal:"never",isolated:true},
   protocol:{checkedAt:now,advertisedMethods:[...RUSTRESS_WALLET_REQUIREMENTS.methods],successfulReadMethods:["get_info","lookup_invoice","list_transactions"]},
-  policy:{approvedAt:now,expiresAt:now+900,expectedNetwork:"mainnet",maximumBudgetMsat:10000000,maximumTestPaymentMsat:9900000,maximumFeeMsat:10000,feeLimitVerified:true,approvedSharedWallet:false}};
+   policy:{approvedAt:now,expiresAt:now+900,expectedNetwork:"mainnet",maximumBudgetMsat:10000000,maximumTestPaymentMsat:9900000,maximumFeeMsat:100000,feeLimitVerified:true,approvedSharedWallet:false}};
  let sentAmount="0",time=now;
  const reader={walletRef:"fixture",binding,lookupInvoice:vi.fn(async()=>({type:"incoming",state:"settled",payment_hash:hash,amount:Number(amount),settled_at:now,preimage}))};
- const wallet={walletRef:"fixture",binding,network:"bc" as const,send:vi.fn(async()=>{}),lookup:vi.fn(async()=>({state:"paid" as const,walletRef:"fixture",paymentHash:outgoingHash,amountMsat:sentAmount,feeMsat:"1000",preimage:outgoingPreimage}))};
+ const wallet={walletRef:"fixture",binding,network:"bc" as const,send:vi.fn<(_input:{invoice:string;maximumFeeMsat:string;paymentHash:string})=>Promise<void>>(async()=>{}),lookup:vi.fn(async()=>({state:"paid" as const,walletRef:"fixture",paymentHash:outgoingHash,amountMsat:sentAmount,feeMsat:"1000",preimage:outgoingPreimage}))};
  const fetchJson=vi.fn(async(url:URL)=>{
   if(!url.searchParams.has("amount"))return {tag:"payRequest",callback:"https://wallet.example/pay",minSendable:1000,maxSendable:10000000,metadata};
   sentAmount=url.searchParams.get("amount")!;
@@ -48,6 +48,7 @@ describe("isolated end-to-end payout flow",()=>{
   expect(f.ledger.balance(f.bucket)).toMatchObject({earnedMsat:String(earned),paidMsat:String(paid),availableMsat:String(earned-paid)});
   expect(f.ledger.accounting(f.bucket).retainedAfterPaidFeesMsat).toBe(String(BigInt(amount)-earned-1000n));
   expect(f.deps.wallet.send).toHaveBeenCalledTimes(1);
+  const native=(paid+99n)/100n;expect(f.deps.wallet.send.mock.calls[0][0].maximumFeeMsat).toBe(String(native>10000n?native:10000n));
  });
  it.each(["direction","amount","proof","unknown"])("rejects %s incoming evidence without credit",async mode=>{
   const f=fixture();const row=await f.deps.reader.lookupInvoice();
