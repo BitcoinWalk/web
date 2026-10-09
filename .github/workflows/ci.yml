@@ -24,6 +24,7 @@ jobs:
       - run: npm run lint
       - run: npm run hub-backup:check
       - run: npm run rustress-secret:check
+      - run: npm run rustress-probe:build
       - run: npm run typecheck
       - run: npm run build
       - run: npm run release:package

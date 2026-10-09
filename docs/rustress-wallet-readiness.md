@@ -105,6 +105,15 @@ argv or shell history. A redacted readiness check passed. No service consumes
 the credential yet, the isolated balance has not been funded, and live payments
 remain disabled pending connection-bound acceptance.
 
+The first live connection-bound read checkpoint then passed from the non-root
+Rustress host. Authenticated NWC `get_info` identified bitcoin mainnet and
+advertised the required invoice, lookup, history and payment methods; a bounded
+`list_transactions` call returned the expected response shape. Output was
+redacted to method names, network and success booleans. No invoice or payment
+was created, and the temporary checksum-verified probe runtime was removed.
+Authenticated Hub app inventory, a successful lookup of a known BitcoinWalk
+invoice, notifications, service consumption and funded acceptance remain open.
+
 ### Fee-cap implementation investigation — 8 October 2026
 
 Read-only upstream check identified [Hub PR #2566](https://github.com/getAlby/hub/pull/2566),

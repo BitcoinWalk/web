@@ -1,4 +1,4 @@
-import {createHash,randomUUID} from "node:crypto";
+import {createHash,randomBytes,randomUUID} from "node:crypto";
 import {finalizeEvent,getPublicKey,nip44,nip47,verifyEvent,type Event} from "nostr-tools";
 import {Relay} from "nostr-tools/relay";
 import {createPayoutLookup} from "./wallet-lookup";
@@ -88,4 +88,23 @@ export class PrivateNwcTransport {
    });
   }catch{throw new Error("Wallet read could not be verified");}finally{relay?.close();}
  }
+}
+
+/** Read-only bootstrap probe for one credential before the checkout connection
+ * reference is available on this host. It cannot look up or pay invoices. The
+ * eventual readiness collector must compare its binding with the separately
+ * retained checkout binding before activation. */
+export class PrivateNwcReadProbe {
+ #transport:PrivateNwcTransport;
+ readonly binding:string;
+ constructor(walletRef:string,value:string){
+  const own=connection(value),ephemeral=randomBytes(32);
+  const checkout=new URL(`nostr+walletconnect://${own.pubkey}`);
+  for(const relay of own.relays)checkout.searchParams.append("relay",relay);
+  checkout.searchParams.set("secret",ephemeral.toString("hex"));
+  this.#transport=new PrivateNwcTransport(walletRef,value,checkout.toString());
+  this.binding=this.#transport.binding;
+ }
+ getInfo(){return this.#transport.getInfo();}
+ listTransactions(offset=0,limit=1){return this.#transport.listTransactions(offset,limit);}
 }

@@ -591,13 +591,23 @@ owner-only mode-0600 storage; a redacted verifier passed. No service consumes it
 yet and no funds or payments were moved. Connection-bound read probes, live
 reconciliation and a separately authorized funded acceptance remain required.
 
-**Still disabled:** the audited Hub v1.24.0 LDK backend's
+A subsequent live, read-only probe ran as the non-root Rustress service user
+against that exact protected connection. Authenticated `get_info` reported
+bitcoin mainnet and advertised `get_info`, `make_invoice`, `lookup_invoice`,
+`list_transactions` and `pay_invoice`; bounded transaction-history reading also
+passed. The output contained no wallet identifiers, relays, balances,
+transactions or credential material. No invoice was created and no payment was
+sent. The checksum-verified temporary runtime was removed. This closes only the
+connection-bound info/history read slice; inventory, known-invoice lookup,
+notification, reconciliation and funded-payment gates remain.
+
+**Historical superseded pilot gate:** the audited Hub v1.24.0 LDK backend's
 `max(ceil(amount_msat * 0.01), 10000)` fee ceiling would permit 500 sats on a
 50,000-sat payout, exceeding the approved 100 sats. The existing guard must refuse
 such a payout until an actual wallet-side ceiling no higher than 100 sats is
 verified. Under the audited formula, amounts above 10,000 sats fail that fee
-gate. Do not silently raise the fee limit, label a UI cap as enforcement, reduce
-the approved payout ceiling, or split a payout to circumvent the gate.
+gate. The production decision above supersedes those earlier numeric ceilings;
+this paragraph is retained as the audit history, not the current policy.
 
 No live policy/credentials were installed and no wallet permissions, payments or
 services changed when recording this approval. A concrete activation/expiry

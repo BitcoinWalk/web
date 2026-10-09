@@ -8,6 +8,7 @@ vi.mock("nostr-tools/relay",()=>({Relay:class{
  publish=mock.publish;
 }}));
 import {RustressNwcReader} from "./nwc-reader";
+import {PrivateNwcReadProbe} from "./nwc-transport";
 import {RustressNwcWallet,type WalletSendPermit} from "./nwc-wallet";
 import {encode,sign} from "bolt11";
 const wallet=Buffer.from("23".repeat(32),"hex"),client=Buffer.from("12".repeat(32),"hex"),checkout=Buffer.from("34".repeat(32),"hex");
@@ -57,6 +58,14 @@ describe("default-off real NWC payout adapter",()=>{
  });
 });
 describe("isolated authenticated read-only NWC integration",()=>{
+ it("bootstraps only info and bounded history without a checkout credential",async()=>{
+  mock.publish.mockImplementation(async(event:Event)=>{const body=JSON.parse(nip44.decrypt(event.content,key));
+   mock.reply?.(reply(event,body.method==="get_info"?{network:"mainnet",methods:["get_info","list_transactions"]}:{transactions:[]},body.method));return "ok";});
+  const probe=new PrivateNwcReadProbe("fixture",uri(client));
+  expect(await probe.getInfo()).toMatchObject({network:"mainnet"});
+  expect(await probe.listTransactions()).toEqual({transactions:[]});
+  expect("lookupInvoice" in probe).toBe(false);expect("send" in probe).toBe(false);
+ });
  it("decrypts only an exact wallet/request-bound response",async()=>{
   mock.publish.mockImplementation(async(event:Event)=>{
    expect(JSON.parse(nip44.decrypt(event.content,key))).toEqual({method:"lookup_invoice",params:{payment_hash:"ab".repeat(32)}});

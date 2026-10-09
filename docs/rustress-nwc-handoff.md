@@ -33,3 +33,26 @@ non-renewing Hub spend allowance is 797,900 sats: up to 790,000 sats organizer
 principal plus the accepted Hub-native maximum 7,900-sat routing fee. Budget
 exhaustion must stop new payout attempts and surface an outstanding obligation;
 it must not silently change the 79/21 allocation.
+
+## Live read-only checkpoint — 9 October 2026
+
+After the masked handoff, the exact bundled probe was checksum-verified and run
+as non-root `bitcoinwalk` on the Rustress host. It read the credential only from
+the protected file and returned a redacted result:
+
+- network: bitcoin mainnet;
+- advertised methods: `get_info`, `make_invoice`, `lookup_invoice`,
+  `list_transactions` and `pay_invoice`;
+- authenticated `get_info` and bounded `list_transactions` calls succeeded;
+- history response shape passed;
+- no invoice was created and no payment was sent.
+
+The temporary official runtime was checksum-verified, used only for this probe
+and removed from both machines afterward. No credential, relay, wallet pubkey,
+balance, transaction or raw response was printed. The opaque connection binding
+was checked operationally but is not recorded in public documentation.
+
+This proves the connection can perform the two non-spending reads; it does not
+prove granted app inventory, invoice lookup for a known BitcoinWalk invoice,
+budget consumption, notification delivery, settlement reconciliation or payout
+safety. Those gates remain before service activation.
