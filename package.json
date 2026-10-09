@@ -12,6 +12,8 @@
     "hub-backup:check": "integrations/alby-fee-cap/backup/check-backup-package.sh",
     "rustress-secret:check": "scripts/test-rustress-secret-handoff.sh",
     "rustress-probe:build": "esbuild scripts/run-rustress-nwc-read-probe.ts --bundle --platform=node --target=node24 --format=cjs --outfile=release-build/rustress-nwc-read-probe.cjs",
+    "rustress-shadow:build": "esbuild scripts/run-rustress-wallet-shadow.ts --bundle --platform=node --target=node24 --format=cjs --outfile=release-build/rustress-wallet-shadow.cjs && esbuild scripts/verify-rustress-wallet-shadow.ts --bundle --platform=node --target=node24 --format=cjs --outfile=release-build/verify-rustress-wallet-shadow.cjs",
+    "rustress-shadow:package": "npm run rustress-shadow:build && scripts/package-rustress-wallet-shadow.sh",
     "prebuild": "node scripts/copy-maplibre-worker.mjs",
     "predev": "node scripts/copy-maplibre-worker.mjs",
     "guide:build": "tsc -p tsconfig.guide.json && esbuild src/guide/service.ts --bundle --platform=node --target=node24 --format=cjs --outfile=guide-build/guide.cjs && esbuild src/guide/init-key.ts --bundle --platform=node --target=node24 --format=cjs --outfile=guide-build/guide-key.cjs",

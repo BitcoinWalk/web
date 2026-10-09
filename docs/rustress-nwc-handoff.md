@@ -21,11 +21,11 @@ input. It never prints the credential. `check-nwc-secret.sh` emits only
 `RUSTRESS_NWC_SECRET_READY` after ownership, permissions, file type, size and URI
 shape pass.
 
-The credential file alone enables nothing. The maintained Rustress service must
-later mount it read-only, keep it out of SQLite and logs, bind it to the exact
-isolated Hub connection, and pass authenticated read-only capability/history
-probes before invoice issuance or payouts are enabled. The first funded payment
-remains a separate explicit authorization.
+The credential file alone enables nothing. A separate wallet shadow now mounts
+it read-only, keeps it out of SQLite and logs, binds it to the exact isolated Hub
+connection, and performs only authenticated capability/history probes. Invoice
+issuance and payouts remain disabled. The first funded payment remains a
+separate explicit authorization.
 
 The currently created app accepts incoming invoices without an NWC receive cap.
 BitcoinWalk policy will cap an incoming city payment at 1,000,000 sats. Its
@@ -56,3 +56,33 @@ This proves the connection can perform the two non-spending reads; it does not
 prove granted app inventory, invoice lookup for a known BitcoinWalk invoice,
 budget consumption, notification delivery, settlement reconciliation or payout
 safety. Those gates remain before service activation.
+
+## Rootless wallet shadow checkpoint — 9 October 2026
+
+Version 0.1.1 is active in the `bitcoinwalk` user's rootless Docker daemon on
+the Rustress host. It uses the exact pinned official Node 24 Alpine digest and:
+
+- binds only to `127.0.0.1:8892`;
+- mounts the NWC credential and a separate API token read-only from owner-only,
+  mode-0600 files;
+- starts only in a verified rootless user namespace, reads those files and
+  immediately drops to UID/GID 1004 before opening its listener;
+- runs with a read-only root filesystem, no privilege escalation, a minimal
+  temporary filesystem, CPU/memory/PID limits and zero effective capabilities;
+- exposes a redacted health response and a token-protected readiness response;
+- implements only `get_info` and bounded `list_transactions(0, 1)` calls;
+- returns 404 for admin, well-known, callback and payment routes; and
+- reports invoice issuance and payouts disabled in both health surfaces.
+
+Live acceptance returned `RUSTRESS_WALLET_SHADOW_READY`, bitcoin mainnet and
+authenticated history readability. Unauthenticated readiness returned 401 and
+all public-style routes returned 404. Logs contain no NWC URI, relay or secret.
+The original public Rustress listener still returns 401 on port 8889 and lives
+in a separate root-owned Docker daemon that the deployment user cannot inspect
+or modify.
+
+This closes protected-file consumption and persistent non-spending health
+probing. It does not close authenticated Hub app inventory, known-invoice
+lookup, notification delivery, retained-history/backup monitoring or any funded
+acceptance. The shadow intentionally has no invoice-creation, invoice-lookup or
+payment interface.
