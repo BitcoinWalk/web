@@ -13,8 +13,10 @@ class AuthorityChanged extends Error {}
  * changed evidence cannot silently replace an outstanding provider operation. */
 export class ProvisionWorkflow {
   constructor(private db: DatabaseSync, private provider: Provider,
-    private resolve: (requestId: string) => Promise<ProvisionEvidence>, private now = () => Date.now()) {
-    db.exec(`CREATE TABLE IF NOT EXISTS rustress_provision_task (
+    private resolve: (requestId: string) => Promise<ProvisionEvidence>, private now = () => Date.now(),
+    private table = "rustress_provision_task") {
+    if (!["rustress_provision_task", "rustress_managed_reservation_task"].includes(table)) throw new Error("Invalid provisioning task store.");
+    db.exec(`CREATE TABLE IF NOT EXISTS ${this.table} (
       city TEXT PRIMARY KEY, request TEXT NOT NULL UNIQUE, config TEXT NOT NULL,
       proof TEXT NOT NULL, phase TEXT NOT NULL, lease TEXT, until INTEGER NOT NULL DEFAULT 0);`);
   }
@@ -26,7 +28,7 @@ export class ProvisionWorkflow {
     try {
       const row = this.row(config.cityId);
       if (row && (row.request !== requestId || row.config !== serialized || row.proof !== evidence.proofHash)) throw new Error("Existing provisioning task requires review; no configuration was replaced.");
-      if (!row) this.db.prepare("INSERT INTO rustress_provision_task(city,request,config,proof,phase) VALUES(?,?,?,?,'queued')").run(config.cityId, requestId, serialized, evidence.proofHash);
+      if (!row) this.db.prepare(`INSERT INTO ${this.table}(city,request,config,proof,phase) VALUES(?,?,?,?,'queued')`).run(config.cityId, requestId, serialized, evidence.proofHash);
       this.db.exec("COMMIT");
       return this.status(config.cityId);
     } catch (error) {this.db.exec("ROLLBACK"); throw error;}
@@ -36,17 +38,17 @@ export class ProvisionWorkflow {
     return row ? {cityId, state: row.phase, invoiceIssuance: "disabled" as const} : null;
   }
   pendingCities() {
-    return (this.db.prepare("SELECT city FROM rustress_provision_task WHERE phase NOT IN ('verified','blocked') ORDER BY city LIMIT 10").all() as {city: string}[]).map(row => row.city);
+    return (this.db.prepare(`SELECT city FROM ${this.table} WHERE phase NOT IN ('verified','blocked') ORDER BY city LIMIT 10`).all() as {city: string}[]).map(row => row.city);
   }
-  private row(city: string) {return this.db.prepare("SELECT * FROM rustress_provision_task WHERE city=?").get(city) as Row | undefined;}
+  private row(city: string) {return this.db.prepare(`SELECT * FROM ${this.table} WHERE city=?`).get(city) as Row | undefined;}
   async run(cityId: string) {
     const lease = randomUUID(), now = this.now();
-    const claim = this.db.prepare("UPDATE rustress_provision_task SET lease=?,until=? WHERE city=? AND (lease IS NULL OR until<=?)")
+    const claim = this.db.prepare(`UPDATE ${this.table} SET lease=?,until=? WHERE city=? AND (lease IS NULL OR until<=?)`)
       .run(lease, now + 120_000, cityId, now);
     if (!claim.changes) return this.status(cityId);
     const row = this.row(cityId)!;
     const set = (phase: Phase) => {
-      if (!this.db.prepare("UPDATE rustress_provision_task SET phase=? WHERE city=? AND lease=? AND until>?").run(phase, cityId, lease, this.now()).changes)
+      if (!this.db.prepare(`UPDATE ${this.table} SET phase=? WHERE city=? AND lease=? AND until>?`).run(phase, cityId, lease, this.now()).changes)
         throw new Error("Provisioning worker lease expired.");
     };
     const fresh = async () => {
@@ -92,9 +94,9 @@ export class ProvisionWorkflow {
     } catch (error) {
       // Never persist/log provider messages, destinations or authority details.
       const state = error instanceof AuthorityChanged || error instanceof ProvisioningError && error.outcome === "rejected" ? "blocked" : row.phase === "queued" && this.row(cityId)?.phase === "queued" ? "queued" : "unknown";
-      this.db.prepare("UPDATE rustress_provision_task SET phase=? WHERE city=? AND lease=? AND until>?").run(state, cityId, lease, this.now());
+      this.db.prepare(`UPDATE ${this.table} SET phase=? WHERE city=? AND lease=? AND until>?`).run(state, cityId, lease, this.now());
     } finally {
-      this.db.prepare("UPDATE rustress_provision_task SET lease=NULL,until=0 WHERE city=? AND lease=?").run(cityId, lease);
+      this.db.prepare(`UPDATE ${this.table} SET lease=NULL,until=0 WHERE city=? AND lease=?`).run(cityId, lease);
     }
     return this.status(cityId);
   }

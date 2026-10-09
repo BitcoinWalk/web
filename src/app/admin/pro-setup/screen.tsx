@@ -8,10 +8,11 @@ import {authorizeProSetup, proSetupTemplate} from "../../../nostr/pro-setup-comm
 import type {ProSetupPreview} from "../../../server/pro-setup";
 import CitySignerSetup from "../../../components/city-signer-setup";
 import CityBrandReview from "../../../components/city-brand-review";
+import CityProvisioningRecovery from "../../../components/city-provisioning-recovery";
 
 export default function ProSetupScreen({enabled}: {enabled: boolean}) {
   const {pubkey, cities, role} = useDashboard();
-  if(role==="super-admin")return enabled?<CityBrandReview actor={pubkey}/>:<p role="status">Pro city account review is not enabled yet.</p>;
+  if(role==="super-admin")return enabled?<><CityBrandReview actor={pubkey}/><CityProvisioningRecovery actor={pubkey} cities={cities}/></>:<p role="status">Pro city account review is not enabled yet.</p>;
   // Remount on account changes so private setup responses never cross login boundaries.
   return <ProSetupForm key={pubkey} enabled={enabled} actor={pubkey} cities={cities}/>;
 }
@@ -66,6 +67,8 @@ function ProSetupForm({enabled, actor, cities}: {enabled: boolean; actor: string
         <Image unoptimized src={preview.profile.banner} alt={`${preview.cityName} profile banner`} width={1500} height={500} style={{width: "100%", maxWidth: 750, height: "auto"}}/>
         <p><Image unoptimized src={preview.profile.picture} alt={`${preview.cityName} BitcoinWalk avatar`} width={128} height={128} style={{borderRadius: "50%"}}/></p>
         <p>Website: <a href={preview.profile.website}>{preview.profile.website}</a></p>
+        <section aria-label="City service status"><h3>City services</h3><p><strong>{preview.capabilities.overall}</strong> — {preview.capabilities.detail}</p>
+          <ul><li>NIP-05: <strong>{preview.capabilities.nip05}</strong></li><li>Lightning address: <strong>{preview.capabilities.lightning}</strong></li></ul></section>
         <fieldset disabled={busy}>
           <legend>Personal payout destination</legend>
           <label>Lightning address or LNURL-pay

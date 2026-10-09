@@ -1,6 +1,7 @@
 import type {Event} from "nostr-tools";
 import {createHash} from "node:crypto";
-import {provisionConfigSchema} from "../rustress/contract";
+import {provisionConfigSchema, provisionDigest} from "../rustress/contract";
+import {createCityActivation} from "../rustress/activation-contract";
 import {resolveCityBrand,type CityBrandAuthority} from "../nostr/city-brand";
 import {queryRelayEvents} from "../nostr/city-records";
 import {citySetupEvidence} from "./city-setup-evidence";
@@ -17,6 +18,7 @@ import {SUPER_ADMIN_PUBKEY} from "../nostr/authority";
 import {authorizeCitySignerProof, type ProSetupCommand} from "../nostr/pro-setup-command";
 import {CityBrandStore} from "../directory/city-brand-store";
 import type {EventTemplate} from "nostr-tools";
+import {cityProvisioningCapabilities, type CityProvisioningCapabilities} from "../rustress/provisioning-capabilities";
 
 /** This preflight cannot publish, create invoices, assign identities or activate payments. */
 export type ProSetupPreview = {
@@ -27,6 +29,7 @@ export type ProSetupPreview = {
   setup: {state: "setup-required" | "payout-confirmed" | "signer-confirmed" | "ready-for-proof"; updatedAt: number};
   signer: {configured: boolean; pubkey?: string; version?: number};
   activation?: {requestId: string; expiresAt: number; proofsReady: boolean};
+  capabilities: CityProvisioningCapabilities;
   steps: Array<{label: string; state: "ready" | "blocked"; detail: string}>;
 };
 
@@ -104,7 +107,9 @@ export async function prepareProSetupPreview(cityId: string, actor: string, orig
   const registration = !payout && task.registrationVersion ? destinations.registration(cityId, task.registrationVersion) : undefined;
   const suggestion = registration?.ownerPubkey === fresh.authority.ownerPubkey && registration.revisionId === binding.revisionId ? registration : undefined;
   const pending = brandStore().pendingForCity(cityId);
+  const capabilities = cityProvisioningCapabilities(getPaymentRuntime().store.db,cityId);
   return {cityId, cityName: city.cityName, revisionId: row.revision.event.id, status: "preparation-only",
+    capabilities,
     setup: {state: task.state, updatedAt: task.updatedAt},
     signer: task.signer ? {configured: true, pubkey: task.signer.pubkey, version: task.signer.version} : {configured: false},
     ...(pending ? {activation: {requestId: pending.id, expiresAt: pending.expires_at, proofsReady: !!pending.owner_proof && !!pending.brand_proof}} : {}),
@@ -116,7 +121,8 @@ export async function prepareProSetupPreview(cityId: string, actor: string, orig
       {label: "City profile artwork", state: "ready", detail: "Prepared from the approved city photo. The avatar uses the larger icon without city lettering."},
       {label: "Personal payout destination", state: payout ? "ready" : "blocked", detail: payout ? `Owner-confirmed destination version ${payout.version} is saved privately. It is not active until provisioning is verified.` : suggestion ? "Your checkout destination was recovered privately. Confirm it again with the current city owner’s signer before activation." : "Add and confirm your personal Lightning address or LNURL-pay destination below."},
       {label: "Separate city signer", state: task.signer ? "ready" : "blocked", detail: task.signer ? `Expected city signer version ${task.signer.version} is confirmed privately. Its key remains outside BitcoinWalk.` : "Create or connect a recoverable city identity and prove control of its exact public key."},
-      {label: "City account activation", state: "blocked", detail: "Request-bound approval and relay read-back are still being integrated. Keep your personal dashboard identity; no city account is active yet."},
+      {label: "NIP-05 identity", state: capabilities.nip05 === "active" ? "ready" : "blocked", detail: capabilities.nip05 === "active" ? `${slug}@bitcoinwalk.org is independently verified against the city signer.` : `Status: ${capabilities.nip05}. ${capabilities.detail}`},
+      {label: "Lightning address", state: capabilities.lightning === "active" ? "ready" : "blocked", detail: capabilities.lightning === "active" ? `${slug}@bitcoinwalk.org passed independent LNURL-pay verification.` : `Status: ${capabilities.lightning}. ${capabilities.detail}`},
     ]};
 }
 
@@ -199,9 +205,14 @@ export async function confirmBrandPublication(requestId:string,actor:string,deps
 }
 
 async function queueProvisioningIfEnabled(requestId: string) {
-  if (process.env.BITCOINWALK_RUSTRESS_FIXTURE_ENABLED !== "1") return;
-  try {await (await import("./rustress-workflow")).queueIsolatedProvisioning(requestId);}
-  catch {console.warn("Isolated provisioning queue deferred. City identity remains recorded; retry confirmation to queue safely.");}
+  if (process.env.BITCOINWALK_RUSTRESS_FIXTURE_ENABLED === "1") {
+    try {await (await import("./rustress-workflow")).queueIsolatedProvisioning(requestId);}
+    catch {console.warn("Isolated provisioning queue deferred. City identity remains recorded; retry confirmation to queue safely.");}
+  }
+  if (process.env.BITCOINWALK_RUSTRESS_MANAGED_ENABLED === "1") {
+    try {await (await import("./rustress-activation")).queueManagedProvisioning(requestId);}
+    catch {console.warn("Managed city reservation deferred. City identity remains recorded; the durable worker will retry safely.");}
+  }
 }
 
 export async function saveProSetupSigner(cityId: string, actor: string, command: Extract<ProSetupCommand, {action: "confirm-city-signer"}>, brandProof: Event, origin: string) {
@@ -272,4 +283,15 @@ export async function resolveRustressProvisionEvidence(requestId: string) {
     invoiceIssuance: "disabled"});
   return {config, proofHash: createHash("sha256").update(JSON.stringify({authority, profile: after.request.challenge.profile,
     brandEventId: approved.event.id, payoutVersion: payout.version})).digest("hex")};
+}
+
+/** Managed activation evidence uses the same freshly revalidated authority as
+ * fixture reservation, but binds the real managed wallet reference. */
+export async function resolveRustressActivationEvidence(requestId: string, publicOrigin = "https://bitcoinwalk.org") {
+  const evidence = await resolveRustressProvisionEvidence(requestId);
+  const reserved = provisionConfigSchema.parse({...evidence.config, walletRef: "bitcoinwalk-rustress"});
+  const activation = createCityActivation(reserved);
+  return {reserved, activation, publicOrigin,
+    proofHash: createHash("sha256").update(JSON.stringify({reservationProof: evidence.proofHash,
+      reserved: provisionDigest(reserved), activation: provisionDigest(activation)})).digest("hex")};
 }

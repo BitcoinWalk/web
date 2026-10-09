@@ -1,5 +1,5 @@
-import {capabilitiesSchema, provisionConfigSchema, provisionDigest, provisionReceiptSchema,
-  RUSTRESS_API, type ProvisionConfig, type ProvisionReceipt} from "./contract";
+import {activationReceiptSchema, capabilitiesSchema, managedProvisionConfigSchema, provisionConfigSchema, provisionDigest, provisionReceiptSchema,
+  RUSTRESS_API, type ActivationReceipt, type ProvisionConfig, type ProvisionReceipt} from "./contract";
 
 type Transport = typeof fetch;
 type Options = {origin: string; token: string; domain: string; adapterRevision: string};
@@ -14,13 +14,16 @@ export class ProvisioningError extends Error {
 /** Isolated client for the NEW companion API, not Rustress's dashboard API.
  * Loopback only: remote providers need an audited tunnel, not relaxed TLS/SSRF
  * rules. Never import from client components or instantiate in checkout runtime. */
-export class RustressProvisioner {
+type Mode = "disabled" | "enabled";
+type ReceiptFor<M extends Mode> = M extends "disabled" ? ProvisionReceipt : ActivationReceipt;
+
+class ProviderClient<M extends Mode> {
   readonly #origin: string;
   readonly #token: string;
   readonly #domain: string;
   readonly #adapterRevision: string;
   readonly #transport: Transport;
-  constructor(options: Options, transport: Transport = fetch) {
+  constructor(options: Options, private readonly mode: M, transport: Transport = fetch) {
     try {
       const url = new URL(options.origin);
       if (url.protocol !== "http:" || url.hostname !== "127.0.0.1" || !url.port || url.username || url.password ||
@@ -73,23 +76,24 @@ export class RustressProvisioner {
   }
   #config(input: ProvisionConfig) {
     try {
-      const config = provisionConfigSchema.parse(input);
+      const config = this.mode === "disabled" ? provisionConfigSchema.parse(input) : managedProvisionConfigSchema.parse(input);
+      if (config.invoiceIssuance !== this.mode || this.mode === "enabled" && config.version < 2) throw new Error();
       if (config.domain !== this.#domain) throw new Error();
       return config;
     } catch {throw new ProvisioningError("rejected");}
   }
-  #receipt(value: unknown, config: ProvisionConfig): ProvisionReceipt {
-    const result = provisionReceiptSchema.parse(value);
+  #receipt(value: unknown, config: ProvisionConfig): ReceiptFor<M> {
+    const result = (this.mode === "disabled" ? provisionReceiptSchema : activationReceiptSchema).parse(value) as ReceiptFor<M>;
     if (result.cityId !== config.cityId || result.version !== config.version || result.configHash !== provisionDigest(config)) throw new Error();
     return result;
   }
-  async status(input: ProvisionConfig): Promise<ProvisionReceipt> {
+  async status(input: ProvisionConfig): Promise<ReceiptFor<M>> {
     const config = this.#config(input);
     await this.capabilities();
     try {return this.#receipt(await this.#request(`/v1/bitcoinwalk/cities/${config.cityId}`), config);}
     catch {throw new ProvisioningError("unavailable");}
   }
-  async #write(action: "prepare" | "apply", input: ProvisionConfig): Promise<ProvisionReceipt> {
+  async #write(action: "prepare" | "apply", input: ProvisionConfig): Promise<ReceiptFor<M>> {
     const config = this.#config(input);
     await this.capabilities();
     const hash = provisionDigest(config);
@@ -110,4 +114,25 @@ export class RustressProvisioner {
   }
   prepare(input: ProvisionConfig) {return this.#write("prepare", input);}
   apply(input: ProvisionConfig) {return this.#write("apply", input);}
+}
+
+/** Disabled-only reservation client. It cannot construct or accept activation. */
+export class RustressProvisioner {
+  readonly #client: ProviderClient<"disabled">;
+  constructor(options: Options, transport: Transport = fetch) {this.#client = new ProviderClient(options, "disabled", transport);}
+  capabilities() {return this.#client.capabilities();}
+  status(input: ProvisionConfig) {return this.#client.status(input);}
+  prepare(input: ProvisionConfig) {return this.#client.prepare(input);}
+  apply(input: ProvisionConfig) {return this.#client.apply(input);}
+}
+
+/** Explicit managed activation client. Callers must separately prove the exact
+ * disabled predecessor and revalidate authority before every write. */
+export class RustressActivator {
+  readonly #client: ProviderClient<"enabled">;
+  constructor(options: Options, transport: Transport = fetch) {this.#client = new ProviderClient(options, "enabled", transport);}
+  capabilities() {return this.#client.capabilities();}
+  status(input: ProvisionConfig) {return this.#client.status(input);}
+  prepare(input: ProvisionConfig) {return this.#client.prepare(input);}
+  apply(input: ProvisionConfig) {return this.#client.apply(input);}
 }

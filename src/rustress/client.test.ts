@@ -1,5 +1,5 @@
 import {describe, expect, it, vi} from "vitest";
-import {RustressProvisioner} from "./client";
+import {RustressActivator, RustressProvisioner} from "./client";
 import {provisionConfigSchema, provisionDigest, RUSTRESS_API, RUSTRESS_REVIEWED_COMMIT, type ProvisionConfig} from "./contract";
 
 const token = "test-only-not-a-wallet-secret-".padEnd(48, "x"), revision = "f".repeat(64);
@@ -110,5 +110,15 @@ describe("isolated Rustress provisioning adapter", () => {
     expect(provisionDigest(reordered)).toBe(provisionDigest(config));
     expect(provisionDigest({...config, payoutVersion: 2})).not.toBe(provisionDigest(config));
     expect(provisionConfigSchema.safeParse({...config, payoutDestination: "https://private.invalid"}).success).toBe(false);
+  });
+  it("keeps managed activation behind a separate enabled-only client", async () => {
+    const active = {...config, version: 2, invoiceIssuance: "enabled" as const};
+    const activeReceipt = (state = "prepared") => ({...receipt(state), version: 2,
+      configHash: provisionDigest(active), invoiceIssuance: "enabled" as const});
+    const transport = vi.fn<typeof fetch>(async url => json(String(url).endsWith("capabilities") ? capability : activeReceipt("applied")));
+    const client = new RustressActivator(options, transport);
+    await expect(client.apply(active)).resolves.toEqual(activeReceipt("applied"));
+    expect(JSON.parse(transport.mock.calls[1][1]?.body as string)).toMatchObject({config: active, expectedVersion: 1});
+    await expect(client.apply(config)).rejects.toMatchObject({outcome: "rejected"});
   });
 });

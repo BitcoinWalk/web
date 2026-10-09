@@ -158,6 +158,16 @@ address, payout and wallet field to match the verified disabled reservation;
 any changed fact must be reserved disabled again. No managed city or public
 route has been enabled.
 
+The next implementation slice completed that connection: separate managed
+reservation and activation clients feed durable leased outboxes, reconcile
+uncertain writes by exact read-back and independently persist NIP-05/Lightning
+verification. The organizer CMS shows per-capability state, while a signed
+super-admin recovery control can reconcile but cannot replace changed evidence.
+A dedicated managed-tunnel installer and narrowly matched application gateway
+are prepared; the existing apex Caddy catch-all does not need a privileged
+change. Everything remains default-off and undeployed; no city, endpoint,
+invoice or payout was activated.
+
 Keep entitlement, city approval, NIP-05, Lightning, relay and chat status distinct in the CMS: **Setup required**, **Provisioning**, **Active**, **Needs attention**. Mark each capability active only after its own read-back. Failure retries reuse the city/configuration key. NIP-05/Lightning readiness does not depend on a dedicated city relay being available. City disapproval/archive policy must explicitly govern new invoice issuance while honoring already accepted invoice obligations; publishing suspension alone must not silently confiscate or redirect accrued payments.
 
 ## Stage 4 — durable 79/21 accounting and forwarding (BW-18)

@@ -48,6 +48,12 @@ export const provisionReceiptSchema = z.object({
   invoiceIssuance: z.literal("disabled"),
 }).strict();
 export type ProvisionReceipt = z.infer<typeof provisionReceiptSchema>;
+export const activationReceiptSchema = z.object({
+  api: z.literal(RUSTRESS_API), cityId: z.uuid(), version,
+  configHash: hex, state: z.enum(["prepared", "applied"]),
+  invoiceIssuance: z.literal("enabled"),
+}).strict();
+export type ActivationReceipt = z.infer<typeof activationReceiptSchema>;
 
 /** Contract only; self-reported methods are not proof of a granted wallet scope.
  * A separate isolated-wallet rehearsal must verify permissions before activation. */

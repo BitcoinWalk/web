@@ -92,6 +92,42 @@ BW-18/BW-19 live provisioning remain. Verified fixture state must never be
 presented as an active Lightning address. BW-109 standalone no-split addresses
 remain a separate resource contract; London/endo/donate are unchanged.
 
+## Managed reservation and public activation — 9 October 2026
+
+The production-shaped workflow is now implemented but not enabled or deployed.
+It has two separate runtime gates. `BITCOINWALK_RUSTRESS_MANAGED_ENABLED=1`
+allows only a disabled private reservation for an explicit maximum-ten-city
+UUID allow-list. `BITCOINWALK_RUSTRESS_ACTIVATION_ENABLED=1` is an additional
+gate required before the immediately following enabled version can be written.
+Payment or Pro selection sets neither flag.
+
+The managed runtime requires a mode-0600 token file, the pinned adapter revision,
+the loopback-only managed tunnel origin and exact public origin
+`https://bitcoinwalk.org`. It reconstructs every operation from the active
+branded binding, current approval/ownership/moderation, settled entitlement and
+owner-signed payout version. A changed authority, identity, local part, payout,
+split or wallet cannot be activated from an old reservation.
+
+`rustress_managed_reservation_task` and `rustress_activation_task` are separate
+durable outboxes. Both use leases, exact payloads, read-before-retry recovery and
+redacted failures. Activation independently records NIP-05 and Lightning checks;
+one successful check never makes the other green. CMS states are **Setup
+required**, **Provisioning**, **Active** and **Needs attention**. Organizers see
+read-only capability status in Pro setup. The super-admin has a signed **Check /
+retry provisioning** control; retry reconciles stored/provider state and cannot
+replace changed evidence or create another purchase invoice.
+
+The prepared managed tunnel forwards `.138` loopback `127.0.0.1:18895` only to
+`.240` loopback `127.0.0.1:8895`, using a dedicated key that permits that single
+destination and no shell. Public traffic stays on the existing application
+catch-all: dedicated route handlers expose only `/.well-known/nostr.json`,
+`/.well-known/lnurlp/<city>` and `/lnurlp/<city>/…` after an exact activation is
+applied. They revalidate the expected city and proxy without credentials;
+unknown, queued, blocked and corrupt records fail closed. `/v1/bitcoinwalk`,
+`/admin` and unrelated Rustress routes are never forwarded. This avoids taking
+over unrelated well-known paths in Caddy. The tunnel, runtime flags and city
+allow-list have not been installed or enabled by this implementation.
+
 ## Staging deployment and transport evidence
 
 App `0.3.197` (source `acc2111`) passed Node-24 build/package smoke and was

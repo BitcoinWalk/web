@@ -44,6 +44,12 @@ export function getPaymentRuntime():PaymentRuntime{
    .then(module=>module.reconcileIsolatedProvisioning()).catch(()=>console.warn("Isolated provisioning deferred; saved tasks retained."))
    .finally(()=>{provisioningBusy=false;});},30_000).unref();
  }
+ if(process.env.BITCOINWALK_RUSTRESS_MANAGED_ENABLED==="1"){
+  let managedBusy=false;
+  setInterval(()=>{if(managedBusy)return;managedBusy=true;void import("../server/rustress-activation")
+   .then(module=>module.reconcileManagedProvisioning()).catch(()=>console.warn("Managed provisioning deferred; durable state was retained."))
+   .finally(()=>{managedBusy=false;});},30_000).unref();
+ }
  return shared[runtimeKey];
 }
 
