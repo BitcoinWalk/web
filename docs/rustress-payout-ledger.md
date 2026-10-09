@@ -714,7 +714,9 @@ the app VPS `.138`. The first deployment is intentionally incapable of payment.
 - A source-restricted, shell-denied SSH key permits `.240` to forward only to
   `.138` journal port 8894. The resulting `.240` endpoint is loopback-only
   `127.0.0.1:18894`. Exact service ID and wallet binding read-back passed with an
-  empty journal, paused fence and no claim. Neither service is enabled at boot.
+  empty journal, paused fence and no claim. The journal and tunnel are not enabled
+  at boot. Docker may restart the payout container, but its fixed disabled mode,
+  unread credential and `network=none` boundary persist across that restart.
 
 The deployment did not create an invoice, read a wallet balance, activate the
 journal, make a claim or send a payment. Activation still requires the private
