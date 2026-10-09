@@ -901,6 +901,16 @@ passing ledger monitor and no activation grant. The first immediate probe reache
 the port before restart completed; the verifier now waits for bounded listener
 readiness, and the subsequent full checks passed. No wallet route was available.
 
+The next unconnected slice adds the private
+[NIP-57 receipt authority](rustress-zap-receipts.md). It independently validates
+the exact signed zap request, BOLT11 description commitment, payment hash, amount,
+settlement timestamp and preimage; checks the isolated signer output; persists the
+exact receipt before bounded publication; and reuses it across retries/restarts.
+It is not runtime-wired, has no production signing key and does not cause Rustress
+to advertise zap support. Sixteen focused fixture tests pass. A separate
+receipt-only settlement claim, hardened relay publisher, isolated service/key
+recovery and genuinely independent review remain required before BW-102.
+
 ## Deliberate boundaries / next slice
 
 The ledger is an internal accounting primitive, not proof that a payment happened.
