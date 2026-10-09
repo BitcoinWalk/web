@@ -932,6 +932,21 @@ verification. The first install correctly rolled back when the ledger monitor's
 old 0.2.3 version pin rejected the candidate; the pin and package check were then
 updated. All five backup/monitor timers are enabled, and no activation occurred.
 
+A supplemental source review found that `0.2.4` still left the same evidence
+route reachable through the payout service's generic localhost TCP listener. The
+candidate `0.2.5` now makes transport authorization explicit: the evidence route
+is accepted only when the request arrived through the dedicated Unix-socket
+handler, while the generic TCP API returns 404 even with the correct receipt
+credential. A joint synthetic runtime rehearsal exercised the actual evidence,
+signer and relay-egress Unix clients and handlers, simulated a relay outage,
+restarted the authority from its SQLite file and proved exact signed-event reuse
+without re-reading evidence or signing again. The full Rustress suite passes
+432/432 tests, with typecheck, focused lint and package-policy checks green.
+Candidate package SHA-256 is
+`93a7f3bbc8cd95ddf4abd0627141e6d2be83e1111965d1cff3821dd4b4d9d6e4`.
+It is not deployed: `.240` remains safely disabled on `0.2.4` pending a non-root
+operator installation and a ledger-preserving disabled rollback rehearsal.
+
 ## Deliberate boundaries / next slice
 
 The ledger is an internal accounting primitive, not proof that a payment happened.

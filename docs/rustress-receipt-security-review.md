@@ -29,6 +29,23 @@ disabled. The supplemental socket-boundary changes require review before
 activation. The original review target and digest below are retained as the
 immutable input to that review.
 
+Supplemental review, 9 October 2026: Codex Security scan
+`243e7d94-10cc-44f5-95e2-13377fcf9804` reported one low-severity boundary issue:
+the new evidence endpoint was correctly restricted on the Unix listener but was
+also still forwarded by the generic localhost TCP listener. Candidate payout
+`0.2.5` fixes this by passing an explicit transport capability into the router;
+only the dedicated evidence handler can select it. Regression tests prove that a
+correct receipt token over the generic TCP path still receives 404, cross-role
+tokens fail, and ordinary payout routes retain their existing TCP behavior. A
+joint synthetic rehearsal used the actual three Unix socket handlers and clients,
+forced a relay outage, reopened the durable databases and proved that retry
+publishes the exact already-signed event without evidence refetch or resigning.
+The complete Rustress suite passes 432/432 tests; typecheck, focused lint and
+package policy pass. Candidate payout package SHA-256 is
+`93a7f3bbc8cd95ddf4abd0627141e6d2be83e1111965d1cff3821dd4b4d9d6e4`.
+No bypass or regression was found in the post-fix caller review. Deployment and
+disabled rollback remain pending; this record does not authorize activation.
+
 ## Review purpose
 
 This review is a mandatory gate before a BitcoinWalk NIP-57 receipt authority can

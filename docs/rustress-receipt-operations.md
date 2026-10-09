@@ -60,8 +60,10 @@ changed retries and invalid SQLite state.
 The armed worker will require four mutually distinct capabilities: payout
 receipt-evidence, signer, relay egress and claim intake. It remains
 `network=none`; settlement evidence, signing and relay publication use three
-separate owner-only Unix sockets. Payout `0.2.4` exposes only the exact evidence
-route on its socket; status, authority and invoice routes are unreachable there.
+separate owner-only Unix sockets. Candidate payout `0.2.5` binds the exact evidence
+route to the dedicated Unix transport; the generic localhost TCP API returns 404
+for that route even with a correct receipt credential. Status, authority and
+invoice routes remain unreachable through the evidence socket.
 The gateway independently verifies the exact signed event and pinned provider
 before the existing allowlist, public-address DNS and WSS policy runs.
 The signer never receives wallet access, NWC, payout destinations or relay access,
@@ -109,11 +111,12 @@ The approved allowlist is `nos.lol`, `relay.damus.io`, `relay.primal.net` and
 NAT64, local NAT64, Teredo and 6to4 transition ranges are explicitly rejected
 before transport; the focused relay policy/transport suite passes 30 tests.
 
-1. Supplementally review and runtime-rehearse the stopped evidence and relay
-   boundaries together, including
-   socket ownership, credential separation, public relay acknowledgements and
-   rollback. Installed code/images are not activation acceptance.
+1. Install payout `0.2.5` disabled through the existing non-root service owner,
+   verify `network=none`, no host port and no evidence socket, then rehearse
+   ledger-preserving `0.2.5` → `0.2.4` → `0.2.5` rollback. The supplemental
+   source review and joint synthetic three-socket outage/restart rehearsal pass;
+   installed code/images are still not activation acceptance.
 2. Add a separately reviewed, time-bounded activation package and rollback. The
-   existing older payout activation grant intentionally cannot arm release 0.2.4.
+   existing older payout activation grant intentionally cannot arm release 0.2.5.
 3. Only after explicit authorization, run BW-102 and then expose public NIP-57
    metadata.

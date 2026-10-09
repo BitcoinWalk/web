@@ -1,6 +1,6 @@
 #!/bin/sh
 set -eu
-service=bitcoinwalk-rustress-payout;version=0.2.4;image="$service:$version";root="$HOME/.local/state/bitcoinwalk-rustress";state="$root/payout-service";secrets="$root/secrets";config="$root/payout-config";mode="$root/payout-mode";evidence_socket="$root/payout-evidence-socket"
+service=bitcoinwalk-rustress-payout;version=0.2.5;image="$service:$version";root="$HOME/.local/state/bitcoinwalk-rustress";state="$root/payout-service";secrets="$root/secrets";config="$root/payout-config";mode="$root/payout-mode";evidence_socket="$root/payout-evidence-socket"
 fail(){ printf '%s\n' "Payout activation failed; service remains disabled." >&2;exit 1; }
 [ "$(id -u)" -ne 0 ]&&[ "$(id -un)" = bitcoinwalk ]||fail
 docker info --format '{{json .SecurityOptions}}'|grep -q '"name=rootless"'||fail

@@ -22,7 +22,7 @@ export class PayoutControlApi{
  private allowed(header:string|undefined,expected:string){
   if(!header?.startsWith("Bearer "))return false;const a=Buffer.from(header.slice(7)),b=Buffer.from(expected);return a.length===b.length&&timingSafeEqual(a,b);
  }
- async route(method:string|undefined,url:string|undefined,authorization:string|undefined,body?:unknown):Promise<Result>{
+ async route(method:string|undefined,url:string|undefined,authorization:string|undefined,body?:unknown,transport:"tcp"|"receipt-evidence"="tcp"):Promise<Result>{
   try{
    if(method==="GET"&&url==="/health")return {status:200,body:{service:"bitcoinwalk-rustress-payout",state:this.enabled()?"armed":"disabled"}};
    if(method==="GET"&&url==="/v1/status"){
@@ -48,7 +48,7 @@ export class PayoutControlApi{
     if(!this.enabled()||!this.issuer)return {status:503,body:{error:"invoice-issuer-disabled"}};
     return {status:200,body:this.issuer.lookup(body)};
    }
-   if(method==="POST"&&url==="/v1/receipts/evidence"){
+   if(method==="POST"&&url==="/v1/receipts/evidence"&&transport==="receipt-evidence"){
     if(!this.allowed(authorization,this.#tokens.receipt))return {status:401,body:{error:"unauthorized"}};
     if(!this.enabled()||!this.issuer)return {status:503,body:{error:"receipt-evidence-disabled"}};
     return {status:200,body:await this.issuer.receiptEvidence(body)};
