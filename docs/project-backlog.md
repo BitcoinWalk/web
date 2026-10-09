@@ -349,8 +349,9 @@ ordinary expansion and sparse expansion fixtures pass their expected outcomes;
 the package is reproducible at
 `081088e0d43b36f9cefa89bea53003e2ea0727905146fe9eaf80d208233f1131`.
 Typecheck, lint and production build pass. This supersedes the remediation wording
-inside BW-18/BW-100 below. The production offline-key rehearsal, relay egress and
-IPv6-transition acceptance, activation package and BW-102 remain open.
+inside BW-18/BW-100 below. The production offline-key rehearsal is now complete;
+relay egress and IPv6-transition acceptance, the activation package and BW-102
+remain open.
 
 Payout activation-gate checkpoint, 9 October: payout service `0.2.3` is installed
 on `.240` as the non-root `bitcoinwalk` user in rootless Docker. It remains
@@ -372,8 +373,9 @@ and empty signer database, emitting only public key `2443b1e4…abfe5a`. The
 owner-only secret remains solely on `.240` in plaintext. With explicit user
 authorization, the first worker/signer archives were encrypted to offline GPG
 recipient `A206…B188`, stored checksum-exact on `.138`, and the twice-daily
-non-root timer was enabled. The ciphertexts and verifier are staged locally;
-the user-run offline-key restore rehearsal remains pending.
+non-root timer was enabled. The user then completed both bounded offline restore
+checks: worker and signer SQLite integrity passed, the independently retained
+provider identity matched, and decrypted material was removed automatically.
 
 | ID | Stage | Item | Status | Depends on | Acceptance |
 |---|---:|---|---|---|---|

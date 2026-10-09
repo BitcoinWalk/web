@@ -39,8 +39,9 @@ The secret is owner-only on `.240` and has not been displayed in plaintext. With
 the user's explicit authorization, the first worker and signer archives were
 encrypted to offline GPG recipient `A206…B188`, accepted checksum-exact by the
 receipt-aware off-host receiver on `.138`, and the twice-daily non-root timer was
-enabled. Ciphertexts and the bounded verifier are staged locally for the user;
-the offline restore rehearsal remains pending.
+enabled. The user ran both bounded offline restore checks: worker SQLite integrity
+passed, signer SQLite integrity and the independently retained provider identity
+matched, and decrypted material was removed automatically on exit.
 
 ## Runtime boundaries
 
@@ -93,8 +94,6 @@ display the decrypted provider key or encrypted backup contents.
 ## Remaining acceptance gates
 
 1. Select a conservative relay allowlist and define enforceable worker egress.
-2. Create the provider identity outside the application, protect and encrypt it,
-   then complete an isolated restore rehearsal proving the same public identity.
-3. Add a separately reviewed, time-bounded activation package and rollback.
-4. Only after explicit authorization, run BW-102 and then expose public NIP-57
+2. Add a separately reviewed, time-bounded activation package and rollback.
+3. Only after explicit authorization, run BW-102 and then expose public NIP-57
    metadata.
