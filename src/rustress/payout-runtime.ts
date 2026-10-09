@@ -21,7 +21,7 @@ export type PayoutRuntimeDependencies={
  journal:{origin:string;serviceId:string};
  // Explicit private providers only. No process.env defaults, browser arguments,
  // on-disk secrets or claims that metadata alone proves wallet readiness.
- credentials:()=>Promise<{wallet:string;checkout:string;journalClientToken:string}>;
+ credentials:()=>Promise<{wallet:string;checkout:string|{clientPubkey:string};journalClientToken:string}>;
  evidence:()=>Promise<{binding:string;readiness:WalletReadinessEvidence}>;
  deployment:()=>Promise<PayoutDeploymentEvidence>;
  coverage:()=>Promise<RecoveryCoverage>;

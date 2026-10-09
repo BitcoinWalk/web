@@ -1,0 +1,11 @@
+[Unit]
+Description=Prune retained encrypted BitcoinWalk payout backups
+
+[Service]
+Type=oneshot
+ExecStart=%h/.local/libexec/bitcoinwalk-payout-backup/prune-encrypted-backups.py
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=%h/offhost-payout-backups/archives

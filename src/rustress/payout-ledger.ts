@@ -67,6 +67,22 @@ export class PayoutLedger {
     return (this.db.prepare("SELECT id,bucket FROM bw_ledger_payout WHERE state IN ('prepared','unknown') ORDER BY rowid LIMIT ?").all(limit) as {id:string;bucket:string}[])
       .filter(row=>JSON.parse(row.bucket).walletRef===walletRef).map(row=>row.id);
   }
+  operationalStatus(walletRef:string){
+    ref.parse(walletRef);
+    const invoice=this.db.prepare(`SELECT COUNT(*) count,SUM(CASE WHEN settled=0 THEN 1 ELSE 0 END) pending
+      FROM bw_ledger_invoice WHERE wallet=?`).get(walletRef) as {count:number;pending:number|null};
+    const rows=(this.db.prepare("SELECT state,bucket FROM bw_ledger_payout").all() as {state:Attempt["state"];bucket:string}[])
+      .filter(row=>JSON.parse(row.bucket).walletRef===walletRef);
+    const count=(state:Attempt["state"])=>rows.filter(row=>row.state===state).length;
+    return {invoices:invoice.count,pendingIncoming:invoice.pending??0,prepared:count("prepared"),unknown:count("unknown"),paid:count("paid"),cancelled:count("cancelled")};
+  }
+  budgetUsage(walletRef:string){
+    ref.parse(walletRef);
+    const rows=(this.db.prepare("SELECT amount,fee_cap,fee,state,bucket FROM bw_ledger_payout WHERE state IN ('paid','unknown')").all() as Attempt[])
+      .filter(row=>JSON.parse(row.bucket).walletRef===walletRef);
+    const used=rows.reduce((sum,row)=>sum+BigInt(row.amount)+BigInt(row.state==="paid"?row.fee!:row.fee_cap),0n);
+    return {usedMsat:String(used),uncertain:rows.filter(row=>row.state==="unknown").length};
+  }
   /** Private scheduler inventory. A source hash selects the immutable bucket;
    * destinations never come from notification or timer input. Buckets with an
    * unfinished attempt are resumed before another invoice can be requested. */

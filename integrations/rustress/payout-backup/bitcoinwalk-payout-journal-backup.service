@@ -1,0 +1,12 @@
+[Unit]
+Description=Encrypted BitcoinWalk payout-journal backup
+
+[Service]
+Type=oneshot
+Environment=BITCOINWALK_PAYOUT_GPG=%h/.local/opt/bitcoinwalk-payout-gpg/gpg-wrapper
+ExecStart=%h/.local/libexec/bitcoinwalk-payout-backup/backup-payout-state.sh journal
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=%h/.local/state/bitcoinwalk-payout-backup-journal

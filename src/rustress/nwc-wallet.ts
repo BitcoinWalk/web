@@ -1,7 +1,7 @@
 import {decode} from "bolt11";
 import {z} from "zod";
 import {createHash} from "node:crypto";
-import {PrivateNwcTransport} from "./nwc-transport";
+import {PrivateNwcTransport,type CheckoutIdentity} from "./nwc-transport";
 import type {PayoutWallet} from "./payout-worker";
 const money=z.string().regex(/^(0|[1-9][0-9]{0,15})$/).refine(v=>BigInt(v)<=BigInt(Number.MAX_SAFE_INTEGER));
 const permitSchema=z.object({binding:z.string(),paymentHash:z.string(),amountMsat:money,enforcedFeeCeilingMsat:money,
@@ -14,7 +14,7 @@ export class RustressNwcWallet implements PayoutWallet {
  #transport:PrivateNwcTransport;
  readonly binding:string;
  #attempted=new Set<string>();
- constructor(readonly walletRef:string,value:string,checkoutValue:string,readonly network:"bc"|"tb"|"bcrt",
+ constructor(readonly walletRef:string,value:string,checkoutValue:CheckoutIdentity,readonly network:"bc"|"tb"|"bcrt",
   private permit:(request:Request)=>Promise<WalletSendPermit|null>=async()=>null,
   private enabled:()=>boolean=()=>false,private now=()=>Math.floor(Date.now()/1000)){
   this.#transport=new PrivateNwcTransport(walletRef,value,checkoutValue);this.binding=this.#transport.binding;

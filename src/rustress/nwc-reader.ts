@@ -1,9 +1,9 @@
-import {PrivateNwcTransport} from "./nwc-transport";
+import {PrivateNwcTransport,type CheckoutIdentity} from "./nwc-transport";
 /** Read-only public surface; private transport cannot be invoked by callers. */
 export class RustressNwcReader {
  #transport:PrivateNwcTransport;
  readonly binding:string;
- constructor(readonly walletRef:string,value:string,checkoutValue:string){
+ constructor(readonly walletRef:string,value:string,checkoutValue:CheckoutIdentity){
   this.#transport=new PrivateNwcTransport(walletRef,value,checkoutValue);this.binding=this.#transport.binding;
  }
  getInfo(){return this.#transport.getInfo();}

@@ -2,7 +2,7 @@
 set -eu
 
 service=bitcoinwalk-rustress-payout
-version=0.1.0
+version=0.2.1
 image="$service:$version"
 root="$HOME/.local/state/bitcoinwalk-rustress"
 secrets="$root/secrets"
@@ -32,6 +32,8 @@ if docker container inspect "$service" >/dev/null 2>&1; then
 fi
 
 docker build --pull=false --network=none --label "org.bitcoinwalk.version=$version" -t "$image" . >/dev/null
+docker run --rm --network none --read-only --cap-drop ALL --security-opt no-new-privileges:true --user 0:0 \
+  --mount "type=bind,src=$state,dst=/var/lib/bitcoinwalk-payout" --entrypoint node "$image" /app/initialize-rustress-payout-ledger.cjs | grep -qx RUSTRESS_PAYOUT_LEDGER_INITIALIZED || fail
 old=""
 if docker container inspect "$service" >/dev/null 2>&1; then
   old="$service-rollback-$(date -u +%Y%m%dT%H%M%SZ)"
@@ -61,6 +63,7 @@ done
 
 [ "$(docker container inspect "$service" --format '{{.HostConfig.NetworkMode}}|{{.HostConfig.ReadonlyRootfs}}|{{.HostConfig.Privileged}}|{{json .HostConfig.CapDrop}}|{{json .HostConfig.SecurityOpt}}|{{.HostConfig.RestartPolicy.Name}}')" = 'none|true|false|["ALL"]|["no-new-privileges:true"]|unless-stopped' ] || rollback
 [ "$(docker container inspect "$service" --format '{{index .Config.Labels "org.bitcoinwalk.mode"}}|{{index .Config.Labels "org.bitcoinwalk.version"}}')" = "disabled|$version" ] || rollback
+docker exec "$service" test -r /app/backup-sqlite-online.mjs || rollback
 [ "$(docker exec "$service" awk '/^Uid:/{print $2":"$3":"$4":"$5} /^CapEff:/{print $2}' /proc/1/status)" = '0:0:0:0
 0000000000000000' ] || rollback
 if [ -n "$old" ]; then docker rm "$old" >/dev/null; fi

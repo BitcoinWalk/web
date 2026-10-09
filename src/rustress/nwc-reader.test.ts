@@ -130,6 +130,8 @@ describe("isolated authenticated read-only NWC integration",()=>{
  });
  it("does not reuse checkout credentials, even with a different label",()=>{
   expect(()=>new RustressNwcReader("different",uri(client),uri(client))).toThrow("Separate");
+  expect(()=>new RustressNwcReader("different",uri(client),{clientPubkey:clientKey})).toThrow("Separate");
+  expect(new RustressNwcReader("fixture",uri(client),{clientPubkey:getPublicKey(checkout)}).binding).toHaveLength(64);
   const r=reader();expect(r.binding).toHaveLength(64);expect(JSON.stringify(r)).not.toContain(Buffer.from(client).toString("hex"));
  });
  it("rejects invalid configuration without disclosing credentials",()=>{

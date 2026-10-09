@@ -1,0 +1,6 @@
+[Unit]
+Description=Verify BitcoinWalk payout service and encrypted backup freshness
+
+[Service]
+Type=oneshot
+ExecStart=%h/.local/libexec/bitcoinwalk-payout-backup/monitor-payout-state.sh COMPONENT

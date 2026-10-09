@@ -784,6 +784,64 @@ required-file checks, SQLite integrity and automatic cleanup returned
 failure alerts and post-initialization wallet-history reconciliation remain open. See
 [the runbook](hub-candidate-backups.md).
 
+## Activation-ready payout service and managed state — 9 October 2026
+
+Payout service `0.2.1` now composes the reviewed ledger, authenticated NWC
+reader/sender, private invoice intake, immutable city/payout authority, automatic
+settlement sweeps, remote journal and recovery controller. It remains fail-closed:
+the default-disabled process checks that its credential mount exists but never
+reads it, has `network=none`, exposes no host port and cannot issue an invoice or
+payment. The active launcher requires a fresh super-admin-signed kind-30312 grant
+bound to the exact release, wallet binding, journal service identity, total budget,
+maximum payout, native fee ceiling, nonce and expiry of no more than 24 hours.
+There is deliberately no activation grant on the host.
+
+The private control API uses separate owner-only credentials for immutable payout
+authority, invoice intake and aggregate operations. It returns no invoice,
+destination, wallet identity, token, payment preimage or transaction history.
+Invoice intake remains unavailable until the signed activation gate is true.
+Checkout isolation is now enforced from its public client key, so the receive-only
+checkout secret never leaves the app VPS and is neither copied nor mounted into
+the payout container. The payout connection, checkout connection and journal are
+therefore distinct cryptographic identities.
+
+The checksum-verified `0.2.1` package was installed as non-root `bitcoinwalk` on
+`.240`. Rootless Docker initializes the private SQLite schema in a one-shot
+`network=none` container and runs the disabled service with a read-only root,
+dropped capabilities and bounded resources. It produces a six-hour online SQLite
+snapshot inside the already isolated process, allowing the encrypted backup user
+unit to retain a strict filesystem sandbox without access to the Docker socket.
+A real disabled rollback rehearsal stopped `0.2.1`, ran retained image `0.2.0`
+without a state mount, and restored `0.2.1`; byte-for-byte hashes of the stopped ledger and its sidecars were
+unchanged, SQLite integrity remained `ok`, and the final container was again
+`0.2.1|disabled|none|running`. No wallet request, invoice, journal claim or
+payment occurred.
+
+Ledger and journal now have independent encrypted backup routes in opposite
+directions. Each source makes an online SQLite snapshot, packages only the
+database and a hash manifest, encrypts locally to public recipient
+`A206…B188`, and uploads over a distinct shell-denied key to an append-only
+receiver on the other VPS. Receivers reject replacement and retain 48 hours,
+14 daily, 8 weekly and 12 monthly points. Six-hour backup and daily retention
+timers are enabled under the non-root accounts. `.138`, which had no system GPG,
+uses an owner-only user-local extraction of the official Debian 13 `gpg`,
+`gpg-agent`, `libassuan9` and `libnpth0t64` packages; system packages and root
+state were not changed. The private decryption key remains off both VPS hosts.
+
+The latest scheduled ledger and journal ciphertexts received exact remote
+hash/size receipts and independently pass their receiver-side checksum files.
+Fifteen-minute health timers verify backup freshness plus the disabled container,
+or the production journal and its restricted tunnel. Failures are recorded as
+failed user units without exposing response bodies or bearer tokens. External
+notification delivery remains a launch-operations enhancement; the monitor does
+not silently activate, restart or mutate payment state.
+
+The two real ciphertexts have been copied to a temporary local restore folder.
+The remaining human custody check is to unlock the user's private OpenPGP key and
+run the supplied restore verifier for both archives. Until both return
+`PAYOUT_RESTORE_REHEARSAL_OK`, `backupRestoreVerified` host evidence must not be
+installed, no activation grant may be signed and the runtime must remain disabled.
+
 ## Deliberate boundaries / next slice
 
 The ledger is an internal accounting primitive, not proof that a payment happened.
@@ -793,21 +851,21 @@ it must never forward browser JSON or an unverified notification directly to set
 Before runtime integration, implement and test:
 
 1. Keep the deployed payout container network-isolated and the production journal
-   paused. Review provider compatibility, outbound egress policy and response
-   limits before producing a separate activation image. Add reviewed IPv6 or
+   paused until the real encrypted restore rehearsal passes and an explicit,
+   short-lived activation grant is reviewed and signed. Add reviewed IPv6 or
    cross-origin recipient support only if required.
-2. A connection-bound collector and real wallet adapter, notification deduplication plus paged
-   settlement catch-up, authenticated wallet lookup, fee/budget enforcement and
-   unknown-send reconciliation. A missing lookup result is not a failed payment.
+2. Connect the reviewed Rustress/LNURL invoice issuer to the private authority and
+   intake credentials so every public invoice is durably snapshotted before it is
+   returned. A missing lookup result is not a failed payment.
 3. Reviewed definitive-failure recovery and expired unsent invoice replacement;
    never release an uncertain payment merely because its invoice has expired.
-4. Provision the tested encrypted-backup policy on managed live storage, including
-   independent key custody, retention/monitoring, journal durability, enforceable
-   sender fencing and an audited retention-coverage provider. Never guess
-   complete-history coverage or replace a SQLite file under an open connection.
-5. Rustress adapter integration, one forwarding authority, capability gates,
-   alerts, private operational views and explicit authorization for a bounded
-   live test. Keep checkout's receive-only connection unchanged.
+4. After the human restore check, install the exact host evidence with the verified
+   backup flag, connection start/retention boundary and current journal identity.
+   Never guess complete-history coverage or replace a SQLite file under an open
+   connection.
+5. Run BW-102 acceptance under one short signed window, then revoke/expire it and
+   review aggregate ledger/journal results before considering sustained service.
+   Keep checkout's receive-only connection unchanged.
 
 Tests cover duplicate settlement, immutable snapshots, large integer arithmetic,
 fractional carry-forward, recipient limits, cross-city/wallet/version isolation,

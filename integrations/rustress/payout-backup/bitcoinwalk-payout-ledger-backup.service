@@ -1,0 +1,11 @@
+[Unit]
+Description=Encrypted BitcoinWalk payout-ledger backup
+
+[Service]
+Type=oneshot
+ExecStart=%h/.local/libexec/bitcoinwalk-payout-backup/backup-payout-state.sh ledger
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=%h/.local/state/bitcoinwalk-payout-backup-ledger

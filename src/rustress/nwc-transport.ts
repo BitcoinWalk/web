@@ -4,6 +4,7 @@ import {Relay} from "nostr-tools/relay";
 import {createPayoutLookup} from "./wallet-lookup";
 
 const reference=/^[a-z0-9][a-z0-9-]{0,62}$/;
+export type CheckoutIdentity=string|{clientPubkey:string};
 function connection(value:string){
  try{
   if(value.length>8192||!value.startsWith("nostr+walletconnect://"))throw new Error();
@@ -15,6 +16,11 @@ function connection(value:string){
   const secret=Buffer.from(c.secret,"hex"),client=getPublicKey(secret);
   return {pubkey:c.pubkey,relays:c.relays,secret,client};
  }catch{throw new Error("Invalid private wallet configuration");}
+}
+function checkoutClient(value:CheckoutIdentity){
+ if(typeof value==="string")return connection(value).client;
+ if(!value||!/^[0-9a-f]{64}$/.test(value.clientPubkey)||Object.keys(value).length!==1)throw new Error("Invalid checkout identity");
+ return value.clientPubkey;
 }
 function valid(event:Event){
  // Reconstruct wire fields so an in-memory verification cache cannot bless a
@@ -66,9 +72,9 @@ export class PrivateNwcPaymentNotifications {
 export class PrivateNwcTransport {
  #connection:ReturnType<typeof connection>;
  readonly binding:string;
- constructor(readonly walletRef:string,value:string,checkoutValue:string){
-  const own=connection(value),checkout=connection(checkoutValue);
-  if(!reference.test(walletRef)||own.client===checkout.client)throw new Error("Separate wallet connection required");
+ constructor(readonly walletRef:string,value:string,checkoutValue:CheckoutIdentity){
+  const own=connection(value),checkout=checkoutClient(checkoutValue);
+  if(!reference.test(walletRef)||own.client===checkout)throw new Error("Separate wallet connection required");
   this.#connection=own;
   // Internal fingerprint binds both identities, not a display label or relay URL.
   this.binding=createHash("sha256").update(`${own.pubkey}:${own.client}`).digest("hex");
