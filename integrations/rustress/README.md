@@ -142,10 +142,10 @@ The reviewed release binary is installed separately under non-root `bitcoinwalk`
 as `bitcoinwalk-rustress-managed.service`. It binds only `127.0.0.1:8895`, uses
 an empty marked `bitcoinwalk.managed.sqlite`, and has no reverse proxy or public
 DNS route. Artifact SHA-256:
-`470a7d0914a64b5d5637591a25c82e227fbdf0a2ee80b00f5b7adc61474b5706`.
-Operator package `0.1.1` retains that exact binary and adds bounded listener
-readiness to the verifier so a normal service restart cannot cause a false
-negative.
+`2011e8ccdaef6e0278d5bc3329456cbd572323dd5c7ed918eb8504c1e2afad93`.
+Operator package `0.1.2` includes the durable reservation/activation candidate
+and bounded listener readiness. It was installed and verified non-root on 9
+October 2026.
 
 The provisioning token is unique to this service. Its issuer token is shared
 only through the existing owner-only payout secret directory; no value was
@@ -157,9 +157,9 @@ versioned package. No city has been prepared or applied.
 
 ## Remaining gates
 
-Any app-to-VPS access must use a reviewed private tunnel limited to this listener;
-the persistent restricted staging transport is now installed and verified (see
-the workflow evidence below), while app provisioning remains disabled. A temporary local SSH tunnel passed
+App-to-VPS access uses a reviewed persistent SSH transport restricted by source
+host and `permitopen` to `127.0.0.1:8895`; the staging listener is itself bound
+only to `127.0.0.1:18895`. Both application provisioning flags remain off. A temporary local SSH tunnel passed
 the [durable app workflow acceptance](../../docs/rustress-workflow.md) and was
 closed; the local fixture token copy was removed. Never expose the fixture API publicly or supply
 wallet credentials to it.

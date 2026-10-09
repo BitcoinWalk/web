@@ -14,7 +14,9 @@ Configuration is `/home/bitcoinwalk/.config/bitcoinwalk/app.env`, owned by
 bitcoinwalk and mode 0600. It must never enter a build artifact or Git.
 For LocationIQ city autocomplete, add `LOCATIONIQ_ACCESS_TOKEN` to this file.
 The application consumes it server-side and Photon remains the fallback.
-Verified live baseline (6 October 2026): app 0.3.179; relay NIP-11 reports 0.8.59.
+Verified live baseline (9 October 2026): app 0.3.199; managed Rustress transport
+is installed but both reservation and activation flags remain off. Relay policy
+is unchanged by this release.
 
 ## Prepare and activate
 
