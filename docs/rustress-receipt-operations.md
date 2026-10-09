@@ -6,7 +6,7 @@ Last reviewed: 9 October 2026
 
 The remediated `0.1.0` receipt-service package is installed on `.240` in its
 strict disabled state. Package SHA-256 is
-`33e04ded1d19b16fb91e7e57429b3e008e405013b831251e46746d0ea9718fb6`.
+`c32bb6f2f8e792f04a93c0859020fd4792c4caec7b0d98a214afa86e0b65a540`.
 The embedded package checks and 67 focused receipt tests pass. It creates two
 different rootless images:
 
@@ -35,11 +35,12 @@ The one-shot bootstrap subsequently created the dedicated provider identity in a
 rootless `network=none` container and initialized an empty signer database without
 starting the signer. Its independently retained public key is
 `2443b1e4131ffc719cc80257b207ff1b29735356715b288715a438c22aabfe5a`.
-The secret is owner-only on `.240` and has not been displayed or copied. The
-receipt-aware off-host receiver and retention policy are installed on `.138`
-with rollback copies, but transmitting the first encrypted signer backup and
-enabling its timer require explicit authorization because that ciphertext
-contains the recoverable provider secret.
+The secret is owner-only on `.240` and has not been displayed in plaintext. With
+the user's explicit authorization, the first worker and signer archives were
+encrypted to offline GPG recipient `A206…B188`, accepted checksum-exact by the
+receipt-aware off-host receiver on `.138`, and the twice-daily non-root timer was
+enabled. Ciphertexts and the bounded verifier are staged locally for the user;
+the offline restore rehearsal remains pending.
 
 ## Runtime boundaries
 

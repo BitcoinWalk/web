@@ -13,6 +13,7 @@ if [ ! -e "$mode" ];then umask 077;printf '%s\n' disabled>"$mode";fi
 docker container inspect "$service-signer" >/dev/null 2>&1&&fail
 docker build --pull=false --network=none -f Dockerfile.worker --label "org.bitcoinwalk.version=$version" -t "$worker_image" . >/dev/null
 docker build --pull=false --network=none -f Dockerfile.signer --label "org.bitcoinwalk.version=$version" -t "$signer_image" . >/dev/null
+docker run --rm --network none --read-only --cap-drop ALL --security-opt no-new-privileges:true --user 0:0 --mount "type=bind,src=$worker,dst=/var/lib/bitcoinwalk-receipt-worker" --entrypoint node "$worker_image" /app/initialize-rustress-receipt-worker.cjs|grep -qx RECEIPT_WORKER_STATE_INITIALIZED||fail
 if docker container inspect "$service-worker" >/dev/null 2>&1;then [ "$(docker container inspect "$service-worker" --format '{{index .Config.Labels "org.bitcoinwalk.service"}}')" = rustress-receipt-worker ]||fail;fi
 old="";if docker container inspect "$service-worker" >/dev/null 2>&1;then old="$service-worker-rollback-$(date -u +%Y%m%dT%H%M%SZ)";docker stop "$service-worker" >/dev/null;docker rename "$service-worker" "$old";fi
 rollback(){ docker rm -f "$service-worker" >/dev/null 2>&1||true;if [ -n "$old" ];then docker rename "$old" "$service-worker";docker start "$service-worker" >/dev/null;fi;fail; }

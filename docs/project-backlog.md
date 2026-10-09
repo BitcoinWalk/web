@@ -369,10 +369,11 @@ Receipt recovery checkpoint, 9 October: the credential-free receipt worker is
 installed disabled and `network=none`; the signer image exists but no signer
 container runs. A one-shot networkless bootstrap created the provider identity
 and empty signer database, emitting only public key `2443b1e4…abfe5a`. The
-owner-only secret remains solely on `.240`. The receipt-aware off-host receiver
-and retention policy are installed on `.138` with rollback evidence. Sending the
-first encrypted worker/signer backups, enabling their timer and completing the
-offline-key restore rehearsal remain pending explicit authorization.
+owner-only secret remains solely on `.240` in plaintext. With explicit user
+authorization, the first worker/signer archives were encrypted to offline GPG
+recipient `A206…B188`, stored checksum-exact on `.138`, and the twice-daily
+non-root timer was enabled. The ciphertexts and verifier are staged locally;
+the user-run offline-key restore rehearsal remains pending.
 
 | ID | Stage | Item | Status | Depends on | Acceptance |
 |---|---:|---|---|---|---|
