@@ -23,12 +23,14 @@ jobs:
       - run: npm test
       - run: npm run lint
       - run: npm run hub-backup:check
+      - run: npm run payout-backup:check
       - run: npm run rustress-secret:check
       - run: npm run rustress-probe:build
       - run: npm run rustress-unpaid-acceptance:package
       - run: npm run rustress-funded-notification:package
       - run: npm run rustress-live-payout:package
       - run: npm run rustress-shadow:package
+      - run: npm run rustress-payout-service:package
       - run: npm run typecheck
       - run: npm run build
       - run: npm run release:package
