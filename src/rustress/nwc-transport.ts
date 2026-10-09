@@ -1,5 +1,5 @@
 import {createHash,randomBytes,randomUUID} from "node:crypto";
-import {finalizeEvent,getPublicKey,nip44,nip47,verifyEvent,type Event} from "nostr-tools";
+import {finalizeEvent,getPublicKey,nip04,nip44,nip47,verifyEvent,type Event} from "nostr-tools";
 import {Relay} from "nostr-tools/relay";
 import {createPayoutLookup} from "./wallet-lookup";
 
@@ -155,5 +155,52 @@ export class PrivateNwcUnpaidAcceptance {
    });
    return {subscribed,capability};
   }catch{throw new Error("Wallet notification channel could not be verified");}finally{relay?.close();}
+ }
+}
+
+/** Explicit, one-shot funded acceptance. It can only create and look up the
+ * incoming test invoice; it has no public send method. The caller must obtain
+ * separate user consent before invoking it because settlement moves funds. */
+export class PrivateNwcFundedAcceptance {
+ #connection:ReturnType<typeof connection>;
+ #transport:PrivateNwcTransport;
+ constructor(value:string){
+  const own=connection(value),ephemeral=randomBytes(32),checkout=new URL(`nostr+walletconnect://${own.pubkey}`);
+  for(const relay of own.relays)checkout.searchParams.append("relay",relay);
+  checkout.searchParams.set("secret",ephemeral.toString("hex"));
+  this.#connection=own;this.#transport=new PrivateNwcTransport("bitcoinwalk-rustress",value,checkout.toString());
+ }
+ async run(description:string,onInvoice:(created:Record<string,unknown>)=>Promise<void>,timeoutMs=900000){
+  if(!/^BitcoinWalk Rustress funded notification acceptance [0-9a-f-]{36}$/.test(description)||timeoutMs<60000||timeoutMs>900000)throw new Error("Invalid funded acceptance request");
+  const c=this.#connection;let relay:Relay|undefined,sub:{close:()=>void}|undefined;
+  try{
+   for(const address of c.relays){const candidate=new Relay(address,{enableReconnect:false});candidate.onauth=async template=>finalizeEvent(template,c.secret);
+    try{await candidate.connect({timeout:5000});relay=candidate;break;}catch{candidate.close();}}
+   if(!relay)throw new Error();
+   const active=relay,start=Math.floor(Date.now()/1000),key=nip44.getConversationKey(c.secret,c.pubkey);
+   let expectedHash="",settle:(value:Record<string,unknown>)=>void=()=>{},fail:()=>void=()=>{};
+   const notification=new Promise<Record<string,unknown>>((resolve,reject)=>{settle=resolve;fail=()=>reject(new Error());});
+   const eose=new Promise<void>((resolve,reject)=>{
+    const timer=setTimeout(()=>{sub?.close();reject(new Error());},10000);
+    sub=active.subscribe([{kinds:[23196,23197],authors:[c.pubkey],"#p":[c.client],since:start-5}],{oneose:()=>{clearTimeout(timer);resolve();},onevent:event=>{void (async()=>{
+     try{
+      const p=event.tags.filter(tag=>tag[0]==="p");
+      if(!expectedHash||![23196,23197].includes(event.kind)||event.pubkey!==c.pubkey||!valid(event)||event.created_at<start-30||event.created_at>Math.floor(Date.now()/1000)+30||p.length!==1||p[0].length!==2||p[0][1]!==c.client)return;
+      const plaintext=event.kind===23196?await nip04.decrypt(c.secret,c.pubkey,event.content):nip44.decrypt(event.content,key);
+      const body=JSON.parse(plaintext);
+      if(body.notification_type!=="payment_received"||!body.notification||typeof body.notification!=="object"||body.notification.payment_hash!==expectedHash)return;
+      settle({...body.notification,notification_kind:event.kind});
+     }catch{}
+    })();}});
+   });
+   await eose;
+   const created=await this.#transport.call("make_invoice",{amount:100000,description,expiry:900});
+   if(typeof created.payment_hash!=="string"||!/^[0-9a-f]{64}$/.test(created.payment_hash))throw new Error();
+   expectedHash=created.payment_hash;await onInvoice(created);
+   const timer=setTimeout(fail,timeoutMs);
+   const received=await notification.finally(()=>clearTimeout(timer));
+   const lookedUp=await this.#transport.lookupInvoice(expectedHash);
+   return {created,received,lookedUp};
+  }catch{throw new Error("Funded notification acceptance could not be verified");}finally{sub?.close();relay?.close();}
  }
 }

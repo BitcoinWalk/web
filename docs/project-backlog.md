@@ -1,6 +1,6 @@
 # BitcoinWalk delivery backlog
 
-Last reviewed: 8 October 2026
+Last reviewed: 9 October 2026
 Preproduction housekeeping: 2–3 October 2026. See `preproduction-review-2026-10-02.md`
 and `development-handover.md` for current evidence and operating context.
 Tracking rule: keep this file current whenever an item changes status, scope, dependency, or verification result. The file is the maintained source; a separate Plan task is not automatically synchronized.
@@ -192,6 +192,18 @@ connection-bound subscription received relay EOSE for both notification kinds.
 No invoice or hash was disclosed and no payment was sent. This closes known-
 invoice lookup and proves notification capability/subscription, not actual
 notification delivery; the latter requires a separately authorized settlement.
+
+Funded notification acceptance passed on 9 October with the user's explicit
+authorization and an external payer wallet. A constrained, checksum-verified
+rootless tool subscribed before creating one exact 100-sat invoice. After the
+user paid it, the protected production Hub connection delivered a valid
+connection-bound `payment_received` event (legacy NIP-47 kind 23196); exact
+lookup returned the same invoice settled, and its preimage hashed to the exact
+payment hash. The tool exposes no send operation and sent no outgoing payment.
+Temporary invoice handoff data was removed after verification. This closes the
+live incoming-notification and exact-settlement-read-back gates, but does not
+test or enable the 79-sat organizer payout, routing fees, automated Rustress
+forwarding or production activation. BW-18 and BW-100 remain In progress.
 
 Fee-cap follow-up: upstream Hub PR #2566 is open/unmerged at `a231ed34` (verified
 via public API). Its actual diff propagates `max_fee` to LDK but leaves default

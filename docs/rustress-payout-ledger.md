@@ -587,9 +587,10 @@ The app was created with `pay_invoice`, `get_balance`, `get_info`,
 isolated accounting and without `sign_message`. Its secret was not revealed to
 the agent, chat, logs, shell history or command arguments. The user installed it
 through a masked controlling-terminal prompt into the non-root Rustress host's
-owner-only mode-0600 storage; a redacted verifier passed. No service consumes it
-yet and no funds or payments were moved. Connection-bound read probes, live
-reconciliation and a separately authorized funded acceptance remain required.
+owner-only mode-0600 storage; a redacted verifier passed. A rootless, default-off
+wallet shadow now consumes it read-only; invoice creation and payouts remain
+disabled in that service. Connection-bound probes and the separately authorized
+funded acceptance below were run as one-shot tools, not through a public API.
 
 A subsequent live, read-only probe ran as the non-root Rustress service user
 against that exact protected connection. Authenticated `get_info` reported
@@ -599,7 +600,29 @@ passed. The output contained no wallet identifiers, relays, balances,
 transactions or credential material. No invoice was created and no payment was
 sent. The checksum-verified temporary runtime was removed. This closes only the
 connection-bound info/history read slice; inventory, known-invoice lookup,
-notification, reconciliation and funded-payment gates remain.
+notification, reconciliation and funded-payment gates remained at that checkpoint.
+
+### Funded incoming-notification acceptance — 9 October 2026
+
+With explicit approval for an exact **100-sat incoming payment**, a one-shot
+rootless acceptance tool subscribed to the connection-bound notification stream
+before creating the invoice. The user paid from a separate wallet. The protected
+production Hub connection delivered a valid `payment_received` notification as
+legacy NIP-47 kind 23196. Its payment hash matched the created invoice; exact
+lookup returned that same invoice as settled; and SHA-256 of both returned
+preimages matched the payment hash. The tool has no public send method and the
+result confirms `outgoingPaymentSentByRustress=false`.
+
+The package ran under non-root `bitcoinwalk` in a digest-pinned rootless Docker
+container with a read-only root filesystem, dropped capabilities, bounded
+resources and read-only credential mount. The invoice handoff used a private
+mode-0600 file and was removed after the run. No NWC secret, wallet identifier,
+relay, balance, invoice or preimage entered the repository or logs.
+
+This proves real incoming notification delivery and exact settlement read-back;
+it does **not** prove the 79% forwarding payment, routing-fee accounting,
+uncertain-send recovery, retained-history coverage or automatic Rustress
+activation. Spending remains disabled until those independent gates pass.
 
 **Historical superseded pilot gate:** the audited Hub v1.24.0 LDK backend's
 `max(ceil(amount_msat * 0.01), 10000)` fee ceiling would permit 500 sats on a
