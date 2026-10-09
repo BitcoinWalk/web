@@ -1,0 +1,27 @@
+import {DatabaseSync} from "node:sqlite";
+import {finalizeEvent,getPublicKey} from "nostr-tools";
+import {afterEach,describe,expect,it,vi} from "vitest";
+vi.mock("../nostr/madeira-pilot-policy",async original=>{const real=await original<typeof import("../nostr/madeira-pilot-policy")>();return {MADEIRA_PILOT:{...real.MADEIRA_PILOT,pubkey:getPublicKey(new Uint8Array(32).fill(2))}};});
+vi.mock("../nostr/authority",async()=>({SUPER_ADMIN_PUBKEY:(await import("nostr-tools")).getPublicKey(new Uint8Array(32).fill(1))}));
+import {MADEIRA_PILOT} from "../nostr/madeira-pilot";
+import {madeiraManagedProofTemplate} from "../nostr/madeira-managed-pilot";
+import {MadeiraManagedPilotStore} from "./madeira-managed-pilot-store";
+const owner=new Uint8Array(32).fill(2),admin=new Uint8Array(32).fill(1),revision="d".repeat(64),databases:DatabaseSync[]=[];
+afterEach(()=>databases.splice(0).forEach(db=>db.close()));
+function fixture(){const db=new DatabaseSync(":memory:");databases.push(db);db.exec("CREATE TABLE paid_city_entitlement(cityId TEXT);CREATE TABLE payment_invoice(status TEXT);INSERT INTO payment_invoice VALUES('pending')");let now=1000;
+ const snapshot={revisionId:"a".repeat(64),approvalEventId:"b".repeat(64),authorityEventId:"c".repeat(64),payoutVersion:1,payoutDestination:"owner@example.org"};
+ const read=vi.fn(async()=>({...snapshot})),store=new MadeiraManagedPilotStore(db,read,revision,()=>now);return {db,store,read,snapshot,advance:()=>now+=3601};}
+describe("Madeira managed reservation grant",()=>{
+ it("requires fresh owner and admin proofs and produces only a disabled managed reservation",async()=>{const f=fixture(),view=(await f.store.prepare())!;
+  expect(view.challenge).toMatchObject({providerRevision:revision,walletRef:"bitcoinwalk-rustress",invoiceIssuance:"disabled",publicActivation:false});
+  const op=finalizeEvent(madeiraManagedProofTemplate(view.challenge,"owner"),owner),ap=finalizeEvent(madeiraManagedProofTemplate(view.challenge,"admin"),admin);
+  await expect(f.store.accept("admin",ap)).rejects.toThrow("confirm");await f.store.accept("owner",op);await f.store.accept("admin",ap);
+  const evidence=await f.store.evidence(view.challenge.requestId);expect(evidence.config).toMatchObject({cityId:MADEIRA_PILOT.cityId,brandPubkey:getPublicKey(owner),walletRef:"bitcoinwalk-rustress",invoiceIssuance:"disabled",brandEventId:ap.id});
+  expect(f.db.prepare("SELECT COUNT(*) n FROM paid_city_entitlement").get()).toEqual({n:0});expect(f.db.prepare("SELECT status FROM payment_invoice").get()).toEqual({status:"pending"});
+  f.advance();expect(await f.store.evidence(view.challenge.requestId)).toEqual(evidence);
+ });
+ it("rejects changed evidence and changed provider revisions",async()=>{const f=fixture(),view=(await f.store.prepare())!;await f.store.accept("owner",finalizeEvent(madeiraManagedProofTemplate(view.challenge,"owner"),owner));
+  f.snapshot.payoutVersion=2;await expect(f.store.accept("admin",finalizeEvent(madeiraManagedProofTemplate(view.challenge,"admin"),admin))).rejects.toThrow("changed");
+  const replacement=new MadeiraManagedPilotStore(f.db,f.read,"e".repeat(64),()=>1000);await expect(replacement.prepare()).rejects.toThrow("changed");
+ });
+});

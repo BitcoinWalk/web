@@ -28,7 +28,7 @@ export function verifyMadeiraProof(input: Event, challenge: MadeiraChallenge, ro
     throw new Error("Private pilot proof is invalid or expired.");
   return event;
 }
-const commandSchema = z.object({action: z.enum(["load", "owner", "admin", "retry"])}).strict();
+const commandSchema = z.object({action: z.enum(["load", "owner", "admin", "retry","managed-load","managed-owner","managed-admin","managed-retry"])}).strict();
 export type MadeiraCommand = z.infer<typeof commandSchema>;
 export function madeiraRequest(command: MadeiraCommand, now = Math.floor(Date.now() / 1000)): EventTemplate {
   return {kind:27235,created_at:now,tags:[["u",`${MADEIRA_PILOT.origin}/api/madeira-pilot`],["method","POST"],["t","madeira-pilot-request-v1"]],content:JSON.stringify(commandSchema.parse(command))};
@@ -40,7 +40,8 @@ export function authorizeMadeiraRequest(input: Event, now = Math.floor(Date.now(
       Math.abs(now-event.created_at)>300 || event.kind!==template.kind || event.content!==template.content ||
       JSON.stringify(event.tags)!==JSON.stringify(template.tags) || getEventHash(event)!==event.id || !verifyEvent(event))
     throw new Error("Authorized pilot account signature required.");
-  if(command.action==="owner" && event.pubkey!==MADEIRA_PILOT.pubkey || command.action==="admin" && event.pubkey!==SUPER_ADMIN_PUBKEY)
+  if((command.action==="owner"||command.action==="managed-owner") && event.pubkey!==MADEIRA_PILOT.pubkey ||
+      (command.action==="admin"||command.action==="managed-admin") && event.pubkey!==SUPER_ADMIN_PUBKEY)
     throw new Error("Wrong pilot signature role.");
   return command;
 }

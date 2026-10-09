@@ -1,4 +1,5 @@
 import {lstatSync,readFileSync} from "node:fs";
+import {createHash} from "node:crypto";
 import {RustressActivator,RustressProvisioner} from "../rustress/client";
 import {ActivationWorkflow} from "../rustress/activation-workflow";
 import {verifyCityLnurl,verifyCityNip05} from "../rustress/public-provisioning";
@@ -6,6 +7,9 @@ import {ProvisionWorkflow} from "../rustress/workflow";
 import {SUPER_ADMIN_PUBKEY} from "../nostr/authority";
 import {getPaymentRuntime} from "../payments/runtime";
 import {resolveRustressActivationEvidence} from "./pro-setup";
+import {MADEIRA_PILOT} from "../nostr/madeira-pilot";
+import {createCityActivation} from "../rustress/activation-contract";
+import {provisionConfigSchema,provisionDigest} from "../rustress/contract";
 
 const cityId=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 function privateToken(path:string){
@@ -25,23 +29,35 @@ function runtime(){
     adapterRevision:process.env.BITCOINWALK_RUSTRESS_MANAGED_REVISION??""};
   const publicOrigin=process.env.BITCOINWALK_RUSTRESS_PUBLIC_ORIGIN??"";
   if(publicOrigin!=="https://bitcoinwalk.org")throw new Error("Canonical managed public origin required.");
+  const madeiraBridge=process.env.BITCOINWALK_RUSTRESS_MANAGED_MADEIRA_PILOT==="reservation-v1";
+  const activationEnabled=process.env.BITCOINWALK_RUSTRESS_ACTIVATION_ENABLED==="1";
+  if(madeiraBridge&&(!allow.has(MADEIRA_PILOT.cityId)||allow.size!==1))throw new Error("Managed Madeira pilot requires its exact city allow-list.");
+  if(madeiraBridge&&activationEnabled)throw new Error("Managed Madeira pilot authorizes reservation only, never public activation.");
   const db=getPaymentRuntime().store.db,reservationProvider=new RustressProvisioner(options),activationProvider=new RustressActivator(options);
   const resolve=async(request:string)=>{
     const row=db.prepare("SELECT city_id FROM city_brand_request WHERE id=? AND status='active'").get(request) as {city_id:string}|undefined;
-    if(!row||!allow.has(row.city_id))throw new Error("City is not approved for managed provisioning.");
-    return resolveRustressActivationEvidence(request,publicOrigin);
+    if(row&&allow.has(row.city_id))return resolveRustressActivationEvidence(request,publicOrigin);
+    if(!madeiraBridge)throw new Error("City is not approved for managed provisioning.");
+    const evidence=await (await import("./madeira-pilot")).getMadeiraPilot().managedStore.evidence(request);
+    const reserved=provisionConfigSchema.parse(evidence.config),activation=createCityActivation(reserved);
+    return {reserved,activation,publicOrigin,proofHash:createHash("sha256").update(JSON.stringify({reservationProof:evidence.proofHash,
+      reserved:provisionDigest(reserved),activation:provisionDigest(activation)})).digest("hex")};
   };
   const reservation=new ProvisionWorkflow(db,reservationProvider,async request=>{
     const evidence=await resolve(request);return {config:evidence.reserved,proofHash:evidence.proofHash};
   },()=>Date.now(),"rustress_managed_reservation_task");
   const activation=new ActivationWorkflow(db,reservationProvider,activationProvider,{nip05:verifyCityNip05,lnurl:verifyCityLnurl},resolve);
-  return {allow,db,reservation,activation,activationEnabled:process.env.BITCOINWALK_RUSTRESS_ACTIVATION_ENABLED==="1"};
+  return {allow,db,reservation,activation,activationEnabled,madeiraBridge};
 }
 
 export async function queueManagedProvisioning(requestId:string){const service=runtime();if(service)await service.reservation.enqueue(requestId);}
 
 async function reconcileCity(service:NonNullable<ReturnType<typeof runtime>>,city:string){
-  const request=service.db.prepare("SELECT id FROM city_brand_request WHERE city_id=? AND status='active' ORDER BY rowid DESC LIMIT 1").get(city) as {id:string}|undefined;
+  let request=service.db.prepare("SELECT id FROM city_brand_request WHERE city_id=? AND status='active' ORDER BY rowid DESC LIMIT 1").get(city) as {id:string}|undefined;
+  if(!request&&service.madeiraBridge&&city===MADEIRA_PILOT.cityId){
+    const view=(await import("./madeira-pilot")).getMadeiraPilot().managedStore.view();
+    if(view?.ownerConfirmed&&view.adminConfirmed)request={id:view.challenge.requestId};
+  }
   if(!request)return;
   if(!service.reservation.status(city)){try{await service.reservation.enqueue(request.id);}catch{return;}}
   if(service.reservation.status(city)?.state!=="verified")await service.reservation.run(city);

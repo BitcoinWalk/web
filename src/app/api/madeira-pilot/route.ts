@@ -21,9 +21,17 @@ export async function POST(request:Request){
       await pilot.store.accept(command.action,input.proof);
     }
     if(command.action==="admin"||command.action==="retry")await pilot.reconcile();
-    return reply({pilot:pilot.store.view(),provisioning:pilot.workflow.status(MADEIRA_PILOT.cityId)});
+    if(command.action==="managed-load")await pilot.managedStore.prepare();
+    if(command.action==="managed-owner"||command.action==="managed-admin"){
+      if(!input.proof)throw new Error("Managed reservation proof is required.");
+      await pilot.managedStore.accept(command.action==="managed-owner"?"owner":"admin",input.proof);
+    }
+    if(command.action==="managed-admin"||command.action==="managed-retry")
+      await (await import("../../../server/rustress-activation")).reconcileManagedProvisioning();
+    const managed=await import("../../../server/rustress-activation");
+    return reply({pilot:pilot.store.view(),provisioning:pilot.workflow.status(MADEIRA_PILOT.cityId),managed:pilot.managedStore.view(),managedProvisioning:managed.managedProvisioningStatus(MADEIRA_PILOT.cityId)});
   }catch(error){
     const message=error instanceof Error?error.message:"";
-    return reply({error:/^(Madeira |Approve Madeira |Private pilot proof|Private proof|Both private|Existing proof|Load the pilot)/.test(message)?message:"Pilot verification unavailable. No invoice, profile or production settings were changed."},409);
+    return reply({error:/^(Madeira |Approve Madeira |Private pilot proof|Private proof|Both private|Existing proof|Load the pilot|Managed reservation|Both managed|Existing managed)/.test(message)?message:"Pilot verification unavailable. No invoice, profile or production settings were changed."},409);
   }finally{busy=false;}
 }
