@@ -99,9 +99,11 @@ Rustress** NWC app was created with receive/reconciliation/send scopes, no
 message-signing scope and a 797,900-sat non-renewing spend allowance. This
 supports a 790,000-sat organizer payout after a maximum 1,000,000-sat receipt,
 plus the Hub's possible 7,900-sat fee. The receive-only **Paid city** app remains
-unchanged. The secret has not been exposed or installed, the isolated balance
-has not been funded, and live payments remain disabled pending protected
-installation and connection-bound acceptance.
+unchanged. The secret was installed through a masked TTY prompt into non-root,
+owner-only mode-0600 storage on the Rustress host without entering chat, logs,
+argv or shell history. A redacted readiness check passed. No service consumes
+the credential yet, the isolated balance has not been funded, and live payments
+remain disabled pending connection-bound acceptance.
 
 ### Fee-cap implementation investigation — 8 October 2026
 

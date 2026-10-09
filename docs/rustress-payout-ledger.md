@@ -585,10 +585,11 @@ ceiling, paid by BitcoinWalk. At that worst case BitcoinWalk retains at least
 The app was created with `pay_invoice`, `get_balance`, `get_info`,
 `make_invoice`, `lookup_invoice`, `list_transactions` and notifications, with
 isolated accounting and without `sign_message`. Its secret was not revealed to
-the agent, chat, logs or shell history. It is not yet installed in Rustress and
-no funds or payments were moved. Protected credential installation,
-connection-bound read probes, live reconciliation and a separately authorized
-funded acceptance remain required.
+the agent, chat, logs, shell history or command arguments. The user installed it
+through a masked controlling-terminal prompt into the non-root Rustress host's
+owner-only mode-0600 storage; a redacted verifier passed. No service consumes it
+yet and no funds or payments were moved. Connection-bound read probes, live
+reconciliation and a separately authorized funded acceptance remain required.
 
 **Still disabled:** the audited Hub v1.24.0 LDK backend's
 `max(ceil(amount_msat * 0.01), 10000)` fee ceiling would permit 500 sats on a
