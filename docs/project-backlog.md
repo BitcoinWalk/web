@@ -34,11 +34,15 @@ The managed token was then copied directly between the two non-root VPS accounts
 mode, ownership and digest match and the value was never printed or stored locally.
 App `0.3.200` adds a separate Madeira-only owner/admin challenge whose exact scope
 is one disabled reservation on the managed service. It creates no paid entitlement
-and cannot authorize public activation. Signing controls are live at
-`/admin/madeira-pilot`; both managed feature gates remain off. Next: collect the
-fresh Madeira-owner and super-admin signatures, enable reservation only, verify
-read-before-retry/restart recovery, then design and approve a separate activation
-grant before any NIP-05 or LNURL becomes public.
+and cannot authorize public activation. The user completed both fresh signatures;
+the reservation-only worker then applied exact version 1 and independently read it
+back as verified. Managed Rustress contains one Madeira claim/configuration with
+issuance disabled, zero wallet credentials and zero public invoices. Restarting the
+non-root provider and app preserved identical record fingerprints; reconciliation
+returned lease-free verified state with no activation task. Public Madeira NIP-05
+and LNURL routes remain empty/404. Next: complete BW-18 payout-service activation
+gates, then design and collect a separate public-activation grant before enabling
+version 2. Production remains unchanged.
 
 BW-100 next slice: local wallet-readiness evaluator implemented with 11 tests;
 rejects missing/stale grants, checkout connection reuse, excessive permissions
