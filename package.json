@@ -18,6 +18,8 @@
     "rustress-funded-notification:package": "npm run rustress-funded-notification:build && scripts/package-rustress-funded-notification-acceptance.sh",
     "rustress-live-payout:build": "esbuild scripts/run-rustress-live-payout-acceptance.ts --bundle --platform=node --target=node24 --format=cjs --outfile=release-build/rustress-live-payout-acceptance.cjs",
     "rustress-live-payout:package": "npm run rustress-live-payout:build && scripts/package-rustress-live-payout-acceptance.sh",
+    "rustress-payout-service:build": "esbuild scripts/run-rustress-payout-service.ts --bundle --platform=node --target=node24 --format=cjs --outfile=release-build/rustress-payout-service.cjs && esbuild scripts/verify-rustress-payout-service.ts --bundle --platform=node --target=node24 --format=cjs --outfile=release-build/verify-rustress-payout-service.cjs",
+    "rustress-payout-service:package": "npm run rustress-payout-service:build && scripts/package-rustress-payout-service.sh",
     "rustress-shadow:build": "esbuild scripts/run-rustress-wallet-shadow.ts --bundle --platform=node --target=node24 --format=cjs --outfile=release-build/rustress-wallet-shadow.cjs && esbuild scripts/verify-rustress-wallet-shadow.ts --bundle --platform=node --target=node24 --format=cjs --outfile=release-build/verify-rustress-wallet-shadow.cjs",
     "rustress-shadow:package": "npm run rustress-shadow:build && scripts/package-rustress-wallet-shadow.sh",
     "prebuild": "node scripts/copy-maplibre-worker.mjs",

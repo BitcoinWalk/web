@@ -693,16 +693,34 @@ unfinished-bucket exclusion, dynamic native fees, default denial, stream failure
 and native-evidence binding. The full suite now passes **1,152 tests across 196
 files**, plus typecheck, lint and backlog generation.
 
-No process, timer, listener, API route, credential, journal fence or wallet was
-changed by this slice. Deployment still needs one reviewed topology: either move
-the isolated NWC credential to the app host while retaining the remote journal on
-the Rustress host, or keep the credential/runtime beside Rustress and deploy the
-production journal on the app host. The latter avoids duplicating the NWC secret
-and keeps invoice intake local, but requires reversing the current fixture tunnel.
-After topology selection, implement the private intake transport, host-derived
-deployment/Hub/history/permit providers, encrypted ledger+journal backups,
-monitoring, a default-disabled package and controlled rollback rehearsal before
-any automatic live payment.
+### Default-disabled production topology — 9 October 2026
+
+The user selected the separate-failure-domain layout: payout runtime and its NWC
+credential stay beside Rustress on `.240`; the production send journal lives on
+the app VPS `.138`. The first deployment is intentionally incapable of payment.
+
+- `bitcoinwalk-rustress-payout:0.1.0` runs in the non-root `bitcoinwalk` account's
+  rootless Docker daemon on `.240`. The image is based on the already approved
+  digest-pinned Node 24 Alpine image. It has a read-only root, all capabilities
+  dropped, `no-new-privileges`, bounded CPU/memory/PIDs and `network=none`.
+- The final owner-only NWC file and a fixed `disabled` mode file are mounted
+  read-only. Startup verifies their ownership/type/mode but deliberately never
+  reads the NWC contents. Its internal status reports payouts, invoice issuance,
+  automation, credential loading and network access all false. There is no host
+  port or public route.
+- A separate production journal runs as non-root `bitcoinwalk` on `.138`, bound
+  only to `127.0.0.1:8894`. New/restarted journals are paused. The client token is
+  present on `.240`; the operator token never leaves `.138`.
+- A source-restricted, shell-denied SSH key permits `.240` to forward only to
+  `.138` journal port 8894. The resulting `.240` endpoint is loopback-only
+  `127.0.0.1:18894`. Exact service ID and wallet binding read-back passed with an
+  empty journal, paused fence and no claim. Neither service is enabled at boot.
+
+The deployment did not create an invoice, read a wallet balance, activate the
+journal, make a claim or send a payment. Activation still requires the private
+intake transport, host-derived deployment/Hub/history/permit providers, managed
+encrypted ledger and journal backups, monitoring, controlled rollback rehearsal
+and a separately reviewed enable window.
 
 **Historical superseded pilot gate:** the audited Hub v1.24.0 LDK backend's
 `max(ceil(amount_msat * 0.01), 10000)` fee ceiling would permit 500 sats on a
@@ -772,8 +790,10 @@ it must never forward browser JSON or an unverified notification directly to set
 
 Before runtime integration, implement and test:
 
-1. Deploy neither harness nor sender yet. Review provider compatibility, outbound egress policy and response
-   limits before real requests. Add reviewed IPv6/cross-origin support if needed.
+1. Keep the deployed payout container network-isolated and the production journal
+   paused. Review provider compatibility, outbound egress policy and response
+   limits before producing a separate activation image. Add reviewed IPv6 or
+   cross-origin recipient support only if required.
 2. A connection-bound collector and real wallet adapter, notification deduplication plus paged
    settlement catch-up, authenticated wallet lookup, fee/budget enforcement and
    unknown-send reconciliation. A missing lookup result is not a failed payment.
