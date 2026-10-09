@@ -2,13 +2,15 @@
 set -eu
 
 service=bitcoinwalk-rustress-payout
-version=0.2.1
+version=0.2.2
 image="$service:$version"
 root="$HOME/.local/state/bitcoinwalk-rustress"
 secrets="$root/secrets"
 state="$root/payout-service"
 mode="$root/payout-mode"
 nwc="$secrets/nwc-uri"
+monitor="$HOME/.local/libexec/bitcoinwalk-payout-backup/monitor-payout-state.sh"
+monitor_previous="$monitor.previous-0.2.1"
 
 fail(){ printf '%s\n' "Payout service installation failed." >&2; exit 1; }
 [ "$(id -u)" -ne 0 ] || fail
@@ -43,6 +45,7 @@ fi
 rollback(){
   docker rm -f "$service" >/dev/null 2>&1 || true
   if [ -n "$old" ]; then docker rename "$old" "$service"; docker start "$service" >/dev/null; fi
+  if [ -f "$monitor_previous" ]; then cp "$monitor_previous" "$monitor"; chmod 700 "$monitor"; rm -f "$monitor_previous"; fi
   fail
 }
 docker run -d --name "$service" --restart unless-stopped --network none \
@@ -66,5 +69,12 @@ done
 docker exec "$service" test -r /app/backup-sqlite-online.mjs || rollback
 [ "$(docker exec "$service" awk '/^Uid:/{print $2":"$3":"$4":"$5} /^CapEff:/{print $2}' /proc/1/status)" = '0:0:0:0
 0000000000000000' ] || rollback
+[ -f "$monitor" ] && [ ! -L "$monitor" ] && [ "$(stat -c '%U:%G:%a' "$monitor")" = "bitcoinwalk:bitcoinwalk:700" ] || rollback
+[ ! -e "$monitor_previous" ] || rollback
+cp "$monitor" "$monitor_previous" || rollback
+chmod 700 "$monitor_previous" || rollback
+cp monitor-payout-state.sh "$monitor" || rollback
+chmod 700 "$monitor" || rollback
+"$monitor" ledger || rollback
 if [ -n "$old" ]; then docker rm "$old" >/dev/null; fi
 printf '%s\n' "Rustress payout service $version is running safely disabled in rootless Docker."

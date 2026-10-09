@@ -855,6 +855,42 @@ remains disabled and isolated, the journal remains paused, and all four backup
 and monitor timers remain active and enabled. No invoice, claim, activation or
 payment occurred.
 
+## Private invoice-broker candidate — 9 October 2026
+
+Candidate payout service `0.2.2` adds a fourth, independently rotatable private
+credential for invoice issuance. The broker saves the exact city/version/amount/
+description-hash request before wallet RPC, coalesces concurrent retries, commits
+the created invoice to the existing intake before returning it and quarantines a
+timeout or malformed wallet result as unknown. Exact created requests can resume
+intake after an outage without calling the wallet again. Settlement lookup is
+limited to the exact issued hash and returns only a boolean.
+
+The maintained Rustress patch now has a separate managed mode and loopback-only
+broker client. Its public LNURL callback saves its request ID before invoking the
+broker and reuses pending or still-valid invoices. It has no NWC credential and
+cannot inject a payout destination; that enters only through the distinct payout
+authority credential. NIP-05 and LNURL metadata are derived from the latest
+applied, drift-checked city record. NIP-57 is not advertised until receipt signing
+has separate authority and acceptance.
+
+Owner-only credential tooling rotates, rolls back or finalizes exactly one of the
+four API roles while requiring the container to remain disabled, network-isolated
+and without an activation grant. One previous credential is retained only for
+explicit rollback and is removed on finalize. Payout `0.2.2` is now installed as
+non-root `bitcoinwalk` in rootless Docker, still `disabled|network=none`, with its
+new issuer credential created owner-only and an exact-release host-evidence
+renewal. The version-matched health monitor passes, and a real disabled
+`0.2.2`→`0.2.0`→`0.2.2` rehearsal preserved state and restored the candidate.
+
+The empty managed Rustress `0.1.0` candidate is also installed as a separate
+non-root user service on `127.0.0.1:8895`. Its artifact hash is
+`470a7d0914a64b5d5637591a25c82e227fbdf0a2ee80b00f5b7adc61474b5706`;
+its marked database is empty, contains no NWC URI and has no public reverse proxy.
+The existing fixture, journal and legacy Rustress admin remain separate and the
+legacy admin still returns its protected HTTP 401. Managed verification passes,
+backup/monitor timers remain active, the production journal remains logically
+paused and no activation grant, city configuration, invoice or payment exists.
+
 ## Deliberate boundaries / next slice
 
 The ledger is an internal accounting primitive, not proof that a payment happened.
@@ -868,10 +904,10 @@ Before runtime integration, implement and test:
    The real encrypted restore rehearsal has passed, but that evidence does not
    itself authorize activation. Add reviewed IPv6 or cross-origin recipient
    support only if required.
-2. Connect the reviewed Rustress/LNURL invoice issuer to the private authority and
-   intake credentials so every public invoice is durably snapshotted before it is
-   returned. A missing lookup result is not a failed payment.
-3. Reviewed definitive-failure recovery and expired unsent invoice replacement;
+2. Independently review the deployed private candidates; exercise a coordinated
+   issuer credential rotate/restart/rollback/finalize without enabling payouts,
+   and confirm fixture, checkout and legacy Rustress paths remain unchanged.
+3. Review definitive-failure recovery and expired unsent invoice replacement;
    never release an uncertain payment merely because its invoice has expired.
 4. Renew the installed host evidence only from the same protected inventory and
    after rechecking backup/monitor health. Never guess complete-history coverage

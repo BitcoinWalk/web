@@ -24,7 +24,6 @@ CONFIG = ROOT / "payout-config"
 SECRETS = ROOT / "secrets"
 MODE = ROOT / "payout-mode"
 SERVICE = "bitcoinwalk-rustress-payout"
-RELEASE = "0.2.1"
 HEX64 = re.compile(r"^[0-9a-f]{64}$")
 
 
@@ -58,7 +57,7 @@ def read_json(path: pathlib.Path) -> object:
         fail(f"protected JSON is invalid: {path.name}")
 
 
-def inspect_container() -> None:
+def inspect_container(release: str) -> None:
     template = "{{index .Config.Labels \"org.bitcoinwalk.version\"}}|{{index .Config.Labels \"org.bitcoinwalk.mode\"}}|{{.HostConfig.NetworkMode}}|{{.State.Status}}"
     try:
         result = subprocess.run(
@@ -70,7 +69,7 @@ def inspect_container() -> None:
         ).stdout.strip()
     except (OSError, subprocess.SubprocessError):
         fail("disabled payout container could not be inspected")
-    if result != f"{RELEASE}|disabled|none|running":
+    if result != f"{release}|disabled|none|running":
         fail("payout container is not the expected disabled, isolated release")
 
 
@@ -82,6 +81,7 @@ def main() -> None:
         choices=["ledger-and-journal"],
         help="explicit human confirmation that both real encrypted archives passed the offline restore verifier",
     )
+    parser.add_argument("--release", required=True, choices=["0.2.1", "0.2.2"])
     args = parser.parse_args()
     if args.restore_rehearsal_verified != "ledger-and-journal":
         fail("both restore rehearsals must be confirmed")
@@ -119,7 +119,7 @@ def main() -> None:
     # Only metadata is inspected for the wallet connection. Its secret value is
     # never opened, copied, logged, or placed in the readiness document.
     connection = protected_file(SECRETS / "nwc-uri")
-    inspect_container()
+    inspect_container(args.release)
 
     now = int(time.time())
     connection_started_at = int(connection.st_mtime)
@@ -127,7 +127,7 @@ def main() -> None:
         fail("wallet connection installation time is invalid")
     evidence = {
         "contract": "bitcoinwalk-payout-host-evidence-v1",
-        "release": RELEASE,
+        "release": args.release,
         "binding": journal["binding"],
         "journalServiceId": journal["serviceId"],
         "walletRef": "bitcoinwalk-rustress",

@@ -142,14 +142,16 @@ addresses. See [standalone address plan](admin-lightning-addresses.md).
 
 The companion API is now implemented as a maintained patch against the pinned
 upstream revision. See [patch and reproduction instructions](../integrations/rustress/README.md).
-It runs only in isolated mode with a loopback listener, private token and marked
-fixture database. It refuses root, unmarked existing databases and wallet keys;
-normal upstream mode refuses the fixture database. A separate VPS fixture service
+Its deployed path runs only in isolated mode with a loopback listener, private
+token and marked fixture database. The maintained candidate also has a distinct
+managed database/mode with public NIP-05/LNURL routes and a private loopback
+invoice-broker client; it never reads NWC and is not deployed. Both modes refuse
+root and unmarked databases; normal upstream mode refuses either marker. A separate VPS fixture service
 was installed and verified on 8 October, as UID 1004 at 127.0.0.1:8890, using
 only an empty marked test database and an on-host generated private token.
 No live instance was changed. See the patch README for deployment evidence.
 
-Verification: 14 Rust tests and 14 app adapter tests pass. The actual Rust process
+Verification: 17 Rust tests and 14 app adapter tests pass. The actual Rust process
 also passes the TypeScript-client HTTP acceptance script: atomic configuration,
 lost-response reconciliation, concurrent retries, restart, address conflicts,
 drift detection, authentication and public-route denial. These tests use fixture

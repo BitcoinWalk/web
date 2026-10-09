@@ -45,6 +45,11 @@ export class PayoutLedger {
     const row=this.db.prepare("SELECT snapshot FROM bw_ledger_invoice WHERE wallet=? AND hash=?").get(walletRef,hash);
     return row?JSON.parse(row.snapshot as string):null;
   }
+  incomingStatus(walletRef:string,hash:string){
+    ref.parse(walletRef);hex.parse(hash);
+    const row=this.db.prepare("SELECT settled FROM bw_ledger_invoice WHERE wallet=? AND hash=?").get(walletRef,hash) as {settled:number}|undefined;
+    return row?{settled:row.settled===1}:null;
+  }
   recoveryAttempts(walletRef:string){
     return (this.db.prepare("SELECT id,bucket FROM bw_ledger_payout ORDER BY id").all() as {id:string;bucket:string}[])
       .filter(row=>JSON.parse(row.bucket).walletRef===walletRef).map(row=>{

@@ -11,7 +11,7 @@ const domain = z.string().regex(/^(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z]{2,
 /** Private server-to-server configuration. It contains no wallet credential.
  * Input must be assembled from freshly verified owner/brand/entitlement evidence,
  * not copied from a browser. LNURL endpoint validation belongs to BW-101. */
-export const provisionConfigSchema = z.object({
+const configFields = {
   cityId: z.uuid(), version, domain, localPart: label, brandPubkey: hex,
   authorityEventId: hex, approvalEventId: hex, brandEventId: hex,
   payoutVersion: version,
@@ -19,16 +19,19 @@ export const provisionConfigSchema = z.object({
     /^[A-Za-z0-9._+-]+@[a-z0-9.-]+\.[a-z]{2,63}$/.test(value) || /^lnurl1[02-9ac-hj-np-z]+$/.test(value)),
   walletRef: label,
   organizerBasisPoints: z.literal(7900), retainedBasisPoints: z.literal(2100),
-  // This first integration slice cannot enable payments, even accidentally.
-  invoiceIssuance: z.literal("disabled"),
-}).strict().superRefine((value, ctx) => {
+} as const;
+const rejectCircular = (value: {payoutDestination:string;localPart:string;domain:string}, ctx: z.RefinementCtx) => {
   if (value.payoutDestination.toLowerCase() === `${value.localPart}@${value.domain}`)
     ctx.addIssue({code: "custom", message: "Circular city payout destination"});
-});
-export type ProvisionConfig = z.infer<typeof provisionConfigSchema>;
+};
+/** Fixture/app workflow remains incapable of enabling invoice issuance. */
+export const provisionConfigSchema = z.object({...configFields, invoiceIssuance:z.literal("disabled")}).strict().superRefine(rejectCircular);
+/** Private payout authority accepts enabled only at the later managed boundary. */
+export const managedProvisionConfigSchema = z.object({...configFields, invoiceIssuance:z.enum(["disabled","enabled"])}).strict().superRefine(rejectCircular);
+export type ProvisionConfig = z.infer<typeof managedProvisionConfigSchema>;
 
 export function provisionDigest(value: ProvisionConfig): string {
-  return createHash("sha256").update(JSON.stringify(provisionConfigSchema.parse(value))).digest("hex");
+  return createHash("sha256").update(JSON.stringify(managedProvisionConfigSchema.parse(value))).digest("hex");
 }
 
 export const capabilitiesSchema = z.object({

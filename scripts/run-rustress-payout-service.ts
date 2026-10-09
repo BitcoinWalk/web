@@ -7,6 +7,7 @@ import {PayoutLedger} from "../src/rustress/payout-ledger";
 import {PayoutAuthorityStore} from "../src/rustress/payout-authority";
 import {PayoutInvoiceIntake} from "../src/rustress/payout-intake";
 import {PayoutControlApi} from "../src/rustress/payout-control-api";
+import {PayoutInvoiceIssuer} from "../src/rustress/payout-invoice-issuer";
 import {PayoutHostEvidence} from "../src/rustress/payout-host-evidence";
 import {verifyPayoutActivation} from "../src/rustress/payout-activation";
 import {PayoutRuntime} from "../src/rustress/payout-runtime";
@@ -14,8 +15,9 @@ import {PayoutAutomation} from "../src/rustress/payout-automation";
 import {PayoutServiceController} from "../src/rustress/payout-service-controller";
 import {RemoteJournalClient} from "../src/rustress/remote-journal-client";
 import {recipientJson} from "../src/rustress/recipient-invoice";
+import {PrivateNwcTransport} from "../src/rustress/nwc-transport";
 
-const version="0.2.1",admin="90cf043861e5b5a9972cb7b529a5ba71b215d6d1e314c749d5526ec133f1db73",walletRef="bitcoinwalk-rustress";
+const version="0.2.2",admin="90cf043861e5b5a9972cb7b529a5ba71b215d6d1e314c749d5526ec133f1db73",walletRef="bitcoinwalk-rustress";
 const configRoot="/run/bitcoinwalk-config",secretRoot="/run/bitcoinwalk-secrets",stateRoot="/var/lib/bitcoinwalk-payout";
 const tokenPattern=/^[A-Za-z0-9_-]{43,256}$/;
 
@@ -52,7 +54,7 @@ async function main(){
  try{
   const pin=z.object({serviceId:z.uuid(),binding:z.string().regex(/^[0-9a-f]{64}$/)}).strict().parse(json(join(configRoot,"journal-pin.json")));
   const nwc=read(join(secretRoot,"nwc-uri"),/^nostr\+walletconnect:\/\//,8192),checkout={clientPubkey:read(join(configRoot,"checkout-client-pubkey"),/^[0-9a-f]{64}$/)};
-  const journalToken=read(join(secretRoot,"journal-client-token"),tokenPattern),tokens={intake:read(join(secretRoot,"intake-api-token"),tokenPattern),authority:read(join(secretRoot,"authority-api-token"),tokenPattern),operations:read(join(secretRoot,"operations-api-token"),tokenPattern)};
+  const journalToken=read(join(secretRoot,"journal-client-token"),tokenPattern),tokens={intake:read(join(secretRoot,"intake-api-token"),tokenPattern),issuer:read(join(secretRoot,"issuer-api-token"),tokenPattern),authority:read(join(secretRoot,"authority-api-token"),tokenPattern),operations:read(join(secretRoot,"operations-api-token"),tokenPattern)};
   db=new DatabaseSync(join(stateRoot,"ledger.sqlite"));db.exec("PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL;");
   const ledger=new PayoutLedger(db),authority=new PayoutAuthorityStore(db),journal=new RemoteJournalClient("http://127.0.0.1:18894",journalToken,pin.serviceId,pin.binding);
   let enabled=()=>false;
@@ -66,7 +68,10 @@ async function main(){
    credentials:async()=>({wallet:nwc,checkout,journalClientToken:journalToken}),evidence:async()=>host.evidence(),deployment:()=>host.deployment(),coverage:()=>host.coverage(),permit:r=>host.permit(r),fetchJson:recipientJson,hubSafety:async()=>host.hubSafety()},enabled);
   const automation=new PayoutAutomation(runtime,ledger,walletRef,enabled,15000),holder={current:undefined as PayoutServiceController|undefined};
   controller=new PayoutServiceController(automation,()=>runtime.ready,enabled,undefined,15000,status=>atomicStatus({service:"bitcoinwalk-rustress-payout",version,...status,...ledger.operationalStatus(walletRef)}));holder.current=controller;
-  const intake=new PayoutInvoiceIntake(ledger,(city,revision)=>Promise.resolve(authority.resolve(city,revision))),api=new PayoutControlApi(authority,intake,ledger,walletRef,enabled,()=>holder.current!.status(),tokens);
+  const intake=new PayoutInvoiceIntake(ledger,(city,revision)=>Promise.resolve(authority.resolve(city,revision))),invoiceTransport=new PrivateNwcTransport(walletRef,nwc,checkout);
+  if(invoiceTransport.binding!==pin.binding)throw new Error();
+  const issuer=new PayoutInvoiceIssuer(db,intake,(city,revision)=>Promise.resolve(authority.resolveInvoice(city,revision)),{makeInvoice:input=>invoiceTransport.call("make_invoice",{amount:Number(input.amountMsat),description_hash:input.descriptionHash,expiry:input.expirySeconds})},hash=>ledger.incomingStatus(walletRef,hash));
+  const api=new PayoutControlApi(authority,intake,ledger,walletRef,enabled,()=>holder.current!.status(),tokens,issuer);
   server=createServer((request,response)=>{void (async()=>{let result;try{result=await api.route(request.method,request.url,request.headers.authorization,request.method==="POST"?await body(request):undefined);}catch{result={status:400,body:{error:"request-rejected"}};}response.writeHead(result.status,{"content-type":"application/json","cache-control":"no-store","x-content-type-options":"nosniff"});response.end(JSON.stringify(result.body));})();});
   await snapshot(db);const snapshotTimer=setInterval(()=>{if(db)void snapshot(db).catch(()=>{controller?.stop();process.stderr.write("Managed payout snapshot failed.\n");});},21600000);snapshotTimer.unref?.();
   await new Promise<void>((resolve,reject)=>{server!.once("error",reject);server!.listen(8893,"127.0.0.1",resolve);});controller.start();atomicStatus({service:"bitcoinwalk-rustress-payout",version,...controller.status(),...ledger.operationalStatus(walletRef)});

@@ -1,10 +1,10 @@
-# Rustress isolated provisioning patch — BW-100
+# Rustress BitcoinWalk provisioning and invoice-broker patch — BW-100
 
 This directory maintains BitcoinWalk's patch against upstream commit
 `c72fdeccd80025d181efc1b1d45baeb8bfbde4a9` of `frnandu/rustress`.
 The deployed baseline's image digest is
 `ghcr.io/frnandu/rustress@sha256:dd82bfc0637138a0e3887276ceb2c0c7842d6b94725077685cf8b76d3953ffb6`.
-The running container has NOT been changed to this patch.
+The legacy running Rustress container has NOT been changed to this patch.
 
 ## Reproduce locally
 
@@ -27,7 +27,7 @@ and use its existing ngit/GitHub mirrors.
 
 ## Mode and credential boundaries
 
-Only `BITCOINWALK_PROVISIONING_ISOLATED=1` selects the new API. This branch is
+`BITCOINWALK_PROVISIONING_ISOLATED=1` selects the fixture API. This branch is
 entered before upstream dotenv loading, admin-password generation or wallet
 listeners. It requires a non-root effective UID; binds only 127.0.0.1; registers
 no public NIP-05/LNURL/admin endpoints; and loads no NWC credentials.
@@ -49,16 +49,33 @@ Configuration names (values must be supplied through a private service setup):
 non-null NWC URI is also rejected. Normal upstream mode refuses a database with
 the isolated marker, preventing accidental exposure after a missing mode flag.
 `apply` writes the upstream users/splits shape atomically with NULL NWC and a
-durable disabled configuration record. The current API cannot enable payment
+durable disabled configuration record. The fixture API cannot enable payment
 issuance, even with a valid token. Fractional payout accounting remains BW-18;
 the upstream legacy 79-percent field is configuration only, not a payout engine.
+
+The patch also contains a separate, not-yet-deployed managed mode, selected only
+by `BITCOINWALK_MANAGED=1`. It requires its own marked `*.managed.sqlite`
+database, owner-only provisioning token and owner-only invoice-issuer token. It
+never reads an NWC URI: invoice creation and settlement status go through the
+fixed loopback payout-service broker at `127.0.0.1:8893`. Managed configuration
+must explicitly enable invoice issuance; fixture configuration must explicitly
+disable it. Normal upstream mode refuses both database markers.
+
+Managed LNURL callbacks persist a random request ID before calling the broker.
+Exact retries reuse the pending request or a still-valid invoice. The broker
+persists its own intent before wallet RPC and quarantines ambiguous outcomes.
+Public responses contain only the BOLT11, verification URL and settlement
+boolean. NIP-05 and LNURL metadata are derived from independently applied city
+configuration and fail closed on materialized-state drift. Amounts are bounded
+to 1 sat–1,000,000 sats. NIP-57 is deliberately not advertised yet; receipt
+signing remains a separate BW-102 acceptance gate.
 
 ## Protocol and transaction behavior
 
 See `docs/rustress-adapter.md` and `src/rustress/contract.ts` for the private API.
 Auth is checked before JSON interpretation. Unknown fields, different domains,
-unknown wallet references, changed ratios, enabled issuance and circular direct
-payouts are rejected. Bodies are bounded. Error responses are generic and do not
+unknown wallet references, changed ratios and circular direct payouts are
+rejected; fixture mode also rejects enabled issuance. Bodies are bounded. Error responses are generic and do not
 include queries, configuration, destinations or credentials. No access log is
 installed in isolated mode.
 
@@ -115,6 +132,22 @@ bitcoinwalk-rustress-fixture.service`. Preserve its isolated state for diagnosis
 do not delete or alter the live `/root/rustress.db`. Do not disable user lingering
 if other user services have since been installed. The live container and its
 port 8889 are unchanged; its unauthenticated admin still returns HTTP 401.
+
+## Empty managed candidate — 9 October 2026
+
+The reviewed release binary is installed separately under non-root `bitcoinwalk`
+as `bitcoinwalk-rustress-managed.service`. It binds only `127.0.0.1:8895`, uses
+an empty marked `bitcoinwalk.managed.sqlite`, and has no reverse proxy or public
+DNS route. Artifact SHA-256:
+`470a7d0914a64b5d5637591a25c82e227fbdf0a2ee80b00f5b7adc61474b5706`.
+
+The provisioning token is unique to this service. Its issuer token is shared
+only through the existing owner-only payout secret directory; no value was
+printed or copied to Git. Verification proves the database is empty, has no NWC
+URI, public unknown-name responses expose no record, the process is non-root and
+the payout service is exactly `0.2.2|disabled|none|running` with no activation
+grant. `install-managed.py` and `verify-managed.py` are checksum-covered in the
+versioned package. No city has been prepared or applied.
 
 ## Remaining gates
 

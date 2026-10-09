@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
 root=$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)
-version=0.2.1
+version=0.2.2
 target="$root/release-build/bitcoinwalk-rustress-payout-service-$version"
 rm -rf "$target"
 mkdir -p "$target"
@@ -15,7 +15,9 @@ cp "$root/integrations/rustress/payout-service/install-payout-service.sh" "$targ
 cp "$root/integrations/rustress/payout-service/arm-payout-service.sh" "$target/arm.sh"
 cp "$root/integrations/rustress/payout-service/disarm-payout-service.sh" "$target/disarm.sh"
 cp "$root/integrations/rustress/payout-service/rehearse-disabled-rollback.sh" "$target/rehearse-disabled-rollback.sh"
-chmod 755 "$target/install.sh" "$target/arm.sh" "$target/disarm.sh" "$target/rehearse-disabled-rollback.sh"
-(cd "$target" && sha256sum Dockerfile install.sh arm.sh disarm.sh rehearse-disabled-rollback.sh backup-sqlite-online.mjs initialize-rustress-payout-ledger.cjs rustress-payout-service.cjs verify-rustress-payout-service.cjs verify-rustress-payout-active.cjs > SHA256SUMS)
+cp "$root/integrations/rustress/payout-backup/monitor-payout-state.sh" "$target/monitor-payout-state.sh"
+cp "$root/scripts/rotate-rustress-payout-api-credential.py" "$target/rotate-api-credential.py"
+chmod 755 "$target/install.sh" "$target/arm.sh" "$target/disarm.sh" "$target/rehearse-disabled-rollback.sh" "$target/monitor-payout-state.sh" "$target/rotate-api-credential.py"
+(cd "$target" && sha256sum Dockerfile install.sh arm.sh disarm.sh rehearse-disabled-rollback.sh monitor-payout-state.sh rotate-api-credential.py backup-sqlite-online.mjs initialize-rustress-payout-ledger.cjs rustress-payout-service.cjs verify-rustress-payout-service.cjs verify-rustress-payout-active.cjs > SHA256SUMS)
 tar -C "$root/release-build" -czf "$root/release-build/bitcoinwalk-rustress-payout-service-$version.tar.gz" "bitcoinwalk-rustress-payout-service-$version"
 printf '%s\n' "$target"
