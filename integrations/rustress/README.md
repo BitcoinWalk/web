@@ -53,13 +53,16 @@ durable disabled configuration record. The fixture API cannot enable payment
 issuance, even with a valid token. Fractional payout accounting remains BW-18;
 the upstream legacy 79-percent field is configuration only, not a payout engine.
 
-The patch also contains a separate, not-yet-deployed managed mode, selected only
-by `BITCOINWALK_MANAGED=1`. It requires its own marked `*.managed.sqlite`
+The patch also contains a separate managed mode, selected only by
+`BITCOINWALK_MANAGED=1`. It requires its own marked `*.managed.sqlite`
 database, owner-only provisioning token and owner-only invoice-issuer token. It
 never reads an NWC URI: invoice creation and settlement status go through the
 fixed loopback payout-service broker at `127.0.0.1:8893`. Managed configuration
-must explicitly enable invoice issuance; fixture configuration must explicitly
-disable it. Normal upstream mode refuses both database markers.
+may first be applied with invoice issuance disabled, which durably reserves the
+canonical name and materialized user/split but exposes neither NIP-05 nor LNURL.
+A later exact versioned configuration must explicitly enable issuance before
+either public route resolves the city. Fixture configuration can only be
+disabled. Normal upstream mode refuses both database markers.
 
 Managed LNURL callbacks persist a random request ID before calling the broker.
 Exact retries reuse the pending request or a still-valid invoice. The broker

@@ -144,6 +144,17 @@ Read the verified paid entitlement, signed approval, canonical slug, city identi
 
 Provision the NIP-05 mapping and the LNURL-pay Prism configuration atomically where possible, then independently check `/.well-known/nostr.json?name=london`, required CORS behavior, `/.well-known/lnurlp/london`, callback routing and the 79% configuration. Use the canonical public origin when generating callbacks behind the proxy. Preserve existing NIP-05 entries and unrelated well-known endpoints.
 
+9 October checkpoint: the maintained managed Rustress patch now accepts an
+exact disabled version that reserves the canonical local part and materialized
+configuration without resolving either public endpoint. Only a later versioned
+configuration with invoice issuance enabled becomes public. Its regression test
+covers disabled read-back followed by exact activation. The app has strict,
+bounded independent NIP-05 and LNURL-pay verifiers for the canonical HTTPS
+origin, exact branded pubkey, mandatory NIP-05 CORS, callback origin, amount
+bounds and metadata; premature NIP-57 claims fail closed. These verifiers are
+not yet connected to an activation worker, and no managed city or public route
+has been enabled.
+
 Keep entitlement, city approval, NIP-05, Lightning, relay and chat status distinct in the CMS: **Setup required**, **Provisioning**, **Active**, **Needs attention**. Mark each capability active only after its own read-back. Failure retries reuse the city/configuration key. NIP-05/Lightning readiness does not depend on a dedicated city relay being available. City disapproval/archive policy must explicitly govern new invoice issuance while honoring already accepted invoice obligations; publishing suspension alone must not silently confiscate or redirect accrued payments.
 
 ## Stage 4 — durable 79/21 accounting and forwarding (BW-18)

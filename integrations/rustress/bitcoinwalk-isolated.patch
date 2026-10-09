@@ -48,10 +48,10 @@ index 0000000..c3891f0
 +profile = "minimal"
 diff --git c/src/bitcoinwalk.rs w/src/bitcoinwalk.rs
 new file mode 100644
-index 0000000..966c276
+index 0000000..b04b75c
 --- /dev/null
 +++ w/src/bitcoinwalk.rs
-@@ -0,0 +1,852 @@
+@@ -0,0 +1,856 @@
 +//! BW-100: private provisioning in a separately stamped fixture database only.
 +//! No public address, invoice or wallet functionality is registered in this mode.
 +use actix_web::{App, HttpRequest, HttpResponse, HttpServer, web};
@@ -124,7 +124,11 @@ index 0000000..966c276
 +                != format!("{}@{}", self.local_part, self.domain)
 +            && self.organizer_basis_points == 7900
 +            && self.retained_basis_points == 2100
-+            && self.invoice_issuance == if managed { "enabled" } else { "disabled" }
++            && if managed {
++                matches!(self.invoice_issuance.as_str(), "disabled" | "enabled")
++            } else {
++                self.invoice_issuance == "disabled"
++            }
 +    }
 +    fn hash(&self) -> String {
 +        // Struct field order is the app's canonical zod field order.
@@ -480,7 +484,7 @@ index 0000000..966c276
 +    .await
 +    .ok()??;
 +    let config: Config = serde_json::from_str(row.get("config")).ok()?;
-+    if !config.valid(&state.domain, true) {
++    if config.invoice_issuance != "enabled" || !config.valid(&state.domain, true) {
 +        return None;
 +    }
 +    let mut tx = state.pool.begin().await.ok()?;
@@ -906,10 +910,10 @@ index 0000000..966c276
 +mod tests;
 diff --git c/src/bitcoinwalk/tests.rs w/src/bitcoinwalk/tests.rs
 new file mode 100644
-index 0000000..5c37757
+index 0000000..c4a4577
 --- /dev/null
 +++ w/src/bitcoinwalk/tests.rs
-@@ -0,0 +1,407 @@
+@@ -0,0 +1,413 @@
 +use super::*;
 +use actix_web::test;
 +
@@ -1138,8 +1142,14 @@ index 0000000..5c37757
 +    s.managed = true;
 +    s.wallets = vec!["bitcoinwalk-rustress".into()];
 +    let mut c = config();
-+    c.invoice_issuance = "enabled".into();
 +    c.wallet_ref = "bitcoinwalk-rustress".into();
++    let cmd = command(c.clone());
++    change(&s, &cmd, false).await.unwrap();
++    change(&s, &cmd, true).await.unwrap();
++    assert!(public_config(&s, "fixture-city").await.is_none());
++
++    c.version = 2;
++    c.invoice_issuance = "enabled".into();
 +    let cmd = command(c.clone());
 +    change(&s, &cmd, false).await.unwrap();
 +    change(&s, &cmd, true).await.unwrap();
