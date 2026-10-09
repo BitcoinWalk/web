@@ -1,0 +1,12 @@
+[Unit]
+Description=Encrypted BitcoinWalk receipt worker, signer and provider-key backup
+
+[Service]
+Type=oneshot
+ExecStart=%h/.local/libexec/bitcoinwalk-receipt-backup/backup-receipt-state.sh worker
+ExecStart=%h/.local/libexec/bitcoinwalk-receipt-backup/backup-receipt-state.sh signer
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=%h/.local/state/bitcoinwalk-receipt-backup-worker %h/.local/state/bitcoinwalk-receipt-backup-signer

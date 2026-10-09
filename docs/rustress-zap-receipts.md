@@ -93,8 +93,12 @@ provider pubkey. It also refuses ordinary host-root execution; the intended
 container has no network namespace access and shares only the Unix socket with
 the receipt worker.
 
-Candidate `0.2.3` and the separate signer executable both build. Neither has been
-installed. The currently deployed payout service remains disabled `0.2.2`. No
+Candidate `0.2.3` and receipt-service `0.1.0` both build. The receipt package has
+separate rootless worker/signer images; its installer can start only the disabled,
+`network=none` worker and deliberately has no activation command. Encrypted worker
+and signer backup fixtures restore successfully, including SQLite integrity and
+proof that the restored secret derives the pinned provider pubkey. Nothing has
+been installed. The currently deployed payout service remains disabled `0.2.2`. No
 receipt or signer credential, provider key, allowlist or receipt database has
 been created on the VPS. No real relay connection or publication was attempted.
 
@@ -104,18 +108,17 @@ metadata changed and no invoice or payment was created.
 
 ## Remaining gates
 
-1. Package the networked receipt worker and the networkless signer as separate
-   non-root containers. Share only the owner-only Unix socket, apply the reviewed
-   relay allowlist and enforce container-level outbound controls on the worker.
-2. Add encrypted backup and isolated restore/republish rehearsals. Receipt state
-   and provider-key recovery must not resend money or create a second event.
+1. Select and accept a conservative relay allowlist and enforceable worker egress
+   policy. Run the encrypted recovery rehearsal with the offline production GPG
+   key in an isolated directory; prove the same provider pubkey and no publication.
    Treat the provider key as a stable public identity: normal rotation must not
    silently replace it; compromise recovery is an explicit metadata cutover.
-3. Obtain review by a person or team independent of the implementation. Review
+2. Obtain review by a person or team independent of the implementation. Review
    the signer/key boundary, wallet-evidence boundary, SSRF controls, SQLite crash
    states, relay publication and public metadata cutover. The implementation
    author’s tests are evidence for that review, not a substitute for it.
-4. Only then run the explicitly authorized BW-102 fixture and bounded live zap,
+3. Add a separately reviewed, time-bounded activation/rollback package. Only then
+   run the explicitly authorized BW-102 fixture and bounded live zap,
    verify the receipt from an independent client, expire the activation window
    and review the ledger. `allowsNostr` stays false/absent until this passes.
 
