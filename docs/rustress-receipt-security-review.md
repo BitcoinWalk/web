@@ -43,8 +43,11 @@ publishes the exact already-signed event without evidence refetch or resigning.
 The complete Rustress suite passes 432/432 tests; typecheck, focused lint and
 package policy pass. Candidate payout package SHA-256 is
 `93a7f3bbc8cd95ddf4abd0627141e6d2be83e1111965d1cff3821dd4b4d9d6e4`.
-No bypass or regression was found in the post-fix caller review. Deployment and
-disabled rollback remain pending; this record does not authorize activation.
+No bypass or regression was found in the post-fix caller review. The candidate
+was subsequently installed through the non-root service owner and accepted while
+disabled: `network=none`, no host port, no evidence socket, healthy backup monitor
+and ledger-preserving `0.2.5` → `0.2.4` → `0.2.5` rollback. This record does
+not authorize activation.
 
 ## Review purpose
 

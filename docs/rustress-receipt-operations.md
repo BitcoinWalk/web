@@ -111,11 +111,11 @@ The approved allowlist is `nos.lol`, `relay.damus.io`, `relay.primal.net` and
 NAT64, local NAT64, Teredo and 6to4 transition ranges are explicitly rejected
 before transport; the focused relay policy/transport suite passes 30 tests.
 
-1. Install payout `0.2.5` disabled through the existing non-root service owner,
-   verify `network=none`, no host port and no evidence socket, then rehearse
-   ledger-preserving `0.2.5` → `0.2.4` → `0.2.5` rollback. The supplemental
-   source review and joint synthetic three-socket outage/restart rehearsal pass;
-   installed code/images are still not activation acceptance.
+1. Payout `0.2.5` is installed through the non-root service owner and accepted
+   while disabled: `network=none`, no host port, no evidence socket, healthy
+   monitor and ledger-preserving `0.2.5` → `0.2.4` → `0.2.5` rollback. The
+   supplemental source review and joint synthetic three-socket outage/restart
+   rehearsal also pass. Installed code/images are not activation acceptance.
 2. Add a separately reviewed, time-bounded activation package and rollback. The
    existing older payout activation grant intentionally cannot arm release 0.2.5.
 3. Only after explicit authorization, run BW-102 and then expose public NIP-57

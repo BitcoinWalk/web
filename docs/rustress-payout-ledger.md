@@ -944,8 +944,13 @@ without re-reading evidence or signing again. The full Rustress suite passes
 432/432 tests, with typecheck, focused lint and package-policy checks green.
 Candidate package SHA-256 is
 `93a7f3bbc8cd95ddf4abd0627141e6d2be83e1111965d1cff3821dd4b4d9d6e4`.
-It is not deployed: `.240` remains safely disabled on `0.2.4` pending a non-root
-operator installation and a ledger-preserving disabled rollback rehearsal.
+It was installed on `.240` through the non-root `bitcoinwalk` account on
+9 October 2026. The first attempt failed closed and restored `0.2.4`; a traced
+retry completed after every integrity/runtime/monitor check. The service remains
+`disabled|network=none`, with no host port or evidence socket. The live disabled
+verifier, backup monitor and ledger-preserving
+`0.2.5` → `0.2.4` → `0.2.5` rollback rehearsal all pass. No payout,
+public endpoint or activation grant was enabled.
 
 ## Deliberate boundaries / next slice
 
