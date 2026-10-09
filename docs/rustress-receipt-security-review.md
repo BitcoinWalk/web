@@ -16,7 +16,7 @@ an independently retained expected provider pubkey, and decompression/member
 sizes are bounded before extraction. A later installer-only correction changed
 the rootless-Docker spelling check and added an embedded assertion for it. The
 resulting installed disabled package SHA-256 is
-`c0a53092988d0bb40513cac6d2fc2901539a700cb5db7e1d17cd710dfb765b58`.
+`33e04ded1d19b16fb91e7e57429b3e008e405013b831251e46746d0ea9718fb6`.
 Only the credential-free, `network=none` worker is installed; the signer is not
 started and no provider identity or activation exists. The original review target
 and digest below are retained as the immutable input to that review.

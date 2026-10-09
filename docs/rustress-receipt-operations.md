@@ -6,7 +6,7 @@ Last reviewed: 9 October 2026
 
 The remediated `0.1.0` receipt-service package is installed on `.240` in its
 strict disabled state. Package SHA-256 is
-`c0a53092988d0bb40513cac6d2fc2901539a700cb5db7e1d17cd710dfb765b58`.
+`33e04ded1d19b16fb91e7e57429b3e008e405013b831251e46746d0ea9718fb6`.
 The embedded package checks and 67 focused receipt tests pass. It creates two
 different rootless images:
 
@@ -18,7 +18,7 @@ different rootless images:
 - `bitcoinwalk-rustress-receipt-signer` owns the provider key and signer database.
   It has no exposed port and must always run with `network=none`. The worker can
   reach it only through an owner-only Unix socket. The signer image is built but
-  no signer container exists, and no provider key has been created.
+  no signer container exists.
 
 The package has no activation command. Activation is intentionally withheld until
 the encrypted recovery rehearsal, conservative public relay allowlist, egress
@@ -30,6 +30,16 @@ rootless-Docker check expected the wrong JSON spelling. The check and its packag
 test were corrected, the package was rebuilt under the digest above, and the
 successful installation was independently inspected for mode, network, mounts,
 ports, signer absence and provider-key absence.
+
+The one-shot bootstrap subsequently created the dedicated provider identity in a
+rootless `network=none` container and initialized an empty signer database without
+starting the signer. Its independently retained public key is
+`2443b1e4131ffc719cc80257b207ff1b29735356715b288715a438c22aabfe5a`.
+The secret is owner-only on `.240` and has not been displayed or copied. The
+receipt-aware off-host receiver and retention policy are installed on `.138`
+with rollback copies, but transmitting the first encrypted signer backup and
+enabling its timer require explicit authorization because that ciphertext
+contains the recoverable provider secret.
 
 ## Runtime boundaries
 

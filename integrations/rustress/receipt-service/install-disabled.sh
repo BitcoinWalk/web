@@ -6,6 +6,7 @@ fail(){ printf '%s\n' "Receipt service installation failed." >&2;exit 1; }
 [ "$(id -u)" -ne 0 ]&&[ "$(id -un)" = bitcoinwalk ]||fail
 docker info --format '{{json .SecurityOptions}}'|grep -q '"name=rootless"'||fail
 [ -f SHA256SUMS ]&&[ ! -L SHA256SUMS ]||fail;sha256sum -c SHA256SUMS
+mkdir -p "$root";chmod 700 "$root";[ -d "$root" ]&&[ ! -L "$root" ]&&[ "$(stat -c '%U:%G:%a' "$root")" = bitcoinwalk:bitcoinwalk:700 ]||fail
 for path in "$worker" "$signer" "$socket";do mkdir -p "$path";chmod 700 "$path";[ -d "$path" ]&&[ ! -L "$path" ]&&[ "$(stat -c '%U:%G:%a' "$path")" = bitcoinwalk:bitcoinwalk:700 ]||fail;done
 if [ ! -e "$mode" ];then umask 077;printf '%s\n' disabled>"$mode";fi
 [ -f "$mode" ]&&[ ! -L "$mode" ]&&[ "$(stat -c '%U:%G:%a' "$mode")" = bitcoinwalk:bitcoinwalk:600 ]&&[ "$(tr -d '\n'<"$mode")" = disabled ]||fail
