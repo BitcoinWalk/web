@@ -6,7 +6,7 @@ Last reviewed: 9 October 2026
 
 The remediated `0.1.0` receipt-service package is installed on `.240` in its
 strict disabled state. Package SHA-256 is
-`c32bb6f2f8e792f04a93c0859020fd4792c4caec7b0d98a214afa86e0b65a540`.
+`ec220d284ae4222c1a58fc53a793acceaa5ad7ef44af90995d037f5db0b788eb`.
 The embedded package checks and 67 focused receipt tests pass. It creates two
 different rootless images:
 
@@ -93,7 +93,14 @@ display the decrypted provider key or encrypted backup contents.
 
 ## Remaining acceptance gates
 
-1. Select a conservative relay allowlist and define enforceable worker egress.
+The approved allowlist is `nos.lol`, `relay.damus.io`, `relay.primal.net` and
+`relay.ditto.pub`. It is installed owner-only while the worker remains
+`network=none`. Current resolution from `.240` contains only public addresses.
+NAT64, local NAT64, Teredo and 6to4 transition ranges are explicitly rejected
+before transport; the focused relay policy/transport suite passes 30 tests.
+
+1. Isolate outbound relay publication behind a credential-free egress boundary
+   so the receipt worker itself stays without general network access.
 2. Add a separately reviewed, time-bounded activation package and rollback.
 3. Only after explicit authorization, run BW-102 and then expose public NIP-57
    metadata.

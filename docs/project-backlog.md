@@ -377,6 +377,15 @@ non-root timer was enabled. The user then completed both bounded offline restore
 checks: worker and signer SQLite integrity passed, the independently retained
 provider identity matched, and decrypted material was removed automatically.
 
+Receipt relay-policy checkpoint, 9 October: the user approved `nos.lol`,
+`relay.damus.io`, `relay.primal.net` and `relay.ditto.pub`. The exact JSON is
+owner-only on `.240`; all current A/AAAA answers are public. The publisher now
+rejects NAT64, local NAT64, Teredo and 6to4 transition addresses before opening a
+socket, and 30 focused allowlist/pinned-WSS tests pass. The refreshed worker is
+still `disabled|network=none` with no port, and no signer container exists.
+Activation still requires a credential-free outbound boundary so the worker is
+not granted general network access.
+
 | ID | Stage | Item | Status | Depends on | Acceptance |
 |---|---:|---|---|---|---|
 | BW-109 | 9, 10 | Super-admin standalone Lightning addresses without splits | ⚪ Planned | BW-100 | Create/manage addresses from CMS with explicit receiving-wallet selection and signed super-admin-only commands; automatically provision and verify LNURL-pay with no Prism or 79/21 split; prefer direct receipt without an extra forwarding hop. Initial requested addresses: endo@bitcoinwalk.org and donate@bitcoinwalk.org; user confirmed bitcoinwalk@getalby.com as recipient for both; underlying wallet mapping still needs verification. Separate resource type from Pro cities, global address collision protection, no silent adoption, durable retries/read-back, disable/recovery and preserved old invoices. No NIP-05 or NIP-57 recipient invented. No live changes yet. See [plan](admin-lightning-addresses.md). |

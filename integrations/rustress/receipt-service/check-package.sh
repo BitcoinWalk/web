@@ -15,4 +15,5 @@ test -f "$here/initialize-rustress-receipt-worker.cjs"
 grep -q -- '--network none' "$here/bootstrap-provider-identity.sh"
 grep -q 'docker container inspect "$signer"' "$here/bootstrap-provider-identity.sh"
 grep -q 'receipt-(worker|signer)' "$here/offhost-receive-encrypted-backup.sh"
+test "$(tr -d '[:space:]' < "$here/relay-allowlist.json")" = '["wss://nos.lol/","wss://relay.damus.io/","wss://relay.primal.net/","wss://relay.ditto.pub/"]'
 printf '%s\n' "Receipt service package policy checks passed."
