@@ -891,6 +891,16 @@ legacy admin still returns its protected HTTP 401. Managed verification passes,
 backup/monitor timers remain active, the production journal remains logically
 paused and no activation grant, city configuration, invoice or payment exists.
 
+The issuer credential then completed a real disabled rotation rehearsal. The
+owner-only helper created a new value while retaining one rollback copy; managed
+Rustress restarted and passed its empty-candidate verifier. The helper swapped
+back to the prior value and forward to the new value, with a verified restart in
+each direction, then finalized by deleting only the retired copy. Final state is
+one mode-0600 issuer token, active managed service, `0.2.2|disabled|none|running`,
+passing ledger monitor and no activation grant. The first immediate probe reached
+the port before restart completed; the verifier now waits for bounded listener
+readiness, and the subsequent full checks passed. No wallet route was available.
+
 ## Deliberate boundaries / next slice
 
 The ledger is an internal accounting primitive, not proof that a payment happened.
@@ -904,9 +914,9 @@ Before runtime integration, implement and test:
    The real encrypted restore rehearsal has passed, but that evidence does not
    itself authorize activation. Add reviewed IPv6 or cross-origin recipient
    support only if required.
-2. Independently review the deployed private candidates; exercise a coordinated
-   issuer credential rotate/restart/rollback/finalize without enabling payouts,
-   and confirm fixture, checkout and legacy Rustress paths remain unchanged.
+2. Independently review the deployed private candidates and confirm fixture,
+   checkout and legacy Rustress paths remain unchanged. The coordinated issuer
+   credential rotate/restart/rollback/finalize rehearsal now passes.
 3. Review definitive-failure recovery and expired unsent invoice replacement;
    never release an uncertain payment merely because its invoice has expired.
 4. Renew the installed host evidence only from the same protected inventory and

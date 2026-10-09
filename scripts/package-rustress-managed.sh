@@ -2,7 +2,7 @@
 set -eu
 root=$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)
 source="$root/../BitcoinWalk-rustress/target/release/rustress"
-version=0.1.0
+version=0.1.1
 target="$root/release-build/bitcoinwalk-rustress-managed-$version"
 [ -x "$source" ]
 rm -rf "$target"

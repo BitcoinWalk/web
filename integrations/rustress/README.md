@@ -140,6 +140,9 @@ as `bitcoinwalk-rustress-managed.service`. It binds only `127.0.0.1:8895`, uses
 an empty marked `bitcoinwalk.managed.sqlite`, and has no reverse proxy or public
 DNS route. Artifact SHA-256:
 `470a7d0914a64b5d5637591a25c82e227fbdf0a2ee80b00f5b7adc61474b5706`.
+Operator package `0.1.1` retains that exact binary and adds bounded listener
+readiness to the verifier so a normal service restart cannot cause a false
+negative.
 
 The provisioning token is unique to this service. Its issuer token is shared
 only through the existing owner-only payout secret directory; no value was

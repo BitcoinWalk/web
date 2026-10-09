@@ -11,6 +11,7 @@ import socket
 import sqlite3
 import subprocess
 import sys
+import time
 
 assert os.geteuid() != 0 and pwd.getpwuid(os.geteuid()).pw_name == "bitcoinwalk"
 expected = sys.argv[1]
@@ -29,16 +30,23 @@ token = token_path.read_text().strip()
 assert re.fullmatch(r"[A-Za-z0-9_-]{43,256}", token)
 
 def request(path: str, authorized: bool = False):
-    connection = http.client.HTTPConnection("127.0.0.1", 8895, timeout=5)
     headers = {"Host": "bitcoinwalk.org"}
     if authorized:
         headers["Authorization"] = "Bearer " + token
-    connection.request("GET", path, headers=headers)
-    response = connection.getresponse()
-    body = response.read(16_385)
-    connection.close()
-    assert len(body) <= 16_384
-    return response.status, json.loads(body)
+    for attempt in range(20):
+        connection = http.client.HTTPConnection("127.0.0.1", 8895, timeout=5)
+        try:
+            connection.request("GET", path, headers=headers)
+            response = connection.getresponse()
+            body = response.read(16_385)
+            assert len(body) <= 16_384
+            return response.status, json.loads(body)
+        except (ConnectionError, OSError):
+            if attempt == 19:
+                raise
+            time.sleep(1)
+        finally:
+            connection.close()
 
 status, capabilities = request("/v1/bitcoinwalk/capabilities", True)
 assert status == 200 and capabilities["adapterRevision"] == expected
