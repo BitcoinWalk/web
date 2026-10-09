@@ -907,9 +907,14 @@ the exact signed zap request, BOLT11 description commitment, payment hash, amoun
 settlement timestamp and preimage; checks the isolated signer output; persists the
 exact receipt before bounded publication; and reuses it across retries/restarts.
 It is not runtime-wired, has no production signing key and does not cause Rustress
-to advertise zap support. Sixteen focused fixture tests pass. A separate
-receipt-only settlement claim, hardened relay publisher, isolated service/key
-recovery and genuinely independent review remain required before BW-102.
+to advertise zap support. Sixteen focused authority tests pass. Candidate payout
+`0.2.3` now adds a fifth receipt-only credential, fresh exact incoming settlement
+evidence and a strict loopback client. A hardened relay policy adds operator
+allowlisting, fresh public-address DNS validation, pinned-address transport input,
+timeouts and acknowledgement isolation. The checksum-covered package builds but
+is not installed; deployed payout remains disabled `0.2.2`. The actual pinned WSS
+transport, isolated signer service/key recovery and genuinely independent review
+remain required before BW-102.
 
 ## Deliberate boundaries / next slice
 

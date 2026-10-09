@@ -60,31 +60,48 @@ It owns no NWC transport, payout destination or secret-key loader. Tests cover:
 - published idempotency, conflicting hash reuse and concurrent conflict denial;
 - rejection of a signer that changes the reviewed template.
 
+The next private boundary is also implemented but remains unconnected:
+
+- payout candidate `0.2.3` adds a fifth, receipt-only credential and
+  `/v1/receipts/evidence`; it can only read a previously issued exact city/version
+  invoice and perform a fresh authenticated incoming lookup;
+- evidence requires matching direction, settled state, invoice, payment hash,
+  amount, description commitment, bounded settlement time and preimage;
+- the loopback-only client sends only the city/version/hash/amount/commitment,
+  validates the exact response and never receives an invoice-issuance, authority,
+  operations or payout capability;
+- the relay policy accepts at most three requested relays, intersects them with
+  an operator allowlist, resolves DNS immediately before every attempt, rejects
+  private/reserved/mixed or duplicate results, requires a pinned-address transport
+  with TLS hostname verification and publishes only valid kind-9735 events;
+- one relay failure does not hide another acknowledgement; no acknowledgement
+  leaves the durable receipt pending for an exact retry.
+
+Candidate `0.2.3` builds into a checksum-covered operator package. It has not
+been installed. The currently deployed payout service remains disabled `0.2.2`.
+No receipt credential has been created on the VPS and no real signer or relay
+transport is connected.
+
 This component is deliberately not exposed through `PayoutControlApi`, not built
 into either deployed service and not connected to a signing key. No public LNURL
 metadata changed and no invoice or payment was created.
 
 ## Remaining gates
 
-1. Add a receipt-only authenticated claim endpoint backed by a fresh exact NWC
-   incoming lookup. Its credential must be distinct from intake, issuer,
-   authority and operations roles. It returns one city/version-bound claim and
-   cannot issue invoices, alter destinations or initiate payouts.
-2. Package the receipt authority as a separate non-root, loopback-only service
+1. Package the receipt authority as a separate non-root, loopback-only service
    with an owner-only key file or external signer. Add key rotation that retains
    the prior public identity long enough to validate historical receipts; never
    silently change the advertised provider key.
-3. Implement the bounded relay publisher with DNS resolution, private/reserved
-   address denial on every connection, relay count/time/response limits,
-   acknowledgements and durable retry. Confirm client compatibility with a
-   conservative configured relay policy.
-4. Add encrypted backup and isolated restore/republish rehearsals. Receipt state
+2. Implement the actual pinned-address WSS transport behind the reviewed relay
+   policy, preserving TLS/SNI verification and enforcing container-level outbound
+   controls. Confirm client compatibility with a conservative relay allowlist.
+3. Add encrypted backup and isolated restore/republish rehearsals. Receipt state
    and provider-key recovery must not resend money or create a second event.
-5. Obtain review by a person or team independent of the implementation. Review
+4. Obtain review by a person or team independent of the implementation. Review
    the signer/key boundary, wallet-evidence boundary, SSRF controls, SQLite crash
    states, relay publication and public metadata cutover. The implementation
    author’s tests are evidence for that review, not a substitute for it.
-6. Only then run the explicitly authorized BW-102 fixture and bounded live zap,
+5. Only then run the explicitly authorized BW-102 fixture and bounded live zap,
    verify the receipt from an independent client, expire the activation window
    and review the ledger. `allowsNostr` stays false/absent until this passes.
 

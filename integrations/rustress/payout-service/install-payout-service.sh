@@ -2,7 +2,7 @@
 set -eu
 
 service=bitcoinwalk-rustress-payout
-version=0.2.2
+version=0.2.3
 image="$service:$version"
 root="$HOME/.local/state/bitcoinwalk-rustress"
 secrets="$root/secrets"
@@ -28,6 +28,14 @@ if [ ! -e "$mode" ]; then umask 077; printf '%s\n' disabled > "$mode"; fi
 [ -f "$mode" ] && [ ! -L "$mode" ] || fail
 [ "$(stat -c '%U:%G:%a:%s' "$mode")" = "bitcoinwalk:bitcoinwalk:600:9" ] || fail
 [ "$(tr -d '\n' < "$mode")" = disabled ] || fail
+[ -d "$secrets" ] && [ ! -L "$secrets" ] && [ "$(stat -c '%U:%G:%a' "$secrets")" = "bitcoinwalk:bitcoinwalk:700" ] || fail
+receipt="$secrets/receipt-api-token"
+if [ ! -e "$receipt" ]; then
+  temporary="$secrets/.receipt-api-token.$$";trap 'rm -f "$temporary"' EXIT HUP INT TERM
+  umask 077;openssl rand -base64 48 | tr '+/' '-_' | tr -d '\n' > "$temporary";printf '\n' >> "$temporary";chmod 600 "$temporary";mv "$temporary" "$receipt";trap - EXIT HUP INT TERM
+fi
+[ -f "$receipt" ] && [ ! -L "$receipt" ] && [ "$(stat -c '%U:%G:%a' "$receipt")" = "bitcoinwalk:bitcoinwalk:600" ] || fail
+grep -Eq '^[A-Za-z0-9_-]{43,256}$' "$receipt" || fail
 
 if docker container inspect "$service" >/dev/null 2>&1; then
   [ "$(docker container inspect "$service" --format '{{index .Config.Labels "org.bitcoinwalk.service"}}')" = rustress-payout ] || fail

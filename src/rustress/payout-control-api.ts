@@ -13,11 +13,11 @@ type AutomationState={running:boolean;ready:boolean;lastCycleAt?:number;lastCycl
  * facts only; payout destinations can enter solely through the separately
  * authenticated authority channel. */
 export class PayoutControlApi{
- #tokens:{intake:string;issuer:string;authority:string;operations:string};
+ #tokens:{intake:string;issuer:string;receipt:string;authority:string;operations:string};
  constructor(private authority:PayoutAuthorityStore,private intake:PayoutInvoiceIntake,private ledger:PayoutLedger,private walletRef:string,
-  private enabled:()=>boolean,private automation:()=>AutomationState,tokens:{intake:string;issuer:string;authority:string;operations:string},private issuer?:PayoutInvoiceIssuer){
-  this.#tokens={intake:token.parse(tokens.intake),issuer:token.parse(tokens.issuer),authority:token.parse(tokens.authority),operations:token.parse(tokens.operations)};
-  if(new Set(Object.values(this.#tokens)).size!==4)throw new Error("Separate payout API credentials required");
+  private enabled:()=>boolean,private automation:()=>AutomationState,tokens:{intake:string;issuer:string;receipt:string;authority:string;operations:string},private issuer?:PayoutInvoiceIssuer){
+  this.#tokens={intake:token.parse(tokens.intake),issuer:token.parse(tokens.issuer),receipt:token.parse(tokens.receipt),authority:token.parse(tokens.authority),operations:token.parse(tokens.operations)};
+  if(new Set(Object.values(this.#tokens)).size!==5)throw new Error("Separate payout API credentials required");
  }
  private allowed(header:string|undefined,expected:string){
   if(!header?.startsWith("Bearer "))return false;const a=Buffer.from(header.slice(7)),b=Buffer.from(expected);return a.length===b.length&&timingSafeEqual(a,b);
@@ -47,6 +47,11 @@ export class PayoutControlApi{
     if(!this.allowed(authorization,this.#tokens.issuer))return {status:401,body:{error:"unauthorized"}};
     if(!this.enabled()||!this.issuer)return {status:503,body:{error:"invoice-issuer-disabled"}};
     return {status:200,body:this.issuer.lookup(body)};
+   }
+   if(method==="POST"&&url==="/v1/receipts/evidence"){
+    if(!this.allowed(authorization,this.#tokens.receipt))return {status:401,body:{error:"unauthorized"}};
+    if(!this.enabled()||!this.issuer)return {status:503,body:{error:"receipt-evidence-disabled"}};
+    return {status:200,body:await this.issuer.receiptEvidence(body)};
    }
    return {status:404,body:{error:"not-found"}};
   }catch{return {status:409,body:{error:"request-rejected"}};}

@@ -19,7 +19,7 @@ ROOT = pathlib.Path("/home/bitcoinwalk/.local/state/bitcoinwalk-rustress")
 SECRETS = ROOT / "secrets"
 CONFIG = ROOT / "payout-config"
 MODE = ROOT / "payout-mode"
-ROLES = {"intake", "issuer", "authority", "operations"}
+ROLES = {"intake", "issuer", "receipt", "authority", "operations"}
 
 
 def fail(message: str) -> None:

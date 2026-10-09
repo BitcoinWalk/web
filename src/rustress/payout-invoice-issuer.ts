@@ -1,3 +1,4 @@
+import {createHash} from "node:crypto";
 import type {DatabaseSync} from "node:sqlite";
 import {decode} from "bolt11";
 import {z} from "zod";
@@ -5,9 +6,12 @@ import type {PayoutInvoiceIntake} from "./payout-intake";
 import type {PayoutBucket} from "./payout-ledger";
 
 export const PAYOUT_ISSUE_API="bitcoinwalk-payout-issue-v1";
+export const PAYOUT_RECEIPT_EVIDENCE_API="bitcoinwalk-zap-settlement-v1";
 const hex=z.string().regex(/^[0-9a-f]{64}$/),money=z.string().regex(/^[1-9][0-9]{0,15}$/).refine(value=>BigInt(value)>=1000n&&BigInt(value)<=1_000_000_000n);
 const requestSchema=z.object({api:z.literal(PAYOUT_ISSUE_API),requestId:z.uuid(),cityId:z.uuid(),payoutVersion:z.number().int().safe().positive(),
  amountMsat:money,descriptionHash:hex,requestedAt:z.number().int().safe().positive(),expirySeconds:z.number().int().min(60).max(86400)}).strict();
+const receiptSchema=z.object({api:z.literal(PAYOUT_RECEIPT_EVIDENCE_API),cityId:z.uuid(),payoutVersion:z.number().int().safe().positive(),paymentHash:hex,
+ amountMsat:money,descriptionHash:hex}).strict();
 type Request=z.infer<typeof requestSchema>;
 type Authority=PayoutBucket&{invoiceIssuance:"enabled"};
 type Created={invoice:string;paymentHash:string;amountMsat:string;issuedAt:number;expiresAt:number};
@@ -29,7 +33,7 @@ function validateInvoice(result:Record<string,unknown>,request:Request,now:numbe
 export class PayoutInvoiceIssuer{
  #inflight=new Map<string,Promise<Created>>();
  constructor(private db:DatabaseSync,private intake:PayoutInvoiceIntake,private resolve:(cityId:string,payoutVersion:number)=>Promise<Authority|null>,private wallet:Wallet,
-  private lookupIncoming:(hash:string)=>{settled:boolean}|null=()=>null,private now=()=>Math.floor(Date.now()/1000)){
+  private lookupIncoming:(hash:string)=>{settled:boolean}|null=()=>null,private now=()=>Math.floor(Date.now()/1000),private receiptLookup?:(hash:string)=>Promise<unknown>){
   db.exec(`CREATE TABLE IF NOT EXISTS bw_invoice_issue_request(
    id TEXT PRIMARY KEY,request TEXT NOT NULL,state TEXT NOT NULL CHECK(state IN ('prepared','created','unknown','issued')),
    invoice TEXT,hash TEXT UNIQUE,issued_at INTEGER,expires_at INTEGER);
@@ -80,5 +84,18 @@ export class PayoutInvoiceIssuer{
    if(saved.cityId!==request.cityId||saved.payoutVersion!==request.payoutVersion)throw new Error();const status=this.lookupIncoming(request.paymentHash);if(!status)throw new Error();
    return {api:PAYOUT_ISSUE_API,paymentHash:request.paymentHash,settled:status.settled};
   }catch{throw new Error("Invoice status unavailable");}
+ }
+ async receiptEvidence(input:unknown){
+  try{
+   if(!this.receiptLookup)throw new Error();const claim=receiptSchema.parse(input),row=this.db.prepare("SELECT request,state,invoice,hash,issued_at,expires_at FROM bw_invoice_issue_request WHERE hash=?").get(claim.paymentHash) as Row|undefined;
+   if(!row||row.state!=="issued")throw new Error();const saved=requestSchema.parse(JSON.parse(row.request)),created=this.created(row);
+   if(saved.cityId!==claim.cityId||saved.payoutVersion!==claim.payoutVersion||saved.amountMsat!==claim.amountMsat||saved.descriptionHash!==claim.descriptionHash)throw new Error();
+   const result=await this.receiptLookup(claim.paymentHash) as Record<string,unknown>;
+   if(!result||result.type!=="incoming"||result.state!=="settled"||result.payment_hash!==created.paymentHash||result.invoice!==created.invoice||String(result.amount)!==created.amountMsat||
+    !Number.isSafeInteger(result.settled_at)||Number(result.settled_at)<created.issuedAt||Number(result.settled_at)>this.now()+30||typeof result.preimage!=="string"||!hex.safeParse(result.preimage).success||
+    createHash("sha256").update(Buffer.from(result.preimage,"hex")).digest("hex")!==created.paymentHash)throw new Error();
+   return {api:PAYOUT_RECEIPT_EVIDENCE_API,cityId:saved.cityId,payoutVersion:saved.payoutVersion,invoice:created.invoice,paymentHash:created.paymentHash,
+    amountMsat:created.amountMsat,descriptionHash:saved.descriptionHash,settledAt:Number(result.settled_at),preimage:result.preimage};
+  }catch{throw new Error("Receipt settlement unavailable");}
  }
 }

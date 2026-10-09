@@ -11,7 +11,7 @@ const hex=z.string().regex(/^[0-9a-f]{64}$/),money=z.string().regex(/^[1-9][0-9]
 });
 const claimSchema=z.object({api:z.literal(ZAP_RECEIPT_API),cityId:z.uuid(),payoutVersion:z.number().int().safe().positive(),paymentHash:hex,
  recipientPubkey:hex,amountMsat:money,zapRequest:z.string().min(1).max(65536),lnurl:z.string().min(1).max(2048).optional()}).strict();
-type Claim=z.infer<typeof claimSchema>;
+export type ZapReceiptClaim=z.infer<typeof claimSchema>;
 export type ZapInvoiceEvidence={invoice:string;paymentHash:string;amountMsat:string;descriptionHash:string;settledAt:number;preimage:string};
 export type ZapReceiptSigner={publicKey:string;sign:(template:EventTemplate)=>Promise<Event>};
 export type ZapReceiptPublisher={publish:(relays:string[],event:Event)=>Promise<string[]>};
@@ -25,7 +25,7 @@ function relays(tags:string[][]){
  const tag=one(tags,"relays",true)!;if(tag.length<2||tag.length>4)throw new Error();
  const values=tag.slice(1).map(value=>wss.parse(value)),normalized=new Set(values.map(value=>new URL(value).toString()));if(normalized.size!==values.length)throw new Error();return values;
 }
-function parseZap(raw:string,claim:Claim,signerPubkey:string){
+function parseZap(raw:string,claim:ZapReceiptClaim,signerPubkey:string){
  let event:Event;try{event=JSON.parse(raw) as Event;}catch{throw new Error("Zap request rejected");}
  try{
   if(event.kind!==9734||!verifyEvent(event)||!Array.isArray(event.tags)||event.tags.length>64||event.content.length>4096)throw new Error();
@@ -40,11 +40,11 @@ function parseZap(raw:string,claim:Claim,signerPubkey:string){
   return {event,destinations,tags};
  }catch{throw new Error("Zap request rejected");}
 }
-function template(claim:Claim,evidence:ZapInvoiceEvidence,tags:string[][]):EventTemplate{
+function template(claim:ZapReceiptClaim,evidence:ZapInvoiceEvidence,tags:string[][]):EventTemplate{
  return {kind:9735,created_at:evidence.settledAt,content:"",tags:[...tags,["bolt11",evidence.invoice],["description",claim.zapRequest],["preimage",evidence.preimage]]};
 }
 function exactSigned(event:Event,expected:EventTemplate,pubkey:string){
- return event.pubkey===pubkey&&verifyEvent(event)&&event.kind===expected.kind&&event.created_at===expected.created_at&&event.content===expected.content&&JSON.stringify(event.tags)===JSON.stringify(expected.tags);
+ return event.pubkey===pubkey&&verifyEvent(JSON.parse(JSON.stringify(event)))&&event.kind===expected.kind&&event.created_at===expected.created_at&&event.content===expected.content&&JSON.stringify(event.tags)===JSON.stringify(expected.tags);
 }
 
 /** Private NIP-57 receipt boundary. It owns no wallet transport or city payout
@@ -52,7 +52,7 @@ function exactSigned(event:Event,expected:EventTemplate,pubkey:string){
  * capabilities. The exact signed receipt is durable before relay publication. */
 export class ZapReceiptAuthority{
  #inflight=new Map<string,{claim:string;operation:Promise<{api:typeof ZAP_RECEIPT_API;state:"published";eventId:string;relays:string[]}>}>();
- constructor(private db:DatabaseSync,private signer:ZapReceiptSigner,private evidence:(claim:Claim)=>Promise<ZapInvoiceEvidence|null>,private publisher:ZapReceiptPublisher){
+ constructor(private db:DatabaseSync,private signer:ZapReceiptSigner,private evidence:(claim:ZapReceiptClaim)=>Promise<ZapInvoiceEvidence|null>,private publisher:ZapReceiptPublisher){
   hex.parse(signer.publicKey);db.exec(`CREATE TABLE IF NOT EXISTS bw_zap_receipt(
    payment_hash TEXT PRIMARY KEY,claim TEXT NOT NULL,state TEXT NOT NULL CHECK(state IN ('prepared','signed','published')),
    event TEXT,relays TEXT NOT NULL,published_relays TEXT);`);
@@ -60,11 +60,11 @@ export class ZapReceiptAuthority{
  private row(hash:string){return this.db.prepare("SELECT claim,state,event,relays,published_relays FROM bw_zap_receipt WHERE payment_hash=?").get(hash) as Row|undefined;}
  private saved(row:Row){if(!row.event)throw new Error("Receipt unavailable");const event=JSON.parse(row.event) as Event;if(!verifyEvent(event)||event.pubkey!==this.signer.publicKey)throw new Error("Receipt unavailable");return event;}
  async issue(input:unknown){
-  let claim:Claim;try{claim=claimSchema.parse(input);}catch{throw new Error("Zap receipt rejected");}
+  let claim:ZapReceiptClaim;try{claim=claimSchema.parse(input);}catch{throw new Error("Zap receipt rejected");}
   const document=JSON.stringify(claim),active=this.#inflight.get(claim.paymentHash);if(active){if(active.claim!==document)throw new Error("Zap receipt conflict");return active.operation;}
   const operation=this.#issue(claim).finally(()=>this.#inflight.delete(claim.paymentHash));this.#inflight.set(claim.paymentHash,{claim:document,operation});return operation;
  }
- async #issue(claim:Claim){
+ async #issue(claim:ZapReceiptClaim){
   const document=JSON.stringify(claim),old=this.row(claim.paymentHash);
   if(old&&old.claim!==document)throw new Error("Zap receipt conflict");
   let row=old;

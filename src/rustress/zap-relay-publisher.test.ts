@@ -1,0 +1,15 @@
+import {finalizeEvent,type Event} from "nostr-tools";
+import {describe,expect,it,vi} from "vitest";
+import {HardenedZapRelayPublisher} from "./zap-relay-publisher";
+
+const event=finalizeEvent({kind:9735,created_at:1_800_000_000,content:"",tags:[["p","ab".repeat(32)],["bolt11","invoice"],["description","{}"]]},new Uint8Array(32).fill(4));
+function fixture(){const resolve=vi.fn(async()=>[{address:"1.1.1.1",family:4 as const},{address:"2606:4700:4700::1111",family:6 as const}]),send=vi.fn(async()=>true),publisher=new HardenedZapRelayPublisher(["wss://one.example/","wss://two.example/"],resolve,{send},1500);return {resolve,send,publisher};}
+describe("hardened zap receipt relay publisher",()=>{
+ it("publishes only to an allowlisted relay using freshly approved addresses",async()=>{const f=fixture();await expect(f.publisher.publish(["wss://one.example"],event)).resolves.toEqual(["wss://one.example/"]);expect(f.resolve).toHaveBeenCalledWith("one.example");expect(f.send).toHaveBeenCalledWith({url:"wss://one.example/",addresses:[{address:"1.1.1.1",family:4},{address:"2606:4700:4700::1111",family:6}],event,timeoutMs:1500});});
+ it.each(["wss://127.0.0.1/","wss://[::1]/","ws://one.example/","wss://user:pass@one.example/","wss://one.example/#fragment"])('rejects unsafe relay URL %s',async url=>{const f=fixture();await expect(f.publisher.publish([url],event)).rejects.toThrow();expect(f.send).not.toHaveBeenCalled();});
+ it.each([[{address:"10.0.0.1",family:4}],[{address:"127.0.0.1",family:4}],[{address:"169.254.1.1",family:4}],[{address:"192.0.2.1",family:4}],[{address:"::1",family:6}],[{address:"fc00::1",family:6}],[{address:"2001:db8::1",family:6}]])("rejects non-public DNS result %j",async result=>{const f=fixture();f.resolve.mockResolvedValue(result as never);await expect(f.publisher.publish(["wss://one.example"],event)).resolves.toEqual([]);expect(f.send).not.toHaveBeenCalled();});
+ it("rejects relays outside the operator allowlist",async()=>{const f=fixture();await expect(f.publisher.publish(["wss://attacker.example"],event)).rejects.toThrow("approved");expect(f.resolve).not.toHaveBeenCalled();});
+ it("returns only acknowledged relays and isolates individual outages",async()=>{const f=fixture();f.send.mockResolvedValueOnce(false).mockResolvedValueOnce(true);await expect(f.publisher.publish(["wss://one.example","wss://two.example"],event)).resolves.toEqual(["wss://two.example/"]);});
+ it("rejects duplicate aliases and more than three requested relays",async()=>{const f=fixture();await expect(f.publisher.publish(["wss://one.example","wss://one.example/"],event)).rejects.toThrow();await expect(f.publisher.publish(["wss://one.example","wss://two.example","wss://three.example","wss://four.example"],event)).rejects.toThrow();});
+ it("rejects a forged receipt before DNS or transport",async()=>{const f=fixture();await expect(f.publisher.publish(["wss://one.example"],{...event,content:"changed"} as Event)).rejects.toThrow("Invalid receipt");expect(f.resolve).not.toHaveBeenCalled();});
+});

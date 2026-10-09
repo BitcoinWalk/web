@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
 root=$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)
-version=0.2.2
+version=0.2.3
 target="$root/release-build/bitcoinwalk-rustress-payout-service-$version"
 rm -rf "$target"
 mkdir -p "$target"
