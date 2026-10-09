@@ -836,11 +836,24 @@ failed user units without exposing response bodies or bearer tokens. External
 notification delivery remains a launch-operations enhancement; the monitor does
 not silently activate, restart or mutate payment state.
 
-The two real ciphertexts have been copied to a temporary local restore folder.
-The remaining human custody check is to unlock the user's private OpenPGP key and
-run the supplied restore verifier for both archives. Until both return
-`PAYOUT_RESTORE_REHEARSAL_OK`, `backupRestoreVerified` host evidence must not be
-installed, no activation grant may be signed and the runtime must remain disabled.
+The two real ciphertexts were copied to a temporary local restore folder. On
+9 October 2026 the user unlocked the offline OpenPGP key and independently ran
+the supplied verifier against both scheduled archives. The ledger and journal
+each returned `PAYOUT_RESTORE_REHEARSAL_OK`; required-file and archive-safety
+checks passed, both SQLite copies passed integrity checks, and decrypted material
+was removed automatically on exit.
+
+That explicit human acceptance permitted installation of the non-secret host
+readiness document. `install-rustress-payout-host-evidence.py` verified the
+owner-only inputs, exact `0.2.1` disabled container, `network=none`, absent
+activation grant, distinct checkout client and payout connection references,
+current journal pin and approved non-renewing budget before atomically writing
+mode-0600 `host-evidence.json`. The document records the connection-retention
+boundary and `backupRestoreVerified=true`; it contains no NWC secret, token,
+invoice or wallet history. Post-install verification passed. The payout runtime
+remains disabled and isolated, the journal remains paused, and all four backup
+and monitor timers remain active and enabled. No invoice, claim, activation or
+payment occurred.
 
 ## Deliberate boundaries / next slice
 
@@ -851,18 +864,18 @@ it must never forward browser JSON or an unverified notification directly to set
 Before runtime integration, implement and test:
 
 1. Keep the deployed payout container network-isolated and the production journal
-   paused until the real encrypted restore rehearsal passes and an explicit,
-   short-lived activation grant is reviewed and signed. Add reviewed IPv6 or
-   cross-origin recipient support only if required.
+   paused until an explicit, short-lived activation grant is reviewed and signed.
+   The real encrypted restore rehearsal has passed, but that evidence does not
+   itself authorize activation. Add reviewed IPv6 or cross-origin recipient
+   support only if required.
 2. Connect the reviewed Rustress/LNURL invoice issuer to the private authority and
    intake credentials so every public invoice is durably snapshotted before it is
    returned. A missing lookup result is not a failed payment.
 3. Reviewed definitive-failure recovery and expired unsent invoice replacement;
    never release an uncertain payment merely because its invoice has expired.
-4. After the human restore check, install the exact host evidence with the verified
-   backup flag, connection start/retention boundary and current journal identity.
-   Never guess complete-history coverage or replace a SQLite file under an open
-   connection.
+4. Renew the installed host evidence only from the same protected inventory and
+   after rechecking backup/monitor health. Never guess complete-history coverage
+   or replace a SQLite file under an open connection.
 5. Run BW-102 acceptance under one short signed window, then revoke/expire it and
    review aggregate ledger/journal results before considering sustained service.
    Keep checkout's receive-only connection unchanged.
