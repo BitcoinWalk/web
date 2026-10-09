@@ -9,5 +9,6 @@ cp "$root/integrations/rustress/receipt-backup/backup-receipt-state.sh" "$root/i
 cp "$root/integrations/rustress/payout-backup/receive-encrypted-backup.sh" "$target/offhost-receive-encrypted-backup.sh";cp "$root/integrations/rustress/payout-backup/prune-encrypted-backups.py" "$target/offhost-prune-encrypted-backups.py"
 chmod 755 "$target/install-disabled.sh" "$target/check-package.sh" "$target/backup-receipt-state.sh" "$target/verify-receipt-backup-restore.sh" "$target/offhost-receive-encrypted-backup.sh" "$target/offhost-prune-encrypted-backups.py"
 (cd "$target"&&sha256sum Dockerfile.worker Dockerfile.signer install-disabled.sh check-package.sh backup-receipt-state.sh verify-receipt-backup-restore.sh bitcoinwalk-receipt-backup.service bitcoinwalk-receipt-backup.timer offhost-receive-encrypted-backup.sh offhost-prune-encrypted-backups.py backup-sqlite-online.mjs rustress-receipt-worker.cjs rustress-receipt-signer.cjs verify-rustress-receipt-worker.cjs verify-rustress-receipt-restore.cjs>SHA256SUMS&&./check-package.sh)
-tar -C "$root/release-build" -czf "$root/release-build/bitcoinwalk-rustress-receipt-service-$version.tar.gz" "bitcoinwalk-rustress-receipt-service-$version"
+archive="$root/release-build/bitcoinwalk-rustress-receipt-service-$version.tar.gz"
+tar --sort=name --mtime='1980-01-01 UTC' --owner=0 --group=0 --numeric-owner -C "$root/release-build" -cf - "bitcoinwalk-rustress-receipt-service-$version"|gzip -n >"$archive"
 printf '%s\n' "$target"
