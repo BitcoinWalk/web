@@ -568,6 +568,28 @@ the full 79% allocation; BitcoinWalk covers routing fees. These are pilot ceilin
 not target payment sizes, invoice amounts or changes to the 79/21 allocation.
 No reset schedule or automatic budget replenishment is approved.
 
+### Production Hub and fee-policy revision — 9 October 2026
+
+The user explicitly chose the existing production Alby Hub rather than a
+separate Rustress Hub and accepted the installed Hub's native LDK routing-fee
+policy. This supersedes the earlier 50,000-sat payout, 100-sat fee and
+200,000-sat total pilot ceilings for the production Rustress connection.
+
+The separate isolated NWC app has a non-renewing **797,900-sat** spending
+allowance. Incoming invoices are not capped by that allowance. For a maximum
+**1,000,000-sat incoming payment**, the organizer principal is **790,000 sats**;
+the installed Hub may use up to **7,900 sats** of routing fee under its 1%
+ceiling, paid by BitcoinWalk. At that worst case BitcoinWalk retains at least
+202,100 sats. The existing receive-only checkout connection is unchanged.
+
+The app was created with `pay_invoice`, `get_balance`, `get_info`,
+`make_invoice`, `lookup_invoice`, `list_transactions` and notifications, with
+isolated accounting and without `sign_message`. Its secret was not revealed to
+the agent, chat, logs or shell history. It is not yet installed in Rustress and
+no funds or payments were moved. Protected credential installation,
+connection-bound read probes, live reconciliation and a separately authorized
+funded acceptance remain required.
+
 **Still disabled:** the audited Hub v1.24.0 LDK backend's
 `max(ceil(amount_msat * 0.01), 10000)` fee ceiling would permit 500 sats on a
 50,000-sat payout, exceeding the approved 100 sats. The existing guard must refuse

@@ -92,6 +92,17 @@ below is 500 sats at the approved maximum payout, so the adapter must block that
 amount until the 100-sat ceiling can actually be enforced. No wallet setting has
 been changed. See `rustress-payout-ledger.md` for exact units and remaining gates.
 
+Production decision, 9 October: the user superseded those pilot ceilings for
+the production Rustress connection, selected the existing production Hub and
+accepted its native routing-fee ceiling. A distinct isolated **BitcoinWalk
+Rustress** NWC app was created with receive/reconciliation/send scopes, no
+message-signing scope and a 797,900-sat non-renewing spend allowance. This
+supports a 790,000-sat organizer payout after a maximum 1,000,000-sat receipt,
+plus the Hub's possible 7,900-sat fee. The receive-only **Paid city** app remains
+unchanged. The secret has not been exposed or installed, the isolated balance
+has not been funded, and live payments remain disabled pending protected
+installation and connection-bound acceptance.
+
 ### Fee-cap implementation investigation — 8 October 2026
 
 Read-only upstream check identified [Hub PR #2566](https://github.com/getAlby/hub/pull/2566),
