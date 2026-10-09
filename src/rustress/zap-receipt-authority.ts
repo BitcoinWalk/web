@@ -7,7 +7,7 @@ import {z} from "zod";
 
 export const ZAP_RECEIPT_API="bitcoinwalk-zap-receipt-v1" as const;
 const hex=z.string().regex(/^[0-9a-f]{64}$/),money=z.string().regex(/^[1-9][0-9]{0,15}$/),wss=z.string().url().refine(value=>{
- try{const url=new URL(value),host=url.hostname.toLowerCase();return url.protocol==="wss:"&&!url.username&&!url.password&&!url.hash&&!isIP(host)&&host!=="localhost"&&host.endsWith(".")===false;}catch{return false;}
+ try{const url=new URL(value),host=url.hostname.toLowerCase().replace(/^\[|\]$/g,"");return url.protocol==="wss:"&&!url.username&&!url.password&&!url.hash&&!isIP(host)&&host!=="localhost"&&host.endsWith(".")===false;}catch{return false;}
 });
 const claimSchema=z.object({api:z.literal(ZAP_RECEIPT_API),cityId:z.uuid(),payoutVersion:z.number().int().safe().positive(),paymentHash:hex,
  recipientPubkey:hex,amountMsat:money,zapRequest:z.string().min(1).max(65536),lnurl:z.string().min(1).max(2048).optional()}).strict();

@@ -60,7 +60,7 @@ It owns no NWC transport, payout destination or secret-key loader. Tests cover:
 - published idempotency, conflicting hash reuse and concurrent conflict denial;
 - rejection of a signer that changes the reviewed template.
 
-The next private boundary is also implemented but remains unconnected:
+The remaining private boundaries are now implemented as uninstalled candidates:
 
 - payout candidate `0.2.3` adds a fifth, receipt-only credential and
   `/v1/receipts/evidence`; it can only read a previously issued exact city/version
@@ -74,13 +74,29 @@ The next private boundary is also implemented but remains unconnected:
   an operator allowlist, resolves DNS immediately before every attempt, rejects
   private/reserved/mixed or duplicate results, requires a pinned-address transport
   with TLS hostname verification and publishes only valid kind-9735 events;
+- the concrete WSS transport disables redirects and compression, connects only
+  through the policy-approved address set, preserves the original hostname for
+  TLS certificate and SNI validation, bounds handshake/message size/time and
+  accepts only an exact positive Nostr `OK` for the exact event id;
 - one relay failure does not hide another acknowledgement; no acknowledgement
   leaves the durable receipt pending for an exact retry.
 
-Candidate `0.2.3` builds into a checksum-covered operator package. It has not
-been installed. The currently deployed payout service remains disabled `0.2.2`.
-No receipt credential has been created on the VPS and no real signer or relay
-transport is connected.
+The provider-key boundary is a separate signer process with no wallet, relay or
+TCP listening capability. It speaks bounded HTTP only on an owner-only Unix socket, authenticates
+a distinct bearer capability and independently verifies the signed kind-9734,
+recipient/sender/provider tags, exact tag ordering, BOLT11 amount, description
+commitment, payment hash, preimage and timestamp before signing. It durably stores
+the exact signed event by payment hash, so an exact retry returns the same event
+and any changed retry is refused. The runner derives the public key from its
+owner-only secret file and refuses to start unless it matches a separately pinned
+provider pubkey. It also refuses ordinary host-root execution; the intended
+container has no network namespace access and shares only the Unix socket with
+the receipt worker.
+
+Candidate `0.2.3` and the separate signer executable both build. Neither has been
+installed. The currently deployed payout service remains disabled `0.2.2`. No
+receipt or signer credential, provider key, allowlist or receipt database has
+been created on the VPS. No real relay connection or publication was attempted.
 
 This component is deliberately not exposed through `PayoutControlApi`, not built
 into either deployed service and not connected to a signing key. No public LNURL
@@ -88,20 +104,18 @@ metadata changed and no invoice or payment was created.
 
 ## Remaining gates
 
-1. Package the receipt authority as a separate non-root, loopback-only service
-   with an owner-only key file or external signer. Add key rotation that retains
-   the prior public identity long enough to validate historical receipts; never
-   silently change the advertised provider key.
-2. Implement the actual pinned-address WSS transport behind the reviewed relay
-   policy, preserving TLS/SNI verification and enforcing container-level outbound
-   controls. Confirm client compatibility with a conservative relay allowlist.
-3. Add encrypted backup and isolated restore/republish rehearsals. Receipt state
+1. Package the networked receipt worker and the networkless signer as separate
+   non-root containers. Share only the owner-only Unix socket, apply the reviewed
+   relay allowlist and enforce container-level outbound controls on the worker.
+2. Add encrypted backup and isolated restore/republish rehearsals. Receipt state
    and provider-key recovery must not resend money or create a second event.
-4. Obtain review by a person or team independent of the implementation. Review
+   Treat the provider key as a stable public identity: normal rotation must not
+   silently replace it; compromise recovery is an explicit metadata cutover.
+3. Obtain review by a person or team independent of the implementation. Review
    the signer/key boundary, wallet-evidence boundary, SSRF controls, SQLite crash
    states, relay publication and public metadata cutover. The implementation
    author’s tests are evidence for that review, not a substitute for it.
-5. Only then run the explicitly authorized BW-102 fixture and bounded live zap,
+4. Only then run the explicitly authorized BW-102 fixture and bounded live zap,
    verify the receipt from an independent client, expire the activation window
    and review the ledger. `allowsNostr` stays false/absent until this passes.
 
@@ -109,3 +123,6 @@ metadata changed and no invoice or payment was created.
 
 The protocol baseline is the canonical Nostr NIP-57 specification:
 <https://github.com/nostr-protocol/nips/blob/master/57.md>.
+
+The WSS client contract is based on the maintained `ws` client API:
+<https://github.com/websockets/ws/blob/master/doc/ws.md>.

@@ -24,6 +24,7 @@
     "rustress-managed:package": "scripts/package-rustress-managed.sh",
     "rustress-shadow:build": "esbuild scripts/run-rustress-wallet-shadow.ts --bundle --platform=node --target=node24 --format=cjs --outfile=release-build/rustress-wallet-shadow.cjs && esbuild scripts/verify-rustress-wallet-shadow.ts --bundle --platform=node --target=node24 --format=cjs --outfile=release-build/verify-rustress-wallet-shadow.cjs",
     "rustress-shadow:package": "npm run rustress-shadow:build && scripts/package-rustress-wallet-shadow.sh",
+    "rustress-receipt-signer:build": "esbuild scripts/run-rustress-receipt-signer.ts --bundle --platform=node --target=node24 --format=cjs --outfile=release-build/rustress-receipt-signer.cjs",
     "prebuild": "node scripts/copy-maplibre-worker.mjs",
     "predev": "node scripts/copy-maplibre-worker.mjs",
     "guide:build": "tsc -p tsconfig.guide.json && esbuild src/guide/service.ts --bundle --platform=node --target=node24 --format=cjs --outfile=guide-build/guide.cjs && esbuild src/guide/init-key.ts --bundle --platform=node --target=node24 --format=cjs --outfile=guide-build/guide-key.cjs",
@@ -59,6 +60,7 @@
     "react-markdown": "10.1.0",
     "remark-gfm": "4.0.1",
     "sharp": "0.35.5",
+    "ws": "^8.22.0",
     "zod": "latest"
   },
   "devDependencies": {
@@ -67,6 +69,7 @@
     "@types/node": "latest",
     "@types/react": "latest",
     "@types/react-dom": "latest",
+    "@types/ws": "^8.18.1",
     "esbuild": "0.28.2",
     "eslint": "^9.0.0",
     "eslint-config-next": "16.3.8",
