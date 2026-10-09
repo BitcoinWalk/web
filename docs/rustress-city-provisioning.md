@@ -152,8 +152,11 @@ covers disabled read-back followed by exact activation. The app has strict,
 bounded independent NIP-05 and LNURL-pay verifiers for the canonical HTTPS
 origin, exact branded pubkey, mandatory NIP-05 CORS, callback origin, amount
 bounds and metadata; premature NIP-57 claims fail closed. These verifiers are
-not yet connected to an activation worker, and no managed city or public route
-has been enabled.
+not yet connected to an activation worker. The activation contract permits only
+the immediately following version and requires every authority, identity,
+address, payout and wallet field to match the verified disabled reservation;
+any changed fact must be reserved disabled again. No managed city or public
+route has been enabled.
 
 Keep entitlement, city approval, NIP-05, Lightning, relay and chat status distinct in the CMS: **Setup required**, **Provisioning**, **Active**, **Needs attention**. Mark each capability active only after its own read-back. Failure retries reuse the city/configuration key. NIP-05/Lightning readiness does not depend on a dedicated city relay being available. City disapproval/archive policy must explicitly govern new invoice issuance while honoring already accepted invoice obligations; publishing suspension alone must not silently confiscate or redirect accrued payments.
 
