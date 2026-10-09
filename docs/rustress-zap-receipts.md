@@ -116,7 +116,9 @@ metadata changed and no invoice or payment was created.
 2. Obtain review by a person or team independent of the implementation. Review
    the signer/key boundary, wallet-evidence boundary, SSRF controls, SQLite crash
    states, relay publication and public metadata cutover. The implementation
-   author’s tests are evidence for that review, not a substitute for it.
+   author’s tests are evidence for that review, not a substitute for it. The
+   [review packet](rustress-receipt-security-review.md) pins the exact commit,
+   package digest, invariants, abuse cases and required decision record.
 3. Add a separately reviewed, time-bounded activation/rollback package. Only then
    run the explicitly authorized BW-102 fixture and bounded live zap,
    verify the receipt from an independent client, expire the activation window

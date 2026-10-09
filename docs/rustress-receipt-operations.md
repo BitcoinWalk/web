@@ -58,7 +58,10 @@ display the decrypted provider key or encrypted backup contents.
 ## Remaining acceptance gates
 
 1. Independent review of the package, socket/key boundary, restore procedure,
-   DNS pinning and the absence of an activation path.
+   DNS pinning and the absence of an activation path. Use the pinned
+   [independent security-review packet](rustress-receipt-security-review.md) and
+   record an explicit reviewer decision; implementation tests are supporting
+   evidence, not self-approval.
 2. Select a conservative relay allowlist and define enforceable worker egress.
 3. Create the provider identity outside the application, protect and encrypt it,
    then complete an isolated restore rehearsal proving the same public identity.
