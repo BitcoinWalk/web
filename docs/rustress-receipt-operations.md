@@ -45,10 +45,24 @@ pinned public key. No private decryption key is placed on the VPS.
 
 The offline restore verifier requires an exact archive inventory, checks every
 manifest digest and SQLite integrity, then proves that the restored signer secret
-derives the restored pinned provider public key. Temporary decrypted material is
-removed on exit. The automated fixture rehearsal passes for both components and
-the off-host receiver/retention policy now recognizes them without weakening its
-size, duplicate or immutable-name controls.
+derives both the archived public key and the independently retained expected
+provider public key supplied by the custodian. Signer restore fails if that
+external identity is absent or different. Decompression is bounded to 512 MiB
+before extraction (and may be tightened, never raised, for a rehearsal), with a
+128 MiB decoder-memory ceiling and 120-second decompression deadline. Temporary
+decrypted material is removed on
+exit. The automated fixture rehearsal passes for both components, rejects an
+identity substitution and a compressed expansion fixture, and the off-host
+receiver/retention policy recognizes both components without weakening its
+duplicate or immutable-name controls.
+
+The custodian must take `EXPECTED_PROVIDER_PUBKEY` from the independently kept
+BitcoinWalk recovery record, never from the archive being tested:
+
+```text
+./verify-receipt-backup-restore.sh receipt-worker-….tar.zst.gpg worker
+./verify-receipt-backup-restore.sh receipt-signer-….tar.zst.gpg signer EXPECTED_PROVIDER_PUBKEY
+```
 
 A production rehearsal remains mandatory. It must use the existing offline GPG
 private key, restore into an isolated directory, prove the same provider pubkey,
@@ -57,14 +71,9 @@ display the decrypted provider key or encrypted backup contents.
 
 ## Remaining acceptance gates
 
-1. Independent review of the package, socket/key boundary, restore procedure,
-   DNS pinning and the absence of an activation path. Use the pinned
-   [independent security-review packet](rustress-receipt-security-review.md) and
-   record an explicit reviewer decision; implementation tests are supporting
-   evidence, not self-approval.
-2. Select a conservative relay allowlist and define enforceable worker egress.
-3. Create the provider identity outside the application, protect and encrypt it,
+1. Select a conservative relay allowlist and define enforceable worker egress.
+2. Create the provider identity outside the application, protect and encrypt it,
    then complete an isolated restore rehearsal proving the same public identity.
-4. Add a separately reviewed, time-bounded activation package and rollback.
-5. Only after explicit authorization, run BW-102 and then expose public NIP-57
+3. Add a separately reviewed, time-bounded activation package and rollback.
+4. Only after explicit authorization, run BW-102 and then expose public NIP-57
    metadata.
