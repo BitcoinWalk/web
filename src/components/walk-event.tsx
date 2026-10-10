@@ -5,7 +5,7 @@ import CalendarShare from "./calendar-share";
 import { calendarImageOverride,calendarNevent, calendarOccurrence,calendarRoute,initialCalendarHero, type CalendarWalk, type CalendarSource } from "../nostr/calendar-records";
 import { relayConfig } from "../lib/relay-config";
 import CityChat, {cityChatDetails} from "./city-chat";
-import WalkWeather from "./walk-weather";
+import WalkWeather, {WeatherAttribution} from "./walk-weather";
 import {getWalkWeather} from "../domain/walk-weather";
 import {pilotWeatherHero} from "../domain/weather-hero";
 import ResilientHero from "./resilient-hero";
@@ -46,5 +46,6 @@ export default async function WalkEvent({event,walk,currentProfile,logoHref,titl
     <CalendarShare nevent={calendarNevent(event,relayConfig.calendarRelayHints)}/>
     <CityChat cityId={city.cityId} slug={city.slug}/>
     {logoHref&&<p><a href={logoHref}>Download the official BitcoinWalk {city.cityName} logo pack</a></p>}
+    {weather.kind!=="past"&&<footer className="walk-event-footer"><WeatherAttribution/></footer>}
   </main>;
 }

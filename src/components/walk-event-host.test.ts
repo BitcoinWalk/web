@@ -40,6 +40,12 @@ describe("walk route branded-host integration", () => {
     expect(html).toContain(nip19.npubEncode(event.pubkey));
     expect(html).toContain("Personal delegation presentation");
   });
+  it("places weather attribution once in the walk footer", async () => {
+    vi.mocked(resolvePublicCityHost).mockResolvedValue({state: "personal", pubkey: event.pubkey});
+    const html = renderToStaticMarkup(await WalkEvent({event, walk, currentProfile: walk}));
+    expect(html.match(/Weather data:/g)).toHaveLength(1);
+    expect(html).toMatch(/<footer class="walk-event-footer">.*Weather data:.*<\/footer><\/main>$/);
+  });
   it("binds an upgrade from an older walk URL to the current approved city revision", async () => {
     vi.mocked(resolvePublicCityHost).mockResolvedValue({state: "personal", pubkey: event.pubkey});
     const currentCity = {...city, cityName: "London City", requestedTier: "free" as const};
