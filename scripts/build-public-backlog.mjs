@@ -110,17 +110,6 @@ if (items.length < 1) throw new Error("No backlog items found.");
 items.sort((a, b) => a.number - b.number);
 const counts = Object.fromEntries(statusOrder.map((status) => [status, items.filter((item) => item.status === status).length]));
 
-const stageCards = stages
-  .map((stage) => {
-    const meta = statusMeta[stage.status];
-    const count = items.filter((item) => item.stage.split(",").map((part) => part.trim()).includes(String(stage.number))).length;
-    return `<article class="stage-card status-${meta.key}">
-      <div class="stage-number">${stage.number}</div>
-      <div><p class="stage-status">${escapeHtml(stage.status)}</p><h3>${escapeHtml(stage.name)}</h3><p>${count} linked item${count === 1 ? "" : "s"}</p></div>
-    </article>`;
-  })
-  .join("\n");
-
 const itemRows = items
   .map((item) => {
     const meta = statusMeta[item.status];
@@ -178,12 +167,6 @@ const html = `<!doctype html>
     .section-head { display:flex; justify-content:space-between; gap:24px; align-items:end; margin-bottom:20px; }
     h2 { margin:0; font-size:clamp(1.7rem,4vw,2.6rem); letter-spacing:-.035em; }
     .section-head p { max-width:560px; margin:0; color:var(--muted); }
-    .stages { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; }
-    .stage-card { display:flex; min-height:126px; gap:16px; padding:20px; border:1px solid var(--line); border-left:4px solid var(--accent); border-radius:14px; background:var(--panel); }
-    .stage-number { display:grid; place-items:center; flex:0 0 42px; height:42px; border-radius:10px; background:#0c0f12; color:var(--accent); font-weight:800; }
-    .stage-card h3 { margin:1px 0 5px; font-size:1rem; }
-    .stage-card p { margin:0; color:var(--muted); font-size:.86rem; }
-    .stage-card .stage-status { color:var(--accent); font-size:.76rem; font-weight:700; }
     .toolbar { position:sticky; top:0; z-index:5; display:grid; grid-template-columns:1fr 190px auto; gap:10px; padding:14px 0; background:rgba(11,13,16,.93); backdrop-filter:blur(14px); }
     .toolbar input,.toolbar select,.toolbar button { min-height:44px; padding:0 13px; color:var(--text); border:1px solid var(--line); border-radius:10px; background:#111419; }
     .toolbar button { cursor:pointer; }
@@ -204,8 +187,8 @@ const html = `<!doctype html>
     footer { padding:30px 0 50px; border-top:1px solid var(--line); color:var(--muted); font-size:.88rem; }
     footer .wrap { display:flex; justify-content:space-between; gap:20px; }
     footer a { color:#cbd1d8; }
-    @media (max-width:850px) { .counts { grid-template-columns:repeat(2,1fr); } .stages { grid-template-columns:repeat(2,1fr); } .backlog-row { grid-template-columns:82px 1fr; } .backlog-row > :last-child { grid-column:2; } }
-    @media (max-width:570px) { header { padding-top:38px; } .wrap { width:min(100% - 22px,1180px); } .brand img { width:min(196px,70vw); } .counts,.stages { grid-template-columns:1fr; } .section-head { display:block; } .section-head p { margin-top:8px; } .toolbar { grid-template-columns:1fr 1fr; } .toolbar input { grid-column:1/-1; } .results { text-align:right; } .backlog-row { grid-template-columns:1fr; gap:11px; } .backlog-row > :last-child { grid-column:auto; } footer .wrap { display:block; } }
+    @media (max-width:850px) { .counts { grid-template-columns:repeat(2,1fr); } .backlog-row { grid-template-columns:82px 1fr; } .backlog-row > :last-child { grid-column:2; } }
+    @media (max-width:570px) { header { padding-top:38px; } .wrap { width:min(100% - 22px,1180px); } .brand img { width:min(196px,70vw); } .counts { grid-template-columns:1fr; } .section-head { display:block; } .section-head p { margin-top:8px; } .toolbar { grid-template-columns:1fr 1fr; } .toolbar input { grid-column:1/-1; } .results { text-align:right; } .backlog-row { grid-template-columns:1fr; gap:11px; } .backlog-row > :last-child { grid-column:auto; } footer .wrap { display:block; } }
   </style>
 </head>
 <body>
@@ -217,10 +200,6 @@ const html = `<!doctype html>
   </div></header>
   <main class="wrap">
     <div class="counts" aria-label="Backlog status summary">${countCards}</div>
-    <section aria-labelledby="stages-title">
-      <div class="section-head"><div><h2 id="stages-title">Stages 0–10</h2></div><p>The complete product scope, from protocol decisions and the web foundation through paid-city infrastructure and launch operations.</p></div>
-      <div class="stages">${stageCards}</div>
-    </section>
     <section aria-labelledby="items-title">
       <div class="section-head"><div><h2 id="items-title">All backlog items</h2></div><p>Search by ID or title, filter by status, or narrow the list to a delivery stage.</p></div>
       <div class="toolbar">
