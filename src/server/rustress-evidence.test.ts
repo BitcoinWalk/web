@@ -74,9 +74,17 @@ it("rejects ownership changes during endpoint validation",async()=>{
   });
   await expect(resolveRustressProvisionEvidence(requestId)).rejects.toThrow();
 });
-it("rejects stale payout versions or failed endpoint validation",async()=>{
+it("rejects failed endpoint validation",async()=>{
   vi.mocked(lnurl.validatePayoutDestination).mockRejectedValueOnce(new Error("endpoint unavailable"));
   await expect(resolveRustressProvisionEvidence(requestId)).rejects.toThrow("endpoint unavailable");
-  db.prepare("UPDATE payout_destination_version SET version=2").run();
-  await expect(resolveRustressProvisionEvidence(requestId)).rejects.toThrow("payout confirmation");
+});
+it("uses a fresh owner-signed payout before initial provisioning without replacing the active city identity",async()=>{
+  const changed={...destination,normalized:"owner@wallet.example",endpoint:"https://wallet.example/.well-known/lnurlp/owner",callback:"https://wallet.example/callback"};
+  const event=finalizeEvent({kind:27235,created_at:2,tags:[],content:JSON.stringify({action:"save-payout",cityId,destination:changed.normalized})},ownerKey);
+  const saved=new PayoutDestinationStore(db).save(authority,event,changed);
+  new ProSetupTaskStore(db).confirmPayout(cityId,"paid",owner,saved.version);
+  vi.mocked(lnurl.validatePayoutDestination).mockResolvedValue(changed);
+  const result=await resolveRustressProvisionEvidence(requestId);
+  expect(result.config).toMatchObject({payoutVersion:2,payoutDestination:changed.normalized,brandEventId:signed.id});
+  expect(db.prepare("SELECT COUNT(*) total FROM city_brand_request").get()).toEqual({total:1});
 });

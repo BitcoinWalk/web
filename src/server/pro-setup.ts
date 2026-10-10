@@ -182,16 +182,16 @@ export async function listBrandRequests(actor: string) {
     brandPubkey: row.challenge.binding.brandPubkey, profile: row.challenge.profile, proofsReady: !!row.owner_proof && !!row.brand_proof}));
 }
 
-async function brandReviewEvidence(requestId: string, actor: string) {
+async function brandReviewEvidence(requestId: string, actor: string, allowPayoutChange = false) {
   if (actor !== SUPER_ADMIN_PUBKEY) throw new Error("Super-admin review required.");
-  const store = brandStore(), request = store.details(requestId), resolved = await resolveProSetupEvidence(request.city_id);assertBrandTask(request.challenge,resolved);
+  const store = brandStore(), request = store.details(requestId), resolved = await resolveProSetupEvidence(request.city_id);assertBrandTask(request.challenge,resolved,allowPayoutChange);
   return {store, request, resolved};
 }
-function assertBrandTask(challenge: import("../nostr/city-brand").CityBrandChallenge, resolved: Awaited<ReturnType<typeof resolveProSetupEvidence>>) {
+function assertBrandTask(challenge: import("../nostr/city-brand").CityBrandChallenge, resolved: Awaited<ReturnType<typeof resolveProSetupEvidence>>, allowPayoutChange = false) {
   const {task}=ensureSetupTask(resolved),profile=challenge.profile;
   if(!task.signer||!task.artwork||!task.payoutVersion||task.signer.pubkey!==challenge.binding.brandPubkey||task.signer.version!==profile.signerVersion||
     task.artwork.version!==profile.artworkVersion||task.artwork.revisionId!==profile.revisionId||task.artwork.avatar!==profile.picture||task.artwork.banner!==profile.banner||
-    task.payoutVersion!==profile.payoutVersion)throw new Error("City signer, payout or artwork changed. Cancel this request and prepare a new one.");
+    !allowPayoutChange&&task.payoutVersion!==profile.payoutVersion)throw new Error("City signer, payout or artwork changed. Cancel this request and prepare a new one.");
 }
 export async function reviewBrandRequest(requestId: string, actor: string): Promise<EventTemplate> {
   const {store, resolved} = await brandReviewEvidence(requestId, actor); return store.reviewStored(requestId, actor, resolved.authority);
@@ -263,7 +263,7 @@ export async function clearProSetupSigner(cityId: string, actor: string) {
 
 export async function saveProSetupPayout(cityId: string, actor: string, destination: string, event: Event) {
   const before = await resolveProSetupAuthority(cityId, actor);
-  const blockedDomains = (process.env.BITCOINWALK_PAYOUT_BLOCKED_DOMAINS ?? "").split(",").map(value => value.trim()).filter(Boolean);
+  const blockedDomains = ["bitcoinwalk.org",...(process.env.BITCOINWALK_PAYOUT_BLOCKED_DOMAINS ?? "").split(",").map(value => value.trim()).filter(Boolean)];
   const validated = await validatePayoutDestination(destination, {blockedDomains});
   const after = await resolveProSetupAuthority(cityId, actor);
   if (JSON.stringify(before.authority) !== JSON.stringify(after.authority)) throw new Error("City authority changed during payout validation. Reload and confirm again.");
@@ -278,7 +278,7 @@ export async function saveProSetupPayout(cityId: string, actor: string, destinat
  * Requires a published signed binding and repeats live checks on every call.
  * Calling this does not create invoices or make provisioning publicly active. */
 export async function resolveRustressProvisionEvidence(requestId: string) {
-  const before = await brandReviewEvidence(requestId, SUPER_ADMIN_PUBKEY);
+  const before = await brandReviewEvidence(requestId, SUPER_ADMIN_PUBKEY, true);
   const {authority} = before.resolved;
   const approved = before.store.approvedForPublication(requestId, SUPER_ADMIN_PUBKEY, authority);
   if (approved.row.status !== "active") throw new Error("City identity must be active before provisioning.");
@@ -292,12 +292,15 @@ export async function resolveRustressProvisionEvidence(requestId: string) {
   }
   const destinations = new PayoutDestinationStore(getPaymentRuntime().store.db);
   const payout = destinations.current(authority.cityId);
-  if (!payout || payout.ownerPubkey !== authority.ownerPubkey || payout.version !== before.request.challenge.profile.payoutVersion)
+  // The published binding establishes the city identity, not an immutable
+  // payout destination. Before initial provisioning, accept the freshest
+  // owner-signed destination and bind its version into the provider evidence.
+  if (!payout || payout.ownerPubkey !== authority.ownerPubkey)
     throw new Error("Current owner payout confirmation is required.");
   const validated = await validatePayoutDestination(payout.normalized, {blockedDomains: ["bitcoinwalk.org",
     ...(process.env.BITCOINWALK_PAYOUT_BLOCKED_DOMAINS ?? "").split(",").map(value => value.trim()).filter(Boolean)]});
   if (validated.normalized !== payout.normalized) throw new Error("Payout destination changed.");
-  const after = await brandReviewEvidence(requestId, SUPER_ADMIN_PUBKEY);
+  const after = await brandReviewEvidence(requestId, SUPER_ADMIN_PUBKEY, true);
   const confirmed = after.store.approvedForPublication(requestId, SUPER_ADMIN_PUBKEY, after.resolved.authority);
   if (JSON.stringify(authority) !== JSON.stringify(after.resolved.authority) || confirmed.event.id !== approved.event.id ||
       confirmed.row.status !== "active" || JSON.stringify(destinations.current(authority.cityId)) !== JSON.stringify(payout))
