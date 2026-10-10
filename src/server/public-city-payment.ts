@@ -38,9 +38,8 @@ export async function resolvePublicCityPayment(cityId: string, citySlug: string,
   try {
     const source = deps ?? dependencies();
     const row = source.activation(cityId);
-    if (row) {
-      if (row.phase !== "active" || row.lnurl !== "active" || host.state !== "brand")
-        return {kind: "unavailable"};
+    if (row?.phase === "active" && row.lnurl === "active") {
+      if (host.state !== "brand") return {kind:"unavailable"};
       const config = managedProvisionConfigSchema.parse(JSON.parse(row.activation_config));
       if (config.cityId !== cityId || config.brandPubkey !== host.pubkey || config.invoiceIssuance !== "enabled")
         return {kind: "unavailable"};
@@ -49,9 +48,10 @@ export async function resolvePublicCityPayment(cityId: string, citySlug: string,
       // records are migrated or compacted.
       return {kind: "zap", href: `lightning:${config.localPart}@${config.domain}`};
     }
-    // Existing Pro cities can predate the local activation ledger. Their
-    // super-admin-approved brand binding establishes the tier; independently
-    // validate the canonical public endpoint before presenting a recipient.
+    // Existing Pro cities can predate the local activation ledger or retain a
+    // stale staging acceptance row after its temporary serving window closes.
+    // Their super-admin-approved brand binding establishes the tier;
+    // independently validate the canonical endpoint before presenting it.
     if (host.state === "brand") {
       const address = await source.verifyPublicAddress(citySlug);
       return address ? {kind:"zap",href:`lightning:${address}`} : {kind:"unavailable"};
