@@ -59,6 +59,8 @@ export class CityBrandStore {
     .map(row => ({...row, challenge: JSON.parse(row.challenge) as CityBrandChallenge}));}
   reviewQueue(limit=100){this.expire();return (this.db.prepare("SELECT * FROM city_brand_request WHERE status IN ('pending','approved') ORDER BY expires_at LIMIT ?").all(limit) as RequestRow[])
     .map(row=>({...row,challenge:JSON.parse(row.challenge) as CityBrandChallenge}));}
+  completed(limit=20){return (this.db.prepare("SELECT * FROM city_brand_request WHERE status='active' ORDER BY rowid DESC LIMIT ?").all(limit) as RequestRow[])
+    .map(row=>({...row,challenge:JSON.parse(row.challenge) as CityBrandChallenge}));}
   pendingForCity(cityId:string){this.expire();const row=this.db.prepare("SELECT * FROM city_brand_request WHERE city_id=? AND status='pending'").get(cityId) as RequestRow|undefined;return row?{...row,challenge:JSON.parse(row.challenge) as CityBrandChallenge}:null;}
   submitProofs(id: string, actor: string, authority: CityBrandAuthority, ownerProof: Event, brandProof: Event) {
     const row = this.request(id);

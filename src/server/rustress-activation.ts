@@ -34,7 +34,9 @@ function runtime(){
   const activationEnabled=process.env.BITCOINWALK_RUSTRESS_ACTIVATION_ENABLED==="1";
   if(madeiraBridge&&(!allow.has(MADEIRA_PILOT.cityId)||allow.size!==1))throw new Error("Managed Madeira pilot requires its exact city allow-list.");
   if(madeiraBridge&&activationEnabled&&madeiraMode!=="activation-v1")throw new Error("Managed Madeira public activation requires its separate activation mode.");
-  const providerTransport=madeiraBridge?loopbackApiTransport(options.origin,options.domain):fetch;
+  // Every managed origin is loopback-only. Preserve the reviewed virtual host
+  // for both the Madeira bridge and generic allow-listed city provisioning.
+  const providerTransport=loopbackApiTransport(options.origin,options.domain);
   const db=getPaymentRuntime().store.db,reservationProvider=new RustressProvisioner(options,providerTransport),activationProvider=new RustressActivator(options,providerTransport);
   const resolveRegular=async(request:string)=>{
     const row=db.prepare("SELECT city_id FROM city_brand_request WHERE id=? AND status='active'").get(request) as {city_id:string}|undefined;
