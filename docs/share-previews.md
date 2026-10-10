@@ -1,6 +1,6 @@
 # BW-15: link previews
 
-## Paid sponsor self-service artwork: 0.3.255
+## Paid sponsor self-service artwork: 0.3.256
 
 After Lightning settlement and Nostr identity association, the exact paid
 sponsor can upload artwork against the recovered order and city. The server
