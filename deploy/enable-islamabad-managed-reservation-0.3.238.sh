@@ -3,7 +3,7 @@
 set -eu
 
 test "$(id -un)" = bitcoinwalk
-release=/opt/bitcoinwalk-app-staging/releases/0.3.237-9b09a156c0e3
+release=/opt/bitcoinwalk-app-staging/releases/0.3.238-43dee1c95ab1
 current=$(readlink -f /opt/bitcoinwalk-app-staging/current)
 test "$current" = "$release"
 
@@ -42,7 +42,7 @@ systemctl --user restart bitcoinwalk-app-staging.service
 
 i=0
 while test "$i" -lt 30; do
-  if curl -fsS --max-time 2 http://127.0.0.1:3338/api/healthz | grep -Fq 'app-staging-0.3.237'; then break; fi
+  if curl -fsS --max-time 2 http://127.0.0.1:3338/api/healthz | grep -Fq 'app-staging-0.3.238'; then break; fi
   i=$((i+1)); sleep 1
 done
 test "$i" -lt 30
