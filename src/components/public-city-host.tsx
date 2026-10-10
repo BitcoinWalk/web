@@ -4,11 +4,11 @@ import type {PublicCityPaymentAction} from "../domain/public-city-payment";
 import WalkHost from "./walk-host";
 import styles from "./walk-host.module.css";
 
-export default async function PublicCityHost({cityId, cityName, personalPubkey}: {
-  cityId: string; cityName: string; personalPubkey?: string;
+export default async function PublicCityHost({cityId, cityName, citySlug, personalPubkey}: {
+  cityId: string; cityName: string; citySlug: string; personalPubkey?: string;
 }) {
   const host = await resolvePublicCityHost(cityId, cityName, personalPubkey);
-  return <CityHostPanel host={host} payment={resolvePublicCityPayment(cityId, host)}/>;
+  return <CityHostPanel host={host} payment={await resolvePublicCityPayment(cityId,citySlug,host)}/>;
 }
 
 export function CityHostPanel({host,payment}: {host: HostPresentation;payment:PublicCityPaymentAction}) {

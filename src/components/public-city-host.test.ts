@@ -30,7 +30,7 @@ describe("shared public host presentation", () => {
   });
   it("uses the same resolver for a city with no upcoming event", async () => {
     vi.mocked(resolvePublicCityHost).mockResolvedValue({state: "brand", pubkey: "3".repeat(64), name: "BitcoinWalk in London"});
-    const panel = await PublicCityHost({cityId: "city", cityName: "London"});
+    const panel = await PublicCityHost({cityId: "city", cityName: "London",citySlug:"london"});
     expect(resolvePublicCityHost).toHaveBeenCalledWith("city", "London", undefined);
     expect(renderToStaticMarkup(panel)).toContain("BitcoinWalk in London");
   });
