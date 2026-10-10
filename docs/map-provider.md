@@ -21,6 +21,12 @@ manual-coordinate fallback is always available below the map, and a provider
 error message appears after repeated vector-rendering failures. This lets an
 organizer continue without guessing against a blank map.
 
+WebGL2 is an optional enhancement, not a registration requirement. Browsers
+that disable or block WebGL2 skip MapLibre before construction, keep city
+autocomplete available, preserve selected coordinates and automatically open
+the manual latitude/longitude controls. Synchronous renderer failures take the
+same path instead of reaching the application error boundary.
+
 Acceptance:
 
 1. Search for Piaseczno and select the first result.

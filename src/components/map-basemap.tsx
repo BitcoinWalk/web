@@ -5,6 +5,7 @@ import { useMap } from "react-leaflet";
 import { maplibreGL } from "@maplibre/maplibre-gl-leaflet";
 import { setWorkerUrl } from "maplibre-gl";
 import { MAP_ATTRIBUTION, MAP_STYLE_URL } from "../lib/map-config";
+import {webGL2Available} from "../lib/webgl";
 
 setWorkerUrl("/maplibre/maplibre-gl-worker.mjs");
 
@@ -15,8 +16,10 @@ export default function MapBasemap({ onUnavailable }: { onUnavailable?: () => vo
   useEffect(() => { unavailable.current = onUnavailable; }, [onUnavailable]);
 
   useEffect(() => {
-    const layer = maplibreGL({ style: MAP_STYLE_URL, attributionControl: false }).addTo(map);
-    const vectorMap = layer.getMaplibreMap();
+    if(!webGL2Available()){unavailable.current?.();return;}
+    let layer:ReturnType<typeof maplibreGL>;
+    try{layer=maplibreGL({ style: MAP_STYLE_URL, attributionControl: false }).addTo(map);}catch{unavailable.current?.();return;}
+    const vectorMap=layer.getMaplibreMap();
     let consecutiveErrors = 0;
     const handleLoad = () => { consecutiveErrors = 0; };
     const handleError = () => {
@@ -31,7 +34,7 @@ export default function MapBasemap({ onUnavailable }: { onUnavailable?: () => vo
       vectorMap.off("load", handleLoad);
       vectorMap.off("error", handleError);
       map.attributionControl.removeAttribution(MAP_ATTRIBUTION);
-      map.removeLayer(layer);
+      if(map.hasLayer(layer))map.removeLayer(layer);
     };
   }, [map]);
 

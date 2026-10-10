@@ -19,7 +19,7 @@ const meetingPin = new Icon({
 export type LocationValue = { description: string; latitude: number; longitude: number };
 type SearchResult = { name: string; cityName: string; latitude: number; longitude: number };
 
-function ManualCoordinates({ cityName, value, onChange }: { cityName: string; value: LocationValue | null; onChange: (value: LocationValue) => void }) {
+function ManualCoordinates({ cityName, value, onChange, open=false }: { cityName: string; value: LocationValue | null; onChange: (value: LocationValue) => void; open?:boolean }) {
   const [latitude, setLatitude] = useState(value ? String(value.latitude) : "");
   const [longitude, setLongitude] = useState(value ? String(value.longitude) : "");
   const [message, setMessage] = useState("");
@@ -35,7 +35,7 @@ function ManualCoordinates({ cityName, value, onChange }: { cityName: string; va
     setMessage("Coordinates applied.");
   }
 
-  return <details className="coordinate-fallback">
+  return <details className="coordinate-fallback" open={open}>
     <summary>Map not loading? Enter coordinates manually</summary>
     <div className="coordinate-fallback__fields">
       <label>Latitude<input inputMode="decimal" value={latitude} onChange={event => setLatitude(event.target.value)} placeholder="51.123456" /></label>
@@ -132,8 +132,8 @@ export default function LocationPicker({
       </ul>}
       </div>
       {!cityLocked&&<p className={styles.status} role="status">{isSearching?"Searching cities…":searchMessage}</p>}
-      <p>{cityLocked ? "Click the map or drag the pin to move the meeting point. The city and its URL stay unchanged." : isSearching ? "Finding cities…" : "Select a city, then click the map or drag the pin to place the meeting point precisely."}</p>
-      <div className="map">
+      <p>{mapUnavailable?"Interactive map unavailable. Search for the city to set its coordinates, then adjust them manually if needed.":cityLocked ? "Click the map or drag the pin to move the meeting point. The city and its URL stay unchanged." : isSearching ? "Finding cities…" : "Select a city, then click the map or drag the pin to place the meeting point precisely."}</p>
+      {!mapUnavailable&&<div className="map">
         <MapContainer center={viewTarget.center} zoom={viewTarget.zoom} minZoom={1} className="map" scrollWheelZoom>
           <MapBasemap onUnavailable={() => setMapUnavailable(true)} />
           <Recenter target={viewTarget} />
@@ -143,9 +143,9 @@ export default function LocationPicker({
           } }} />}
           <MapClickHandler onPick={placePin} />
         </MapContainer>
-      </div>
-      {mapUnavailable && <p role="alert">The map background could not load. Your selected coordinates are still available, and you can enter them manually below.</p>}
-      <ManualCoordinates key={value ? `${value.latitude}:${value.longitude}` : "empty"} cityName={cityName} value={value} onChange={onChange} />
+      </div>}
+      {mapUnavailable && <p role="status">Your selected coordinates are preserved. WebGL2 is optional; continue with city search and the coordinate fields below.</p>}
+      <ManualCoordinates key={value ? `${value.latitude}:${value.longitude}` : "empty"} cityName={cityName} value={value} onChange={onChange} open={mapUnavailable}/>
       {value && <p>Pin: {value.latitude.toFixed(6)}, {value.longitude.toFixed(6)}</p>}
     </section>
   );
