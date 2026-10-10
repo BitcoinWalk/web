@@ -17,8 +17,9 @@ const dependencies = (): PaymentDependencies => {
       {phase: string; lnurl: string; activation_config: string} | undefined,
     verifyPublicAddress: async localPart => {
       if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(localPart)) return undefined;
-      const origin = new URL(process.env.BITCOINWALK_PUBLIC_ORIGIN?.trim() || "https://bitcoinwalk.org");
-      if (origin.protocol !== "https:") return undefined;
+      // City NIP-05 and Lightning identities belong to the product identity
+      // domain, not whichever staging/production hostname renders this page.
+      const origin = new URL("https://bitcoinwalk.org");
       const response = await fetch(`${origin.origin}/.well-known/lnurlp/${localPart}`, {next:{revalidate:300},signal:AbortSignal.timeout(8_000)});
       if (!response.ok) return undefined;
       const body = await response.json() as {tag?:unknown;callback?:unknown;minSendable?:unknown;maxSendable?:unknown};
