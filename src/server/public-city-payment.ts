@@ -6,6 +6,7 @@ import {getPaymentRuntime} from "../payments/runtime";
 type PaymentDependencies = {
   entitled: (cityId: string) => boolean;
   activation: (cityId: string) => {phase: string; lnurl: string; activation_config: string} | undefined;
+  verifyMigratedIdentity: (slug:string,pubkey:string) => Promise<boolean>;
 };
 
 const dependencies = (): PaymentDependencies => {
@@ -14,6 +15,19 @@ const dependencies = (): PaymentDependencies => {
     entitled: cityId => getPaymentRuntime().store.entitled(cityId),
     activation: cityId => db.prepare("SELECT phase,lnurl,activation_config FROM rustress_activation_task WHERE city=?").get(cityId) as
       {phase: string; lnurl: string; activation_config: string} | undefined,
+    verifyMigratedIdentity: async (slug,pubkey) => {
+      if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug) || !/^[0-9a-f]{64}$/.test(pubkey)) return false;
+      try {
+        const [identity,payment]=await Promise.all([
+          fetch(`https://bitcoinwalk.org/.well-known/nostr.json?name=${encodeURIComponent(slug)}`,{next:{revalidate:300},signal:AbortSignal.timeout(8_000)}),
+          fetch(`https://bitcoinwalk.org/.well-known/lnurlp/${encodeURIComponent(slug)}`,{next:{revalidate:300},signal:AbortSignal.timeout(8_000)}),
+        ]);
+        if(!identity.ok||!payment.ok)return false;
+        const nip=await identity.json() as {names?:Record<string,unknown>},ln=await payment.json() as {tag?:unknown;callback?:unknown};
+        const callback=typeof ln.callback==="string"?new URL(ln.callback):null;
+        return nip.names?.[slug]===pubkey&&ln.tag==="payRequest"&&callback?.protocol==="https:"&&callback.hostname==="bitcoinwalk.org";
+      } catch {return false;}
+    },
   };
 };
 
@@ -24,8 +38,7 @@ export async function resolvePublicCityPayment(cityId: string, citySlug: string,
   try {
     const source = deps ?? dependencies();
     const row = source.activation(cityId);
-    if (row?.phase === "active" && row.lnurl === "active") {
-      if (host.state !== "brand") return {kind:"unavailable"};
+    if (row?.phase === "active" && row.lnurl === "active" && host.state === "brand") {
       const parsed = managedProvisionConfigSchema.safeParse(JSON.parse(row.activation_config));
       if (parsed.success) {
         const config=parsed.data;
@@ -43,6 +56,8 @@ export async function resolvePublicCityPayment(cityId: string, citySlug: string,
       if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(citySlug)) return {kind:"unavailable"};
       return {kind:"zap",href:`lightning:${citySlug}@bitcoinwalk.org`};
     }
+    if (row && host.state === "personal" && await source.verifyMigratedIdentity(citySlug,host.pubkey))
+      return {kind:"zap",href:`lightning:${citySlug}@bitcoinwalk.org`};
     if (source.entitled(cityId)) return {kind: "unavailable"};
     return {kind: "donate", href: "lightning:donate@bitcoinwalk.org"};
   } catch {
