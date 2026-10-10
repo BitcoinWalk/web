@@ -177,7 +177,8 @@ export async function cancelBrandRequest(cityId: string, requestId: string, acto
 
 export async function listBrandRequests(actor: string) {
   if (actor !== SUPER_ADMIN_PUBKEY) throw new Error("Super-admin review required.");
-  return brandStore().reviewQueue().map(row => ({requestId: row.id, cityId: row.city_id, expiresAt: row.expires_at,state:row.status as "pending"|"approved",
+  const store=brandStore();
+  return [...store.reviewQueue(),...store.completed()].map(row => ({requestId: row.id, cityId: row.city_id, expiresAt: row.expires_at,state:row.status as "pending"|"approved"|"active",
     brandPubkey: row.challenge.binding.brandPubkey, profile: row.challenge.profile, proofsReady: !!row.owner_proof && !!row.brand_proof}));
 }
 

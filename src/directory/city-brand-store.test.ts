@@ -53,6 +53,7 @@ describe("branded city authority contract and private storage", () => {
     const active=store.activate(request.requestId,admin,authority,[p.signed],["wss://relay.example/"]);
     expect(active).toMatchObject({row:{status:"active"},publication:{event_id:p.signed.id}});
     expect(store.reviewQueue()).toEqual([]);
+    expect(store.completed()).toEqual([expect.objectContaining({id:request.requestId,status:"active"})]);
     expect(store.activate(request.requestId,admin,authority,[p.signed],["wss://relay.example/"])).toMatchObject({row:{status:"active"}});
   });
   it("reuses only an identical unexpired request and expires abandoned requests",()=>{
