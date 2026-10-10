@@ -8,8 +8,10 @@ const hash=(value:string)=>createHash("sha256").update(value).digest("hex");
 export class SponsorService{
  private tail:Promise<unknown>=Promise.resolve();
  constructor(readonly db:DatabaseSync,private wallet:Wallet,private catalog:()=>Promise<SponsorCity[]>,private now=()=>Math.floor(Date.now()/1000)){
-  db.exec(`CREATE TABLE IF NOT EXISTS sponsorship_order(id TEXT PRIMARY KEY,tokenHash TEXT NOT NULL UNIQUE,clientHash TEXT NOT NULL,cityId TEXT NOT NULL,cityName TEXT NOT NULL,count INTEGER NOT NULL,amountMsat INTEGER NOT NULL,walks TEXT NOT NULL,status TEXT NOT NULL,invoice TEXT NOT NULL DEFAULT '',paymentHash TEXT UNIQUE,createdAt INTEGER NOT NULL,expiresAt INTEGER NOT NULL DEFAULT 0,settledAt INTEGER,pubkey TEXT,claimEvent TEXT,checkedAt INTEGER,needsReview INTEGER NOT NULL DEFAULT 0);
+  db.exec(`CREATE TABLE IF NOT EXISTS sponsorship_order(id TEXT PRIMARY KEY,tokenHash TEXT NOT NULL UNIQUE,clientHash TEXT NOT NULL,cityId TEXT NOT NULL,cityName TEXT NOT NULL,count INTEGER NOT NULL,amountMsat INTEGER NOT NULL,walks TEXT NOT NULL,status TEXT NOT NULL,invoice TEXT NOT NULL DEFAULT '',paymentHash TEXT UNIQUE,createdAt INTEGER NOT NULL,expiresAt INTEGER NOT NULL DEFAULT 0,settledAt INTEGER,pubkey TEXT,claimEvent TEXT,logoHash TEXT,checkedAt INTEGER,needsReview INTEGER NOT NULL DEFAULT 0);
   CREATE TABLE IF NOT EXISTS sponsorship_reservation(cityId TEXT NOT NULL,address TEXT NOT NULL,orderId TEXT NOT NULL,PRIMARY KEY(cityId,address));`);
+  const columns=db.prepare("PRAGMA table_info(sponsorship_order)").all() as {name:string}[];
+  if(!columns.some(column=>column.name==="logoHash"))db.exec("ALTER TABLE sponsorship_order ADD COLUMN logoHash TEXT");
  }
  private exclusive<T>(work:()=>Promise<T>):Promise<T>{const next=this.tail.then(work,work);this.tail=next.catch(()=>{});return next;}
  private rows(){return this.db.prepare("SELECT * FROM sponsorship_order ORDER BY createdAt DESC").all() as Row[];}
@@ -35,6 +37,8 @@ export class SponsorService{
  }
  status(id:string,token:string){return this.exclusive(async()=>{const row=this.authorized(id,token);if(!row.checkedAt||row.checkedAt<=this.now()-10)await this.check(row);return this.view(this.authorized(id,token));});}
  claim(id:string,token:string,pubkey:string,event:string){return this.exclusive(async()=>{const row=this.authorized(id,token);if(row.status!=="paid")throw new Error("Payment must be verified first.");if(row.pubkey&&row.pubkey!==pubkey)throw new Error("This order is already associated with another identity.");this.db.prepare("UPDATE sponsorship_order SET pubkey=?,claimEvent=? WHERE id=?").run(pubkey,event,id);return this.view(this.authorized(id,token));});}
+ authorizeArtwork(id:string,token:string,pubkey:string,cityId:string){const row=this.authorized(id,token);if(row.status!=="paid")throw new Error("Payment must be verified first.");if(!row.pubkey||row.pubkey!==pubkey)throw new Error("This sponsorship belongs to another identity.");if(row.cityId!==cityId)throw new Error("This sponsorship belongs to another city.");return this.view(row);}
+ recordLogo(id:string,token:string,pubkey:string,cityId:string,logoHash:string){const row=this.authorizeArtwork(id,token,pubkey,cityId);if(!/^[a-f0-9]{64}$/.test(logoHash))throw new Error("Invalid sponsor logo hash.");this.db.prepare("UPDATE sponsorship_order SET logoHash=? WHERE id=?").run(logoHash,row.id);return this.view(this.authorized(id,token));}
  list(){return this.rows().map(row=>this.view(row));}
  reconcile(){return this.exclusive(async()=>{for(const row of this.rows().filter(r=>r.status==="pending"||r.status==="expired"&&(!r.checkedAt||r.checkedAt<this.now()-86400)).sort((a,b)=>(a.checkedAt??0)-(b.checkedAt??0)).slice(0,20)){try{await this.check(row);}catch{/* Retain evidence and retry next cycle. */}}});}
 }

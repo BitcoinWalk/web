@@ -8,6 +8,7 @@ import {SUPER_ADMIN_NPUB} from "../../domain/city";
 import {SPONSOR_PACKAGES,type SponsorCity,type SponsorOrder} from "../../payments/sponsor-types";
 import {sponsorRequest} from "../../payments/sponsor-auth";
 import {signForOrganizer} from "../../nostr/organizer-identity";
+import PaidSponsorArtwork from "./artwork";
 import styles from "./sponsor.module.css";
 const STORAGE="bitcoinwalk-sponsor-checkout-v1";
 type Saved={token:string;id?:string;cityId:string;count:number;ids:string[]};
@@ -34,7 +35,7 @@ export default function SponsorCheckout({initialCity}:{initialCity:string}){
   {order.status==="expired"&&<><p>This invoice expired. Check payment once more if you already paid, otherwise choose available dates again.</p><button onClick={()=>void refresh()}>Check payment</button><button onClick={reset}>Choose again</button></>}
   {(order.status==="creating"||order.status==="creation-uncertain")&&<p>Your invoice could not be confirmed. Your order is saved; contact BitcoinWalk with order {order.id} before starting another booking.</p>}
   {order.status==="paid"&&!order.pubkey&&<><p role="status"><strong>Payment confirmed. Finish by connecting your Nostr identity.</strong></p><OrganizerIdentity disabled={busy} onIdentityChange={identityChanged} heading="Your sponsor identity" intro="Connect your Nostr identity or create a new one to associate with this payment."/><button disabled={!identity||busy} onClick={()=>void run(async()=>{const event=await signForOrganizer(sponsorRequest("claim",window.location.origin,order.id),identity!);const result=await post({action:"claim",id:order.id,token:saved!.token,event});setOrder(result.order);})}>Finish — associate my identity</button></>}
-  {order.status==="paid"&&order.pubkey&&<><p role="status"><strong>Your sponsorship payment and identity are confirmed.</strong></p><code className={styles.key}>{nip19.npubEncode(order.pubkey)}</code><p>BitcoinWalk will review your sponsor details and artwork for the selected walks.</p><button onClick={reset}>Sponsor more walks</button></>}
+  {order.status==="paid"&&order.pubkey&&<><p role="status"><strong>Your sponsorship payment and identity are confirmed.</strong></p><code className={styles.key}>{nip19.npubEncode(order.pubkey)}</code><PaidSponsorArtwork order={order} token={saved!.token} onUploaded={logoHash=>setOrder(current=>current?{...current,logoHash}:current)}/><button onClick={reset}>Sponsor more walks</button></>}
   {order.needsReview&&<p>Your payment is confirmed, but the selected dates need a BitcoinWalk review. Contact us with your order ID.</p>}
   <p>Order: <code>{order.id}</code></p>{order.paymentHash&&<p className={styles.key}>Payment hash: <code>{order.paymentHash}</code></p>}
   <button type="button" onClick={()=>{const url=URL.createObjectURL(new Blob([JSON.stringify(saved)],{type:"application/json"})),a=document.createElement("a");a.href=url;a.download="bitcoinwalk-sponsor-recovery.json";a.click();URL.revokeObjectURL(url);}}>Save private checkout recovery file</button>

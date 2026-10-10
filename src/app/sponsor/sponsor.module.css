@@ -73,6 +73,18 @@
   text-decoration: underline;
 }
 
+.artwork {
+  margin: 1.5rem 0;
+  padding: 1rem;
+  border: 1px solid #d9dee3;
+  border-radius: .6rem;
+}
+
+.artwork details { margin: 1rem 0; }
+.artwork li + li { margin-top: .35rem; }
+.ogPreview { margin-top: 1rem; }
+.ogPreview img { display: block; width: 100%; height: auto; border-radius: .5rem; }
+
 @media (max-width: 28rem) {
   .package { grid-template-columns: auto minmax(0, 1fr) auto; }
   .badge { grid-column: 2 / -1; justify-self: start; }

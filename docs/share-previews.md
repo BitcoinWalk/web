@@ -1,5 +1,29 @@
 # BW-15: link previews
 
+## Paid sponsor self-service artwork: 0.3.253
+
+After Lightning settlement and Nostr identity association, the exact paid
+sponsor can upload artwork against the recovered order and city. The server
+checks the signed short-lived request, recovery secret, paid state, claimed
+pubkey and city before normalizing or recording the logo hash. A different
+identity, city, order, browser origin or unpaid checkout fails closed.
+
+The sponsor-facing guide calls for a transparent horizontal 4:1 mark: ideally
+1024×256 pixels and at least 640×160 for PNG/WebP. The rendered slot is
+320×80. PNG/WebP may be at most 5 MB; outlined SVG may be at most 512 KB and
+must not contain text, fonts, scripts, styles, embedded images or external
+resources. JPEG and animation remain rejected. The guide also recommends sRGB,
+tight cropping and roughly 5% clear space.
+
+The sponsor can privately build, preview and download the exact 1200×630 JPEG
+composition using the approved city hero, localized BitcoinWalk mark, pinned
+Powered-by artwork and normalized pending logo. The response is hash-verified
+in the browser and is not written to the public OG store. Upload and preview do
+not approve an asset or create an assignment. Public city/walk metadata keeps
+using only the current super-admin-signed assignment and its exact approved
+logo hash, bounded by the walks purchased in that settled order. The admin
+payment directory shows whether a paid order supplied artwork.
+
 ## Package coverage and archive retention: 0.3.174
 
 Deployed non-root on 6 October 2026. Backup/evidence:
