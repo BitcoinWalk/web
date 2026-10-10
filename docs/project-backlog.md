@@ -14,6 +14,12 @@ BW-96's implementation and production deployment are complete, but its final
 human receipt check requires the next real directory transition. The user marked
 the item blocked on 10 October 2026 pending that external event.
 
+## Organizer scheduling reminders — 10 October 2026
+
+| ID | Stage | Item | Status | Depends on | Notes |
+|---|---:|---|---|---|---|
+| BW-112 | 5, 6, 10 | Guide nudges for organizers with no scheduled walks | ⚪ Planned | BW-42, BW-39, BW-38 | Proposed daily cron scan; first private reminder after seven verified idle days, one follow-up fourteen days later, then pause for that idle period. Group cities by current controlling organizer; exclude suspended/disapproved/archived cities, recheck before delivery, reuse durable NIP-17 retry, and support snooze/opt-out. Direct CTA: https://bitcoinwalk.org/admin/walks. No reminders enabled yet. See [communication and implementation plan](guide-idle-organizer-reminders.md). Acceptance includes real DM receipt, complete relay reads, owner changes, scheduling cancellation, restart deduplication and recipient cooldown. |
+
 ## City directory and organizer-owned relay onboarding — 7 October 2026
 
 ### Migrate existing paid (MEP) — 8 October 2026
