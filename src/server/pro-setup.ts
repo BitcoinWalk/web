@@ -19,11 +19,12 @@ import {authorizeCitySignerProof, type ProSetupCommand} from "../nostr/pro-setup
 import {CityBrandStore} from "../directory/city-brand-store";
 import type {EventTemplate} from "nostr-tools";
 import {cityProvisioningCapabilities, type CityProvisioningCapabilities} from "../rustress/provisioning-capabilities";
+import {verifyNip05} from "../nostr/profiles";
 
 /** This preflight cannot publish, create invoices, assign identities or activate payments. */
 export type ProSetupPreview = {
   cityId: string; cityName: string; revisionId: string;
-  profile: {name: string; display_name: string; picture: string; banner: string; website: string};
+  profile: {name: string; display_name: string; picture: string; banner: string; website: string; nip05?: string; lud16?: string};
   status: "preparation-only";
   payout: {configured: boolean; destination?: string; version?: number; suggestedDestination?: string; registrationVersion?: number};
   setup: {state: "setup-required" | "payout-confirmed" | "signer-confirmed" | "ready-for-proof"; updatedAt: number};
@@ -108,6 +109,10 @@ export async function prepareProSetupPreview(cityId: string, actor: string, orig
   const suggestion = registration?.ownerPubkey === fresh.authority.ownerPubkey && registration.revisionId === binding.revisionId ? registration : undefined;
   const pending = brandStore().pendingForCity(cityId);
   const capabilities = cityProvisioningCapabilities(getPaymentRuntime().store.db,cityId);
+  const publicOriginValue=process.env.BITCOINWALK_PUBLIC_ORIGIN?.trim()||"https://bitcoinwalk.org",publicOrigin=new URL(publicOriginValue);
+  if(publicOrigin.protocol!=="https:"||publicOrigin.origin!==publicOriginValue)throw new Error("Canonical public origin is not configured.");
+  const identifier=`${slug}@${publicOrigin.hostname}`;
+  const verifiedNip05=capabilities.nip05==="active"&&!!task.signer&&await verifyNip05(task.signer.pubkey,identifier);
   return {cityId, cityName: city.cityName, revisionId: row.revision.event.id, status: "preparation-only",
     capabilities,
     setup: {state: task.state, updatedAt: task.updatedAt},
@@ -115,7 +120,9 @@ export async function prepareProSetupPreview(cityId: string, actor: string, orig
     ...(pending ? {activation: {requestId: pending.id, expiresAt: pending.expires_at, proofsReady: !!pending.owner_proof && !!pending.brand_proof}} : {}),
     payout: payout ? {configured: true, destination: payout.normalized, version: payout.version} : suggestion ?
       {configured: false, suggestedDestination: suggestion.normalized, registrationVersion: suggestion.version} : {configured: false},
-    profile: {name, display_name: name, picture: artwork.avatar.url, banner: artwork.banner.url, website: `${origin}/${slug}`},
+    profile: {name, display_name: name, picture: artwork.avatar.url, banner: artwork.banner.url, website: `${publicOriginValue}/${slug}`,
+      ...(verifiedNip05 ? {nip05: identifier} : {}),
+      ...(capabilities.lightning === "active" && process.env.BITCOINWALK_RUSTRESS_LNURL_ENABLED === "1" ? {lud16: identifier} : {})},
     steps: [
       {label: "Pro payment and city ownership", state: "ready", detail: "Verified against current approval, ownership, moderation and settled payment records."},
       {label: "City profile artwork", state: "ready", detail: "Prepared from the approved city photo. The avatar uses the larger icon without city lettering."},

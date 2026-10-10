@@ -57,7 +57,7 @@ def read_json(path: pathlib.Path) -> object:
         fail(f"protected JSON is invalid: {path.name}")
 
 
-def inspect_container(release: str) -> None:
+def inspect_container(release: str, service_mode: str) -> None:
     template = "{{index .Config.Labels \"org.bitcoinwalk.version\"}}|{{index .Config.Labels \"org.bitcoinwalk.mode\"}}|{{.HostConfig.NetworkMode}}|{{.State.Status}}"
     try:
         result = subprocess.run(
@@ -68,9 +68,10 @@ def inspect_container(release: str) -> None:
             timeout=15,
         ).stdout.strip()
     except (OSError, subprocess.SubprocessError):
-        fail("disabled payout container could not be inspected")
-    if result != f"{release}|disabled|none|running":
-        fail("payout container is not the expected disabled, isolated release")
+        fail("payout container could not be inspected")
+    network = "none" if service_mode == "disabled" else "host"
+    if result != f"{release}|{service_mode}|{network}|running":
+        fail("payout container does not match the reviewed release and mode")
 
 
 def main() -> None:
@@ -81,7 +82,8 @@ def main() -> None:
         choices=["ledger-and-journal"],
         help="explicit human confirmation that both real encrypted archives passed the offline restore verifier",
     )
-    parser.add_argument("--release", required=True, choices=["0.2.1", "0.2.2", "0.2.3", "0.2.4", "0.2.5", "0.2.6"])
+    parser.add_argument("--release", required=True, choices=["0.2.1", "0.2.2", "0.2.3", "0.2.4", "0.2.5", "0.2.6", "0.2.7", "0.2.8", "0.2.9", "0.2.10", "0.2.11", "0.2.12", "0.2.13", "0.2.14"])
+    parser.add_argument("--service-mode", choices=["disabled", "invoice-only", "operation"], default="disabled")
     args = parser.parse_args()
     if args.restore_rehearsal_verified != "ledger-and-journal":
         fail("both restore rehearsals must be confirmed")
@@ -92,8 +94,8 @@ def main() -> None:
     owner_directory(CONFIG)
     owner_directory(SECRETS)
     protected_file(MODE)
-    if MODE.read_text(encoding="utf-8") != "disabled\n":
-        fail("payout service mode is not disabled")
+    if MODE.read_text(encoding="utf-8") != f"{args.service_mode}\n":
+        fail("payout service mode does not match the reviewed mode")
     if (CONFIG / "activation.json").exists() or (CONFIG / "activation.json").is_symlink():
         fail("an activation grant already exists")
 
@@ -119,12 +121,23 @@ def main() -> None:
     # Only metadata is inspected for the wallet connection. Its secret value is
     # never opened, copied, logged, or placed in the readiness document.
     connection = protected_file(SECRETS / "nwc-uri")
-    inspect_container(args.release)
+    inspect_container(args.release, args.service_mode)
 
     now = int(time.time())
     connection_started_at = int(connection.st_mtime)
     if connection_started_at <= 0 or connection_started_at > now:
         fail("wallet connection installation time is invalid")
+    accepted_prior_spends = read_json(ROOT / "payout-service" / "accepted-prior-spends.json")
+    if not isinstance(accepted_prior_spends, list) or len(accepted_prior_spends) > 16:
+        fail("accepted prior spend evidence is invalid")
+    required_spend = {"paymentHash", "amountMsat", "feeMsat", "createdAt", "settledAt"}
+    for spend in accepted_prior_spends:
+        if not isinstance(spend, dict) or set(spend) != required_spend or not HEX64.fullmatch(str(spend["paymentHash"])):
+            fail("accepted prior spend evidence is invalid")
+        if not all(isinstance(spend[name], str) and spend[name].isdigit() for name in ("amountMsat", "feeMsat")):
+            fail("accepted prior spend evidence is invalid")
+        if not all(isinstance(spend[name], int) and spend[name] > 0 for name in ("createdAt", "settledAt")):
+            fail("accepted prior spend evidence is invalid")
     evidence = {
         "contract": "bitcoinwalk-payout-host-evidence-v1",
         "release": args.release,
@@ -158,6 +171,7 @@ def main() -> None:
         "hubVersion": "1.24.0",
         "backend": "ldk",
         "feePolicy": "ldk-native-v1",
+        "acceptedPriorSpends": accepted_prior_spends,
     }
 
     target = CONFIG / "host-evidence.json"

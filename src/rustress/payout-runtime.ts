@@ -30,16 +30,19 @@ export type PayoutRuntimeDependencies={
  notifications?:(wallet:string)=>Pick<PrivateNwcPaymentNotifications,"start">;
  hubSafety?:()=>Promise<NativeHubSafetyEvidence>;
 };
+export type PayoutReadinessGate="deployment"|"wallet-evidence"|"wallet-connection"|"hub-safety"|"history-recovery"|"notification-stream";
 
 /** Server-only composition. No listeners, timer, automatic activation or journal
  * operator authority. All public operations serialize; pause invalidates work
  * in flight but cannot cancel a payment already published to the wallet. */
 export class PayoutRuntime {
- #busy=false;#generation=0;#ready=false;
+  #busy=false;#generation=0;#ready=false;
+  #blockedAt:PayoutReadinessGate|null=null;
  #flow?:PayoutFlow;#recovery?:RemoteJournalRecovery;#collector?:SettlementCollector;
  #notifications?:PaymentNotificationHandle;
  #deployment?:PayoutDeploymentEvidence;
  constructor(private deps:PayoutRuntimeDependencies,private enabled:()=>boolean=()=>false,private now=()=>Math.floor(Date.now()/1000)){}
+ get blockedAt(){return this.#blockedAt;}
  pause(){this.#generation++;this.#ready=false;this.#recovery?.pause();this.#notifications?.close();this.#notifications=undefined;}
  private active(){
   const d=this.#deployment,time=this.now();
@@ -51,15 +54,19 @@ export class PayoutRuntime {
   if(!this.enabled()||this.#busy)return {state:"paused" as const};
   this.#busy=true;this.pause();const generation=this.#generation;
   try{
+   this.#blockedAt="deployment";
    const d=deploymentSchema.parse(await this.deps.deployment());this.#deployment=d;
    if(!this.active()||generation!==this.#generation)throw new Error();
+   this.#blockedAt="wallet-evidence";
    const e=await this.deps.evidence();
    if(e.binding!==this.deps.policy.binding||assessRustressWallet(e.readiness,this.now()).state!=="ready-for-authorized-test")throw new Error();
    if(!this.active()||generation!==this.#generation)throw new Error();
+   this.#blockedAt="wallet-connection";
    const c=await this.deps.credentials();
    if(!this.active()||generation!==this.#generation)throw new Error();
    const reader=new RustressNwcReader(this.deps.walletRef,c.wallet,c.checkout);
    if(reader.binding!==this.deps.policy.binding)throw new Error();
+   this.#blockedAt="hub-safety";
    const info=await reader.getInfo(),native=this.deps.hubSafety?await this.deps.hubSafety():undefined;
    requireRuntimeHubSafety(info,native,{binding:reader.binding,budgetMsat:this.deps.policy.budgetMsat},this.now());
    if(!this.active()||generation!==this.#generation)throw new Error();
@@ -69,13 +76,16 @@ export class PayoutRuntime {
    const history=createRecoveryHistory(reader,this.deps.coverage,this.now);
    const recovery=new RemoteJournalRecovery(client,this.deps.ledger,this.deps.walletRef,history,hash=>wallet.lookup(hash),()=>this.active()&&generation===this.#generation);
    this.#recovery=recovery;
+   this.#blockedAt="history-recovery";
    if((await recovery.reconcile()).state!=="reconciled"||!this.active()||generation!==this.#generation)throw new Error();
    this.#flow=new PayoutFlow(this.deps.ledger,{wallet,reader,evidence:this.deps.evidence,fetchJson:this.deps.fetchJson,recovery},this.deps.policy,this.now);
    this.#collector=new SettlementCollector(this.#flow,()=>this.ready&&generation===this.#generation);
    this.#ready=true;
+   this.#blockedAt="notification-stream";
    const source=(this.deps.notifications??(value=>new PrivateNwcPaymentNotifications(value)))(c.wallet);
    this.#notifications=await source.start(hash=>{this.hint(hash);},()=>{this.pause();},()=>this.ready&&generation===this.#generation);
    if(!this.ready||generation!==this.#generation)throw new Error();
+   this.#blockedAt=null;
    return {state:"reconciled" as const};
   }catch{this.pause();return {state:"blocked" as const};}finally{this.#busy=false;}
  }

@@ -1,5 +1,5 @@
 import {beforeEach,describe,expect,it,vi} from "vitest";
-import {verifyPurchasableCity} from "./cities";
+import {verifyGiftableCity,verifyPurchasableCity} from "./cities";
 import {queryDirectoryRecords,queryCityAuthorization} from "../nostr/city-records";
 vi.mock("../nostr/city-records",()=>({queryDirectoryRecords:vi.fn(),queryCityAuthorization:vi.fn()}));
 const id="be8514a4-9df0-4159-a517-71f65761cbbe",owner="a".repeat(64),revision="b".repeat(64);
@@ -18,4 +18,14 @@ describe("city purchase eligibility",()=>{
  it("accepts a reapproved city after an older revocation",async()=>{seed({...records(),approvals:[{event:{id:"c".repeat(64),created_at:2},approval:{cityId:id,cityRevisionId:revision,status:"revoked"}},{event:{id:"d".repeat(64),created_at:3},approval:{cityId:id,cityRevisionId:revision,status:"approved"}}]});expect(await verifyPurchasableCity([],id,revision)).toMatchObject({revisionId:revision});});
  it("fails closed when the authoritative relay is unavailable",async()=>{vi.mocked(queryDirectoryRecords).mockRejectedValue(new Error("offline"));await expect(verifyPurchasableCity([],id,revision)).rejects.toThrow();});
 });
-
+describe("public gift eligibility",()=>{
+ it("binds an exact approved Basic revision to its durable creator",async()=>{
+  seed({revisions:[{city:{...city,requestedTier:"free"},event:{id:revision,pubkey:owner,created_at:1}}],approvals:[{event:{id:"c".repeat(64),created_at:2},approval:{cityId:id,cityRevisionId:revision,status:"approved",slug:"memphis"}}]});
+  vi.mocked(queryCityAuthorization).mockResolvedValue({grant:{creatorPubkey:owner}} as Awaited<ReturnType<typeof queryCityAuthorization>>);
+  expect(await verifyGiftableCity([],id,revision)).toEqual({cityId:id,cityName:"Memphis",owner,revisionId:revision});
+ });
+ it("rejects a Pro request, stale revision or unverifiable owner",async()=>{
+  seed({revisions:[{city,event:{id:revision,pubkey:owner,created_at:1}}],approvals:[{event:{id:"c".repeat(64),created_at:2},approval:{cityId:id,cityRevisionId:revision,status:"approved",slug:"memphis"}}]});
+  await expect(verifyGiftableCity([],id,revision)).rejects.toThrow();
+ });
+});

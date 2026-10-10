@@ -1,0 +1,3 @@
+import {DatabaseSync} from "node:sqlite";import {installStandaloneAddress} from "../src/rustress/standalone-address-store";
+const [databasePath]=process.argv.slice(2);if(!databasePath)throw new Error("Usage: install-standalone-addresses <database>");const db=new DatabaseSync(databasePath);
+try{const base={version:1,domain:"bitcoinwalk.org",walletRef:"bitcoinwalk-rustress",receivingDestination:"bitcoinwalk@getalby.com",invoiceIssuance:"enabled"};const results=["endo","donate"].map(localPart=>installStandaloneAddress(db,{...base,localPart}));process.stdout.write(JSON.stringify(results.map(result=>({created:result.created,address:result.address,evidenceHash:result.evidenceHash})))+"\n");}finally{db.close();}

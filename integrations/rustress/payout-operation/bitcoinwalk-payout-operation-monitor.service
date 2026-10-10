@@ -1,0 +1,6 @@
+[Unit]
+Description=Verify BitcoinWalk Rustress payout operation state
+
+[Service]
+Type=oneshot
+ExecStart=%h/.local/libexec/bitcoinwalk-rustress-payout-operation/monitor.sh

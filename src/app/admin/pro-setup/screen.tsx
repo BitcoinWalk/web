@@ -67,6 +67,7 @@ function ProSetupForm({enabled, actor, cities}: {enabled: boolean; actor: string
         <Image unoptimized src={preview.profile.banner} alt={`${preview.cityName} profile banner`} width={1500} height={500} style={{width: "100%", maxWidth: 750, height: "auto"}}/>
         <p><Image unoptimized src={preview.profile.picture} alt={`${preview.cityName} BitcoinWalk avatar`} width={128} height={128} style={{borderRadius: "50%"}}/></p>
         <p>Website: <a href={preview.profile.website}>{preview.profile.website}</a></p>
+        {preview.profile.nip05 && <p>NIP-05: <strong>{preview.profile.nip05}</strong></p>}
         <section aria-label="City service status"><h3>City services</h3><p><strong>{preview.capabilities.overall}</strong> — {preview.capabilities.detail}</p>
           <ul><li>NIP-05: <strong>{preview.capabilities.nip05}</strong></li><li>Lightning address: <strong>{preview.capabilities.lightning}</strong></li></ul></section>
         <fieldset disabled={busy}>
@@ -79,7 +80,7 @@ function ProSetupForm({enabled, actor, cities}: {enabled: boolean; actor: string
           {preview.payout.configured && <p>Saved destination version {preview.payout.version}: <strong>{preview.payout.destination}</strong>. Confirming a change creates a new version; existing invoices retain their previous version.</p>}
           <button type="button" onClick={() => void savePayout()} disabled={busy || !destination.trim()}>{busy ? "Validating…" : preview.payout.configured ? "Validate and save new version" : "Validate and save destination"}</button>
         </fieldset>
-        <CitySignerSetup cityId={preview.cityId} cityName={preview.cityName} actor={actor} saved={preview.signer} activation={preview.activation}
+        <CitySignerSetup cityId={preview.cityId} cityName={preview.cityName} actor={actor} saved={preview.signer} activation={preview.activation} profile={preview.profile}
           setupReady={preview.payout.configured&&preview.signer.configured} busy={busy}
           onSaved={(signer, note) => {setPreview(value => value ? {...value, signer} : value); setMessage(note);}}
           onActivation={(activation,note)=>{setPreview(value=>value?{...value,activation}:value);setMessage(note);}}/>

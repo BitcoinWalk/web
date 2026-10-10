@@ -69,6 +69,12 @@ describe("durable disabled-only provisioning workflow",()=>{
     expect((await f.workflow.run(config.cityId))?.state).toBe("queued");expect(f.provider.prepare).not.toHaveBeenCalled();
     expect((await f.workflow.run(config.cityId))?.state).toBe("verified");
   });
+  it("persists already-signed queue evidence but still requires a fresh read before provider access",async()=>{
+    const f=fixture();f.workflow.enqueueEvidence("request",{config,proofHash:"e".repeat(64)});
+    expect(f.resolve).not.toHaveBeenCalled();expect(f.workflow.status(config.cityId)?.state).toBe("queued");
+    f.resolve.mockRejectedValueOnce(new Error("relay unavailable"));expect((await f.workflow.run(config.cityId))?.state).toBe("queued");
+    expect(f.provider.prepare).not.toHaveBeenCalled();expect((await f.workflow.run(config.cityId))?.state).toBe("verified");
+  });
   it("rejects drift and never stores provider errors",async()=>{
     const f=fixture();await f.workflow.enqueue("request");await f.workflow.run(config.cityId);
     f.provider.status.mockRejectedValue(new Error("SECRET"));

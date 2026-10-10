@@ -1,0 +1,10 @@
+[Unit]
+Description=Monitor the signed production payout journal operation
+
+[Timer]
+OnBootSec=1min
+OnUnitActiveSec=1min
+Persistent=true
+
+[Install]
+WantedBy=timers.target

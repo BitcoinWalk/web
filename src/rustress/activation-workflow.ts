@@ -71,12 +71,15 @@ export class ActivationWorkflow {
       value.configHash!==provisionDigest(active))throw new Error("Activation read-back mismatch.");return value;};
     try{
       if(initial.phase==="blocked")return this.status(cityId);
-      await fresh();exactReserved(await this.reservation.status(reserved));await fresh();
-      let phase=this.row(cityId)!.phase;
+      await fresh();let phase=this.row(cityId)!.phase;
       if(["preparing","applying","unknown","verifying","needs-attention","active"].includes(phase)){
         set("unknown");const receipt=exactActive(await this.activation.status(active));await fresh();
         phase=receipt.state==="applied"?"verifying":"prepared";set(phase);
       }
+      // Once the provider has durably advanced to the exact applied v2
+      // configuration, its v1 endpoint is intentionally no longer current.
+      // The initial transition still requires an exact applied v1 read-back.
+      if(phase!=="verifying"){exactReserved(await this.reservation.status(reserved));await fresh();}
       if(phase==="queued"){
         set("preparing");exactActive(await this.activation.prepare(active));const receipt=exactActive(await this.activation.status(active));await fresh();
         phase=receipt.state==="applied"?"verifying":"prepared";set(phase);

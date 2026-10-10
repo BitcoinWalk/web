@@ -75,6 +75,8 @@ describe("private Madeira existing-account rehearsal",()=>{
     expect(()=>authorizeMadeiraRequest(finalizeEvent(madeiraRequest({action:"admin"},1000),owner),1000)).toThrow("role");
     expect(()=>authorizeMadeiraRequest(finalizeEvent(madeiraRequest({action:"owner"},1000),admin),1000)).toThrow("role");
     expect(()=>authorizeMadeiraRequest(finalizeEvent(madeiraRequest({action:"managed-admin"},1000),owner),1000)).toThrow("role");
+    expect(()=>authorizeMadeiraRequest(finalizeEvent(madeiraRequest({action:"activation-admin"},1000),owner),1000)).toThrow("role");
+    expect(()=>authorizeMadeiraRequest(finalizeEvent(madeiraRequest({action:"activation-owner"},1000),admin),1000)).toThrow("role");
     expect(()=>authorizeMadeiraRequest(finalizeEvent(madeiraRequest({action:"load"},1000),new Uint8Array(32).fill(3)),1000)).toThrow();
     const template=madeiraRequest({action:"load"},1000);template.tags[0][1]="https://bitcoinwalk.org/api/madeira-pilot";
     expect(()=>authorizeMadeiraRequest(finalizeEvent(template,owner),1000)).toThrow();

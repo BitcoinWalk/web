@@ -17,8 +17,14 @@ describe("Madeira managed reservation grant",()=>{
   const op=finalizeEvent(madeiraManagedProofTemplate(view.challenge,"owner"),owner),ap=finalizeEvent(madeiraManagedProofTemplate(view.challenge,"admin"),admin);
   await expect(f.store.accept("admin",ap)).rejects.toThrow("confirm");await f.store.accept("owner",op);await f.store.accept("admin",ap);
   const evidence=await f.store.evidence(view.challenge.requestId);expect(evidence.config).toMatchObject({cityId:MADEIRA_PILOT.cityId,brandPubkey:getPublicKey(owner),walletRef:"bitcoinwalk-rustress",invoiceIssuance:"disabled",brandEventId:ap.id});
+  expect(f.store.storedEvidence(view.challenge.requestId)).toEqual(evidence);
   expect(f.db.prepare("SELECT COUNT(*) n FROM paid_city_entitlement").get()).toEqual({n:0});expect(f.db.prepare("SELECT status FROM payment_invoice").get()).toEqual({status:"pending"});
   f.advance();expect(await f.store.evidence(view.challenge.requestId)).toEqual(evidence);
+ });
+ it("retains queue-only signed evidence while live reconstruction is temporarily unavailable",async()=>{const f=fixture(),view=(await f.store.prepare())!;
+  await f.store.accept("owner",finalizeEvent(madeiraManagedProofTemplate(view.challenge,"owner"),owner));await f.store.accept("admin",finalizeEvent(madeiraManagedProofTemplate(view.challenge,"admin"),admin));
+  const saved=f.store.storedEvidence(view.challenge.requestId);f.read.mockRejectedValue(new Error("relay unavailable"));
+  expect(f.store.storedEvidence(view.challenge.requestId)).toEqual(saved);await expect(f.store.evidence(view.challenge.requestId)).rejects.toThrow("relay unavailable");
  });
  it("rejects changed evidence and changed provider revisions",async()=>{const f=fixture(),view=(await f.store.prepare())!;await f.store.accept("owner",finalizeEvent(madeiraManagedProofTemplate(view.challenge,"owner"),owner));
   f.snapshot.payoutVersion=2;await expect(f.store.accept("admin",finalizeEvent(madeiraManagedProofTemplate(view.challenge,"admin"),admin))).rejects.toThrow("changed");

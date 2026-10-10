@@ -29,11 +29,11 @@ function fixture(on=true){
  let enabled=on,now=1800000000;
  const db=new DatabaseSync(":memory:");dbs.push(db);
  const deps:PayoutRuntimeDependencies={ledger:new PayoutLedger(db),walletRef:"fixture",network:"bc",
-  policy:{binding:mock.binding,budgetMsat:"1000000",maximumPayoutMsat:"100000",maximumFeeMsat:"10000",feePolicy:"ldk-native-v1",expiresAt:now+900},
+  policy:{binding:mock.binding,budgetMsat:"1000000",acceptedPriorSpentMsat:"0",maximumPayoutMsat:"100000",maximumFeeMsat:"10000",feePolicy:"ldk-native-v1",expiresAt:now+900},
   journal:{origin:"http://127.0.0.1:18891",serviceId:mock.serviceId},
   credentials:vi.fn(async()=>({wallet:"synthetic",checkout:"synthetic-other",journalClientToken:"synthetic"})),
   deployment:vi.fn<PayoutRuntimeDependencies["deployment"]>(async()=>({binding:mock.binding,serviceId:mock.serviceId,checkedAt:1800000000,expiresAt:1800000060,privateTransport:true,separateHost:true,backupRestoreVerified:true,exclusiveSender:true})),
-  coverage:vi.fn<PayoutRuntimeDependencies["coverage"]>(async()=>({binding:mock.binding,fenceId:mock.fence,connectionStartedAt:now-100,retainedFrom:now-100,checkedAt:now,expiresAt:now+60,exclusive:true,sendersStopped:true})),
+  coverage:vi.fn<PayoutRuntimeDependencies["coverage"]>(async()=>({binding:mock.binding,fenceId:mock.fence,connectionStartedAt:now-100,retainedFrom:now-100,checkedAt:now,expiresAt:now+60,exclusive:true,sendersStopped:true,acceptedPriorSpends:[]})),
   permit:vi.fn(async()=>null),fetchJson:vi.fn(),
   notifications:()=>({start:mock.notificationStart}),
   evidence:vi.fn<PayoutRuntimeDependencies["evidence"]>(async()=>({binding:mock.binding,readiness:{connectionRef:"fixture",checkoutConnectionRef:"checkout",network:"mainnet",
@@ -61,10 +61,10 @@ describe("default-off payout runtime composition",()=>{
   const f=fixture(),d=await f.deps.deployment();
   if(mode==="binding")d.binding="wrong";if(mode==="service")d.serviceId=randomUUID();if(mode==="expiry")d.expiresAt=f.now;
   vi.mocked(f.deps.deployment).mockResolvedValue(mode==="missing"?{} as typeof d:d);
-  expect(await f.runtime.reconcile()).toEqual({state:"blocked"});expect(f.deps.credentials).not.toHaveBeenCalled();
+  expect(await f.runtime.reconcile()).toEqual({state:"blocked"});expect(f.runtime.blockedAt).toBe("deployment");expect(f.deps.credentials).not.toHaveBeenCalled();
  });
  it("requires history and an active journal, without activating it",async()=>{
-  const f=fixture();mock.status.mockResolvedValue({active:false});expect(await f.runtime.reconcile()).toEqual({state:"blocked"});expect(f.runtime.ready).toBe(false);
+  const f=fixture();mock.status.mockResolvedValue({active:false});expect(await f.runtime.reconcile()).toEqual({state:"blocked"});expect(f.runtime.blockedAt).toBe("history-recovery");expect(f.runtime.ready).toBe(false);
  });
  it.each(["missing","revision","backend","incomplete"])('blocks %s Hub capability on the authenticated wallet connection',async mode=>{
   const safety:{contract:string;candidate_revision:string;upstream_commit:string;backend:string;explicit_fee_ceiling:boolean;
@@ -78,12 +78,12 @@ describe("default-off payout runtime composition",()=>{
   if(mode==="backend")safety.backend="lnd";
   if(mode==="incomplete")safety.unknown_outcome_reservation=false;
   mock.info.mockResolvedValue(value);const f=fixture();
-  expect(await f.runtime.reconcile()).toEqual({state:"blocked"});expect(f.runtime.ready).toBe(false);expect(mock.status).not.toHaveBeenCalled();
+  expect(await f.runtime.reconcile()).toEqual({state:"blocked"});expect(f.runtime.blockedAt).toBe("hub-safety");expect(f.runtime.ready).toBe(false);expect(mock.status).not.toHaveBeenCalled();
  });
  it("accepts only fresh connection-bound inventory for the approved native Hub",async()=>{
   mock.info.mockResolvedValue({network:"mainnet",methods:["get_info","make_invoice","lookup_invoice","list_transactions","pay_invoice"]});const f=fixture();
   f.deps.hubSafety=vi.fn(async()=>({contract:NATIVE_HUB_SAFETY_CONTRACT,binding:mock.binding,checkedAt:f.now,expiresAt:f.now+60,hubVersion:"1.24.0",backend:"ldk",feePolicy:"ldk-native-v1",nonRenewingBudgetMsat:"1000000",exclusiveConnection:true,inventoryVerified:true} as const));
-  expect(await f.runtime.reconcile()).toEqual({state:"reconciled"});
+  expect(await f.runtime.reconcile()).toEqual({state:"reconciled"});expect(f.runtime.blockedAt).toBeNull();
  });
  it.each(["binding","budget","stale"])('blocks invalid native Hub %s evidence',async mode=>{
   mock.info.mockResolvedValue({network:"mainnet",methods:["get_info","make_invoice","lookup_invoice","list_transactions","pay_invoice"]});const f=fixture();

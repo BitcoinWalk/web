@@ -101,6 +101,44 @@ UUID allow-list. `BITCOINWALK_RUSTRESS_ACTIVATION_ENABLED=1` is an additional
 gate required before the immediately following enabled version can be written.
 Payment or Pro selection sets neither flag.
 
+Public identity and payments have independent operator gates.
+`BITCOINWALK_RUSTRESS_NIP05_ENABLED=1` can expose only the applied NIP-05
+mapping, while `BITCOINWALK_RUSTRESS_LNURL_ENABLED=1` controls the Lightning
+address and callback paths. Both still require the exact `activation-v1` pilot
+mode and one applied, internally consistent activation record. The legacy
+activation gate opens both capabilities only for the existing bounded staging
+acceptance window. Production must use the capability-specific gates so NIP-05
+can be published without enabling invoices, split journaling or payouts.
+
+The organization root identifier is a separate resource. `bitcoinwalk.org`
+uses the standard `_@bitcoinwalk.org` NIP-05 mapping to the fixed super-admin
+pubkey. It is stored independently from Rustress city activations and has no
+implicit LNURL, invoice route, payout destination or split configuration.
+
+## Continuous Madeira settlement gate — 10 October 2026
+
+Payout operation is a separate private authority from city provisioning. Release
+`0.2.14` accepts only a super-admin-signed `bitcoinwalk-payout-operation-v1`
+event whose wallet binding, journal, budget, payout ceiling, fee ceiling and
+canonical city list exactly match protected host configuration. The current
+operation policy contains only Madeira. The signature expires within 30 days and
+must be renewed; it never renews the underlying non-renewing wallet budget.
+
+Installation leaves the existing standalone-address service in invoice-only
+mode. Starting operation requires a separately reviewed signature, validates it
+without network access, parks invoice-only as the rollback target, starts the
+restart-safe payout supervisor and installs a persistent expiry timer. Failure,
+expiry and manual closure restore invoice-only. Public city LNURL remains an
+independent gate and must fail closed whenever operation health is not ready.
+
+Production acceptance completed on 10 October 2026. Release `0.2.14` is active
+for Madeira, the independent journal is continuously ready, and a separate
+one-minute watchdog restores invoice-only mode if operation health, its expiry
+timer or the journal becomes invalid. App `0.3.219` exposes the exact Madeira
+NIP-05 and LNURL-pay metadata only through this healthy boundary. The signed
+authority expires at epoch `1794206049`; renewal is an operating procedure and
+does not renew or expand the underlying Alby Hub budget.
+
 The managed runtime requires a mode-0600 token file, the pinned adapter revision,
 the loopback-only managed tunnel origin and exact public origin
 `https://bitcoinwalk.org`. It reconstructs every operation from the active

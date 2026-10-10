@@ -1,7 +1,7 @@
 async function main(){
  const response=await fetch("http://127.0.0.1:8893/v1/status",{signal:AbortSignal.timeout(5000)});
  const body=await response.json() as Record<string,unknown>;
- if(response.status!==200||body.service!=="bitcoinwalk-rustress-payout"||body.version!=="0.2.6"||body.mode!=="disabled"||
+ if(response.status!==200||body.service!=="bitcoinwalk-rustress-payout"||body.version!=="0.2.10"||body.mode!=="disabled"||
   body.payoutsEnabled!==false||body.invoiceIssuanceEnabled!==false||body.credentialLoaded!==false||body.automationRunning!==false||body.networkAccess!==false)throw new Error();
  process.stdout.write("RUSTRESS_PAYOUT_SERVICE_DISABLED\n");
 }

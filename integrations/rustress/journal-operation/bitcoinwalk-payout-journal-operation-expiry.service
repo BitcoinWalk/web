@@ -1,0 +1,6 @@
+[Unit]
+Description=Pause the production payout journal at signed operation expiry
+
+[Service]
+Type=oneshot
+ExecStart=%h/.local/libexec/bitcoinwalk-journal-operation/pause.sh --expired

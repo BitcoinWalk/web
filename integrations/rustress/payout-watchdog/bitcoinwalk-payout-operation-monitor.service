@@ -1,0 +1,6 @@
+[Unit]
+Description=Verify BitcoinWalk Rustress payout operation state and fail closed
+
+[Service]
+Type=oneshot
+ExecStart=%h/.local/libexec/bitcoinwalk-rustress-payout-operation/watchdog.sh

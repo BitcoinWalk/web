@@ -4,7 +4,7 @@ const binding="ab".repeat(32),now=1800000000;
 function fixture(count=0){
  const rows=Array.from({length:count},(_,i)=>({type:"outgoing",payment_hash:i.toString(16).padStart(64,"0"),amount:79000,state:"settled",created_at:now-50,settled_at:now-40,fees_paid:1000}));
  const reader={binding,listRecoveryTransactions:vi.fn(async(offset:number,limit:number)=>({transactions:rows.slice(offset,offset+limit),total_count:rows.length}))};
- const evidence:RecoveryCoverage={binding,fenceId:"00000000-0000-4000-8000-000000000001",connectionStartedAt:now-100,retainedFrom:now-100,checkedAt:now,expiresAt:now+60,exclusive:true,sendersStopped:true};
+ const evidence:RecoveryCoverage={binding,fenceId:"00000000-0000-4000-8000-000000000001",connectionStartedAt:now-100,retainedFrom:now-100,checkedAt:now,expiresAt:now+60,exclusive:true,sendersStopped:true,acceptedPriorSpends:[]};
  const coverage=vi.fn(async()=>evidence),collect=createRecoveryHistory(reader,coverage,()=>now);
  return {reader,coverage,evidence,collect,rows};
 }
@@ -29,6 +29,11 @@ describe("authenticated full-history collector with trusted retention coverage",
  it("does not treat pending or failed outgoing payments as absent",async()=>{
   const f=fixture(2);f.rows[0].state="pending";f.rows[1].state="failed";
   expect((await f.collect()).outgoingHashes).toHaveLength(2);
+ });
+ it("accounts for an exact accepted pre-service spend and rejects changed evidence",async()=>{
+  const f=fixture(1),row=f.rows[0];f.evidence.acceptedPriorSpends=[{paymentHash:row.payment_hash,amountMsat:String(row.amount),feeMsat:String(row.fees_paid),createdAt:row.created_at,settledAt:row.settled_at!}];
+  expect(await f.collect()).toMatchObject({complete:true,outgoingHashes:[],acceptedPriorSpentMsat:"80000"});
+  f.evidence.acceptedPriorSpends[0].feeMsat="1001";expect((await f.collect()).complete).toBe(false);
  });
  it("rejects history changes between scans even with unchanged total",async()=>{
   const f=fixture(1);f.reader.listRecoveryTransactions.mockResolvedValueOnce({transactions:[{...f.rows[0],state:"pending"}],total_count:1});

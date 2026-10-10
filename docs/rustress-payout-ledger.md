@@ -971,6 +971,46 @@ It is installed on `.240` through the non-root account, remains
 live verifier, monitor and ledger-preserving
 `0.2.6` → `0.2.5` → `0.2.6` rehearsal pass. No wallet operation occurred.
 
+## Renewable operation release 0.2.14 — 10 October 2026
+
+BW-102 replaces the one-off 15-minute acceptance authority with a renewable,
+restart-safe operation authority. The private super-admin signature binds release
+`0.2.14`, the exact wallet binding, independent journal identity, non-renewing
+budget, maximum payout, maximum fee and a canonical city UUID allow-list. The
+first release permits Madeira only. It contains no credential, cannot change a
+destination or wallet, cannot renew the Alby Hub budget and is never published
+to Nostr. Its maximum lifetime is 30 days.
+
+The payout authority store enforces the same allow-list at registration, invoice
+resolution and payout resolution. A signed operation for Madeira therefore
+cannot service another city even if an unrelated authority record is present in
+the database. Expired, altered, non-canonical, extra-tagged and wrong-release
+authorities fail before credentials or network access are used.
+
+The `0.2.12` invoice-only baseline was deployed without activating city payouts.
+Its generic health wording still said `armed`, although its city issuer and intake
+were disabled. It is superseded rather than mutated in place. The `0.2.14`
+lifecycle upgrades that invoice-only container without opening city payments. A separately saved `operation.next.json` is
+preflighted in a networkless container. Starting or renewing operation parks the
+known-good invoice-only container, starts the allow-listed operation with
+restart recovery, and installs a persistent systemd expiry timer. Expiry, manual
+closure or any startup/readiness failure restores invoice-only mode. A five-minute
+monitor verifies the exact container mode, expiry timer and authenticated active
+health. Renewal reuses the same path and fails closed to invoice-only rather than
+continuing under ambiguous authority.
+
+The package builds reproducibly and passes policy checks. Release `0.2.14` is
+installed non-root and active under the exact signed Madeira-only authority.
+The long-delay expiry scheduler is chunked below the Node timer ceiling, restart
+recovery passes, and the independent journal is continuously ready under the
+same authority. A separate one-minute watchdog restores the parked invoice-only
+service if the operation, expiry timer or journal becomes unhealthy. App
+`0.3.219` exposes the production Madeira NIP-05 and LNURL-pay endpoint only while
+that health boundary is ready. The authority expires at epoch `1794206049` and
+must be renewed before expiry; renewal cannot expand the non-renewing wallet
+budget. One deliberately unpaid 1-sat acceptance invoice is pending and no
+payout was created.
+
 ## Deliberate boundaries / next slice
 
 The ledger is an internal accounting primitive, not proof that a payment happened.
@@ -979,11 +1019,10 @@ it must never forward browser JSON or an unverified notification directly to set
 
 Before runtime integration, implement and test:
 
-1. Keep the deployed payout container network-isolated and the production journal
-   paused until an explicit, short-lived activation grant is reviewed and signed.
-   The real encrypted restore rehearsal has passed, but that evidence does not
-   itself authorize activation. Add reviewed IPv6 or cross-origin recipient
-   support only if required.
+1. Keep every future city LNURL gate closed until the exact renewable operation
+   authority is signed, the operation service is ready and restart/expiry recovery
+   is verified. The real encrypted restore rehearsal does not itself authorize
+   operation. Add reviewed IPv6 or cross-origin recipient support only if required.
 2. Independently review the deployed private candidates and confirm fixture,
    checkout and legacy Rustress paths remain unchanged. The coordinated issuer
    credential rotate/restart/rollback/finalize rehearsal now passes.
@@ -992,9 +1031,9 @@ Before runtime integration, implement and test:
 4. Renew the installed host evidence only from the same protected inventory and
    after rechecking backup/monitor health. Never guess complete-history coverage
    or replace a SQLite file under an open connection.
-5. Run BW-102 acceptance under one short signed window, then revoke/expire it and
-   review aggregate ledger/journal results before considering sustained service.
-   Keep checkout's receive-only connection unchanged.
+5. Renew the `0.2.14` operation authority before expiry, review aggregate
+   ledger/journal state, preserve the fail-closed invoice-only target and keep
+   checkout's receive-only connection unchanged.
 
 Tests cover duplicate settlement, immutable snapshots, large integer arithmetic,
 fractional carry-forward, recipient limits, cross-city/wallet/version isolation,

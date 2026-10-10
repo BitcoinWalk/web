@@ -1,0 +1,6 @@
+[Unit]
+Description=Fail closed when the signed production payout journal operation is unhealthy
+
+[Service]
+Type=oneshot
+ExecStart=%h/.local/libexec/bitcoinwalk-journal-operation/monitor.sh

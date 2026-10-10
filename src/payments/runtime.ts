@@ -2,7 +2,7 @@ import {mkdirSync} from "node:fs";
 import {dirname} from "node:path";
 import {PaymentService,PaymentStore} from "./service";
 import {NwcWallet} from "./nwc";
-import {verifyPurchasableCity} from "./cities";
+import {verifyGiftableCity,verifyPurchasableCity} from "./cities";
 import {SponsorService} from "./sponsor-service";
 import {sponsorshipCatalog} from "./sponsor-catalog";
 import {isApprovedPaymentDatabase} from "../lib/app-storage";
@@ -30,7 +30,8 @@ export function getPaymentRuntime():PaymentRuntime{
  if(process.env.NODE_ENV==="production"&&!isApprovedPaymentDatabase(database))throw new Error("Application database must be inside an approved app state directory");
  mkdirSync(dirname(database),{recursive:true,mode:0o700});
  const store=new PaymentStore(database);
- const wallet=new NwcWallet(required("BITCOINWALK_NWC_URL")),service=new PaymentService(store,wallet,(city,revision)=>verifyPurchasableCity([sourceRelay()],city,revision)),sponsors=new SponsorService(store.db,wallet,sponsorshipCatalog);
+ const wallet=new NwcWallet(required("BITCOINWALK_NWC_URL")),service=new PaymentService(store,wallet,(city,revision)=>verifyPurchasableCity([sourceRelay()],city,revision),undefined,
+  (city,revision)=>verifyGiftableCity([sourceRelay()],city,revision)),sponsors=new SponsorService(store.db,wallet,sponsorshipCatalog);
  let busy=false;
  const reconcile=async()=>{if(busy)return;busy=true;try{await service.reconcile();await sponsors.reconcile();}catch{console.warn("Payment reconciliation deferred; durable state was retained.");}finally{busy=false;}};
  const timer=setInterval(()=>void reconcile(),15_000);timer.unref();

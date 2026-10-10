@@ -10,6 +10,7 @@ import {resolveRustressActivationEvidence} from "./pro-setup";
 import {MADEIRA_PILOT} from "../nostr/madeira-pilot";
 import {createCityActivation} from "../rustress/activation-contract";
 import {provisionConfigSchema,provisionDigest} from "../rustress/contract";
+import {canonicalLoopbackTransport,loopbackApiTransport} from "../rustress/loopback-http";
 
 const cityId=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 function privateToken(path:string){
@@ -29,24 +30,32 @@ function runtime(){
     adapterRevision:process.env.BITCOINWALK_RUSTRESS_MANAGED_REVISION??""};
   const publicOrigin=process.env.BITCOINWALK_RUSTRESS_PUBLIC_ORIGIN??"";
   if(publicOrigin!=="https://bitcoinwalk.org")throw new Error("Canonical managed public origin required.");
-  const madeiraBridge=process.env.BITCOINWALK_RUSTRESS_MANAGED_MADEIRA_PILOT==="reservation-v1";
+  const madeiraMode=process.env.BITCOINWALK_RUSTRESS_MANAGED_MADEIRA_PILOT??"",madeiraBridge=["reservation-v1","activation-v1"].includes(madeiraMode);
   const activationEnabled=process.env.BITCOINWALK_RUSTRESS_ACTIVATION_ENABLED==="1";
   if(madeiraBridge&&(!allow.has(MADEIRA_PILOT.cityId)||allow.size!==1))throw new Error("Managed Madeira pilot requires its exact city allow-list.");
-  if(madeiraBridge&&activationEnabled)throw new Error("Managed Madeira pilot authorizes reservation only, never public activation.");
-  const db=getPaymentRuntime().store.db,reservationProvider=new RustressProvisioner(options),activationProvider=new RustressActivator(options);
-  const resolve=async(request:string)=>{
+  if(madeiraBridge&&activationEnabled&&madeiraMode!=="activation-v1")throw new Error("Managed Madeira public activation requires its separate activation mode.");
+  const providerTransport=madeiraBridge?loopbackApiTransport(options.origin,options.domain):fetch;
+  const db=getPaymentRuntime().store.db,reservationProvider=new RustressProvisioner(options,providerTransport),activationProvider=new RustressActivator(options,providerTransport);
+  const resolveRegular=async(request:string)=>{
     const row=db.prepare("SELECT city_id FROM city_brand_request WHERE id=? AND status='active'").get(request) as {city_id:string}|undefined;
     if(row&&allow.has(row.city_id))return resolveRustressActivationEvidence(request,publicOrigin);
-    if(!madeiraBridge)throw new Error("City is not approved for managed provisioning.");
+    throw new Error("City is not approved for managed provisioning.");
+  };
+  const resolveReservation=async(request:string)=>{
+    if(!madeiraBridge)return resolveRegular(request);
     const evidence=await (await import("./madeira-pilot")).getMadeiraPilot().managedStore.evidence(request);
     const reserved=provisionConfigSchema.parse(evidence.config),activation=createCityActivation(reserved);
     return {reserved,activation,publicOrigin,proofHash:createHash("sha256").update(JSON.stringify({reservationProof:evidence.proofHash,
       reserved:provisionDigest(reserved),activation:provisionDigest(activation)})).digest("hex")};
   };
+  const resolveActivation=async(request:string)=>madeiraBridge?
+    (await import("./madeira-pilot")).getMadeiraPilot().activationStore.evidence(request):resolveRegular(request);
   const reservation=new ProvisionWorkflow(db,reservationProvider,async request=>{
-    const evidence=await resolve(request);return {config:evidence.reserved,proofHash:evidence.proofHash};
+    const evidence=await resolveReservation(request);return {config:evidence.reserved,proofHash:evidence.proofHash};
   },()=>Date.now(),"rustress_managed_reservation_task");
-  const activation=new ActivationWorkflow(db,reservationProvider,activationProvider,{nip05:verifyCityNip05,lnurl:verifyCityLnurl},resolve);
+  const publicTransport=madeiraMode==="activation-v1"?canonicalLoopbackTransport(options.origin,options.domain):fetch;
+  const activation=new ActivationWorkflow(db,reservationProvider,activationProvider,
+    {nip05:input=>verifyCityNip05(input,publicTransport),lnurl:input=>verifyCityLnurl(input,publicTransport)},resolveActivation);
   return {allow,db,reservation,activation,activationEnabled,madeiraBridge};
 }
 
@@ -59,10 +68,20 @@ async function reconcileCity(service:NonNullable<ReturnType<typeof runtime>>,cit
     if(view?.ownerConfirmed&&view.adminConfirmed)request={id:view.challenge.requestId};
   }
   if(!request)return;
-  if(!service.reservation.status(city)){try{await service.reservation.enqueue(request.id);}catch{return;}}
+  if(!service.reservation.status(city)){try{
+    if(service.madeiraBridge&&city===MADEIRA_PILOT.cityId){
+      const evidence=(await import("./madeira-pilot")).getMadeiraPilot().managedStore.storedEvidence(request.id);
+      service.reservation.enqueueEvidence(request.id,evidence);
+    }else await service.reservation.enqueue(request.id);
+   }catch{return;}}
   if(service.reservation.status(city)?.state!=="verified")await service.reservation.run(city);
   if(!service.activationEnabled||service.reservation.status(city)?.state!=="verified")return;
-  if(!service.activation.status(city)){try{await service.activation.enqueue(request.id);}catch{return;}}
+  let activationRequest=request;
+  if(service.madeiraBridge&&city===MADEIRA_PILOT.cityId){
+    const view=(await import("./madeira-pilot")).getMadeiraPilot().activationStore.view();
+    if(!view?.ownerConfirmed||!view.adminConfirmed)return;activationRequest={id:view.challenge.requestId};
+  }
+  if(!service.activation.status(city)){try{await service.activation.enqueue(activationRequest.id);}catch{return;}}
   const current=service.activation.status(city);
   if(current?.state!=="blocked"&&(current?.state!=="active"||Date.now()-current.updatedAt>=300_000))await service.activation.run(city);
 }

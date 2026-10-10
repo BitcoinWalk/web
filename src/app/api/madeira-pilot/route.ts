@@ -28,10 +28,18 @@ export async function POST(request:Request){
     }
     if(command.action==="managed-admin"||command.action==="managed-retry")
       await (await import("../../../server/rustress-activation")).reconcileManagedProvisioning();
+    if(command.action==="activation-load")await pilot.activationStore.prepare();
+    if(command.action==="activation-owner"||command.action==="activation-admin"){
+      if(!input.proof)throw new Error("Managed public activation proof is required.");
+      await pilot.activationStore.accept(command.action==="activation-owner"?"owner":"admin",input.proof);
+    }
+    if(command.action==="activation-admin"||command.action==="activation-retry")
+      await (await import("../../../server/rustress-activation")).reconcileManagedProvisioning();
     const managed=await import("../../../server/rustress-activation");
-    return reply({pilot:pilot.store.view(),provisioning:pilot.workflow.status(MADEIRA_PILOT.cityId),managed:pilot.managedStore.view(),managedProvisioning:managed.managedProvisioningStatus(MADEIRA_PILOT.cityId)});
+    return reply({pilot:pilot.store.view(),provisioning:pilot.workflow.status(MADEIRA_PILOT.cityId),managed:pilot.managedStore.view(),
+      activation:pilot.activationStore.view(),managedProvisioning:managed.managedProvisioningStatus(MADEIRA_PILOT.cityId)});
   }catch(error){
     const message=error instanceof Error?error.message:"";
-    return reply({error:/^(Madeira |Approve Madeira |Private pilot proof|Private proof|Both private|Existing proof|Load the pilot|Managed reservation|Both managed|Existing managed)/.test(message)?message:"Pilot verification unavailable. No invoice, profile or production settings were changed."},409);
+    return reply({error:/^(Madeira |Approve Madeira |Private pilot proof|Private proof|Both private|Existing proof|Load the pilot|Managed reservation|Managed public|Both managed|Existing managed|Complete the managed)/.test(message)?message:"Pilot verification unavailable. No invoice, profile or production settings were changed."},409);
   }finally{busy=false;}
 }

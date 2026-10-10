@@ -9,7 +9,7 @@ age=$(( $(date -u +%s) - $(date -u -d "${timestamp:0:8} ${timestamp:9:2}:${times
 (( age >= 0 && age <= 28800 )) || exit 1
 if [[ "$component" == ledger ]]; then
   value="$(docker inspect bitcoinwalk-rustress-payout --format '{{index .Config.Labels "org.bitcoinwalk.version"}}|{{index .Config.Labels "org.bitcoinwalk.mode"}}|{{.HostConfig.NetworkMode}}|{{.State.Status}}')"
-  [[ "$value" == '0.2.6|disabled|none|running' ]]
+  [[ "$value" == '0.2.10|disabled|none|running' ]]
   docker exec bitcoinwalk-rustress-payout node /app/verify-rustress-payout-service.cjs >/dev/null
 else
   systemctl --user --quiet is-active bitcoinwalk-payout-journal.service

@@ -21,7 +21,13 @@ export class ProvisionWorkflow {
       proof TEXT NOT NULL, phase TEXT NOT NULL, lease TEXT, until INTEGER NOT NULL DEFAULT 0);`);
   }
   async enqueue(requestId: string) {
-    const evidence = await this.resolve(requestId), config = provisionConfigSchema.parse(evidence.config);
+    return this.enqueueEvidence(requestId,await this.resolve(requestId));
+  }
+  /** Queueing is not provider authority. A caller may persist already-verified,
+   * signed evidence so transient relay reads do not lose the intent; run() still
+   * performs the ordinary fresh resolver check before every provider action. */
+  enqueueEvidence(requestId:string,evidence:ProvisionEvidence) {
+    const config = provisionConfigSchema.parse(evidence.config);
     if (config.version !== 1 || !/^[0-9a-f]{64}$/.test(evidence.proofHash)) throw new Error("Provisioning evidence requires review.");
     const serialized = JSON.stringify(config);
     this.db.exec("BEGIN IMMEDIATE");

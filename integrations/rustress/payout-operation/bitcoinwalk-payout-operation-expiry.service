@@ -1,0 +1,6 @@
+[Unit]
+Description=Restore BitcoinWalk Rustress invoice-only mode at operation expiry
+
+[Service]
+Type=oneshot
+ExecStart=%h/.local/libexec/bitcoinwalk-rustress-payout-operation/restore.sh --expired

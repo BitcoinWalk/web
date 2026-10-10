@@ -17,7 +17,7 @@ afterEach(()=>{for(const db of dbs.splice(0))if(db.isOpen)db.close();for(const d
 function fixture(path=":memory:",amount="100000"){
  const db=new DatabaseSync(path);dbs.push(db);const ledger=new PayoutLedger(db);
  const bucket={cityId:randomUUID(),walletRef:"fixture",destinationVersion:1,destination:"fixture@wallet.example"};
- const policy={binding,budgetMsat:"10000000",maximumPayoutMsat:"10000000",maximumFeeMsat:"100000",feePolicy:"ldk-native-v1" as const,expiresAt:now+900};
+ const policy={binding,budgetMsat:"10000000",acceptedPriorSpentMsat:"0",maximumPayoutMsat:"10000000",maximumFeeMsat:"100000",feePolicy:"ldk-native-v1" as const,expiresAt:now+900};
  const readiness:WalletReadinessEvidence={connectionRef:"fixture",checkoutConnectionRef:"checkout",network:"mainnet",
    inventory:{checkedAt:now,expiresAt:now+900,grantedMethods:[...RUSTRESS_WALLET_REQUIREMENTS.methods],notificationsGranted:true,revoked:false,budgetMsat:10000000,remainingBudgetMsat:10000000,budgetRenewal:"never",isolated:true},
   protocol:{checkedAt:now,advertisedMethods:[...RUSTRESS_WALLET_REQUIREMENTS.methods],successfulReadMethods:["get_info","lookup_invoice","list_transactions"]},
@@ -78,6 +78,11 @@ describe("isolated end-to-end payout flow",()=>{
   f.deps.fetchJson.mockResolvedValueOnce({tag:"payRequest",callback:"https://wallet.example/pay",minSendable:1000,maxSendable:50000,metadata});
   const id=randomUUID();await f.flow.prepare(hash,id);await f.flow.run(id);
   expect(f.ledger.balance(f.bucket)).toMatchObject({paidMsat:"50000",availableMsat:"29000"});
+ });
+ it("caps preparation below the remaining non-renewing budget after accepted prior spending",async()=>{
+  const f=fixture(":memory:","20000000"),policy={...f.policy,budgetMsat:"10000000",acceptedPriorSpentMsat:"80000",maximumFeeMsat:"100000"};
+  await f.flow.collect(hash);const flow=new PayoutFlow(f.ledger,f.deps,policy,()=>now),id=randomUUID();await flow.prepare(hash,id);
+  expect(f.ledger.workerInput(id)?.amount).toBe("9820000");
  });
  it("does not replace the saved destination or lose debt during an endpoint outage",async()=>{
   const f=fixture();await f.flow.collect(hash);

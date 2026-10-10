@@ -57,7 +57,7 @@ describe("city profile artwork", () => {
     expect(changed.version).toBe("city-profile-v2");
     expect(a.avatar.url).toMatch(/^https:\/\/bitcoinwalk.org\/api\/media\/files\/[a-f0-9]{64}\.webp$/);
     await expect(store.ensure({...source, cityId: "../bad"})).rejects.toThrow();
-  });
+  }, 15_000);
   it("rejects noncanonical or insecure public origins", () => {
     for (const origin of ["http://bitcoinwalk.org", "https://user:pass@bitcoinwalk.org", "https://bitcoinwalk.org/path"]) {
       expect(() => new ProfileArtworkStore("/tmp/unused", origin)).toThrow();

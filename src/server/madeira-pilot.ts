@@ -7,6 +7,7 @@ import {citySetupEvidence} from "./city-setup-evidence";
 import {normalizePayoutDestination, validatePayoutDestination} from "./lnurl-pay";
 import {MadeiraPilotStore} from "../rustress/madeira-pilot-store";
 import {MadeiraManagedPilotStore} from "../rustress/madeira-managed-pilot-store";
+import {MadeiraManagedActivationStore} from "../rustress/madeira-managed-activation-store";
 import {ProvisionWorkflow} from "../rustress/workflow";
 import {RustressProvisioner} from "../rustress/client";
 import {authorizePayment} from "../payments/auth";
@@ -67,6 +68,11 @@ function createRuntime() {
     if(JSON.stringify(before)!==JSON.stringify(after))throw new Error("Madeira evidence changed during validation.");
     return after;
   },process.env.BITCOINWALK_RUSTRESS_MANAGED_REVISION??"");
+  const activationStore=new MadeiraManagedActivationStore(db,async()=>{
+    const view=managedStore.view();if(!view?.ownerConfirmed||!view.adminConfirmed)throw new Error("Complete the managed reservation first.");
+    const evidence=await managedStore.evidence(view.challenge.requestId);
+    return {requestId:view.challenge.requestId,reserved:evidence.config,proofHash:evidence.proofHash};
+  },process.env.BITCOINWALK_RUSTRESS_MANAGED_REVISION??"");
   const workflow=new ProvisionWorkflow(db,provider,id=>store.evidence(id));
   let busy=false;
   async function reconcile(explicit=true) {
@@ -81,7 +87,7 @@ function createRuntime() {
     } finally {busy=false;}
   }
   const timer=setInterval(()=>void reconcile(false).catch(()=>console.warn("Private Madeira pilot deferred; no payment activation.")),60_000);timer.unref();
-  return {store,managedStore,workflow,reconcile};
+  return {store,managedStore,activationStore,workflow,reconcile};
 }
 export function getMadeiraPilot() {
   if(!madeiraPilotEnabled())throw new Error("Madeira pilot is disabled.");

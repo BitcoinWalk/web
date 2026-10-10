@@ -48,6 +48,15 @@ describe("paid-city settlement",()=>{
   let store=new PaymentStore(path);
   try{const service=new PaymentService(store,{makeInvoice:async()=>invoice,lookupInvoice:async()=>({payment_hash:hash,type:"incoming",amount:21000000,state:"settled",settled_at:now,preimage})},async()=>({cityId,cityName:"Memphis",owner,revisionId}),()=>now);await service.create(owner,cityId,revisionId);await service.reconcile();store.db.close();store=new PaymentStore(path);expect(store.entitled(cityId)).toBe(true);expect(store.rows()[0].paymentHash).toBe(hash);expect(store.rows()[0].status).toBe("paid");}finally{store.db.close();rmSync(directory,{recursive:true});}
  });
+ it("lets an anonymous gift pay for the real owner without granting authority",async()=>{
+  const {service,wallet,store}=setup(),token="d".repeat(64);const gift=await service.createGift(token,cityId,revisionId);
+  expect(gift).toMatchObject({cityId,cityName:"Memphis",status:"pending",tier:"free",invoice:"fixture"});
+  expect(store.rows()[0].owner).toBe(owner);expect(await service.createGift(token,cityId,revisionId)).toMatchObject({invoice:"fixture"});expect(wallet.makeInvoice).toHaveBeenCalledTimes(1);
+  await expect(service.giftStatus("e".repeat(64),cityId)).rejects.toThrow("not found");
+  vi.mocked(wallet.lookupInvoice).mockResolvedValue({payment_hash:hash,type:"incoming",amount:21000000,state:"settled",settled_at:now,preimage});
+  expect(await service.giftStatus(token,cityId)).toMatchObject({tier:"paid",status:"paid"});
+  expect(store.db.prepare("SELECT originalOwnerPubkey,currentOwnerPubkey FROM pro_setup_task WHERE cityId=?").get(cityId)).toEqual({originalOwnerPubkey:owner,currentOwnerPubkey:owner});
+ });
 });
 describe("payment request authorization",()=>{
  it("binds request to the deployment origin and short lifetime",()=>{const event=finalizeEvent(paymentRequest({action:"status",cityId},"https://app-staging.bitcoinwalk.org",now),generateSecretKey());expect(authorizePayment(event,"https://app-staging.bitcoinwalk.org",now).action).toBe("status");expect(()=>authorizePayment(event,"https://bitcoinwalk.org",now)).toThrow();expect(()=>authorizePayment(event,"https://app-staging.bitcoinwalk.org",now+301)).toThrow();});

@@ -4,6 +4,7 @@ import type {PayoutLedger} from "./payout-ledger";
 import type {PayoutInvoiceIntake} from "./payout-intake";
 import type {PayoutInvoiceIssuer} from "./payout-invoice-issuer";
 import type {PayoutAuthorityStore} from "./payout-authority";
+import type {RetainedAddressAuthorityStore} from "./retained-address-authority";
 
 const token=z.string().regex(/^[A-Za-z0-9_-]{43,256}$/);
 type Result={status:number;body:Record<string,unknown>};
@@ -15,7 +16,8 @@ type AutomationState={running:boolean;ready:boolean;lastCycleAt?:number;lastCycl
 export class PayoutControlApi{
  #tokens:{intake:string;issuer:string;receipt:string;authority:string;operations:string};
  constructor(private authority:PayoutAuthorityStore,private intake:PayoutInvoiceIntake,private ledger:PayoutLedger,private walletRef:string,
-  private enabled:()=>boolean,private automation:()=>AutomationState,tokens:{intake:string;issuer:string;receipt:string;authority:string;operations:string},private issuer?:PayoutInvoiceIssuer){
+  private enabled:()=>boolean,private automation:()=>AutomationState,tokens:{intake:string;issuer:string;receipt:string;authority:string;operations:string},private issuer?:PayoutInvoiceIssuer,private retained?:RetainedAddressAuthorityStore,
+  private healthState:()=>"disabled"|"invoice-only"|"operation"=()=>this.enabled()?"operation":"disabled"){
   this.#tokens={intake:token.parse(tokens.intake),issuer:token.parse(tokens.issuer),receipt:token.parse(tokens.receipt),authority:token.parse(tokens.authority),operations:token.parse(tokens.operations)};
   if(new Set(Object.values(this.#tokens)).size!==5)throw new Error("Separate payout API credentials required");
  }
@@ -24,14 +26,19 @@ export class PayoutControlApi{
  }
  async route(method:string|undefined,url:string|undefined,authorization:string|undefined,body?:unknown,transport:"tcp"|"receipt-evidence"="tcp"):Promise<Result>{
   try{
-   if(method==="GET"&&url==="/health")return {status:200,body:{service:"bitcoinwalk-rustress-payout",state:this.enabled()?"armed":"disabled"}};
+   if(method==="GET"&&url==="/health")return {status:200,body:{service:"bitcoinwalk-rustress-payout",state:this.healthState()}};
    if(method==="GET"&&url==="/v1/status"){
     if(!this.allowed(authorization,this.#tokens.operations))return {status:401,body:{error:"unauthorized"}};
-    return {status:200,body:{service:"bitcoinwalk-rustress-payout",enabled:this.enabled(),authorityRecords:this.authority.count(),...this.ledger.operationalStatus(this.walletRef),...(this.issuer?.status()??{invoiceIssued:0,invoiceCreatedPendingIntake:0,invoiceOutcomesUnknown:0}),...this.automation()}};
+    return {status:200,body:{service:"bitcoinwalk-rustress-payout",mode:this.healthState(),enabled:this.enabled(),authorityRecords:this.authority.count(),...this.ledger.operationalStatus(this.walletRef),...(this.issuer?.status()??{invoiceIssued:0,invoiceCreatedPendingIntake:0,invoiceOutcomesUnknown:0}),...this.automation()}};
    }
    if(method==="POST"&&url==="/v1/authority"){
     if(!this.allowed(authorization,this.#tokens.authority))return {status:401,body:{error:"unauthorized"}};
     return {status:200,body:this.authority.register(body)};
+   }
+   if(method==="POST"&&url==="/v1/retained-address-authority"){
+    if(!this.allowed(authorization,this.#tokens.authority))return {status:401,body:{error:"unauthorized"}};
+    if(!this.retained)return {status:503,body:{error:"retained-address-authority-disabled"}};
+    return {status:200,body:this.retained.register(body)};
    }
    if(method==="POST"&&url==="/v1/invoices"){
     if(!this.allowed(authorization,this.#tokens.intake))return {status:401,body:{error:"unauthorized"}};
@@ -46,7 +53,7 @@ export class PayoutControlApi{
    if(method==="POST"&&url==="/v1/invoices/status"){
     if(!this.allowed(authorization,this.#tokens.issuer))return {status:401,body:{error:"unauthorized"}};
     if(!this.enabled()||!this.issuer)return {status:503,body:{error:"invoice-issuer-disabled"}};
-    return {status:200,body:this.issuer.lookup(body)};
+    return {status:200,body:await this.issuer.lookup(body)};
    }
    if(method==="POST"&&url==="/v1/receipts/evidence"&&transport==="receipt-evidence"){
     if(!this.allowed(authorization,this.#tokens.receipt))return {status:401,body:{error:"unauthorized"}};

@@ -2,7 +2,7 @@
 set -eu
 
 service=bitcoinwalk-rustress-payout
-version=0.2.6
+version=0.2.10
 image="$service:$version"
 root="$HOME/.local/state/bitcoinwalk-rustress"
 secrets="$root/secrets"

@@ -41,6 +41,14 @@ export class MadeiraManagedPilotStore{
     const row=this.row();if(!row||row.id!==requestId||!row.owner||!row.admin)throw new Error("Both managed reservation proofs are required.");const challenge=this.checked(row);
     verifyMadeiraManagedProof(JSON.parse(row.owner),challenge,"owner",this.now(),true);const admin=verifyMadeiraManagedProof(JSON.parse(row.admin),challenge,"admin",this.now(),true);
     if(JSON.stringify(managedSnapshot(await this.snapshot()))!==JSON.stringify(challenge.snapshot)||challenge.providerRevision!==this.revision)throw new Error("Madeira managed reservation evidence changed; provisioning blocked.");
+    return this.storedEvidence(requestId,admin.id);
+  }
+  /** Queue-only evidence. Provider writes must use evidence(), which repeats the
+   * live city/approval/payout reconstruction immediately before every action. */
+  storedEvidence(requestId:string,knownAdminId?:string):ProvisionEvidence{
+    const row=this.row();if(!row||row.id!==requestId||!row.owner||!row.admin)throw new Error("Both managed reservation proofs are required.");const challenge=this.checked(row);
+    verifyMadeiraManagedProof(JSON.parse(row.owner),challenge,"owner",this.now(),true);const admin=verifyMadeiraManagedProof(JSON.parse(row.admin),challenge,"admin",this.now(),true);
+    if(knownAdminId&&knownAdminId!==admin.id)throw new Error("Managed reservation proof changed.");
     const s=challenge.snapshot;return {config:{cityId:MADEIRA_PILOT.cityId,version:1,domain:"bitcoinwalk.org",localPart:"madeira",brandPubkey:MADEIRA_PILOT.pubkey,
       authorityEventId:s.authorityEventId,approvalEventId:s.approvalEventId,brandEventId:admin.id,payoutVersion:s.payoutVersion,payoutDestination:s.payoutDestination,
       walletRef:"bitcoinwalk-rustress",organizerBasisPoints:7900,retainedBasisPoints:2100,invoiceIssuance:"disabled"},

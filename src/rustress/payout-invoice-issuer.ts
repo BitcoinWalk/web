@@ -8,12 +8,15 @@ import type {PayoutBucket} from "./payout-ledger";
 export const PAYOUT_ISSUE_API="bitcoinwalk-payout-issue-v1";
 export const PAYOUT_RECEIPT_EVIDENCE_API="bitcoinwalk-zap-settlement-v1";
 const hex=z.string().regex(/^[0-9a-f]{64}$/),money=z.string().regex(/^[1-9][0-9]{0,15}$/).refine(value=>BigInt(value)>=1000n&&BigInt(value)<=1_000_000_000n);
-const requestSchema=z.object({api:z.literal(PAYOUT_ISSUE_API),requestId:z.uuid(),cityId:z.uuid(),payoutVersion:z.number().int().safe().positive(),
- amountMsat:money,descriptionHash:hex,requestedAt:z.number().int().safe().positive(),expirySeconds:z.number().int().min(60).max(86400)}).strict();
+const common={api:z.literal(PAYOUT_ISSUE_API),requestId:z.uuid(),amountMsat:money,descriptionHash:hex,requestedAt:z.number().int().safe().positive(),expirySeconds:z.number().int().min(60).max(86400)};
+const cityRequestSchema=z.object({...common,cityId:z.uuid(),payoutVersion:z.number().int().safe().positive()}).strict();
+const addressRequestSchema=z.object({...common,resourceType:z.literal("standalone"),domain:z.literal("bitcoinwalk.org"),localPart:z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/).max(63),addressVersion:z.number().int().safe().positive(),walletRef:z.string().regex(/^[a-z0-9][a-z0-9-]{0,62}$/)}).strict();
+const requestSchema=z.union([cityRequestSchema,addressRequestSchema]);
 const receiptSchema=z.object({api:z.literal(PAYOUT_RECEIPT_EVIDENCE_API),cityId:z.uuid(),payoutVersion:z.number().int().safe().positive(),paymentHash:hex,
  amountMsat:money,descriptionHash:hex}).strict();
 type Request=z.infer<typeof requestSchema>;
 type Authority=PayoutBucket&{invoiceIssuance:"enabled"};
+type AddressAuthority={version:number;domain:"bitcoinwalk.org";localPart:string;walletRef:string;receivingDestination:"bitcoinwalk@getalby.com";invoiceIssuance:"enabled"};
 type Created={invoice:string;paymentHash:string;amountMsat:string;issuedAt:number;expiresAt:number};
 type Wallet={makeInvoice:(input:{amountMsat:string;descriptionHash:string;expirySeconds:number})=>Promise<Record<string,unknown>>};
 type Row={request:string;state:"prepared"|"created"|"unknown"|"issued";invoice:string|null;hash:string|null;issued_at:number|null;expires_at:number|null};
@@ -33,7 +36,7 @@ function validateInvoice(result:Record<string,unknown>,request:Request,now:numbe
 export class PayoutInvoiceIssuer{
  #inflight=new Map<string,Promise<Created>>();
  constructor(private db:DatabaseSync,private intake:PayoutInvoiceIntake,private resolve:(cityId:string,payoutVersion:number)=>Promise<Authority|null>,private wallet:Wallet,
-  private lookupIncoming:(hash:string)=>{settled:boolean}|null=()=>null,private now=()=>Math.floor(Date.now()/1000),private receiptLookup?:(hash:string)=>Promise<unknown>){
+  private lookupIncoming:(hash:string)=>{settled:boolean}|null=()=>null,private now=()=>Math.floor(Date.now()/1000),private receiptLookup?:(hash:string)=>Promise<unknown>,private resolveAddress:((domain:string,localPart:string,addressVersion:number)=>Promise<AddressAuthority|null>)=async()=>null){
   db.exec(`CREATE TABLE IF NOT EXISTS bw_invoice_issue_request(
    id TEXT PRIMARY KEY,request TEXT NOT NULL,state TEXT NOT NULL CHECK(state IN ('prepared','created','unknown','issued')),
    invoice TEXT,hash TEXT UNIQUE,issued_at INTEGER,expires_at INTEGER);
@@ -47,7 +50,7 @@ export class PayoutInvoiceIssuer{
  }
  private async finish(request:Request,row:Row){
   const created=this.created(row);
-  await this.intake.register({api:"bitcoinwalk-payout-invoice-v1",cityId:request.cityId,payoutVersion:request.payoutVersion,paymentHash:created.paymentHash,
+  if("cityId" in request)await this.intake.register({api:"bitcoinwalk-payout-invoice-v1",cityId:request.cityId,payoutVersion:request.payoutVersion,paymentHash:created.paymentHash,
    amountMsat:request.amountMsat,issuedAt:created.issuedAt,expiresAt:created.expiresAt});
   this.db.prepare("UPDATE bw_invoice_issue_request SET state='issued' WHERE id=? AND state IN ('created','issued')").run(request.requestId);
   return created;
@@ -61,8 +64,10 @@ export class PayoutInvoiceIssuer{
   const now=this.now();if(request.requestedAt>now+30||now-request.requestedAt>86400)throw new Error("Invoice request rejected");
   const document=JSON.stringify(request),old=this.row(request.requestId);
   if(old){if(old.request!==document||old.state==="unknown"||old.state==="prepared")throw new Error("Invoice outcome requires review");if(old.state==="created")return this.finish(request,old);return this.created(old);}
-  const authority=await this.resolve(request.cityId,request.payoutVersion);
-  if(!authority||authority.cityId!==request.cityId||authority.destinationVersion!==request.payoutVersion||authority.invoiceIssuance!=="enabled")throw new Error("Invoice request rejected");
+  if("cityId" in request){const authority=await this.resolve(request.cityId,request.payoutVersion);
+   if(!authority||authority.cityId!==request.cityId||authority.destinationVersion!==request.payoutVersion||authority.invoiceIssuance!=="enabled")throw new Error("Invoice request rejected");}
+  else{const authority=await this.resolveAddress(request.domain,request.localPart,request.addressVersion);
+   if(!authority||authority.domain!==request.domain||authority.localPart!==request.localPart||authority.version!==request.addressVersion||authority.walletRef!==request.walletRef||authority.receivingDestination!=="bitcoinwalk@getalby.com"||authority.invoiceIssuance!=="enabled")throw new Error("Invoice request rejected");}
   this.db.prepare("INSERT INTO bw_invoice_issue_request(id,request,state) VALUES(?,?,'prepared')").run(request.requestId,document);
   let created:Created;
   try{created=validateInvoice(await this.wallet.makeInvoice({amountMsat:request.amountMsat,descriptionHash:request.descriptionHash,expirySeconds:request.expirySeconds}),request,this.now());}
@@ -76,19 +81,22 @@ export class PayoutInvoiceIssuer{
   const count=(state:Row["state"])=>rows.find(row=>row.state===state)?.count??0;
   return {invoiceIssued:count("issued"),invoiceCreatedPendingIntake:count("created"),invoiceOutcomesUnknown:count("unknown")+count("prepared")};
  }
- lookup(input:unknown){
+ async lookup(input:unknown){
   try{
-   const request=z.object({api:z.literal(PAYOUT_ISSUE_API),cityId:z.uuid(),payoutVersion:z.number().int().safe().positive(),paymentHash:hex}).strict().parse(input);
+   const request=z.union([z.object({api:z.literal(PAYOUT_ISSUE_API),cityId:z.uuid(),payoutVersion:z.number().int().safe().positive(),paymentHash:hex}).strict(),z.object({api:z.literal(PAYOUT_ISSUE_API),resourceType:z.literal("standalone"),domain:z.literal("bitcoinwalk.org"),localPart:z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/).max(63),addressVersion:z.number().int().safe().positive(),paymentHash:hex}).strict()]).parse(input);
    const row=this.db.prepare("SELECT request,state,invoice,hash,issued_at,expires_at FROM bw_invoice_issue_request WHERE hash=?").get(request.paymentHash) as Row|undefined;
    if(!row||row.state!=="issued")throw new Error();const saved=requestSchema.parse(JSON.parse(row.request));
-   if(saved.cityId!==request.cityId||saved.payoutVersion!==request.payoutVersion)throw new Error();const status=this.lookupIncoming(request.paymentHash);if(!status)throw new Error();
-   return {api:PAYOUT_ISSUE_API,paymentHash:request.paymentHash,settled:status.settled};
+   if("cityId" in request){if(!("cityId" in saved)||saved.cityId!==request.cityId||saved.payoutVersion!==request.payoutVersion)throw new Error();const status=this.lookupIncoming(request.paymentHash);if(!status)throw new Error();return {api:PAYOUT_ISSUE_API,paymentHash:request.paymentHash,settled:status.settled};}
+   if("cityId" in saved||saved.domain!==request.domain||saved.localPart!==request.localPart||saved.addressVersion!==request.addressVersion||!this.receiptLookup)throw new Error();
+   const status=await this.receiptLookup(request.paymentHash) as Record<string,unknown>;if(!status||status.type!=="incoming"||status.payment_hash!==request.paymentHash||!['pending','settled'].includes(String(status.state)))throw new Error();
+   return {api:PAYOUT_ISSUE_API,paymentHash:request.paymentHash,settled:status.state==="settled"};
   }catch{throw new Error("Invoice status unavailable");}
  }
  async receiptEvidence(input:unknown){
   try{
    if(!this.receiptLookup)throw new Error();const claim=receiptSchema.parse(input),row=this.db.prepare("SELECT request,state,invoice,hash,issued_at,expires_at FROM bw_invoice_issue_request WHERE hash=?").get(claim.paymentHash) as Row|undefined;
    if(!row||row.state!=="issued")throw new Error();const saved=requestSchema.parse(JSON.parse(row.request)),created=this.created(row);
+   if(!("cityId" in saved))throw new Error();
    if(saved.cityId!==claim.cityId||saved.payoutVersion!==claim.payoutVersion||saved.amountMsat!==claim.amountMsat||saved.descriptionHash!==claim.descriptionHash)throw new Error();
    const result=await this.receiptLookup(claim.paymentHash) as Record<string,unknown>;
    if(!result||result.type!=="incoming"||result.state!=="settled"||result.payment_hash!==created.paymentHash||result.invoice!==created.invoice||String(result.amount)!==created.amountMsat||

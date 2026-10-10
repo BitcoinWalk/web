@@ -9,7 +9,8 @@ vi.mock("../../../server/rustress-activation",()=>({reconcileManagedProvisioning
 import {madeiraPilotEnabled,getMadeiraPilot} from "../../../server/madeira-pilot";
 import {MADEIRA_PILOT,madeiraRequest} from "../../../nostr/madeira-pilot";
 import {POST} from "./route";
-const runtime={store:{prepare:vi.fn(),view:vi.fn(),accept:vi.fn()},managedStore:{prepare:vi.fn(),view:vi.fn(),accept:vi.fn()},workflow:{status:vi.fn()},reconcile:vi.fn()};
+const runtime={store:{prepare:vi.fn(),view:vi.fn(),accept:vi.fn()},managedStore:{prepare:vi.fn(),view:vi.fn(),accept:vi.fn()},
+  activationStore:{prepare:vi.fn(),view:vi.fn(),accept:vi.fn()},workflow:{status:vi.fn()},reconcile:vi.fn()};
 let clock=Date.now();
 beforeEach(()=>{vi.clearAllMocks();clock+=10000;vi.spyOn(Date,"now").mockReturnValue(clock);vi.mocked(madeiraPilotEnabled).mockReturnValue(true);vi.mocked(getMadeiraPilot).mockReturnValue(runtime as never);});
 afterEach(()=>vi.restoreAllMocks());

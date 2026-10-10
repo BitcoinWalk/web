@@ -4,6 +4,7 @@ import {describe, expect, it, vi} from "vitest";
 vi.mock("../server/public-city-host", () => ({resolvePublicCityHost: vi.fn()}));
 vi.mock("../domain/walk-weather", () => ({getWalkWeather: vi.fn(async () => ({kind: "unavailable"}))}));
 vi.mock("./walk-delegation", () => ({default: () => "Personal delegation presentation"}));
+vi.mock("./public-city-support", () => ({default: (props: Record<string, unknown>) => `City support ${JSON.stringify(props)}`}));
 import {resolvePublicCityHost} from "../server/public-city-host";
 import WalkEvent from "./walk-event";
 import {createInitialCalendarProposal} from "../nostr/calendar-event";
@@ -38,5 +39,15 @@ describe("walk route branded-host integration", () => {
     const html = renderToStaticMarkup(await WalkEvent({event, walk, currentProfile: walk}));
     expect(html).toContain(nip19.npubEncode(event.pubkey));
     expect(html).toContain("Personal delegation presentation");
+  });
+  it("binds an upgrade from an older walk URL to the current approved city revision", async () => {
+    vi.mocked(resolvePublicCityHost).mockResolvedValue({state: "personal", pubkey: event.pubkey});
+    const currentCity = {...city, cityName: "London City", requestedTier: "free" as const};
+    const currentEvent = finalizeEvent(createInitialCalendarProposal(currentCity, "Europe/London"), new Uint8Array(32).fill(4));
+    const currentProfile: CalendarWalk = {revision: {event: currentEvent, city: currentCity}, approval: {event: currentEvent, approval: {cityId: city.cityId, cityRevisionId: currentEvent.id, status: "approved"}}};
+    const html = renderToStaticMarkup(await WalkEvent({event, walk, currentProfile}));
+    expect(html).toContain(currentEvent.id);
+    expect(html).toContain("London City");
+    expect(html).not.toContain(`revisionId&quot;:&quot;${event.id}`);
   });
 });

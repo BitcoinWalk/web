@@ -48,7 +48,9 @@ describe("durable managed city activation",()=>{
     const f=fixture();await f.workflow.enqueue("request");const apply=f.provider.apply.getMockImplementation()!;
     f.provider.apply.mockImplementationOnce(async()=>{await apply();throw new ProvisioningError("unknown");});
     expect(await f.workflow.run(reserved.cityId)).toMatchObject({state:"unknown"});
+    f.reservation.status.mockRejectedValue(new Error("v1 is no longer current"));
     expect(await f.workflow.run(reserved.cityId)).toMatchObject({state:"active"});expect(f.provider.apply).toHaveBeenCalledTimes(1);
+    expect(f.reservation.status).toHaveBeenCalledTimes(1);
   });
   it("does not leak provider errors into durable state",async()=>{
     const f=fixture();await f.workflow.enqueue("request");f.provider.prepare.mockRejectedValue(new Error("SECRET"));

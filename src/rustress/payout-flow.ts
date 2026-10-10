@@ -7,6 +7,7 @@ import {assessRustressWallet,type WalletReadinessEvidence} from "./wallet-readin
 
 const money=z.string().regex(/^(0|[1-9][0-9]{0,15})$/).refine(v=>BigInt(v)<=BigInt(Number.MAX_SAFE_INTEGER));
 const policySchema=z.object({binding:z.string().regex(/^[0-9a-f]{64}$/),budgetMsat:money.refine(v=>BigInt(v)>0n),
+ acceptedPriorSpentMsat:money,
  maximumPayoutMsat:money.refine(v=>BigInt(v)>=1000n),maximumFeeMsat:money,feePolicy:z.literal("ldk-native-v1"),expiresAt:z.number().int().safe().positive()}).strict();
 type Policy=z.infer<typeof policySchema>;
 type Dependencies={
@@ -24,6 +25,7 @@ export class PayoutFlow {
  #worker:PayoutWorker;
  constructor(private ledger:PayoutLedger,private deps:Dependencies,policy:Policy,private now=()=>Math.floor(Date.now()/1000)){
   this.#policy=policySchema.parse(policy);
+  if(BigInt(this.#policy.acceptedPriorSpentMsat)>BigInt(this.#policy.budgetMsat))throw new Error("Accepted prior spend exceeds wallet budget");
   if(deps.reader.walletRef!==deps.wallet.walletRef||deps.reader.binding!==policy.binding||deps.wallet.binding!==policy.binding)throw new Error("Wallet binding mismatch");
   ledger.bindWallet(deps.wallet.walletRef,policy.binding);
   this.#worker=new PayoutWorker(ledger,deps.wallet,async request=>{
@@ -34,7 +36,7 @@ export class PayoutFlow {
    return network===deps.wallet.network&&BigInt(r.policy.maximumTestPaymentMsat)>=BigInt(request.amountMsat)&&
     BigInt(r.policy.maximumFeeMsat)>=BigInt(request.maximumFeeMsat)&&BigInt(r.policy.maximumBudgetMsat)>=BigInt(p.budgetMsat);
   },now,async id=>this.now()<this.#policy.expiresAt&&deps.recovery?.ready===true&&
-    ledger.claimWithinBudget(id,deps.wallet.walletRef,this.#policy.budgetMsat)&&await deps.recovery.claim(id)&&
+    ledger.claimWithinBudget(id,deps.wallet.walletRef,String(BigInt(this.#policy.budgetMsat)-BigInt(this.#policy.acceptedPriorSpentMsat)))&&await deps.recovery.claim(id)&&
     this.now()<this.#policy.expiresAt&&deps.recovery.ready);
  }
  /** Issuance must save a verified invoice snapshot before showing it publicly. */
@@ -70,7 +72,9 @@ export class PayoutFlow {
    if(existing){if(JSON.stringify(existing.bucket)!==JSON.stringify(bucket))throw new Error();return this.ledger.status(id);}
    if(this.now()>=this.#policy.expiresAt)throw new Error();
    const invoice=await retrieveRecipientInvoice(destination,(min,max)=>{
-    const cap=BigInt(max)<BigInt(this.#policy.maximumPayoutMsat)?max:this.#policy.maximumPayoutMsat;
+    const remaining=BigInt(this.#policy.budgetMsat)-BigInt(this.#policy.acceptedPriorSpentMsat)-BigInt(this.#policy.maximumFeeMsat);
+    if(remaining<1000n)throw new Error();const configured=BigInt(this.#policy.maximumPayoutMsat),effective=remaining<configured?remaining:configured;
+    const cap=BigInt(max)<effective?max:String(effective);
     const amount=this.ledger.quote(bucket,min,cap);if(!amount)throw new Error();return amount;
    },this.deps.wallet.network,{fetchJson:this.deps.fetchJson,now:this.now});
    const native=(BigInt(invoice.amountMsat)+99n)/100n,fee=native>10000n?native:10000n;

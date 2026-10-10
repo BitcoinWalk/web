@@ -3,7 +3,7 @@ set -eu
 
 service=bitcoinwalk-rustress-payout
 parked="$service-disabled-rollback"
-version=0.2.6
+version=0.2.10
 image="$service:$version"
 root="$HOME/.local/state/bitcoinwalk-rustress"
 state="$root/payout-service"
@@ -13,10 +13,15 @@ mode="$root/payout-mode"
 evidence_socket="$root/payout-evidence-socket"
 expiry_unit=bitcoinwalk-payout-window-expiry
 disarm="$HOME/.local/libexec/bitcoinwalk-rustress-payout-window/disarm.sh"
+lock="$root/payout-window.lock"
 
 fail(){ printf '%s\n' "Payout activation failed; service remains disabled." >&2;exit 1; }
 write_mode(){ temporary="$root/.payout-mode.$$";umask 077;printf '%s\n' "$1">"$temporary";chmod 600 "$temporary";mv "$temporary" "$mode"; }
 [ "$(id -u)" -ne 0 ]&&[ "$(id -un)" = bitcoinwalk ]||fail
+umask 077;exec 9>"$lock";chmod 600 "$lock";flock -n 9||fail
+systemctl --user stop "$expiry_unit.timer" "$expiry_unit.service" >/dev/null 2>&1||true
+systemctl --user reset-failed "$expiry_unit.timer" "$expiry_unit.service" >/dev/null 2>&1||true
+systemctl --user daemon-reload||fail
 docker info --format '{{json .SecurityOptions}}'|grep -q '"name=rootless"'||fail
 [ -x "$disarm" ]&&[ -f "$mode" ]&&[ ! -L "$mode" ]&&[ "$(tr -d '\n'<"$mode")" = disabled ]||fail
 [ "$(docker inspect "$service" --format '{{index .Config.Labels "org.bitcoinwalk.version"}}|{{index .Config.Labels "org.bitcoinwalk.mode"}}|{{.HostConfig.NetworkMode}}|{{.State.Status}}')" = "$version|disabled|none|running" ]||fail
@@ -49,8 +54,9 @@ docker stop "$service" >/dev/null||rollback
 docker rename "$service" "$parked"||rollback
 # shellcheck disable=SC2086
 docker run -d --name "$service" --restart no --network host --label org.bitcoinwalk.service=rustress-payout --label org.bitcoinwalk.mode=armed --label "org.bitcoinwalk.version=$version" --user 0:0 --read-only --tmpfs /tmp:rw,noexec,nosuid,nodev,size=8m --cap-drop ALL --security-opt no-new-privileges:true --pids-limit 64 --memory 256m --cpus 0.5 $mounts --env NODE_ENV=production "$image" >/dev/null||rollback
+systemd-run --user --quiet --unit "$expiry_unit" --on-active="${remaining}s" --timer-property=AccuracySec=1s "$disarm" --expired||rollback
+[ "$(systemctl --user is-active "$expiry_unit.timer" 2>/dev/null)" = active ]||rollback
 ready=0;i=0;while [ "$i" -lt 20 ];do if docker exec "$service" node /app/verify-rustress-payout-active.cjs >/dev/null 2>&1;then ready=1;break;fi;i=$((i+1));sleep 3;done
 [ "$ready" -eq 1 ]||rollback
-systemd-run --user --quiet --collect --unit "$expiry_unit" --on-active="${remaining}s" --timer-property=AccuracySec=1s "$disarm" --expired||rollback
 trap - EXIT HUP INT TERM
 printf '%s\n' "Rustress payout service $version is active for at most $remaining seconds under the signed grant."

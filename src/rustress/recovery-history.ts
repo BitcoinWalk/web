@@ -2,9 +2,12 @@ import {z} from "zod";
 import type {RustressNwcReader} from "./nwc-reader";
 
 const stamp=z.number().int().safe().nonnegative();
+const money=z.string().regex(/^(0|[1-9][0-9]{0,15})$/);
+const acceptedSpendSchema=z.object({paymentHash:z.string().regex(/^[0-9a-f]{64}$/),amountMsat:money.refine(v=>BigInt(v)>0n),
+ feeMsat:money,createdAt:stamp,settledAt:stamp}).strict();
 const coverageSchema=z.object({binding:z.string().regex(/^[0-9a-f]{64}$/),fenceId:z.string().uuid(),
  connectionStartedAt:stamp,retainedFrom:stamp,checkedAt:stamp,expiresAt:stamp,
- exclusive:z.literal(true),sendersStopped:z.literal(true)}).strict();
+ exclusive:z.literal(true),sendersStopped:z.literal(true),acceptedPriorSpends:z.array(acceptedSpendSchema).max(16)}).strict();
 export type RecoveryCoverage=z.infer<typeof coverageSchema>;
 const transactionSchema=z.object({type:z.literal("outgoing"),payment_hash:z.string().regex(/^[0-9a-f]{64}$/),
  state:z.enum(["pending","accepted","settled","expired","failed"]),amount:z.number().int().safe().positive(),
@@ -43,7 +46,15 @@ export function createRecoveryHistory(reader:Reader,coverage:()=>Promise<Recover
    };
    const first=await scan(),second=await scan(),after=await check();
    if(before.fenceId!==after.fenceId||before.connectionStartedAt!==after.connectionStartedAt||before.retainedFrom!==after.retainedFrom||JSON.stringify(first)!==JSON.stringify(second))throw new Error();
-   return {binding:reader.binding,complete:true,outgoingHashes:first.map(row=>row.payment_hash)};
+   const accepted=new Map(before.acceptedPriorSpends.map(row=>[row.paymentHash,row]));
+   if(accepted.size!==before.acceptedPriorSpends.length||JSON.stringify(before.acceptedPriorSpends)!==JSON.stringify(after.acceptedPriorSpends))throw new Error();
+   for(const spend of accepted.values()){
+    const row=first.find(value=>value.payment_hash===spend.paymentHash);
+    if(!row||row.state!=="settled"||String(row.amount)!==spend.amountMsat||String(row.fees_paid??-1)!==spend.feeMsat||
+     row.created_at!==spend.createdAt||row.settled_at!==spend.settledAt)throw new Error();
+   }
+   return {binding:reader.binding,complete:true,outgoingHashes:first.filter(row=>!accepted.has(row.payment_hash)).map(row=>row.payment_hash),
+    acceptedPriorSpentMsat:String(before.acceptedPriorSpends.reduce((sum,row)=>sum+BigInt(row.amountMsat)+BigInt(row.feeMsat),0n))};
   }catch{return blocked();}
  };
 }
