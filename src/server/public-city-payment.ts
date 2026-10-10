@@ -56,10 +56,11 @@ export async function resolvePublicCityPayment(cityId: string, citySlug: string,
       if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(citySlug)) return {kind:"unavailable"};
       return {kind:"zap",href:`lightning:${citySlug}@bitcoinwalk.org`};
     }
-    // Existing paid cities can predate the activation-task ledger. Their
-    // dedicated creator identity is eligible only when the durable paid
-    // entitlement and both public managed endpoints independently agree.
-    if (host.state === "personal" && source.entitled(cityId) && await source.verifyMigratedIdentity(citySlug,host.pubkey))
+    // Existing paid cities can predate either the activation-task ledger or
+    // the durable entitlement import. Require at least one retained private
+    // paid-city signal plus both independently verified public endpoints.
+    if (host.state === "personal" && (row !== undefined || source.entitled(cityId)) &&
+        await source.verifyMigratedIdentity(citySlug,host.pubkey))
       return {kind:"zap",href:`lightning:${citySlug}@bitcoinwalk.org`};
     if (source.entitled(cityId)) return {kind: "unavailable"};
     return {kind: "donate", href: "lightning:donate@bitcoinwalk.org"};
