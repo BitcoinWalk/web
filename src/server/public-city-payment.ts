@@ -6,7 +6,6 @@ import {getPaymentRuntime} from "../payments/runtime";
 type PaymentDependencies = {
   entitled: (cityId: string) => boolean;
   activation: (cityId: string) => {phase: string; lnurl: string; activation_config: string} | undefined;
-  lightningEnabled: () => boolean;
 };
 
 const dependencies = (): PaymentDependencies => {
@@ -15,7 +14,6 @@ const dependencies = (): PaymentDependencies => {
     entitled: cityId => getPaymentRuntime().store.entitled(cityId),
     activation: cityId => db.prepare("SELECT phase,lnurl,activation_config FROM rustress_activation_task WHERE city=?").get(cityId) as
       {phase: string; lnurl: string; activation_config: string} | undefined,
-    lightningEnabled: () => process.env.BITCOINWALK_RUSTRESS_LNURL_ENABLED === "1",
   };
 };
 
@@ -27,7 +25,7 @@ export function resolvePublicCityPayment(cityId: string, host: PublicCityHost,
     const source = deps ?? dependencies();
     const row = source.activation(cityId);
     if (row) {
-      if (row.phase !== "active" || row.lnurl !== "active" || host.state !== "brand" || !source.lightningEnabled())
+      if (row.phase !== "active" || row.lnurl !== "active" || host.state !== "brand")
         return {kind: "unavailable"};
       const config = managedProvisionConfigSchema.parse(JSON.parse(row.activation_config));
       if (config.cityId !== cityId || config.brandPubkey !== host.pubkey || config.invoiceIssuance !== "enabled")
