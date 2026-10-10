@@ -255,7 +255,7 @@ export async function saveProSetupSigner(cityId: string, actor: string, command:
   const {store} = ensureSetupTask(after);
   const task = store.confirmSigner(cityId, after.authority.entitlementId, after.authority.ownerPubkey, command.brandPubkey);
   return {cityId, pubkey: task.signer!.pubkey, version: task.signer!.version, state: "confirmed-not-active" as const,
-    message: "Separate city signer confirmed. It is not published or active yet; keep its recovery method safe."};
+    message: "Separate city signer confirmed. This check did not publish, replace or deactivate the city identity; keep its recovery method safe."};
 }
 
 export async function clearProSetupSigner(cityId: string, actor: string) {
