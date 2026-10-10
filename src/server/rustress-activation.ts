@@ -53,7 +53,12 @@ function runtime(){
   const resolveActivation=async(request:string)=>madeiraBridge?
     (await import("./madeira-pilot")).getMadeiraPilot().activationStore.evidence(request):resolveRegular(request);
   const reservation=new ProvisionWorkflow(db,reservationProvider,async request=>{
-    const evidence=await resolveReservation(request);return {config:evidence.reserved,proofHash:evidence.proofHash};
+    try {
+      const evidence=await resolveReservation(request);return {config:evidence.reserved,proofHash:evidence.proofHash};
+    } catch(error) {
+      console.warn(`Managed reservation evidence deferred: ${managedReservationPreflightReason(error)}.`);
+      throw error;
+    }
   },()=>Date.now(),"rustress_managed_reservation_task");
   const publicTransport=madeiraMode==="activation-v1"?canonicalLoopbackTransport(options.origin,options.domain):fetch;
   const activation=new ActivationWorkflow(db,reservationProvider,activationProvider,
@@ -62,6 +67,24 @@ function runtime(){
 }
 
 export async function queueManagedProvisioning(requestId:string){const service=runtime();if(service)await service.reservation.enqueue(requestId);}
+
+export function managedReservationPreflightReason(error:unknown){
+  const message=error instanceof Error?error.message:"";
+  if(error instanceof Error&&error.name==="ZodError")return "generated provider configuration is invalid";
+  if(message.includes("approved city")||message.includes("creator authorization"))return "city approval evidence unavailable";
+  if(message.includes("settled Pro entitlement")||message.includes("payment record"))return "Pro entitlement evidence unavailable";
+  if(message.includes("publishing is suspended"))return "city or organizer is suspended";
+  if(message.includes("signer, payout or artwork changed"))return "city profile evidence changed";
+  if(message.includes("ownership, approval or entitlement changed"))return "city authority changed after identity approval";
+  if(message.includes("account request not found"))return "city identity request is missing";
+  if(message.includes("approval was superseded")||message.includes("Binding was superseded"))return "city identity binding was superseded";
+  if(message.includes("active before provisioning"))return "city identity is not active";
+  if(message.includes("publication relay"))return "city identity publication relay is not configured";
+  if(message.includes("read-back")||message.includes("Directory history")||message.includes("Could not read the relay"))return "city identity relay read-back is incomplete";
+  if(message.includes("payout confirmation")||message.includes("personal destination")||message.includes("payment loop")||message.includes("Lightning endpoint")||message.includes("ENOTFOUND")||message.includes("Invalid URL"))return "payout evidence is unavailable";
+  if(message.includes("provisioning evidence changed"))return "city provisioning evidence changed during verification";
+  return "authorization evidence is unavailable";
+}
 
 async function reconcileCity(service:NonNullable<ReturnType<typeof runtime>>,city:string){
   let request=service.db.prepare("SELECT id FROM city_brand_request WHERE city_id=? AND status='active' ORDER BY rowid DESC LIMIT 1").get(city) as {id:string}|undefined;
@@ -75,7 +98,7 @@ async function reconcileCity(service:NonNullable<ReturnType<typeof runtime>>,cit
       const evidence=(await import("./madeira-pilot")).getMadeiraPilot().managedStore.storedEvidence(request.id);
       service.reservation.enqueueEvidence(request.id,evidence);
     }else await service.reservation.enqueue(request.id);
-   }catch{return;}}
+   }catch(error){console.warn(`Managed reservation preflight deferred for ${city}: ${managedReservationPreflightReason(error)}.`);return;}}
   if(service.reservation.status(city)?.state!=="verified")await service.reservation.run(city);
   if(!service.activationEnabled||service.reservation.status(city)?.state!=="verified")return;
   let activationRequest=request;

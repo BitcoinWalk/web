@@ -14,6 +14,12 @@ import {publishVerifiedEvent} from "../nostr/relay";
 type RemoteSession = {close(): Promise<void>};
 type SavedSigner = {configured: boolean; pubkey?: string; version?: number};
 type Activation = {requestId: string; expiresAt: number; proofsReady: boolean};
+export function citySignerConnectionError(key: string, actor: string, saved: SavedSigner) {
+  if (!/^[0-9a-f]{64}$/.test(key)) return "The city signer returned an invalid public key.";
+  if (saved.pubkey && key !== saved.pubkey) return "This key does not match the saved city identity. Reconnect the expected signer, or clear the saved signer before replacing it.";
+  if (key === actor && saved.pubkey !== actor) return "Use a separate city identity, not your personal dashboard identity.";
+  return null;
+}
 function localSigner(secret: Uint8Array): NostrBrowserExtension {const pubkey = getPublicKey(secret); return {getPublicKey: async () => pubkey, signEvent: async template => finalizeEvent(structuredClone(template), secret)};}
 function remoteSigner(signer: BunkerSigner): NostrBrowserExtension {return {getPublicKey: () => signer.getPublicKey(), signEvent: template => signer.signEvent(template)};}
 function decodeNsec(value: string) {const decoded = nip19.decode(value.trim()); if (decoded.type !== "nsec" || !(decoded.data instanceof Uint8Array)) throw new Error("Enter a valid nsec1 private key."); return decoded.data;}
@@ -33,11 +39,19 @@ export default function CitySignerSetup({cityId, cityName, actor, saved, activat
 }) {
   const signer = useRef<NostrBrowserExtension | null>(null), remote = useRef<RemoteSession | null>(null), file = useRef<HTMLInputElement>(null);
   const [pubkey, setPubkey] = useState(""), [input, setInput] = useState(""), [acknowledged, setAcknowledged] = useState(false);
-  const [busy, setBusy] = useState(false), [message, setMessage] = useState("");
+  const [busy, setBusy] = useState(false), [message, setMessage] = useState(""), [clock, setClock] = useState(() => Date.now());
   useEffect(() => () => {void remote.current?.close();}, []);
+  useEffect(() => {
+    if (!activation) return;
+    const remaining = activation.expiresAt * 1000 - Date.now();
+    if (remaining <= 0) {queueMicrotask(() => setClock(Date.now())); return;}
+    const timer = window.setTimeout(() => setClock(Date.now()), remaining + 50);
+    return () => window.clearTimeout(timer);
+  }, [activation]);
   async function install(next: NostrBrowserExtension, session: RemoteSession | null, note: string) {
     const key = await next.getPublicKey();
-    if (!/^[0-9a-f]{64}$/.test(key) || key === actor && saved.pubkey !== actor) throw new Error("Use a separate city identity, not your personal dashboard identity.");
+    const connectionError = citySignerConnectionError(key, actor, saved);
+    if (connectionError) throw new Error(connectionError);
     if (remote.current && remote.current !== session) await remote.current.close();
     signer.current = next; remote.current = session; setPubkey(key); setAcknowledged(false); setMessage(note);
   }
@@ -104,14 +118,15 @@ export default function CitySignerSetup({cityId, cityName, actor, saved, activat
     setMessage(`City profile published and verified on ${published.accepted.length} relay(s).`);
   });}
   const mismatch = !!saved.pubkey && !!pubkey && saved.pubkey !== pubkey;
+  const activationExpired = !!activation && activation.expiresAt * 1000 <= clock;
   return <fieldset disabled={busy || parentBusy}>
     <legend>Separate city signer</legend>
     <p>This signer controls the public <strong>BitcoinWalk in {cityName}</strong> identity. It never replaces your personal dashboard login.</p>
     {saved.configured && saved.pubkey && <p><strong>Expected city identity:</strong> <code title={nip19.npubEncode(saved.pubkey)}>{short(saved.pubkey)}</code> · version {saved.version}</p>}
     {!pubkey ? <>
       {saved.pubkey===actor&&<><button type="button" onClick={connectExistingCityAccount}>Use connected city identity</button><p><small>This existing city account is already the verified owner and public identity. No replacement account is needed.</small></p></>}
-      <button type="button" onClick={create}>Create new city identity</button>
-      <p>Or connect a city identity kept in a remote signer or load an existing backup:</p>
+      {!saved.configured && <button type="button" onClick={create}>Create new city identity</button>}
+      <p>{saved.configured ? "Reconnect the expected city identity using its remote signer or saved backup:" : "Or connect a city identity kept in a remote signer or load an existing backup:"}</p>
       <label>City private key or bunker signer<input type="password" value={input} onChange={event => setInput(event.target.value)} placeholder="nsec1… or bunker://…" autoComplete="off" spellCheck={false}/></label>
       <input ref={file} type="file" accept=".txt,text/plain" hidden onChange={event => void loadFile(event)}/>
       <button type="button" onClick={() => file.current?.click()}>Load backup file</button> <button type="button" disabled={!input.trim()} onClick={connectInput}>Connect</button>
@@ -124,7 +139,7 @@ export default function CitySignerSetup({cityId, cityName, actor, saved, activat
       {saved.configured&&saved.pubkey===pubkey&&!activation&&<button type="button" disabled={!setupReady} onClick={submitActivation}>Sign private activation request</button>}
       {saved.configured&&saved.pubkey===pubkey&&profile?.nip05&&<button type="button" onClick={publishProfile}>Publish verified city profile</button>}
     </>}
-    {activation&&<p><strong>{activation.proofsReady?"Awaiting super-admin review":"Activation request prepared"}</strong> · expires {new Date(activation.expiresAt*1000).toLocaleString()} <button type="button" onClick={cancelActivation}>Cancel request</button></p>}
+    {activation&&<p><strong>{activationExpired ? "Activation request expired" : activation.proofsReady?"Awaiting super-admin review":"Activation request prepared"}</strong> · {activationExpired ? "Your saved payout and city signer are unchanged." : <>expires {new Date(activation.expiresAt*1000).toLocaleString()}</>} <button type="button" onClick={activationExpired ? () => onActivation(undefined, "Expired request dismissed. Sign a new activation request when ready; no payment or new identity is required.") : cancelActivation}>{activationExpired ? "Dismiss expired request" : "Cancel request"}</button></p>}
     {saved.configured && <button type="button" onClick={clearSaved}>Clear saved city signer</button>}
     {message && <p role="status">{message}</p>}
   </fieldset>;

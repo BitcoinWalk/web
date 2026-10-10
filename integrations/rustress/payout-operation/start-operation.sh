@@ -13,15 +13,18 @@ for name in nwc-uri journal-client-token intake-api-token issuer-api-token recei
 for name in checkout-client-pubkey journal-pin.json host-evidence.json operation-cities.json;do path="$config/$name";[ -f "$path" ]&&[ ! -L "$path" ]&&[ "$(stat -c '%U:%G:%a' "$path")" = bitcoinwalk:bitcoinwalk:600 ]||fail;done
 [ -f "$candidate" ]&&[ ! -L "$candidate" ]&&[ "$(stat -c '%U:%G:%a' "$candidate")" = bitcoinwalk:bitcoinwalk:600 ]||fail
 [ -d "$socket" ]&&[ ! -L "$socket" ]&&[ "$(stat -c '%U:%G:%a' "$socket")" = bitcoinwalk:bitcoinwalk:700 ]||fail
-systemctl --user disable --now "$expiry_unit.timer" >/dev/null 2>&1||true;systemctl --user stop "$expiry_unit.service" >/dev/null 2>&1||true;systemctl --user reset-failed "$expiry_unit.timer" "$expiry_unit.service" >/dev/null 2>&1||true
 preflight_mode="$root/.payout-mode.preflight.$$";printf '%s\n' operation>"$preflight_mode";chmod 600 "$preflight_mode"
 common="--mount type=bind,src=$secrets/nwc-uri,dst=/run/bitcoinwalk-secrets/nwc-uri,readonly --mount type=bind,src=$secrets/journal-client-token,dst=/run/bitcoinwalk-secrets/journal-client-token,readonly --mount type=bind,src=$secrets/intake-api-token,dst=/run/bitcoinwalk-secrets/intake-api-token,readonly --mount type=bind,src=$secrets/issuer-api-token,dst=/run/bitcoinwalk-secrets/issuer-api-token,readonly --mount type=bind,src=$secrets/receipt-api-token,dst=/run/bitcoinwalk-secrets/receipt-api-token,readonly --mount type=bind,src=$secrets/authority-api-token,dst=/run/bitcoinwalk-secrets/authority-api-token,readonly --mount type=bind,src=$secrets/operations-api-token,dst=/run/bitcoinwalk-secrets/operations-api-token,readonly --mount type=bind,src=$config/checkout-client-pubkey,dst=/run/bitcoinwalk-config/checkout-client-pubkey,readonly --mount type=bind,src=$config/journal-pin.json,dst=/run/bitcoinwalk-config/journal-pin.json,readonly --mount type=bind,src=$config/host-evidence.json,dst=/run/bitcoinwalk-config/host-evidence.json,readonly --mount type=bind,src=$config/operation-cities.json,dst=/run/bitcoinwalk-config/operation-cities.json,readonly --mount type=bind,src=$state,dst=/var/lib/bitcoinwalk-payout --mount type=bind,src=$socket,dst=/run/bitcoinwalk-payout-evidence/socket"
 trap 'rm -f "$preflight_mode"' EXIT HUP INT TERM
 # shellcheck disable=SC2086
 result=$(docker run --rm --network none --read-only --cap-drop ALL --security-opt no-new-privileges:true --user 0:0 $common --mount "type=bind,src=$candidate,dst=/run/bitcoinwalk-config/operation.json,readonly" --mount "type=bind,src=$preflight_mode,dst=/run/bitcoinwalk-config/payout-mode,readonly" --env PAYOUT_PREFLIGHT=1 "$image")||fail
-case "$result" in RUSTRESS_PAYOUT_OPERATION_PREFLIGHT_OK\ expiresAt=[0-9]*\ cities=1) expires=${result#*expiresAt=};expires=${expires%% *};;*) fail;;esac
+case "$result" in RUSTRESS_PAYOUT_OPERATION_PREFLIGHT_OK\ expiresAt=[0-9]*\ cities=*) expires=${result#*expiresAt=};expires=${expires%% *};cities=${result##*cities=};;*) fail;;esac
+# Runtime preflight has verified the signature and exact configured city set.
+case "$expires" in ''|*[!0-9]*) fail;;esac
+case "$cities" in [1-9]|10) ;;*) fail;;esac
 now=$(date -u +%s);remaining=$((expires-now));[ "$remaining" -ge 604800 ]&&[ "$remaining" -le 2592000 ]||fail
 rm -f "$preflight_mode";trap - EXIT HUP INT TERM
+systemctl --user disable --now "$expiry_unit.timer" >/dev/null 2>&1||true;systemctl --user stop "$expiry_unit.service" >/dev/null 2>&1||true;systemctl --user reset-failed "$expiry_unit.timer" "$expiry_unit.service" >/dev/null 2>&1||true
 current=$(docker inspect "$service" --format '{{index .Config.Labels "org.bitcoinwalk.version"}}|{{index .Config.Labels "org.bitcoinwalk.mode"}}|{{.HostConfig.NetworkMode}}|{{.State.Status}}')
 case "$current" in
  '0.2.14|invoice-only|host|running') ! docker container inspect "$parked" >/dev/null 2>&1||fail;docker stop "$service" >/dev/null;docker rename "$service" "$parked";;
@@ -41,4 +44,4 @@ systemctl --user enable --now "$expiry_unit.timer" >/dev/null||rollback
 ready=0;i=0;while [ "$i" -lt 30 ];do if docker exec "$service" node /app/verify-rustress-payout-active.cjs >/dev/null 2>&1;then ready=1;break;fi;i=$((i+1));sleep 3;done
 [ "$ready" -eq 1 ]||rollback
 rm -f "$previous" "$candidate";trap - EXIT HUP INT TERM
-printf '%s\n' "Rustress payout operation is active for Madeira until epoch $expires; invoice-only rollback is parked."
+printf '%s\n' "Rustress payout operation is active for $cities authorized cities until epoch $expires; invoice-only rollback is parked."

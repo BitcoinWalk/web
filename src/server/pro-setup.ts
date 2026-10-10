@@ -7,6 +7,7 @@ import {queryRelayEvents} from "../nostr/city-records";
 import {citySetupEvidence} from "./city-setup-evidence";
 import {managedCities} from "../nostr/moderation";
 import {relayConfig} from "../lib/relay-config";
+import {serverReadRelays} from "../lib/server-relay-config";
 import {getPaymentRuntime} from "../payments/runtime";
 import {getLogoCatalog} from "../logos/runtime";
 import {ProfileArtworkStore} from "../logos/profile-artwork";
@@ -171,8 +172,10 @@ export async function submitBrandProofs(cityId: string, requestId: string, actor
 }
 
 export async function cancelBrandRequest(cityId: string, requestId: string, actor: string) {
-  const resolved = await resolveProSetupAuthority(cityId, actor); brandStore().cancel(requestId, actor, resolved.authority);
-  return {requestId, cancelled: true as const, message: "Activation request cancelled. Your signer, payout setup and Pro entitlement remain saved."};
+  const resolved = await resolveProSetupAuthority(cityId, actor), result=brandStore().cancel(requestId, actor, resolved.authority);
+  return {requestId, cancelled: result === "cancelled", expired: result === "expired",
+    message: result === "expired" ? "Activation request had already expired. Your signer, payout setup and Pro entitlement remain saved; prepare a new request when ready." :
+      "Activation request cancelled. Your signer, payout setup and Pro entitlement remain saved."};
 }
 
 export async function listBrandRequests(actor: string) {
@@ -282,7 +285,9 @@ export async function resolveRustressProvisionEvidence(requestId: string) {
   const {authority} = before.resolved;
   const approved = before.store.approvedForPublication(requestId, SUPER_ADMIN_PUBKEY, authority);
   if (approved.row.status !== "active") throw new Error("City identity must be active before provisioning.");
-  const relays = brandPublicationDependencies.relays();
+  // Worker read-back uses the same authoritative relay's internal listener.
+  // Public write URLs remain unchanged for browser publication.
+  const relays = serverReadRelays();
   if (!relays.length) throw new Error("No city identity read-back relay is configured.");
   for (const relay of relays) {
     const history = await brandPublicationDependencies.read(relay, authority.cityId);

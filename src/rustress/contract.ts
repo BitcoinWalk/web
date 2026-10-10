@@ -40,6 +40,7 @@ export const capabilitiesSchema = z.object({
   atomicConfiguration: z.literal(true), managedEntriesOnly: z.literal(true),
   compareAndSwap: z.literal(true), idempotency: z.literal(true),
   invoiceIssuanceGate: z.literal(true),
+  standaloneNoSplitAddresses: z.literal(true).optional(),
 }).strict();
 
 export const provisionReceiptSchema = z.object({

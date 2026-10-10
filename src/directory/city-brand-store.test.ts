@@ -130,8 +130,14 @@ describe("branded city authority contract and private storage", () => {
   it("permits cancelling stale setup without granting approval", () => {
     const {store} = setup(), request = store.prepare(owner,authority,origin,brand,"activate",profile), p = proofs(request);
     expect(() => store.cancel(request.requestId,other,authority)).toThrow("owner");
-    store.cancel(request.requestId,owner,authority);
+    expect(store.cancel(request.requestId,owner,authority)).toBe("cancelled");
     expect(() => store.review(request.requestId,admin,authority,p.ownerProof,p.brandProof)).toThrow("pending");
     expect(store.prepare(owner,authority,origin,brand,"activate",profile)).toBeDefined();
+  });
+  it("reports an expired cancellation without reviving or changing its saved setup", () => {
+    const {store,advance} = setup(), request = store.prepare(owner,authority,origin,brand,"activate",profile);
+    advance(900);
+    expect(store.cancel(request.requestId,owner,authority)).toBe("expired");
+    expect(store.prepare(owner,authority,origin,brand,"activate",profile).requestId).not.toBe(request.requestId);
   });
 });

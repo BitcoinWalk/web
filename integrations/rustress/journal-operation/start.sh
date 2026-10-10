@@ -10,4 +10,4 @@ printf '%s\n' '[Timer]' 'OnCalendar=' "OnCalendar=@$expires" 'Persistent=true' '
 systemctl --user stop bitcoinwalk-journal-window-expiry.timer bitcoinwalk-journal-window-expiry.service >/dev/null 2>&1||true
 systemctl --user daemon-reload||fail;systemctl --user enable --now "$unit.timer" >/dev/null||fail;[ "$(systemctl --user is-active "$unit.timer")" = active ]||fail
 "$node" "$controller" activate "$active"||fail;systemctl --user enable --now bitcoinwalk-payout-journal-operation-monitor.timer >/dev/null||fail
-rm -f "$candidate";printf '%s\n' "Production payout journal is bound to the signed Madeira operation until epoch $expires."
+rm -f "$candidate";printf '%s\n' "Production payout journal is bound to the signed city operation until epoch $expires."

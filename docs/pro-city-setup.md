@@ -39,7 +39,7 @@ Staging app `0.3.220` is active through the non-root `bitcoinwalk` deployment he
 1. BW-101 continuation: owner-signed fields, LNURL endpoint/cycle validation, versioned private destination history, registration-before-checkout recovery and the durable entitlement/setup-task foundation are implemented. Basic upgrade and real gift entry, Guide delivery, provisioning revalidation and staging acceptance remain. Retain entitlement through all retries; never ask an already-paid city to repurchase. See [payout setup evidence](organizer-payout-setup.md).
 2. Deploy and accept BW-106's implemented kind-30312 relay admission plus exact publication/read-back checkpoint; then expose recovery without creating a second identity.
 3. The city-signed profile and verified NIP-05/LNURL fields passed the Madeira pilot. Retain regression coverage and never rename the personal identity.
-4. Deploy and accept the My cities entry point and Guide notification, then finish created-key backup, imported-key, Amber/Clave bunker, wrong-key reconnect, cancellation, owner/admin expiry and real self-purchase/gift recovery coverage. Real gift checkout remains BW-99.
+4. Islamabad completed the real Guide/gift recovery journey under BW-99. Release `0.3.244` prevents accidental replacement of a saved city identity, rejects a wrong or personal key before signing, and presents an expired request as safely resumable without another payment or identity. Cancellation and expiry regression coverage passes. Remaining staging acceptance is one imported-backup reconnect and one real Amber/Clave bunker reconnect.
 
 BW-105 remains In progress. The dependency gates are reported in the UI, not hidden behind a successful-looking Submit button.
 

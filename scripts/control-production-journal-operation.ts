@@ -15,7 +15,14 @@ function token(name:string){const value=protectedRead(`${stateRoot}/${name}`,256
 async function request(path:string,credential:string,body?:unknown){const response=await fetch(origin+path,{method:body===undefined?"GET":"POST",redirect:"error",cache:"no-store",signal:AbortSignal.timeout(5000),headers:{authorization:`Bearer ${credential}`,"content-type":"application/json"},...(body===undefined?{}:{body:JSON.stringify(body)})});if(!response.ok)throw new Error();return stateSchema.parse(await response.json());}
 async function status(){return request("/v1/journal/status",token("client.token"));}
 async function transition(action:"activate"|"pause",before:Awaited<ReturnType<typeof status>>){const after=await request("/v1/journal/control",token("operator.token"),{serviceId:before.serviceId,expectedFence:before.fence,action});if(after.active!==(action==="activate")||after.fence===before.fence)throw new Error();return after;}
-function operation(path:string){return verifyPayoutOperation(JSON.parse(protectedRead(path)),expected);}
+function operation(path:string){
+ const event=JSON.parse(protectedRead(path));
+ // The pilot may retain Madeira alone or add the explicitly reviewed Islamabad
+ // city. All limits, wallet binding and super-admin signature remain pinned.
+ const cities=z.array(z.enum(["ca20993a-5b7f-443e-931e-8dbaa61d05fe","5c1c04f5-aead-4265-bce7-0f9ce0d9b5cd"])).min(1).max(2)
+  .refine(values=>new Set(values).size===values.length&&values.includes("ca20993a-5b7f-443e-931e-8dbaa61d05fe")).parse(JSON.parse(event.content).cityIds);
+ return verifyPayoutOperation(event,{...expected,cityIds:cities});
+}
 
 async function main(){if(process.getuid?.()===0)throw new Error();const [action,path]=process.argv.slice(2);if(!["inspect","activate","status","pause"].includes(action??""))throw new Error();
  if(action==="pause"){const before=await status();if(before.active)await transition("pause",before);if((await status()).active)throw new Error();process.stdout.write("PAYOUT_JOURNAL_OPERATION_PAUSED\n");return;}
