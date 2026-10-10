@@ -3,17 +3,19 @@ import dynamic from "next/dynamic";
 import Image from "next/image";
 import Link from "next/link";
 import {useEffect,useState} from "react";
-import {queryDirectoryRecords} from "../nostr/city-records";
+import {queryCalendarEvents,queryDirectoryRecords} from "../nostr/city-records";
 import {relayConfig} from "../lib/relay-config";
 import {directoryConfig} from "../lib/directory-config";
-import {approvedDirectory,filterDirectory,directoryImage,type DirectoryCity} from "../domain/directory";
+import {approvedDirectory,directoryWithUpcomingWalks,filterDirectory,directoryImage,type DirectoryCity} from "../domain/directory";
+import {approvedCalendarWalks} from "../nostr/calendar-records";
+import {managedCalendarEvents} from "../domain/event-routing";
 import {DEFAULT_HOME_PAGE,HOME_PAGE_ID,type ContentPage} from "../domain/content";
 import {latestContentPages,queryContentRevisions} from "../nostr/content-records";
 import {DEFAULT_FEATURE_FLAGS} from "../domain/feature-flags";
 import {latestFeatureFlags,queryFeatureFlags} from "../nostr/feature-flags";
 import {heroObjectPosition} from "../domain/hero-presentation";
 import styles from "./city-directory.module.css";
-const Map=dynamic(()=>import("./directory-map"),{ssr:false,loading:()=> <p>Loading map…</p>});
+const DirectoryMap=dynamic(()=>import("./directory-map"),{ssr:false,loading:()=> <p>Loading map…</p>});
 export const compactHomepageBrand=(scrollY:number)=>scrollY>72;
 function Photo({src,alt}:{src?:string;alt:string}) {
   const [failed,setFailed]=useState(false);
@@ -23,14 +25,12 @@ function Photo({src,alt}:{src?:string;alt:string}) {
 }
 function Card({row,featured=false}:{row:DirectoryCity;featured?:boolean}) {
   const {city}=row;
-  const [now]=useState(()=>Date.now());
   return <article className={styles.card}>
     <Photo key={city.heroImageUrl} src={directoryImage(city.heroImageUrl)} alt={`BitcoinWalk in ${city.cityName}`}/>
     <div className={styles.content}><p className={styles.eyebrow}>{row.tier==="paid"?"Dedicated city relay":"Community walk"}</p>
       <h3><a href={row.href}>BitcoinWalk {city.cityName}</a></h3>
       <p>{new Intl.DateTimeFormat(undefined,{dateStyle:"medium",timeStyle:"short"}).format(new Date(city.startAt))}</p>
       <p>{city.meetingPoint.description}</p>
-      {new Date(city.startAt).getTime()<now&&<p className={styles.muted}>Last published date — check with the organizer for the next walk.</p>}
       {featured&&city.sponsor&&<div className={styles.sponsor}>
         {directoryImage(city.sponsor.logoUrl)&&<Photo key={city.sponsor.logoUrl} src={directoryImage(city.sponsor.logoUrl)} alt={`${city.sponsor.name} logo`}/>}
         <strong>Powered by {city.sponsor.name}</strong>
@@ -53,8 +53,8 @@ export default function CityDirectory() {
   useEffect(()=>{const update=()=>setCompactBrand(compactHomepageBrand(window.scrollY));update();window.addEventListener("scroll",update,{passive:true});return()=>window.removeEventListener("scroll",update);},[]);
   useEffect(()=>{
     let active=true;
-    Promise.allSettled([queryDirectoryRecords(relayConfig.readRelays),queryContentRevisions(relayConfig.readRelays),queryFeatureFlags(relayConfig.readRelays)]).then(([directory,contentResult,featureFlags])=>{
-      if(!active)return;if(directory.status==="rejected"){setError("We couldn’t load the approved walks. The relay may be temporarily unavailable or rate-limited. Please try again in a few minutes.");setStatus("error");return;}const {revisions,approvals}=directory.value;setRows(approvedDirectory(revisions,approvals,directoryConfig.paidCities));if(contentResult.status==="fulfilled"){const home=latestContentPages(contentResult.value).find(row=>row.page.pageId===HOME_PAGE_ID&&row.page.published);setContent(home?.page??DEFAULT_HOME_PAGE);}setShowFeatured(featureFlags.status==="fulfilled"?(latestFeatureFlags(featureFlags.value)?.flags.featuredCityWalks??DEFAULT_FEATURE_FLAGS.featuredCityWalks):DEFAULT_FEATURE_FLAGS.featuredCityWalks);setStatus("ready");
+    Promise.allSettled([queryDirectoryRecords(relayConfig.readRelays),queryCalendarEvents(relayConfig.readRelays),queryContentRevisions(relayConfig.readRelays),queryFeatureFlags(relayConfig.readRelays)]).then(([directory,calendar,contentResult,featureFlags])=>{
+      if(!active)return;if(directory.status==="rejected"||calendar.status==="rejected"||calendar.value.length>=500){setError("We couldn’t load the current walks completely. The relay may be temporarily unavailable or rate-limited. Please try again in a few minutes.");setStatus("error");return;}const {revisions,approvals}=directory.value,walks=approvedCalendarWalks(revisions,approvals),current=new Map(walks.flatMap(walk=>{const occurrence=managedCalendarEvents(walk,calendar.value).find(item=>item.status==="active"||item.status==="upcoming");return occurrence?[[walk.revision.city.cityId,occurrence] as const]:[];}));setRows(directoryWithUpcomingWalks(approvedDirectory(revisions,approvals,directoryConfig.paidCities),current));if(contentResult.status==="fulfilled"){const home=latestContentPages(contentResult.value).find(row=>row.page.pageId===HOME_PAGE_ID&&row.page.published);setContent(home?.page??DEFAULT_HOME_PAGE);}setShowFeatured(featureFlags.status==="fulfilled"?(latestFeatureFlags(featureFlags.value)?.flags.featuredCityWalks??DEFAULT_FEATURE_FLAGS.featuredCityWalks):DEFAULT_FEATURE_FLAGS.featuredCityWalks);setStatus("ready");
     });
     return ()=>{active=false;};
   },[attempt]);
@@ -68,11 +68,11 @@ export default function CityDirectory() {
       {featured.length>0?<div className={styles.grid}>{featured.map(row=><Card key={row.city.cityId} row={row} featured/>)}</div>:<div className={styles.featurePlaceholder}><strong>Featured cities and sponsors will appear here.</strong><p>Only confirmed paid cities and approved sponsor details are displayed. No paid cities are configured for this preview yet.</p></div>}
     </section>}
     <section id="find-walk" aria-labelledby="directory-title"><h2 id="directory-title">Find your city</h2>
-      <div className={styles.controls}><label>Search cities or meeting points<input type="search" value={query} onChange={e=>setQuery(e.target.value)} placeholder="Try Radom…" /></label><div><button aria-pressed={view==="list"} onClick={()=>setView("list")}>List</button><button aria-pressed={view==="map"} onClick={()=>setView("map")}>Map</button></div></div>
+      <div className={styles.controls}><label>Search cities or meeting points<input type="search" value={query} onChange={e=>setQuery(e.target.value)} placeholder="Let's F... Go!" /></label><div><button aria-pressed={view==="list"} onClick={()=>setView("list")}>List</button><button aria-pressed={view==="map"} onClick={()=>setView("map")}>Map</button></div></div>
       {status==="loading"&&<p role="status">Loading approved walks…</p>}
       {status==="error"&&<div role="alert"><p>{error}</p><button onClick={()=>{setStatus("loading");setAttempt(a=>a+1);}}>Try again</button></div>}
       {status==="ready"&&<><p role="status">{filtered.length} {filtered.length===1?"city":"cities"}{query?" matching your search":" with approved walks"}.</p>
-        {!filtered.length?<p>{rows.length?"No matching cities. Try another name or clear your search.":"No approved walks are available in this staging directory yet."}</p>:view==="map"?<Map cities={filtered}/>:<div className={styles.grid}>{filtered.map(row=><Card key={row.city.cityId} row={row}/>)}</div>}
+        {!filtered.length?<p>{rows.length?"No matching cities. Try another name or clear your search.":"No approved walks are available in this staging directory yet."}</p>:view==="map"?<DirectoryMap cities={filtered}/>:<div className={styles.grid}>{filtered.map(row=><Card key={row.city.cityId} row={row}/>)}</div>}
         <p className={styles.muted}>Times are shown in your device’s timezone. Map pins mark approved meeting points.</p></>}
     </section>
     <footer className={styles.footer}>{content.footerTitle&&<h2>{content.footerTitle}</h2>}{content.footerText&&<p>{content.footerText}</p>}{content.footerCtaLabel&&<Link className={styles.link} href="/start">{content.footerCtaLabel}</Link>}</footer>

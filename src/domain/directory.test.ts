@@ -1,5 +1,5 @@
 import {describe,it,expect} from "vitest";
-import {approvedDirectory,filterDirectory,directoryImage} from "./directory";
+import {approvedDirectory,directoryWithUpcomingWalks,filterDirectory,directoryImage} from "./directory";
 import type {CityRevision,ApprovalRecord} from "../nostr/city-records";
 const cityId="66f137cb-2ac1-4eef-8358-7dd66b45922f";
 const revision=(id:string,slug="radom"):CityRevision=>({event:{id,created_at:1} as CityRevision["event"],city:{cityId,slug,cityName:"Radom",description:"Walk",startAt:"2026-10-03T10:00:00Z",meetingPoint:{description:"Rynek",latitude:51.4,longitude:21.1},heroImageUrl:"https://example.com/hero.jpg",sponsor:{name:"Example",logoUrl:"https://example.com/logo.png"}}});
@@ -39,6 +39,12 @@ describe("approved city directory",()=>{
   const rows=approvedDirectory([warsaw],[decision("a","approved",1)],{});
   expect(filterDirectory(rows,"warsaw")).toHaveLength(1);
   expect(filterDirectory(rows,"WARSCHAU")).toHaveLength(1);
+ });
+ it("lists only active or upcoming walks and uses the exact occurrence details",()=>{
+  const rows=approvedDirectory([revision("a")],[decision("a","approved",1)],{}),point={description:"New meeting point",latitude:51.41,longitude:21.11};
+  expect(directoryWithUpcomingWalks(rows,new Map([[cityId,{start:1_800_000_000,status:"upcoming",meetingPoint:point}]]))).toMatchObject([{city:{startAt:"2027-01-15T08:00:00.000Z",meetingPoint:point}}]);
+  for(const status of ["grace","past"] as const)expect(directoryWithUpcomingWalks(rows,new Map([[cityId,{start:1_800_000_000,status,meetingPoint:point}]]))).toEqual([]);
+  expect(directoryWithUpcomingWalks(rows,new Map())).toEqual([]);
  });
  it("does not emit unsafe image URLs",()=>{
   expect(directoryImage("javascript:alert(1)")).toBeUndefined();
