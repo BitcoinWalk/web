@@ -1,7 +1,7 @@
 import {describe,it,expect,vi} from "vitest";
 import {finalizeEvent,getPublicKey,nip19,type Event} from "nostr-tools";
 vi.mock("./authority",()=>({isSuperAdmin:(key:string)=>key===getPublicKey(new Uint8Array(32).fill(1)),SUPER_ADMIN_PUBKEY:getPublicKey(new Uint8Array(32).fill(1))}));
-import {approvedCalendarWalks,matchesCalendar,matchesInitialCalendar,matchesOrganizerCalendar,decodeCalendarLink,calendarNevent,initialCalendarHero,type CalendarWalk} from "./calendar-records";
+import {approvedCalendarWalks,calendarEventSource,matchesCalendar,matchesInitialCalendar,matchesOrganizerCalendar,decodeCalendarLink,calendarNevent,initialCalendarHero,type CalendarWalk} from "./calendar-records";
 import {createApprovedCalendarEvent,createInitialCalendarProposal,createOrganizerCalendarEvent} from "./calendar-event";
 import type {ApprovalRecord} from "./city-records";
 const city={cityId:"66f137cb-2ac1-4eef-8358-7dd66b45922f",slug:"radom",cityName:"Radom",description:"Friday walk",startAt:"2026-10-02T15:00:00Z",meetingPoint:{description:"Square",latitude:51.4,longitude:21.1},heroImageUrl:"https://example.com/hero.jpg"};
@@ -10,6 +10,24 @@ const revision={event:event("a",1),city};
 const approval:ApprovalRecord={event:event("b",2),approval:{cityId:city.cityId,cityRevisionId:revision.event.id,status:"approved"}};
 const walk:CalendarWalk={revision,approval};
 describe("calendar approval selection",()=>{
+ it("retains signed occurrences using the original or approved image across profile updates",()=>{
+  const raw={...revision,city:{...city,heroImageUrl:undefined}};
+  const reviewed={...approval,approval:{...approval.approval,heroImageUrl:"https://example.com/approved.webp"}};
+  const [current]=approvedCalendarWalks([raw],[reviewed]);
+  const draft={id:`${city.cityId}:2026-10-02`,seriesId:city.cityId,localDate:"2026-10-02",localTime:"15:00",start:1790953200,end:1790956800,timeZone:"UTC",meetingPoint:city.meetingPoint};
+  const key=new Uint8Array(32).fill(2);
+  const original=finalizeEvent(createOrganizerCalendarEvent({revision:raw,approval:reviewed},draft),key);
+  const presented=finalizeEvent(createOrganizerCalendarEvent(current,draft),key);
+  expect(calendarEventSource(original,current)).not.toBeNull();
+  expect(calendarEventSource(presented,current)).not.toBeNull();
+  const next={event:event("c",3),city:{...city,description:"Updated"}};
+  const nextApproval={event:event("d",4),approval:{...approval.approval,cityRevisionId:next.event.id}};
+  const [updated]=approvedCalendarWalks([raw,next],[reviewed,nextApproval]);
+  expect(calendarEventSource(original,updated)).not.toBeNull();
+  expect(calendarEventSource(presented,updated)).not.toBeNull();
+  const forged=finalizeEvent({...original,tags:original.tags.map(t=>t[3]==="city-approval"?["e","f".repeat(64),"","city-approval"]:t)},key);
+  expect(calendarEventSource(forged,updated)).toBeNull();
+ });
  it("recovers the first approval image after a later imageless profile approval without using pending images",()=>{
   const key=new Uint8Array(32).fill(2),author=getPublicKey(key);
   const noImage={...city,heroImageUrl:undefined};

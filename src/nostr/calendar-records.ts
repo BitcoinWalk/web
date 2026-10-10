@@ -38,6 +38,9 @@ export function approvedCalendarWalks(revisions:CityRevision[],decisions:Approva
     const revision=revisions.find(r=>r.city.cityId===d.cityId&&r.event.id===d.cityRevisionId);
     const historical=(approvedSources.get(d.cityId)??[]).filter(source=>source.approval.event.id!==record.event.id);
     if(revision){
+      // Older occurrences were signed from the original revision, before the
+      // approval's presentation image was applied in the dashboard.
+      if(d.heroImageUrl&&d.heroImageUrl!==revision.city.heroImageUrl)historical.push({revision,approval:record});
       const city={...revision.city,...(d.slug?{slug:d.slug}:{}),...(d.aliases?.length?{aliases:d.aliases}:{aliases:undefined}),...(d.heroImageUrl?{heroImageUrl:d.heroImageUrl}:{})};
       result.push({revision:{...revision,city},approval:record,...(initialReleases.has(d.cityId)?{initialRelease:initialReleases.get(d.cityId)}:{}),...(historical.length?{approvedSources:historical}:{})});
     }
@@ -57,7 +60,11 @@ export function calendarEventSource(event:Event,walk:CalendarWalk):CalendarWalk|
   if(matchesCalendar(event,walk)||matchesOrganizerCalendar(event,walk)||matchesInitialCalendar(event,walk))return walk;
   const revisionId=source(event,"city-revision"),approvalId=source(event,"city-approval");
   const historical=walk.approvedSources?.find(candidate=>candidate.revision.city.cityId===walk.revision.city.cityId&&candidate.approval.approval.cityId===walk.revision.city.cityId&&candidate.approval.approval.status==="approved"&&candidate.approval.approval.cityRevisionId===candidate.revision.event.id&&candidate.revision.event.id===revisionId&&candidate.approval.event.id===approvalId);
-  return historical&&matchesOrganizerCalendar(event,historical)?historical:null;
+  if(!historical)return null;
+  if(matchesOrganizerCalendar(event,historical)||matchesCalendar(event,historical))return historical;
+  const image=historical.approval.approval.heroImageUrl;
+  const presented=image?{...historical,revision:{...historical.revision,city:{...historical.revision.city,heroImageUrl:image}}}:historical;
+  return matchesOrganizerCalendar(event,presented)||matchesCalendar(event,presented)?presented:null;
 }
 const orderedTags=(tags:string[][])=>JSON.stringify(tags.map(t=>JSON.stringify(t)).sort());
 function matchesExpectedTags(event:Event,expected:string[][]):boolean {const actual=orderedTags(event.tags);if(actual===orderedTags(expected))return true;return one(event,"g")===null&&actual===orderedTags(expected.filter(tag=>tag[0]!=="g"));}
