@@ -211,6 +211,48 @@ connection before repeating the real-payment acceptance.
 
 ## Execution order and user input
 
+### Islamabad BW-99 acceptance — 10 October 2026
+
+Staging app `0.3.243` fixes the provisioning worker's identity read-back to use
+the configured internal authoritative relay. The public relay contained the
+exact signed binding, but the VPS's public connection could not read it.
+The provider client now accepts the reviewed standalone-address capability
+and recovers an uncertain reservation only after a revision-pinned,
+authenticated absence response. Ambiguous outages still cannot trigger writes.
+
+Islamabad's disabled v1 reservation and enabled v2 provider configuration have
+both been applied and independently verified. The staging activation task now
+reports NIP-05 and LNURL **active**. Canonical public endpoints return the exact
+approved Islamabad city key and `islamabad@bitcoinwalk.org` LNURL-pay metadata.
+An explicitly reviewed one-city projection exposes these endpoints through the
+production gateway; this does not publish a production Islamabad city page or
+deploy the staging application to production.
+
+The private super-admin operation signature authorizes Madeira and Islamabad
+without changing wallet limits. Both the journal and Docker payout service use
+that signature; the service reports ready with zero consecutive failures.
+Islamabad payout version 3 is registered with the 79/21 policy. The journal's
+stale exclusive lock was preserved outside its state directory after verifying
+that no journal process or listener existed. The journal and tunnel are now
+enabled for restart. The tunnel host pin was updated through an independently
+verified SSH session to the host fingerprint already supplied by the user;
+strict host verification was never disabled.
+
+Acceptance completed on 10 October 2026: the user's 100-sat test payment
+settled and the ledger confirmed a paid 79-sat organizer payout, a 21-sat
+BitcoinWalk allocation and a separate 1.558-sat routing fee borne by BitcoinWalk.
+The payout service remained ready with zero consecutive failures. All six Pro
+setup checks passed; the user then confirmed successful verified-city-profile
+publication and final presentation using the existing city signer. BW-99 is Done.
+No further upgrade invoice or new identity was required. This closes the staging
+gift journey, not a general production application rollout.
+
+Deployment evidence: staging `app-staging-deploy.muIz2e`, reservation
+`islamabad-managed-reservation.fEkQag`, payout operation
+`bw99-payout-operation.ifii9ytj`, and public projection backup
+`islamabad-public-projection-1791660379090.sqlite` (all under the respective
+non-root user's backups directory). The signed operation remains private.
+
 Recommended sequence: BW-103 (authority contract), then BW-104 (artwork) and BW-100 (Rustress adapter), then BW-101/BW-105 (payout and account setup), then BW-18/BW-19 (reliable splits and verified endpoints), then BW-106 (public replacement and city signing), then BW-102 (combined pilot acceptance). BW-99 now reuses that completed setup foundation and remains open only for its real public gift acceptance. BW-20 and BW-23 keep independent relay/chat readiness gates. No circular dependency on gift checkout is introduced.
 
 BW-102 also accepts the complete branded-account journey: self-purchase and fixture gift, existing/new city signer, backup/reconnection and account-switch tests, circular-avatar legibility, signed profile publication, NIP-05-to-city-npub read-back, private destination exclusion, public Hosted by replacement with no personal fallback, historical URL preservation, future city-author signatures, cancellation/moderation, and durable setup retry. Real gift checkout acceptance is repeated under BW-99 when implemented.
