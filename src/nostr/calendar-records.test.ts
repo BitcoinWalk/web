@@ -31,6 +31,11 @@ describe("calendar approval selection",()=>{
   const rejection:ApprovalRecord={event:event("c",3),approval:{...approval.approval,cityRevisionId:"d".repeat(64),status:"rejected"}};
   expect(approvedCalendarWalks([revision],[approval,rejection])).toEqual([walk]);
  });
+ it("applies the complete approved public presentation to city routes",()=>{
+  const presented:ApprovalRecord={...approval,approval:{...approval.approval,slug:"wuerzburg",aliases:["wurzburg"],heroImageUrl:"https://example.com/approved.webp"}};
+  const [selected]=approvedCalendarWalks([revision],[presented]);
+  expect(selected.revision.city).toMatchObject({slug:"wuerzburg",aliases:["wurzburg"],heroImageUrl:"https://example.com/approved.webp"});
+ });
  it("does not fall back after revocation or missing newly approved revision",()=>{
   expect(approvedCalendarWalks([revision],[approval,{event:event("c",3),approval:{...approval.approval,status:"revoked"}}])).toEqual([]);
   expect(approvedCalendarWalks([revision],[approval,{event:event("c",3),approval:{...approval.approval,cityRevisionId:"d".repeat(64)}}])).toEqual([]);

@@ -37,7 +37,10 @@ export function approvedCalendarWalks(revisions:CityRevision[],decisions:Approva
     if(d.status!=="approved"||rejected.get(d.cityId)?.has(d.cityRevisionId))continue;
     const revision=revisions.find(r=>r.city.cityId===d.cityId&&r.event.id===d.cityRevisionId);
     const historical=(approvedSources.get(d.cityId)??[]).filter(source=>source.approval.event.id!==record.event.id);
-    if(revision)result.push({revision:d.slug&&d.slug!==revision.city.slug?{...revision,city:{...revision.city,slug:d.slug}}:revision,approval:record,...(initialReleases.has(d.cityId)?{initialRelease:initialReleases.get(d.cityId)}:{}),...(historical.length?{approvedSources:historical}:{})});
+    if(revision){
+      const city={...revision.city,...(d.slug?{slug:d.slug}:{}),...(d.aliases?.length?{aliases:d.aliases}:{aliases:undefined}),...(d.heroImageUrl?{heroImageUrl:d.heroImageUrl}:{})};
+      result.push({revision:{...revision,city},approval:record,...(initialReleases.has(d.cityId)?{initialRelease:initialReleases.get(d.cityId)}:{}),...(historical.length?{approvedSources:historical}:{})});
+    }
   }
   return result.sort((a,b)=>a.revision.city.cityName.localeCompare(b.revision.city.cityName));
 }
