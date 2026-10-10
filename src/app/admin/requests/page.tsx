@@ -1,5 +1,5 @@
-import SubmissionApprovals from "../_approvals-screen";
+import RequestsScreen from "../../../components/requests-screen";
 
 export default function RequestsPage(){
- return <main><h1>Requests</h1><SubmissionApprovals/></main>;
+ return <RequestsScreen/>;
 }
