@@ -16,6 +16,10 @@ const relayURL = z.string().url().refine(value => {
 }, "Use a public WSS hostname without credentials, port or query.").transform(value => new URL(value).href);
 export const configSchema = z.object({
   sourceRelay: relayURL,
+  // A Guide running beside the relay may read its private listener when the
+  // host cannot hairpin through the public TLS endpoint. Public links and the
+  // durable outbox identity always remain bound to sourceRelay above.
+  sourceReadRelay:z.string().url().refine(value=>new URL(value).href==="ws://127.0.0.1:3334/","Use the exact reviewed relay loopback listener.").optional(),
   discoveryRelays: z.array(relayURL).min(1).max(5),
   // Operator-reviewed destinations only; discovery never authorizes arbitrary outbound hosts.
   allowedInboxRelays: z.array(relayURL).min(1).max(10),

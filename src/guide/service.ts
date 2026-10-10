@@ -91,9 +91,10 @@ async function main() {
     do {
       try {
         // Re-read retained history: event timestamps are author-controlled, not an ingestion cursor.
-        const revisionEvents = await history(pool, config.sourceRelay, 30303);
-        const decisionEvents = await history(pool, config.sourceRelay, 30304, SUPER_ADMIN_PUBKEY);
-        const calendarEvents = await history(pool, config.sourceRelay, 31923);
+        const sourceReadRelay=config.sourceReadRelay??config.sourceRelay;
+        const revisionEvents = await history(pool, sourceReadRelay, 30303);
+        const decisionEvents = await history(pool, sourceReadRelay, 30304, SUPER_ADMIN_PUBKEY);
+        const calendarEvents = await history(pool, sourceReadRelay, 31923);
         const revisions = revisionEvents.map(parseCityRevision).filter((r): r is CityRevision => r !== null);
         const decisions = decisionEvents.map(parseApprovalRecord).filter((r): r is ApprovalRecord => r !== null);
         const pending = pendingCityRevisions(revisions, decisions);
@@ -132,7 +133,7 @@ async function main() {
           try {
             // Recheck decisions immediately before sending delayed work.
             if (row.purpose === "review") {
-              const fresh = (await history(pool, config.sourceRelay, 30304, SUPER_ADMIN_PUBKEY)).map(parseApprovalRecord).filter((r): r is ApprovalRecord => r !== null);
+              const fresh = (await history(pool, sourceReadRelay, 30304, SUPER_ADMIN_PUBKEY)).map(parseApprovalRecord).filter((r): r is ApprovalRecord => r !== null);
               if (!pendingCityRevisions(revisions, fresh).some(r => r.event.id === row.submission)) { outbox!.state(row, "obsolete"); continue; }
             }
             const lists = await readAnyComplete(pool, config.discoveryRelays, { kinds: [10050], authors: [row.recipient], limit: 10 });
