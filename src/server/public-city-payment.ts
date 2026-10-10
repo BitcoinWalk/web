@@ -26,13 +26,15 @@ export async function resolvePublicCityPayment(cityId: string, citySlug: string,
     const row = source.activation(cityId);
     if (row?.phase === "active" && row.lnurl === "active") {
       if (host.state !== "brand") return {kind:"unavailable"};
-      const config = managedProvisionConfigSchema.parse(JSON.parse(row.activation_config));
-      if (config.cityId !== cityId || config.brandPubkey !== host.pubkey || config.invoiceIssuance !== "enabled")
-        return {kind: "unavailable"};
-      // An active v2 configuration is downstream of settled entitlement and
-      // fresh authority checks. It remains valid evidence after legacy payment
-      // records are migrated or compacted.
-      return {kind: "zap", href: `lightning:${config.localPart}@${config.domain}`};
+      const parsed = managedProvisionConfigSchema.safeParse(JSON.parse(row.activation_config));
+      if (parsed.success) {
+        const config=parsed.data;
+        if (config.cityId !== cityId || config.brandPubkey !== host.pubkey || config.invoiceIssuance !== "enabled")
+          return {kind: "unavailable"};
+        return {kind: "zap", href: `lightning:${config.localPart}@${config.domain}`};
+      }
+      // Legacy active rows can predate the strict v2 schema; their public brand
+      // binding is evaluated by the migration branch below.
     }
     // The public brand binding is super-admin signed and relay-enforced only
     // after Pro entitlement and authority checks. Migrated cities can predate
