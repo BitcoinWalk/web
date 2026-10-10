@@ -57,6 +57,24 @@ describe("paid-city settlement",()=>{
   expect(await service.giftStatus(token,cityId)).toMatchObject({tier:"paid",status:"paid"});
   expect(store.db.prepare("SELECT originalOwnerPubkey,currentOwnerPubkey FROM pro_setup_task WHERE cityId=?").get(cityId)).toEqual({originalOwnerPubkey:owner,currentOwnerPubkey:owner});
  });
+ it("shares one invoice across concurrent anonymous devices",async()=>{
+  const {service,wallet,store}=setup(),first="d".repeat(64),second="e".repeat(64);
+  const [a,b]=await Promise.all([service.createGift(first,cityId,revisionId),service.createGift(second,cityId,revisionId)]);
+  expect(a.invoice).toBe("fixture");expect(b.invoice).toBe("fixture");expect(wallet.makeInvoice).toHaveBeenCalledTimes(1);
+  expect(store.gift(first,cityId)?.id).toBe(store.gift(second,cityId)?.id);
+ });
+ it("renews an expired token safely and still recognizes a late old settlement",async()=>{
+  const store=new PaymentStore(":memory:");stores.push(store);let clock=now;
+  const oldPreimage="21".repeat(32),oldHash=createHash("sha256").update(Buffer.from(oldPreimage,"hex")).digest("hex");
+  const newPreimage="22".repeat(32),newHash=createHash("sha256").update(Buffer.from(newPreimage,"hex")).digest("hex");
+  const states=new Map([[oldHash,"expired"],[newHash,"pending"]]);
+  const wallet:PaymentWallet={makeInvoice:vi.fn(async()=>{const paymentHash=vi.mocked(wallet.makeInvoice).mock.calls.length===1?oldHash:newHash;return{invoice:`invoice-${paymentHash}`,paymentHash,amountMsat:21000000,createdAt:clock,expiresAt:clock+60};}),lookupInvoice:vi.fn(async paymentHash=>{const state=states.get(paymentHash);return state==="settled"?{payment_hash:paymentHash,type:"incoming",amount:21000000,state,settled_at:now+120,preimage:oldPreimage}:{payment_hash:paymentHash,type:"incoming",amount:21000000,state};})};
+  const service=new PaymentService(store,wallet,async()=>({cityId,owner,cityName:"Memphis",revisionId}),()=>clock),token="f".repeat(64);
+  await service.createGift(token,cityId,revisionId);clock=now+61;expect((await service.giftStatus(token,cityId)).status).toBe("expired");
+  const renewed=await service.createGift(token,cityId,revisionId);expect(renewed).toMatchObject({status:"pending",invoice:`invoice-${newHash}`});expect(wallet.makeInvoice).toHaveBeenCalledTimes(2);
+  states.set(oldHash,"settled");clock=now+3662;await service.reconcile();expect(store.entitled(cityId)).toBe(true);
+  expect(await service.giftStatus(token,cityId)).toMatchObject({tier:"paid"});
+ });
 });
 describe("payment request authorization",()=>{
  it("binds request to the deployment origin and short lifetime",()=>{const event=finalizeEvent(paymentRequest({action:"status",cityId},"https://app-staging.bitcoinwalk.org",now),generateSecretKey());expect(authorizePayment(event,"https://app-staging.bitcoinwalk.org",now).action).toBe("status");expect(()=>authorizePayment(event,"https://bitcoinwalk.org",now)).toThrow();expect(()=>authorizePayment(event,"https://app-staging.bitcoinwalk.org",now+301)).toThrow();});

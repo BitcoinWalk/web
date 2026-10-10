@@ -48,9 +48,13 @@ export class PaymentStore {
  gift(tokenHash:string,cityId:string){return this.db.prepare(`SELECT payment_invoice.* FROM gift_city_checkout
    JOIN payment_invoice ON payment_invoice.id=gift_city_checkout.invoiceId WHERE gift_city_checkout.tokenHash=? AND gift_city_checkout.cityId=?`).get(tokenHash,cityId) as PaymentRow|undefined;}
  bindGift(tokenHash:string,cityId:string,invoiceId:string,createdAt:number){
-  const existing=this.db.prepare("SELECT cityId,invoiceId FROM gift_city_checkout WHERE tokenHash=?").get(tokenHash) as {cityId:string;invoiceId:string}|undefined;
-  if(existing&&(existing.cityId!==cityId||existing.invoiceId!==invoiceId))throw new Error("Gift checkout token conflict.");
-  this.db.prepare("INSERT OR IGNORE INTO gift_city_checkout VALUES(?,?,?,?)").run(tokenHash,cityId,invoiceId,createdAt);
+  const existing=this.db.prepare(`SELECT gift_city_checkout.cityId,gift_city_checkout.invoiceId,payment_invoice.status FROM gift_city_checkout
+   JOIN payment_invoice ON payment_invoice.id=gift_city_checkout.invoiceId WHERE tokenHash=?`).get(tokenHash) as {cityId:string;invoiceId:string;status:PaymentRow["status"]}|undefined;
+  if(!existing){this.db.prepare("INSERT INTO gift_city_checkout VALUES(?,?,?,?)").run(tokenHash,cityId,invoiceId,createdAt);return;}
+  if(existing.cityId!==cityId)throw new Error("Gift checkout token conflict.");
+  if(existing.invoiceId===invoiceId)return;
+  if(existing.status!=="expired")throw new Error("Gift checkout token conflict.");
+  this.db.prepare("UPDATE gift_city_checkout SET invoiceId=?,createdAt=? WHERE tokenHash=?").run(invoiceId,createdAt,tokenHash);
  }
 }
 
@@ -91,7 +95,7 @@ export class PaymentService {
   ...(row.status==="pending"?{invoice:row.invoice}:{}),expiresAt:row.expiresAt};}
  createGift(tokenHash:string,cityId:string,revisionId:string):Promise<GiftPaymentView>{return this.exclusive(async()=>{
   if(!/^[a-f0-9]{64}$/.test(tokenHash))throw new Error("Gift checkout token required.");
-  const existing=this.store.gift(tokenHash,cityId);if(existing){if(existing.status!=="paid")await this.check(existing);return this.giftView(this.store.forCity(cityId).find(row=>row.id===existing.id)!);}
+  const existing=this.store.gift(tokenHash,cityId);if(existing){if(existing.status!=="paid")await this.check(existing);const checked=this.store.gift(tokenHash,cityId)!;if(checked.status!=="expired")return this.giftView(checked);}
   const city=await this.verifyGiftCity(cityId,revisionId),history=this.store.forCity(cityId);
   if(history.some(row=>row.owner!==city.owner))throw new Error("City payment ownership requires operator review.");
   for(const row of history)if(row.paymentHash&&row.status!=="paid")await this.check(row);
@@ -130,7 +134,7 @@ export class PaymentService {
  });}
  /** Background settlement continues even when the organizer closes their browser. */
  reconcile():Promise<void>{return this.exclusive(async()=>{
-  for(const row of this.store.rows().filter(row=>row.status==="pending"||(row.status==="expired"&&(!row.checkedAt||row.checkedAt<this.now()-86400))).sort((a,b)=>(a.checkedAt??0)-(b.checkedAt??0)).slice(0,100)){
+  for(const row of this.store.rows().filter(row=>row.status==="pending"||(row.status==="expired"&&(!row.checkedAt||row.checkedAt<this.now()-3600))).sort((a,b)=>(a.checkedAt??0)-(b.checkedAt??0)).slice(0,100)){
    try{await this.check(row);}catch{console.warn("Payment lookup deferred; invoice remains recorded.");}
   }
  });}

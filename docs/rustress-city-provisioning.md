@@ -23,7 +23,7 @@ extra forwarding hop. No city 79/21 split applies.
 Do not implicitly provision NIP-05 or claim NIP-57 support without a separately
 confirmed public key and supported receipt configuration.
 
-Public walk payment actions are tier-aware (BW-107). Pro keeps **Zap the host**, targeting the verified city Lightning address with the 79/21 split. Basic shows its organizer but offers **Support BitcoinWalk** instead of a host payment: all donated principal goes to the configured BitcoinWalk organization destination, with no organizer split. Confirm that destination before activation. The Basic card must not offer a competing personal Lightning payment shortcut. Donations do not purchase Pro; BW-99 remains a separate gift-upgrade action. Unknown tiers cannot select a recipient; Pro setup pending must not silently redirect a payment to BitcoinWalk. Verify tier and destination at invoice creation and clearly show the recipient.
+Public walk payment actions are tier-aware (BW-107). Pro shows **Zap the host** only after entitlement, branded identity, enabled Rustress activation and independent LNURL verification all agree; it targets the verified city Lightning address with the 79/21 split. Basic shows its organizer but uses the same host-card action space for **Donate to BitcoinWalk HQ**, directed to `donate@bitcoinwalk.org` with no organizer split. The Basic card never renders a personal profile's self-declared Lightning address. Donations do not purchase Pro; BW-99 remains a separate gift-upgrade action. Unknown or incomplete payment state cannot select a recipient, and pending Pro setup never silently redirects a payment to BitcoinWalk.
 
 When an organizer selects Pro in registration Step 3, require **Your Lightning address or LNURL** before checkout. Accept a Lightning address such as `organizer@example.com` or a valid LNURL-pay `lnurl1…` value. Explain: “79% of payments to your city’s BitcoinWalk Lightning address goes to this destination. BitcoinWalk retains 21%.” Validate and confirm the destination before showing the existing 21,000-sat invoice. Basic registration has no required payout field.
 
@@ -191,6 +191,16 @@ Confirm owner destination changes, editor/funder denial, old-invoice snapshots, 
 Roll out to existing paid cities only after their owners provide a destination. Leave pending setup explicit. Extend future BW-99 upgrades using the same provisioning flow, and use independent capability statuses alongside BW-20/BW-23.
 
 Acceptance covers organizer Pro registration and existing-city self-upgrade, plus gift settlement with absent, valid and stale destinations. Verify Guide delivery failure, cross-device completion, an owner who never completes setup, unauthorized giver/editor/previous-owner access, repeated setup submissions, simultaneous gifts/self-purchase and restart between payment and notification. Paid status must survive every recoverable setup failure; no second purchase invoice is generated and city Lightning invoices remain disabled until payout setup is verified. Exercise these states with fixtures under BW-101/BW-102 and repeat the complete public gift journey when BW-99 is implemented.
+
+BW-99 recovery increment, 10 October 2026: the payer can copy a private recovery
+link whose 256-bit token stays in the URL fragment, is imported into device-local
+storage and is removed from the address bar before the status request. The server
+stores only its hash. The link reveals invoice/status to its holder but grants no
+city, organizer or payout authority. Concurrent devices and different visitors
+reuse the city-wide open invoice. After a wallet-confirmed expiry, the same token
+can be rebound to one replacement invoice while the old record remains durable;
+bounded hourly reconciliation still accepts a cryptographically verified late
+settlement and the resulting entitlement suppresses the replacement checkout.
 
 ## Execution order and user input
 

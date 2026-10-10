@@ -1,6 +1,6 @@
 "use client";
 import Image from "next/image";
-import {useRef, useState} from "react";
+import {useEffect, useRef, useState} from "react";
 import CityFinder from "../../../components/city-finder";
 import {useDashboard} from "../../../components/dashboard-context";
 import {signWithBrowserExtension} from "../../../nostr/signer";
@@ -20,6 +20,16 @@ function ProSetupForm({enabled, actor, cities}: {enabled: boolean; actor: string
   const [cityId, setCityId] = useState(""), [preview, setPreview] = useState<ProSetupPreview | null>(null);
   const [busy, setBusy] = useState(false), [message, setMessage] = useState(""), [destination, setDestination] = useState("");
   const inFlight = useRef(false);
+  const deepLinkApplied = useRef(false);
+  useEffect(()=>{
+    if(deepLinkApplied.current||!cities.length)return;
+    deepLinkApplied.current=true;
+    const requested=new URLSearchParams(window.location.search).get("city");
+    if(!requested||!cities.some(city=>city.id===requested))return;
+    let active=true;
+    queueMicrotask(()=>{if(active){setCityId(requested);setMessage("Your Pro city is selected. Verify it with your signer to continue from the saved setup state.");}});
+    return()=>{active=false;};
+  },[cities]);
   async function prepare() {
     if (!cityId || !actor || inFlight.current) return;
     inFlight.current = true; setBusy(true); setMessage(""); setPreview(null);
@@ -56,7 +66,7 @@ function ProSetupForm({enabled, actor, cities}: {enabled: boolean; actor: string
     <h1>Upgrade your city</h1>
     <p>Your personal account remains your dashboard login. Your city will have its own public BitcoinWalk identity.</p>
     {!enabled ? <p role="status">This setup is being prepared and is not available yet. Your Pro payment remains recorded; do not pay again.</p> : <>
-      <p><strong>Preparation preview only.</strong> BitcoinWalk automatically fills the city name, avatar and banner from the approved city record. You connect the separate city signer and confirm the payout destination. This screen does not activate a city identity, Lightning address or payout split.</p>
+      <p>BitcoinWalk automatically fills the city name, avatar and banner from the approved city record. Connect the separate city signer and confirm the payout destination. Every completed step is saved, so you can safely return without paying again.</p>
       <CityFinder label="Your city" placeholder="Search your cities…" value={cityId} disabled={busy} items={cities}
         onChange={id => {setCityId(id); setPreview(null); setDestination(""); setMessage("");}}/>
       <button type="button" onClick={() => void prepare()} disabled={busy || !cityId || !actor}>{busy ? "Preparing…" : "Verify and preview Pro setup"}</button>

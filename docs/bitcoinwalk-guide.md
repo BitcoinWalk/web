@@ -8,6 +8,28 @@ the pinned Guide identity one signed read of the sanitized replication report;
 the Guide receives no relay status credential. Healthy replication was baselined
 without historical messages. Mobile push remains an acceptance item.
 
+The current source also supports owner-only Pro setup reminders. A signed loopback
+feed exposes only freshly authorized incomplete tasks. The Guide queues one encrypted
+city-specific `/admin/upgrade` link, preserves exact-event retry across restart and
+notifies a replacement verified owner once. It receives no payout destination,
+payment credential or activation authority. This path awaits staging deployment and
+one real delivery/resume acceptance before BW-105 can close.
+
+The reviewed upgrade was staged on the app VPS at
+`/home/bitcoinwalk/incoming/bitcoinwalk-guide-pro-setup-0.3.220`. Its installer
+first checks the accepted worker/config/unit hashes and app `0.3.220`, then runs a
+signed non-mutating feed authorization check. It stops and backs up the exact
+worker, config and SQLite state before activation, and restores all three on any
+failure. Run it only through the `bitcoinwalk` sudo account; do not upload as root.
+
+Guide `0.3.220` was installed successfully on 10 October 2026. The signed feed
+authorization passed and returned zero actionable rows: Madeira is already active
+and completed tasks are excluded. The service is active, its worker hash matches
+the reviewed artifact, and its configuration points only to the staging loopback
+feed plus the staging `/admin/upgrade` page. Rollback backup:
+`/var/backups/bitcoinwalk-guide-pro-setup-0.3.220.KHFpEK`. A real incomplete Pro
+task is still required to accept DM receipt, link selection and restart deduplication.
+
 ## Identity and scope
 
 - Display name: BitcoinWalk Guide; metadata marks it as a bot.

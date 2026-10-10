@@ -15,6 +15,7 @@ import CityWalkTitle from "./city-walk-title";
 import type {LogoVariantAsset} from "../logos/catalog";
 import {CityHostPanel} from "./public-city-host";
 import {resolvePublicCityHost} from "../server/public-city-host";
+import {resolvePublicCityPayment} from "../server/public-city-payment";
 import SponsorModule from "./sponsor-module";
 import type {SponsorshipPresentation} from "../domain/sponsorship";
 import PublicCitySupport from "./public-city-support";
@@ -39,7 +40,7 @@ export default async function WalkEvent({event,walk,currentProfile,logoHref,titl
     {calendarRoute(event)&&<WalkRoute url={calendarRoute(event)!}/>}
     <CoordinatesCopy latitude={point.latitude} longitude={point.longitude}/>
     {host.state==="personal"&&<WalkDelegation event={publicEvent} readOnly/>}
-    <CityHostPanel host={host}/>
+    <CityHostPanel host={host} payment={await resolvePublicCityPayment(city.cityId,city.slug,host)}/>
     <PublicCitySupport cityId={currentProfile.revision.city.cityId} revisionId={currentProfile.revision.event.id} cityName={currentProfile.revision.city.cityName} requestedTier={currentProfile.revision.city.requestedTier}/>
     <SponsorModule presentation={sponsorship} cityName={city.cityName} ogImageUrl={sponsorOgImage} endsAt={endSeconds}/>
     <CalendarShare nevent={calendarNevent(event,relayConfig.calendarRelayHints)}/>

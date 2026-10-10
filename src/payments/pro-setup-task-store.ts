@@ -127,6 +127,10 @@ export class ProSetupTaskStore {
     return row ? this.view(row) : null;
   }
 
+  cityIds(): string[] {
+    return (this.db.prepare("SELECT cityId FROM pro_setup_task ORDER BY createdAt,cityId").all() as Array<{cityId:string}>).map(row=>row.cityId);
+  }
+
   private row(cityId: string): TaskRow | undefined {
     return this.db.prepare("SELECT * FROM pro_setup_task WHERE cityId=?").get(cityId) as TaskRow | undefined;
   }
