@@ -11,3 +11,14 @@ export function serverReadRelays():string[] {
   }
   return [url.href];
 }
+
+/** Map only the configured primary directory transport to its reviewed local
+ * listener. The public WSS URLs remain the logical transport identities used
+ * for quorum, signed records and every browser-facing configuration. */
+export function serverDirectoryReadRelay(relay:string):string{
+  const internal=process.env.BITCOINWALK_SERVER_DIRECTORY_READ_RELAY;
+  if(!internal||relay!==relayConfig.directoryRelays[0])return relay;
+  const url=new URL(internal);
+  if(url.href!=="ws://127.0.0.1:3343/")throw new Error("BITCOINWALK_SERVER_DIRECTORY_READ_RELAY must be the reviewed primary directory loopback URL.");
+  return url.href;
+}
