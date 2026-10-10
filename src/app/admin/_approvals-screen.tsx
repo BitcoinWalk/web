@@ -33,12 +33,34 @@ const pendingActivation=(paid:boolean):ActivationState=>({
   logos:{status:"amber",message:"Generating after approval…"},
   og:{status:"amber",message:"Creating localized share image…"},
   meta:{status:"amber",message:"Validating title and description…"},
+  payment:paid?{status:"green",message:"Pro payment is verified."}:{status:"na",message:"Basic city — Pro payment is not required."},
+  paymentAuthorization:paid?{status:"amber",message:"Checking owner payout authorization…"}:{status:"na",message:"Basic city — payout authorization is not required."},
+  nip05:paid?{status:"amber",message:"Checking managed NIP-05 provisioning…"}:{status:"na",message:"Basic city — managed NIP-05 is not included."},
+  lnurl:paid?{status:"amber",message:"Checking managed Lightning address provisioning…"}:{status:"na",message:"Basic city — managed Lightning address is not included."},
   relay:paid?{status:"amber",message:"Checking paid-city relay provisioning…"}:{status:"na",message:"Basic city — dedicated relay not required."},
 });
 const failedActivation=(message:string,paid:boolean):ActivationState=>({
   logos:{status:"red",message},og:{status:"red",message},meta:{status:"red",message},
+  payment:paid?{status:"green",message:"Pro payment is verified."}:{status:"na",message:"Basic city — Pro payment is not required."},
+  paymentAuthorization:paid?{status:"amber",message:"Payout authorization status was not confirmed."}:{status:"na",message:"Basic city — payout authorization is not required."},
+  nip05:paid?{status:"amber",message:"NIP-05 status was not confirmed."}:{status:"na",message:"Basic city — managed NIP-05 is not included."},
+  lnurl:paid?{status:"amber",message:"Lightning address status was not confirmed."}:{status:"na",message:"Basic city — managed Lightning address is not included."},
   relay:paid?{status:"amber",message:"Paid relay status was not confirmed."}:{status:"na",message:"Basic city — dedicated relay not required."},
 });
+const activationLabels:Record<keyof ActivationState,string>={logos:"Logo pack",og:"OG image",meta:"Meta title and description",payment:"Pro payment",paymentAuthorization:"Payment authorization",nip05:"NIP-05",lnurl:"Lightning address (LNURL)",relay:"City relay"};
+const initialActivation=(submission:Submission):ActivationState=>{
+  const paid=submission.paid,pending=!paid&&submission.city.requestedTier==="paid";
+  return {
+    logos:{status:"amber",message:"Generated automatically after approval."},
+    og:{status:"amber",message:"Created automatically from the city image and localized logo."},
+    meta:{status:"amber",message:"Title and description validated automatically."},
+    payment:paid?{status:"green",message:"Pro payment is verified."}:pending?{status:"amber",message:"Pro payment is still pending verification."}:{status:"na",message:"Basic city — Pro payment is not required."},
+    paymentAuthorization:paid?{status:"amber",message:"Checked after approval; owner authorization remains a separate step."}:pending?{status:"amber",message:"Available after payment is verified."}:{status:"na",message:"Basic city — payout authorization is not required."},
+    nip05:paid?{status:"amber",message:"Provisioning status is checked after approval."}:pending?{status:"amber",message:"Available after payment is verified."}:{status:"na",message:"Basic city — managed NIP-05 is not included."},
+    lnurl:paid?{status:"amber",message:"Provisioning status is checked after approval."}:pending?{status:"amber",message:"Available after payment is verified."}:{status:"na",message:"Basic city — managed Lightning address is not included."},
+    relay:paid?{status:"amber",message:"Paid relay provisioning will be checked after approval."}:pending?{status:"amber",message:"Dedicated relay waits for verified payment."}:{status:"na",message:"Basic city — dedicated relay not required."},
+  };
+};
 
 function SubmittedFieldValue({value}:{value:string}){
   return /^https:\/\/[^\s]+$/.test(value)?<a href={value} target="_blank" rel="noreferrer">{value}</a>:<span>{value}</span>;
@@ -239,7 +261,7 @@ export default function SubmissionApprovals() {
           {!submission.previous&&<section><h3>City image</h3><label>Landscape image URL <input type="url" placeholder="https://…" value={heroImages[submission.eventId]??""} onChange={event=>{setHeroImages(images=>({...images,[submission.eventId]:event.target.value}));setImageStates(current=>({...current,[submission.eventId]:{status:"idle",message:"The image will be validated and stored during approval."}}));}}/></label><p><button disabled={busy} type="button" onClick={()=>generateLandscape(submission)}>{imageStates[submission.eventId]?.status==="waiting"||imageStates[submission.eventId]?.status==="working"?"Generating…":"Generate image"}</button>{" "}<button disabled={busy||!heroImages[submission.eventId]?.trim()||heroImages[submission.eventId]?.includes("/api/media/files/")} type="button" onClick={()=>importLandscape(submission)}>Store image now</button></p>{imageStates[submission.eventId]?.message&&<p role={imageStates[submission.eventId]?.status==="error"?"alert":"status"}>{imageStates[submission.eventId].message}</p>}{heroImages[submission.eventId]?.includes("/api/media/files/")&&<img src={heroImages[submission.eventId]} alt={`Selected landscape for ${submission.cityName}`} style={{maxWidth:"24rem",width:"100%",height:"auto"}}/>}<label className="inline-checkbox"><input type="checkbox" checked={inviteSponsors[submission.eventId]??true} disabled={busy} onChange={event=>setInviteSponsors(current=>({...current,[submission.eventId]:event.target.checked}))}/> Show sponsor invitation</label></section>}
           <p><button disabled={busy||decided[submission.eventId]||!!submission.previous&&!submission.previousCity||!submission.previous&&(!submission.initialEventIds.length||!heroImages[submission.eventId]?.trim())} type="button" onClick={()=>decide(submission,"approved")}>{decided[submission.eventId]?"Approved":"Approve"}</button>{" "}<button disabled={busy||decided[submission.eventId]} type="button" onClick={()=>decide(submission,"rejected")}>Reject</button></p>
           <ul aria-label={`Activation checklist for ${submission.cityName}`}>
-            {Object.entries(activationStates[submission.eventId]??{logos:{status:"amber",message:"Generated automatically after approval."},og:{status:"amber",message:"Created automatically from the city image and localized logo."},meta:{status:"amber",message:"Title and description validated automatically."},relay:submission.paid?{status:"amber",message:"Paid relay provisioning will be checked after approval."}:submission.city.requestedTier==="paid"?{status:"amber",message:"Dedicated relay waits for verified payment."}:{status:"na",message:"Basic city — dedicated relay not required."}}).map(([key,check])=><li key={key}><span aria-hidden="true">{check.status==="green"?"🟢":check.status==="red"?"🔴":check.status==="na"?"⚪":"🟠"}</span> <strong>{key==="logos"?"Logo pack":key==="og"?"OG image":key==="meta"?"Meta title and description":"City relay"}</strong> — {check.message}{check.url&&<> <a href={check.url} target="_blank" rel="noreferrer">Preview</a></>}</li>)}
+            {(Object.entries(activationStates[submission.eventId]??initialActivation(submission)) as Array<[keyof ActivationState,ActivationState[keyof ActivationState]]>).map(([key,check])=><li key={key}><span aria-hidden="true">{check.status==="green"?"🟢":check.status==="red"?"🔴":check.status==="na"?"⚪":"🟠"}</span> <strong>{activationLabels[key]}</strong> — {check.message}{check.url&&<> <a href={check.url} target="_blank" rel="noreferrer">Preview</a></>}</li>)}
           </ul>
         </article>
       ))}
