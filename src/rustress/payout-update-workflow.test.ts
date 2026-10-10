@@ -1,0 +1,25 @@
+import {DatabaseSync} from "node:sqlite";
+import {afterEach,describe,expect,it,vi} from "vitest";
+import {PayoutUpdateWorkflow,type PayoutUpdateEvidence} from "./payout-update-workflow";
+import {ProvisioningError} from "./client";
+import {provisionDigest,RUSTRESS_API,type ActivationReceipt,type ProvisionConfig} from "./contract";
+
+const city="00000000-0000-4000-8000-000000000001",request="request";
+const current:ProvisionConfig={cityId:city,version:2,domain:"bitcoinwalk.org",localPart:"madeira",brandPubkey:"a".repeat(64),authorityEventId:"b".repeat(64),approvalEventId:"c".repeat(64),brandEventId:"d".repeat(64),payoutVersion:1,payoutDestination:"old@example.org",walletRef:"bitcoinwalk-rustress",organizerBasisPoints:7900,retainedBasisPoints:2100,invoiceIssuance:"enabled"};
+const next:ProvisionConfig={...current,version:3,payoutVersion:2,payoutDestination:"new@example.org"};
+const databases:DatabaseSync[]=[];afterEach(()=>{databases.splice(0).forEach(db=>db.close());});
+function fixture(){const db=new DatabaseSync(":memory:");databases.push(db);let providerState:"absent"|"prepared"|"applied"="absent",now=1000;
+ db.exec("CREATE TABLE city_brand_request(id TEXT PRIMARY KEY,city_id TEXT,status TEXT);CREATE TABLE rustress_activation_task(city TEXT PRIMARY KEY,request TEXT,reserved_config TEXT,activation_config TEXT,proof TEXT,public_origin TEXT,phase TEXT,nip05 TEXT,lnurl TEXT,lease TEXT,until INTEGER,updated_at INTEGER)");
+ db.prepare("INSERT INTO city_brand_request VALUES(?,?,'active')").run(request,city);db.prepare("INSERT INTO rustress_activation_task VALUES(?,?,?,?,?,'https://bitcoinwalk.org','active','active','active',NULL,0,1)").run(city,request,JSON.stringify({...current,version:1,invoiceIssuance:"disabled"}),JSON.stringify(current),"a".repeat(64));
+ const receipt=():ActivationReceipt=>({api:RUSTRESS_API,cityId:city,version:3,configHash:provisionDigest(next),state:providerState==="applied"?"applied":"prepared",invoiceIssuance:"enabled"});
+ const provider={prepare:vi.fn(async()=>{providerState="prepared";return receipt();}),apply:vi.fn(async()=>{providerState="applied";return receipt();}),status:vi.fn(async()=>{if(providerState==="absent")throw new ProvisioningError("absent");return receipt();})};
+ const verify={nip05:vi.fn(async()=>({state:"verified"})),lnurl:vi.fn(async()=>({state:"verified"}))};const evidence:PayoutUpdateEvidence={config:next,proofHash:"e".repeat(64),publicOrigin:"https://bitcoinwalk.org"},resolve=vi.fn(async()=>evidence);
+ const workflow=new PayoutUpdateWorkflow(db,provider,verify,resolve,()=>now);return {db,provider,verify,resolve,workflow,evidence,advance:()=>{now+=121_000;}};}
+describe("durable managed payout destination updates",()=>{
+ it("keeps the old config active until the successor and public endpoints verify",async()=>{const f=fixture();await f.workflow.enqueue(request);expect(JSON.parse((f.db.prepare("SELECT activation_config FROM rustress_activation_task").get() as {activation_config:string}).activation_config)).toMatchObject({payoutVersion:1});
+  expect(await f.workflow.run(city)).toMatchObject({state:"active",payoutVersion:2});const active=JSON.parse((f.db.prepare("SELECT activation_config FROM rustress_activation_task").get() as {activation_config:string}).activation_config);expect(active).toMatchObject({version:3,payoutVersion:2,payoutDestination:"new@example.org"});expect(f.provider.prepare).toHaveBeenCalledBefore(f.provider.apply);});
+ it("recovers a lost apply response by read-back without a second payment change",async()=>{const f=fixture();await f.workflow.enqueue(request);const apply=f.provider.apply.getMockImplementation()!;f.provider.apply.mockImplementationOnce(async()=>{await apply();throw new ProvisioningError("unknown");});expect(await f.workflow.run(city)).toMatchObject({state:"unknown"});expect(await f.workflow.run(city)).toMatchObject({state:"active"});expect(f.provider.apply).toHaveBeenCalledTimes(1);});
+ it("does not promote when public read-back needs attention",async()=>{const f=fixture();f.verify.lnurl.mockRejectedValueOnce(new Error("offline"));await f.workflow.enqueue(request);expect(await f.workflow.run(city)).toMatchObject({state:"unknown"});expect(JSON.parse((f.db.prepare("SELECT activation_config FROM rustress_activation_task").get() as {activation_config:string}).activation_config)).toMatchObject({payoutVersion:1});expect(await f.workflow.run(city)).toMatchObject({state:"active"});});
+ it("blocks changed owner evidence before a provider write",async()=>{const f=fixture();await f.workflow.enqueue(request);f.resolve.mockResolvedValue({...f.evidence,proofHash:"f".repeat(64)});expect(await f.workflow.run(city)).toMatchObject({state:"blocked"});expect(f.provider.prepare).not.toHaveBeenCalled();});
+ it("allows an explicit recovery retry but still rechecks the exact evidence",async()=>{const f=fixture();await f.workflow.enqueue(request);f.resolve.mockResolvedValueOnce({...f.evidence,proofHash:"f".repeat(64)});expect(await f.workflow.run(city)).toMatchObject({state:"blocked"});expect(await f.workflow.retry(city)).toMatchObject({state:"active"});expect(f.provider.apply).toHaveBeenCalledTimes(1);});
+});

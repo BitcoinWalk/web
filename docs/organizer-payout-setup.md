@@ -18,12 +18,17 @@ The screen/API remain default-off behind `BITCOINWALK_PRO_SETUP_PREVIEW=true`. `
 
 This slice has process-local request throttling. Production must also retain proxy/ingress limits. Endpoint validation is point-in-time evidence and must be repeated before provisioning and whenever a destination is reconfirmed. DNS, callback or amount changes after confirmation must put setup into needs-attention rather than silently redirecting funds.
 
+## Post-activation changes — implemented 10 October 2026
+
+An active Pro city can now save a fresh owner-signed destination without disrupting its existing route. A durable payout-update outbox binds the exact old provider configuration, new immutable payout version, fresh city authority and validated endpoint. Rustress registers the new payout authority through its separately authenticated loopback channel before applying the compare-and-swap provider version. The app keeps the old activation row public until the new provider configuration, NIP-05 and LNURL endpoints have all been independently read back; only then does one local transaction promote the new version. Existing invoices retain their original payout authority.
+
+Unknown write outcomes are reconciled by exact provider status before retry, so a lost response cannot repeat or blindly replace a change. Changed ownership, binding, signer, slug, split, wallet or destination evidence blocks the transition. A second change cannot overtake unfinished work. The owner-facing screen distinguishes active, pending and needs-attention versions without exposing the destination publicly. BitcoinWalk Guide queues content-free saved, active and needs-attention messages keyed by city, payout version and state.
+
 ## Remaining before BW-101 is Done
 
-- Connect the same field to existing Basic-city upgrades. Registration Step 3 and new invoice binding are implemented. Gift checkout must never request a payout destination.
-- Add the Basic upgrade and gift entry points, then queue a deduplicated Guide setup notification. The durable city/entitlement task and cross-device resume are implemented; a missed DM is no longer the only recovery route.
-- Revalidate current versions before Rustress apply/read-back and bind every incoming city invoice to an immutable destination version.
-- Add an authorized destination-change status/audit notification and explicit super-admin recovery path. Never expose the destination publicly.
-- Accept real public endpoints and owner/editor/former-owner/restart flows in staging, then repeat the full gift journey under BW-99.
+- Deploy the managed Rustress `0.1.4` adapter and app `0.3.246` to staging using the non-root service account. The adapter must receive the existing payout service's authority token by protected file; no credential is copied into the app.
+- Re-save an already active staging city's existing external destination as a harmless new immutable version. Confirm the old version stays live until promotion, restart both workers during reconciliation, verify the new public endpoint and receive all Guide state messages.
+- Confirm a newly issued small invoice binds the promoted version while an invoice issued before the change retains the old version. No payout destination is changed for this acceptance.
+- Exercise the super-admin retry view for a deliberately paused update. Editors, gift payers and former owners must remain unable to create or resume it.
 
-Automated coverage includes checksum and normalization, malformed/cyclic/unsafe endpoints, amount/metadata checks, signed-command tampering, immutable history, exact retries, private projection, prepayment revision/version and invoice binding, atomic settlement/task creation, cross-device recovery, ownership rotation/outage/suspension/unpaid denial, conflict rollback and safe API errors. Live endpoint, Guide and Rustress acceptance remain outstanding.
+Automated coverage includes checksum and normalization, malformed/cyclic/unsafe endpoints, amount/metadata checks, signed-command tampering, immutable history, exact retries, private projection, prepayment revision/version and invoice binding, atomic settlement/task creation, cross-device recovery, ownership rotation/outage/suspension/unpaid denial, compare-and-swap payout updates, lost-response recovery, old-version preservation, public read-back gating, Guide transitions, conflict rollback and safe API errors. Live staging update acceptance remains outstanding.

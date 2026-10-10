@@ -120,14 +120,13 @@ async function main() {
         const liveIDs = new Set(live.map(item => `live:${item.approval.event.id}`));
         const replicationStates=new Map(replication!.cities.map(city=>[city.cityId,city.state]));
         const directoryStates=new Map((directory??[]).map(request=>[request.id,`${request.status}:${request.activationState}`]));
-        const proSetupRecipients=new Map((proSetup??[]).map(task=>[task.cityId,task.ownerPubkey]));
+        const proSetupCurrent=new Map((proSetup??[]).map(task=>[task.kind==="setup"?`pro-setup:${task.cityId}`:`payout-update:${task.cityId}:${task.payoutVersion}:${task.state==="active"?"active":task.state==="blocked"||task.state==="needs-attention"?"attention":"pending"}`,task.ownerPubkey]));
         for (const row of outbox!.due(Math.floor(Date.now()/1000))) {
           if (stopping) break;
           if (row.purpose === "review" && !config.recipients.includes(row.recipient)) { outbox!.state(row, "removed-recipient"); continue; }
           const replicationCity=row.submission.startsWith("replication:")?row.submission.split(":")[1]:"";
           const directoryMatch=/^directory:([0-9a-f-]{36}):(directory-(?:invitation|active|failed))$/.exec(row.submission),directoryState=directoryMatch?directoryStates.get(directoryMatch[1]):undefined;
-          const proSetupMatch=/^pro-setup:([0-9a-f-]{36})$/.exec(row.submission);
-          const current=row.purpose==="pro-setup-required"?!!proSetupMatch&&proSetupRecipients.get(proSetupMatch[1])===row.recipient:row.purpose==="replication-degraded"?replicationStates.get(replicationCity)==="degraded":row.purpose==="replication-recovered"?replicationStates.get(replicationCity)==="healthy":row.purpose==="directory-invitation"?directoryState?.startsWith("awaiting-owner:")===true:row.purpose==="directory-active"?directoryState?.endsWith(":active")===true:row.purpose==="directory-failed"?directoryState?.endsWith(":failed")===true:row.purpose==="review"?pendingIDs.has(row.submission):liveIDs.has(row.submission);
+          const current=row.purpose==="pro-setup-required"||row.purpose.startsWith("payout-update-")?proSetupCurrent.get(row.submission)===row.recipient:row.purpose==="replication-degraded"?replicationStates.get(replicationCity)==="degraded":row.purpose==="replication-recovered"?replicationStates.get(replicationCity)==="healthy":row.purpose==="directory-invitation"?directoryState?.startsWith("awaiting-owner:")===true:row.purpose==="directory-active"?directoryState?.endsWith(":active")===true:row.purpose==="directory-failed"?directoryState?.endsWith(":failed")===true:row.purpose==="review"?pendingIDs.has(row.submission):liveIDs.has(row.submission);
           if(!current){outbox!.state(row,"obsolete");continue;}
           let relays:string[];
           try {

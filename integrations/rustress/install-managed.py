@@ -43,7 +43,8 @@ if not provision.exists():
     with provision.open("x") as output:
         output.write(secrets.token_urlsafe(48) + "\n")
 issuer = home / ".local/state/bitcoinwalk-rustress/secrets/issuer-api-token"
-for token in [provision, issuer]:
+authority = home / ".local/state/bitcoinwalk-rustress/secrets/authority-api-token"
+for token in [provision, issuer, authority]:
     result = token.lstat()
     assert token.is_file() and not token.is_symlink() and result.st_uid == os.geteuid()
     assert result.st_mode & 0o077 == 0 and result.st_nlink == 1
@@ -64,7 +65,7 @@ StartLimitBurst=3
 [Service]
 Type=simple
 WorkingDirectory={root / 'state'}
-ExecStart=/usr/bin/env -i BITCOINWALK_MANAGED=1 BW_PROVISION_DOMAIN=bitcoinwalk.org BW_PROVISION_REVISION={expected} BW_PROVISION_TOKEN_FILE={provision} BW_INVOICE_ISSUER_TOKEN_FILE={issuer} BW_MANAGED_DB={root / 'state' / 'bitcoinwalk.managed.sqlite'} BW_PROVISION_PORT=8895 BW_PROVISION_WALLET_REFS=bitcoinwalk-rustress {binary}
+ExecStart=/usr/bin/env -i BITCOINWALK_MANAGED=1 BW_PROVISION_DOMAIN=bitcoinwalk.org BW_PROVISION_REVISION={expected} BW_PROVISION_TOKEN_FILE={provision} BW_INVOICE_ISSUER_TOKEN_FILE={issuer} BW_PAYOUT_AUTHORITY_TOKEN_FILE={authority} BW_MANAGED_DB={root / 'state' / 'bitcoinwalk.managed.sqlite'} BW_PROVISION_PORT=8895 BW_PROVISION_WALLET_REFS=bitcoinwalk-rustress {binary}
 Restart=on-failure
 RestartSec=5
 UMask=0077

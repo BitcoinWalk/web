@@ -23,6 +23,10 @@ export class PayoutDestinationStore {
     const row = this.db.prepare("SELECT city_id,version,owner_pubkey,normalized,endpoint,callback,min_sendable,max_sendable,confirmed_at FROM payout_destination_version WHERE city_id=? ORDER BY version DESC LIMIT 1").get(cityId) as Record<string, unknown> | undefined;
     return row ? {cityId: String(row.city_id), version: Number(row.version), ownerPubkey: String(row.owner_pubkey), normalized: String(row.normalized), endpoint: String(row.endpoint), callback: String(row.callback), minSendable: Number(row.min_sendable), maxSendable: Number(row.max_sendable), confirmedAt: Number(row.confirmed_at)} : null;
   }
+  version(cityId: string, version: number): PayoutDestinationVersion | null {
+    const row = this.db.prepare("SELECT city_id,version,owner_pubkey,normalized,endpoint,callback,min_sendable,max_sendable,confirmed_at FROM payout_destination_version WHERE city_id=? AND version=?").get(cityId, version) as Record<string, unknown> | undefined;
+    return row ? {cityId: String(row.city_id), version: Number(row.version), ownerPubkey: String(row.owner_pubkey), normalized: String(row.normalized), endpoint: String(row.endpoint), callback: String(row.callback), minSendable: Number(row.min_sendable), maxSendable: Number(row.max_sendable), confirmedAt: Number(row.confirmed_at)} : null;
+  }
   save(authority: CityBrandAuthority, ownerEvent: Event, destination: ValidatedPayoutDestination) {
     const signed: Event = JSON.parse(JSON.stringify(ownerEvent));
     let command: {action?:unknown;cityId?:unknown;destination?:unknown} = {};
