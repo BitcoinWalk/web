@@ -40,8 +40,27 @@ describe("paid-city settlement",()=>{
  it("rolls settlement back instead of attaching setup to conflicting entitlement data",async()=>{const {service,wallet,store}=setup();const row=await service.create(owner,cityId,revisionId,3);store.db.prepare("INSERT INTO paid_city_entitlement VALUES(?,?,?,?,?)").run(cityId,owner,"f".repeat(64),"different-invoice",now-1);vi.mocked(wallet.lookupInvoice).mockResolvedValue({payment_hash:hash,type:"incoming",amount:21000000,state:"settled",settled_at:now,preimage});await expect(service.status(owner,cityId)).rejects.toThrow("entitlement conflict");expect(store.db.prepare("SELECT status FROM payment_invoice WHERE id=?").get(row.id)).toEqual({status:"pending"});expect(store.db.prepare("SELECT * FROM pro_setup_task").all()).toEqual([]);});
  it("does not downgrade a paid city when the wallet becomes unavailable",async()=>{const {service,wallet}=setup();await service.create(owner,cityId,revisionId);vi.mocked(wallet.lookupInvoice).mockResolvedValue({payment_hash:hash,type:"incoming",amount:21000000,state:"settled",settled_at:now,preimage});await service.status(owner,cityId);vi.mocked(wallet.lookupInvoice).mockRejectedValue(new Error("offline"));expect((await service.status(owner,cityId))?.tier).toBe("paid");});
  it("retains an ambiguous creation for operator recovery instead of generating duplicates",async()=>{const {service,wallet,store}=setup();vi.mocked(wallet.makeInvoice).mockRejectedValue(new Error("timeout"));await expect(service.create(owner,cityId,revisionId)).rejects.toThrow();await expect(service.create(owner,cityId,revisionId)).rejects.toThrow();expect(wallet.makeInvoice).toHaveBeenCalledTimes(1);expect(store.rows()[0].status).toBe("creation-uncertain");});
+ it("returns a recoverable anonymous checkout when invoice creation is ambiguous",async()=>{const {service,wallet,store}=setup();vi.mocked(wallet.makeInvoice).mockRejectedValue(new Error("timeout"));expect(await service.createGift("d".repeat(64),cityId,revisionId)).toMatchObject({status:"creation-uncertain",tier:"free"});expect(store.gift("d".repeat(64),cityId)?.status).toBe("creation-uncertain");});
+ it("allows an ambiguous invoice to be renewed only after its maximum lifetime",async()=>{
+  const store=new PaymentStore(":memory:");stores.push(store);let clock=now,calls=0;
+  const wallet:PaymentWallet={makeInvoice:vi.fn(async()=>{calls++;if(calls===1)throw new Error("timeout");return{...invoice,createdAt:clock,expiresAt:clock+3600};}),lookupInvoice:vi.fn()};
+  const service=new PaymentService(store,wallet,async()=>({cityId,owner,cityName:"Memphis",revisionId}),()=>clock),token="d".repeat(64);
+  expect((await service.createGift(token,cityId,revisionId)).status).toBe("creation-uncertain");clock=now+3659;expect((await service.createGift(token,cityId,revisionId)).status).toBe("creation-uncertain");
+  clock=now+3660;expect(await service.createGift(token,cityId,revisionId)).toMatchObject({status:"pending",invoice:"fixture"});expect(wallet.makeInvoice).toHaveBeenCalledTimes(2);
+ });
  it("keeps pending records when lookup fails",async()=>{const {service,wallet,store}=setup();await service.create(owner,cityId,revisionId);vi.mocked(wallet.lookupInvoice).mockRejectedValue(new Error("offline"));await expect(service.status(owner,cityId)).rejects.toThrow();expect(store.rows()[0].status).toBe("pending");expect(store.entitled(cityId)).toBe(false);});
  it("reconciles payments with the browser closed",async()=>{const {service,wallet,store}=setup();await service.create(owner,cityId,revisionId);vi.mocked(wallet.lookupInvoice).mockResolvedValue({payment_hash:hash,type:"incoming",amount:21000000,state:"settled",settled_at:now,preimage});await service.reconcile();expect(store.entitled(cityId)).toBe(true);});
+ it("does not let an offline city's reconciliation block another city's checkout",async()=>{
+  const store=new PaymentStore(":memory:");stores.push(store);const otherCity="ce8514a4-9df0-4159-a517-71f65761cbbe",otherHash="e".repeat(64);
+  store.db.prepare("INSERT INTO payment_invoice(id,cityId,owner,cityName,revisionId,invoice,paymentHash,amountMsat,createdAt,expiresAt,status) VALUES(?,?,?,?,?,?,?,?,?,?,?)")
+   .run("old",cityId,owner,"Offline",revisionId,"old-invoice",hash,21000000,now,now+3600,"pending");
+  let releaseLookup!:()=>void;const waiting=new Promise<void>(resolve=>{releaseLookup=resolve;});
+  const wallet:PaymentWallet={lookupInvoice:vi.fn(async()=>{await waiting;throw new Error("offline");}),makeInvoice:vi.fn(async()=>({...invoice,paymentHash:otherHash,invoice:"other-invoice"}))};
+  const service=new PaymentService(store,wallet,async id=>({cityId:id,owner,cityName:id===otherCity?"Other":"Offline",revisionId}),()=>now);
+  const reconciliation=service.reconcile();await vi.waitFor(()=>expect(wallet.lookupInvoice).toHaveBeenCalled());
+  await expect(service.createGift("d".repeat(64),otherCity,revisionId)).resolves.toMatchObject({cityId:otherCity,invoice:"other-invoice"});
+  releaseLookup();await reconciliation;
+ });
  it("filters the admin listing by authenticated identity",async()=>{const {service}=setup();await service.create(owner,cityId,revisionId);expect(service.list("outsider","admin")).toEqual([]);expect(service.list("admin","admin")).toHaveLength(1);expect(service.list(owner,"admin")).toHaveLength(1);});
  it("preserves payment hashes and paid tier across a database reopen",async()=>{
   const directory=mkdtempSync(join(tmpdir(),"bw-payment-test-")),path=join(directory,"bitcoinwalk.sqlite");

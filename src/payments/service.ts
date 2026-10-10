@@ -61,11 +61,21 @@ export class PaymentStore {
 /** Only one process owns this database. The durable creating row also prevents
  * duplicate invoices after crashes or an ambiguous NWC timeout. */
 export class PaymentService {
- private tail:Promise<unknown>=Promise.resolve();
+ private tails=new Map<string,Promise<unknown>>();
  constructor(readonly store:PaymentStore,private wallet:PaymentWallet,private verifyCity:(cityId:string,revisionId:string)=>Promise<VerifiedCity>,private now=()=>Math.floor(Date.now()/1000),
   private verifyGiftCity:(cityId:string,revisionId:string)=>Promise<VerifiedCity>=verifyCity){}
- private exclusive<T>(work:()=>Promise<T>):Promise<T>{const next=this.tail.then(work,work);this.tail=next.catch(()=>{});return next;}
- create(owner:string,cityId:string,revisionId:string,destinationVersion?:number):Promise<PaymentView>{return this.exclusive(async()=>{
+ private exclusive<T>(cityId:string,work:()=>Promise<T>):Promise<T>{
+  const prior=this.tails.get(cityId)??Promise.resolve(),next=prior.then(work,work),settled=next.catch(()=>{});
+  this.tails.set(cityId,settled);void settled.finally(()=>{if(this.tails.get(cityId)===settled)this.tails.delete(cityId);});return next;
+ }
+ private expireUncertain(cityId:string){
+  // make_invoice is bounded to 20 seconds and requests a one-hour invoice. Even
+  // if its reply was lost, no invoice from this attempt can remain payable here.
+  this.store.db.prepare(`UPDATE payment_invoice SET status='expired',checkedAt=? WHERE cityId=? AND paymentHash IS NULL
+   AND status IN ('creating','creation-uncertain') AND createdAt<=?`).run(this.now(),cityId,this.now()-3660);
+ }
+ create(owner:string,cityId:string,revisionId:string,destinationVersion?:number):Promise<PaymentView>{return this.exclusive(cityId,async()=>{
+  this.expireUncertain(cityId);
   const city=await this.verifyCity(cityId,revisionId);
   if(city.owner!==owner||city.cityId!==cityId||city.revisionId!==revisionId)throw new Error("Only the verified city creator can purchase this plan.");
   const history=this.store.forCity(cityId);
@@ -93,8 +103,9 @@ export class PaymentService {
  });}
  private giftView(row:PaymentRow):GiftPaymentView{const view=this.store.view(row);return {cityId:row.cityId,cityName:row.cityName,status:row.status,tier:view.tier,
   ...(row.status==="pending"?{invoice:row.invoice}:{}),expiresAt:row.expiresAt};}
- createGift(tokenHash:string,cityId:string,revisionId:string):Promise<GiftPaymentView>{return this.exclusive(async()=>{
+ createGift(tokenHash:string,cityId:string,revisionId:string):Promise<GiftPaymentView>{return this.exclusive(cityId,async()=>{
   if(!/^[a-f0-9]{64}$/.test(tokenHash))throw new Error("Gift checkout token required.");
+  this.expireUncertain(cityId);
   const existing=this.store.gift(tokenHash,cityId);if(existing){if(existing.status!=="paid")await this.check(existing);const checked=this.store.gift(tokenHash,cityId)!;if(checked.status!=="expired")return this.giftView(checked);}
   const city=await this.verifyGiftCity(cityId,revisionId),history=this.store.forCity(cityId);
   if(history.some(row=>row.owner!==city.owner))throw new Error("City payment ownership requires operator review.");
@@ -110,10 +121,10 @@ export class PaymentService {
   try{const result=await this.wallet.makeInvoice(`BitcoinWalk gifted lifetime city plan — ${city.cityName} — order ${id}`);
    if(result.amountMsat!==PRICE_MSAT||!/^[0-9a-f]{64}$/.test(result.paymentHash)||!result.invoice||!Number.isSafeInteger(result.expiresAt)||result.expiresAt<=this.now())throw new Error();
    this.store.db.prepare("UPDATE payment_invoice SET invoice=?,paymentHash=?,amountMsat=?,createdAt=?,expiresAt=?,status='pending' WHERE id=?").run(result.invoice,result.paymentHash,result.amountMsat,result.createdAt,result.expiresAt,id);
-  }catch{this.store.db.prepare("UPDATE payment_invoice SET status='creation-uncertain' WHERE id=?").run(id);throw new Error("Invoice creation could not be confirmed. The order is saved for recovery; contact BitcoinWalk support.");}
+  }catch{this.store.db.prepare("UPDATE payment_invoice SET status='creation-uncertain' WHERE id=?").run(id);return this.giftView(this.store.gift(tokenHash,cityId)!);}
   return this.giftView(this.store.gift(tokenHash,cityId)!);
  });}
- giftStatus(tokenHash:string,cityId:string):Promise<GiftPaymentView>{return this.exclusive(async()=>{if(!/^[a-f0-9]{64}$/.test(tokenHash))throw new Error("Gift checkout token required.");const row=this.store.gift(tokenHash,cityId);if(!row)throw new Error("Gift checkout not found on this device.");if(row.status!=="paid")await this.check(row);return this.giftView(this.store.gift(tokenHash,cityId)!);});}
+ giftStatus(tokenHash:string,cityId:string):Promise<GiftPaymentView>{return this.exclusive(cityId,async()=>{if(!/^[a-f0-9]{64}$/.test(tokenHash))throw new Error("Gift checkout token required.");this.expireUncertain(cityId);const row=this.store.gift(tokenHash,cityId);if(!row)throw new Error("Gift checkout not found on this device.");if(row.status!=="paid")await this.check(row);return this.giftView(this.store.gift(tokenHash,cityId)!);});}
  private async check(row:PaymentRow){
   if(!row.paymentHash||row.status==="paid")return;
   const result=await this.wallet.lookupInvoice(row.paymentHash);
@@ -127,16 +138,18 @@ export class PaymentService {
    this.store.db.prepare("UPDATE payment_invoice SET status=?,checkedAt=? WHERE id=?").run(expired?"expired":"pending",this.now(),row.id);
   }
  }
- status(owner:string,cityId:string):Promise<PaymentView|null>{return this.exclusive(async()=>{
+ status(owner:string,cityId:string):Promise<PaymentView|null>{return this.exclusive(cityId,async()=>{
   const rows=this.store.forCity(cityId);if(rows.some(row=>row.owner!==owner))throw new Error("Payment access denied.");
   for(const row of rows)if(row.status!=="paid")await this.check(row);
   const current=this.store.forCity(cityId);return current.length?this.store.view(current.find(row=>row.status==="paid")??current[0]):null;
  });}
- /** Background settlement continues even when the organizer closes their browser. */
- reconcile():Promise<void>{return this.exclusive(async()=>{
+ /** Background settlement continues even when the organizer closes their browser.
+  * A slow wallet lookup for one city must not hold up a checkout for another. */
+ async reconcile():Promise<void>{
   for(const row of this.store.rows().filter(row=>row.status==="pending"||(row.status==="expired"&&(!row.checkedAt||row.checkedAt<this.now()-3600))).sort((a,b)=>(a.checkedAt??0)-(b.checkedAt??0)).slice(0,100)){
-   try{await this.check(row);}catch{console.warn("Payment lookup deferred; invoice remains recorded.");}
+   try{await this.exclusive(row.cityId,async()=>{const current=this.store.db.prepare("SELECT * FROM payment_invoice WHERE id=?").get(row.id) as PaymentRow|undefined;if(current&&current.status!=="paid")await this.check(current);});}
+   catch{console.warn("Payment lookup deferred; invoice remains recorded.");}
   }
- });}
+ }
  list(actor:string,superAdmin:string):PaymentView[]{return this.store.rows().filter(row=>actor===superAdmin||row.owner===actor).map(row=>this.store.view(row));}
 }

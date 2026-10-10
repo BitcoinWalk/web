@@ -201,10 +201,17 @@ reuse the city-wide open invoice. After a wallet-confirmed expiry, the same toke
 can be rebound to one replacement invoice while the old record remains durable;
 bounded hourly reconciliation still accepts a cryptographically verified late
 settlement and the resulting entitlement suppresses the replacement checkout.
+An ambiguous gift-invoice request returns this recoverable checkout state rather
+than losing the payer's recovery link. It cannot be renewed until the requested
+one-hour invoice plus a safety margin has elapsed. Payment operations are
+serialized per city, so an offline lookup cannot block an unrelated city's new
+checkout. The first Islamabad staging acceptance attempt confirmed both guards
+but also found the configured receive-only NWC app unavailable; rotate that
+connection before repeating the real-payment acceptance.
 
 ## Execution order and user input
 
-Recommended sequence: BW-103 (authority contract), then BW-104 (artwork) and BW-100 (Rustress adapter), then BW-101/BW-105 (payout and account setup), then BW-18/BW-19 (reliable splits and verified endpoints), then BW-106 (public replacement and city signing), then BW-102 (combined pilot acceptance). BW-99 remains future scope and uses the same setup task; fixture gift entitlements test recovery before its public checkout is built. BW-20 and BW-23 keep independent relay/chat readiness gates. No circular dependency on gift checkout is introduced.
+Recommended sequence: BW-103 (authority contract), then BW-104 (artwork) and BW-100 (Rustress adapter), then BW-101/BW-105 (payout and account setup), then BW-18/BW-19 (reliable splits and verified endpoints), then BW-106 (public replacement and city signing), then BW-102 (combined pilot acceptance). BW-99 now reuses that completed setup foundation and remains open only for its real public gift acceptance. BW-20 and BW-23 keep independent relay/chat readiness gates. No circular dependency on gift checkout is introduced.
 
 BW-102 also accepts the complete branded-account journey: self-purchase and fixture gift, existing/new city signer, backup/reconnection and account-switch tests, circular-avatar legibility, signed profile publication, NIP-05-to-city-npub read-back, private destination exclusion, public Hosted by replacement with no personal fallback, historical URL preservation, future city-author signatures, cancellation/moderation, and durable setup retry. Real gift checkout acceptance is repeated under BW-99 when implemented.
 
