@@ -15,6 +15,13 @@ notifies a replacement verified owner once. It receives no payout destination,
 payment credential or activation authority. This path awaits staging deployment and
 one real delivery/resume acceptance before BW-105 can close.
 
+The reviewed upgrade is staged on the app VPS at
+`/home/bitcoinwalk/incoming/bitcoinwalk-guide-pro-setup-0.3.220`. Its installer
+first checks the accepted worker/config/unit hashes and app `0.3.220`, then runs a
+signed non-mutating feed authorization check. It stops and backs up the exact
+worker, config and SQLite state before activation, and restores all three on any
+failure. Run it only through the `bitcoinwalk` sudo account; do not upload as root.
+
 ## Identity and scope
 
 - Display name: BitcoinWalk Guide; metadata marks it as a bot.
