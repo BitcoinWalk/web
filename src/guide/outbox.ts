@@ -1,11 +1,11 @@
 import { DatabaseSync } from "node:sqlite";
 import type { ApprovalRecord, CityRevision } from "../nostr/city-records";
 import type { Event } from "nostr-tools";
-import { approvalAlert, directoryAlert, liveAlert, proSetupAlert, replicationAlert, wrapAlert } from "./core";
+import { approvalAlert, directoryAlert, liveAlert, payoutUpdateAlert, proSetupAlert, replicationAlert, wrapAlert } from "./core";
 import type {GuideDirectoryRequest} from "./directory";
 import type {GuideProSetupTask} from "./pro-setup";
 
-export type Delivery = { submission: string; recipient: string; wrapped: string; attempts: number; next_attempt: number; state: string; purpose: "review" | "live" | "replication-degraded" | "replication-recovered"|"directory-invitation"|"directory-active"|"directory-failed"|"pro-setup-required" };
+export type Delivery = { submission: string; recipient: string; wrapped: string; attempts: number; next_attempt: number; state: string; purpose: "review" | "live" | "replication-degraded" | "replication-recovered"|"directory-invitation"|"directory-active"|"directory-failed"|"pro-setup-required"|"payout-update-pending"|"payout-update-active"|"payout-update-attention" };
 export type ReplicationCityStatus={cityId:string;destination:string;state:"healthy"|"pending"|"degraded";counts:Record<string,number>};
 export type ReplicationRecipient={recipient:string;cityName:string};
 export type LivePublication = { revision: CityRevision; approval: ApprovalRecord; event: Event };
@@ -32,13 +32,18 @@ export class Outbox {
       let queued=0;
       for(const task of tasks){
         const previous=this.db.prepare("SELECT recipient,state FROM pro_setup_state WHERE city_id=?").get(task.cityId) as {recipient:string;state:string}|undefined;
-        if(!previous||previous.recipient!==task.ownerPubkey){
+        if(task.kind==="setup"&&(!previous||previous.recipient!==task.ownerPubkey)){
           const wraps=wrapAlert(proSetupAlert(task.cityName,task.cityId,adminURL),task.ownerPubkey,secret);
           this.db.prepare("INSERT OR IGNORE INTO delivery (submission,recipient,wrapped,sender_copy,purpose) VALUES (?,?,?,?, 'pro-setup-required')")
             .run(`pro-setup:${task.cityId}`,task.ownerPubkey,JSON.stringify(wraps.recipient),JSON.stringify(wraps.sender));queued++;
+        }else if(task.kind==="payout-update"){
+          const group=task.state==="active"?"active":task.state==="blocked"||task.state==="needs-attention"?"attention":"pending",state=`payout-update:${task.payoutVersion}:${group}`;
+          if(!previous||previous.recipient!==task.ownerPubkey||previous.state!==state){const purpose=`payout-update-${group}` as const;
+            const wraps=wrapAlert(payoutUpdateAlert(task.cityName,task.cityId,group,adminURL),task.ownerPubkey,secret);
+            this.db.prepare("INSERT OR IGNORE INTO delivery (submission,recipient,wrapped,sender_copy,purpose) VALUES (?,?,?,?,?)").run(`payout-update:${task.cityId}:${task.payoutVersion}:${group}`,task.ownerPubkey,JSON.stringify(wraps.recipient),JSON.stringify(wraps.sender),purpose);queued++;}
         }
         this.db.prepare("INSERT INTO pro_setup_state(city_id,recipient,state) VALUES(?,?,?) ON CONFLICT(city_id) DO UPDATE SET recipient=excluded.recipient,state=excluded.state")
-          .run(task.cityId,task.ownerPubkey,task.state);
+          .run(task.cityId,task.ownerPubkey,task.kind==="setup"?task.state:`payout-update:${task.payoutVersion}:${task.state==="active"?"active":task.state==="blocked"||task.state==="needs-attention"?"attention":"pending"}`);
       }
       this.db.exec("COMMIT");return queued;
     }catch(error){this.db.exec("ROLLBACK");throw error;}

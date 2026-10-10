@@ -55,7 +55,10 @@ the upstream legacy 79-percent field is configuration only, not a payout engine.
 
 The patch also contains a separate managed mode, selected only by
 `BITCOINWALK_MANAGED=1`. It requires its own marked `*.managed.sqlite`
-database, owner-only provisioning token and owner-only invoice-issuer token. It
+database, owner-only provisioning token, invoice-issuer token and a distinct
+payout-authority token. Before applying any enabled city version, the adapter
+registers that exact immutable payout version with the loopback payout service
+and requires its exact read-back receipt. It
 never reads an NWC URI: invoice creation and settlement status go through the
 fixed loopback payout-service broker at `127.0.0.1:8893`. Managed configuration
 may first be applied with invoice issuance disabled, which durably reserves the

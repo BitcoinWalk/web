@@ -16,6 +16,10 @@ const relayURL = z.string().url().refine(value => {
 }, "Use a public WSS hostname without credentials, port or query.").transform(value => new URL(value).href);
 export const configSchema = z.object({
   sourceRelay: relayURL,
+  // A Guide running beside the relay may read its private listener when the
+  // host cannot hairpin through the public TLS endpoint. Public links and the
+  // durable outbox identity always remain bound to sourceRelay above.
+  sourceReadRelay:z.string().url().refine(value=>new URL(value).href==="ws://127.0.0.1:3334/","Use the exact reviewed relay loopback listener.").optional(),
   discoveryRelays: z.array(relayURL).min(1).max(5),
   // Operator-reviewed destinations only; discovery never authorizes arbitrary outbound hosts.
   allowedInboxRelays: z.array(relayURL).min(1).max(10),
@@ -78,6 +82,13 @@ export function directoryAlert(purpose:"directory-invitation"|"directory-active"
 export function proSetupAlert(cityName:string,cityId:string,adminURL:string):string{
  const city=cityName.replace(/[\p{C}\p{Z}]+/gu," ").trim(),url=new URL(adminURL);url.searchParams.set("city",cityId);
  return `Your BitcoinWalk in ${city} is ready for Pro setup.\n\nComplete or resume the city identity, payout and public profile setup: ${url.href}\n\nYour payment is already recorded. Do not pay again. BitcoinWalk never asks for your private key; keep the city signer recovery method safe.\n\nBitcoinWalk Guide is automated; replies are not monitored.`;
+}
+
+export function payoutUpdateAlert(cityName:string,cityId:string,state:"pending"|"active"|"attention",adminURL:string):string{
+ const city=cityName.replace(/[\p{C}\p{Z}]+/gu," ").trim(),url=new URL(adminURL);url.searchParams.set("city",cityId);
+ if(state==="active")return `Your new payout destination for BitcoinWalk in ${city} is active.\n\nThe previous destination stayed active until the replacement passed provider and public read-back. No further action is required.\n\nBitcoinWalk Guide is automated; replies are not monitored.`;
+ if(state==="attention")return `Your payout destination update for BitcoinWalk in ${city} needs attention.\n\nThe previous destination is still active; no funds were redirected to an unverified replacement. Review the update here: ${url.href}\n\nBitcoinWalk Guide is automated; replies are not monitored. Never share your private key.`;
+ return `Your payout destination update for BitcoinWalk in ${city} was saved.\n\nThe previous destination remains active while BitcoinWalk verifies the replacement. You can follow its status here: ${url.href}\n\nBitcoinWalk Guide is automated; replies are not monitored. Never share your private key.`;
 }
 
 export function selectInbox(events: Event[], recipient: string, allowed: string[], now = Math.floor(Date.now()/1000)): string[] {

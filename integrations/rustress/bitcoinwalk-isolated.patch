@@ -48,10 +48,10 @@ index 0000000..c3891f0
 +profile = "minimal"
 diff --git c/src/bitcoinwalk.rs w/src/bitcoinwalk.rs
 new file mode 100644
-index 0000000..b04b75c
+index 0000000..3d3b187
 --- /dev/null
 +++ w/src/bitcoinwalk.rs
-@@ -0,0 +1,856 @@
+@@ -0,0 +1,1276 @@
 +//! BW-100: private provisioning in a separately stamped fixture database only.
 +//! No public address, invoice or wallet functionality is registered in this mode.
 +use actix_web::{App, HttpRequest, HttpResponse, HttpServer, web};
@@ -62,7 +62,9 @@ index 0000000..b04b75c
 +use sqlx::{Row, SqlitePool, sqlite::SqliteConnectOptions};
 +use std::{path::Path, str::FromStr, sync::LazyLock, time::Duration};
 +
-+use crate::bitcoinwalk_issuer::{InvoiceBroker, IssueRequest};
++use crate::bitcoinwalk_issuer::{
++    AddressIssueRequest, InvoiceBroker, IssueRequest, PayoutAuthorityBroker,
++};
 +
 +const API: &str = "bitcoinwalk-provisioning-v1";
 +const UPSTREAM: &str = "c72fdeccd80025d181efc1b1d45baeb8bfbde4a9";
@@ -135,6 +137,67 @@ index 0000000..b04b75c
 +        format!("{:x}", Sha256::digest(serde_json::to_vec(self).unwrap()))
 +    }
 +}
++
++#[derive(Clone, Deserialize, Serialize)]
++#[serde(rename_all = "camelCase", deny_unknown_fields)]
++struct AddressConfig {
++    version: u64,
++    domain: String,
++    local_part: String,
++    wallet_ref: String,
++    receiving_destination: String,
++    invoice_issuance: String,
++}
++impl AddressConfig {
++    fn valid(&self, state: &State) -> bool {
++        (1..=MAX_SAFE).contains(&self.version)
++            && self.domain == state.domain
++            && DOMAIN.is_match(&self.domain)
++            && LABEL.is_match(&self.local_part)
++            && self.local_part.len() <= 63
++            && LABEL.is_match(&self.wallet_ref)
++            && state.wallets.contains(&self.wallet_ref)
++            && self.receiving_destination == state.organization_destination
++            && self.receiving_destination.len() <= 500
++            && PAYOUT.is_match(&self.receiving_destination)
++            && if state.managed {
++                matches!(self.invoice_issuance.as_str(), "disabled" | "enabled")
++            } else {
++                self.invoice_issuance == "disabled"
++            }
++    }
++    fn hash(&self) -> String {
++        format!("{:x}", Sha256::digest(serde_json::to_vec(self).unwrap()))
++    }
++}
++#[derive(Deserialize, Serialize)]
++#[serde(rename_all = "camelCase", deny_unknown_fields)]
++struct AddressCommand {
++    api: String,
++    expected_version: u64,
++    idempotency_key: String,
++    config: AddressConfig,
++}
++#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
++#[serde(rename_all = "camelCase")]
++struct AddressReceipt {
++    api: String,
++    local_part: String,
++    version: u64,
++    config_hash: String,
++    state: String,
++    invoice_issuance: String,
++}
++fn address_receipt(c: &AddressConfig, state: &str) -> AddressReceipt {
++    AddressReceipt {
++        api: API.into(),
++        local_part: c.local_part.clone(),
++        version: c.version,
++        config_hash: c.hash(),
++        state: state.into(),
++        invoice_issuance: c.invoice_issuance.clone(),
++    }
++}
 +#[derive(Deserialize)]
 +#[serde(rename_all = "camelCase", deny_unknown_fields)]
 +struct Command {
@@ -171,6 +234,8 @@ index 0000000..b04b75c
 +    wallets: Vec<String>,
 +    managed: bool,
 +    broker: Option<InvoiceBroker>,
++    payout_authority: Option<PayoutAuthorityBroker>,
++    organization_destination: String,
 +}
 +fn authorized(req: &HttpRequest, state: &State) -> bool {
 +    let headers: Vec<_> = req.headers().get_all("authorization").collect();
@@ -209,7 +274,8 @@ index 0000000..b04b75c
 +        .json(serde_json::json!({
 +            "api": API, "upstreamCommit": UPSTREAM, "adapterRevision": state.revision,
 +            "domain": state.domain, "atomicConfiguration": true, "managedEntriesOnly": true,
-+            "compareAndSwap": true, "idempotency": true, "invoiceIssuanceGate": true
++            "compareAndSwap": true, "idempotency": true, "invoiceIssuanceGate": true,
++            "standaloneNoSplitAddresses": true
 +        }))
 +}
 +
@@ -444,10 +510,203 @@ index 0000000..b04b75c
 +    {
 +        return error(Status::BAD_REQUEST);
 +    }
++    if action == "apply" && c.invoice_issuance == "enabled" {
++        let Some(authority) = &state.payout_authority else {
++            return error(Status::SERVICE_UNAVAILABLE);
++        };
++        if authority
++            .register(c, &c.city_id, c.payout_version, &c.hash())
++            .await
++            .is_err()
++        {
++            return error(Status::SERVICE_UNAVAILABLE);
++        }
++    }
 +    match change(&state, &cmd, action == "apply").await {
 +        Ok(r) => HttpResponse::Ok()
 +            .insert_header(("Cache-Control", "no-store"))
 +            .json(r),
++        Err(Failure::Conflict) => error(Status::CONFLICT),
++        Err(Failure::Storage) => error(Status::SERVICE_UNAVAILABLE),
++    }
++}
++
++async fn verify_address_applied(
++    conn: &mut sqlx::SqliteConnection,
++    c: &AddressConfig,
++) -> Result<(), Failure> {
++    let row = sqlx::query("SELECT users.id,username,users.domain,nostr_pubkey,nwc_uri,is_prism FROM bw_address_claims JOIN users ON users.id=bw_address_claims.user_id WHERE bw_address_claims.local_part=? COLLATE NOCASE")
++        .bind(&c.local_part).fetch_optional(&mut *conn).await?.ok_or(Failure::Conflict)?;
++    let splits: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM prism_splits WHERE user_id=?")
++        .bind(row.get::<i64, _>("id"))
++        .fetch_one(&mut *conn)
++        .await?;
++    if row.get::<String, _>("username") != c.local_part
++        || row.get::<String, _>("domain") != c.domain
++        || row.get::<Option<String>, _>("nostr_pubkey").is_some()
++        || row.get::<Option<String>, _>("nwc_uri").is_some()
++        || row.get::<bool, _>("is_prism")
++        || splits != 0
++    {
++        return Err(Failure::Conflict);
++    }
++    Ok(())
++}
++
++async fn change_address(
++    state: &State,
++    cmd: &AddressCommand,
++    apply: bool,
++) -> Result<AddressReceipt, Failure> {
++    let c = &cmd.config;
++    let mut tx = state.pool.begin().await?;
++    sqlx::query("UPDATE bw_lock SET value=value WHERE id=1")
++        .execute(&mut *tx)
++        .await?;
++    let prior = sqlx::query("SELECT version,hash,state,config FROM bw_address_configs WHERE local_part=? COLLATE NOCASE ORDER BY version DESC LIMIT 1")
++        .bind(&c.local_part).fetch_optional(&mut *tx).await?;
++    if let Some(row) = &prior {
++        let version: i64 = row.get("version");
++        if version == c.version as i64 {
++            if row.get::<String, _>("hash") != c.hash() {
++                return Err(Failure::Conflict);
++            }
++            if !apply || row.get::<String, _>("state") == "applied" {
++                if row.get::<String, _>("state") == "applied" {
++                    verify_address_applied(&mut tx, c).await?;
++                }
++                let result = address_receipt(c, row.get("state"));
++                tx.commit().await?;
++                return Ok(result);
++            }
++        } else if version + 1 != c.version as i64
++            || row.get::<String, _>("state") != "applied"
++            || apply
++        {
++            return Err(Failure::Conflict);
++        }
++    } else if c.version != 1 || apply {
++        return Err(Failure::Conflict);
++    }
++
++    let claim = sqlx::query(
++        "SELECT domain,user_id FROM bw_address_claims WHERE local_part=? COLLATE NOCASE",
++    )
++    .bind(&c.local_part)
++    .fetch_optional(&mut *tx)
++    .await?;
++    if claim
++        .as_ref()
++        .is_some_and(|row| row.get::<String, _>("domain") != c.domain)
++    {
++        return Err(Failure::Conflict);
++    }
++    let city_collision:i64=sqlx::query_scalar("SELECT COUNT(*) FROM bw_claims WHERE domain=? COLLATE NOCASE AND local_part=? COLLATE NOCASE")
++        .bind(&c.domain).bind(&c.local_part).fetch_one(&mut *tx).await?;
++    if city_collision != 0 {
++        return Err(Failure::Conflict);
++    }
++    let claimed_id = claim
++        .as_ref()
++        .and_then(|row| row.get::<Option<i64>, _>("user_id"));
++    let user=sqlx::query("SELECT id,nostr_pubkey,nwc_uri,is_prism FROM users WHERE username=? COLLATE NOCASE AND domain=? COLLATE NOCASE")
++        .bind(&c.local_part).bind(&c.domain).fetch_optional(&mut *tx).await?;
++    if user.as_ref().map(|row| row.get::<i64, _>("id")) != claimed_id {
++        return Err(Failure::Conflict);
++    }
++    if let Some(row) = &user {
++        let splits: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM prism_splits WHERE user_id=?")
++            .bind(claimed_id)
++            .fetch_one(&mut *tx)
++            .await?;
++        if row.get::<Option<String>, _>("nostr_pubkey").is_some()
++            || row.get::<Option<String>, _>("nwc_uri").is_some()
++            || row.get::<bool, _>("is_prism")
++            || splits != 0
++        {
++            return Err(Failure::Conflict);
++        }
++    }
++    if !apply {
++        if claim.is_none() {
++            sqlx::query("INSERT INTO bw_address_claims(local_part,domain) VALUES(?,?)")
++                .bind(&c.local_part)
++                .bind(&c.domain)
++                .execute(&mut *tx)
++                .await?;
++        }
++        sqlx::query("INSERT INTO bw_address_configs(local_part,version,hash,config,state) VALUES(?,?,?,?,'prepared')")
++            .bind(&c.local_part).bind(c.version as i64).bind(c.hash()).bind(serde_json::to_string(c).unwrap()).execute(&mut *tx).await?;
++    } else {
++        if claimed_id.is_none() {
++            let id:i64=sqlx::query_scalar("INSERT INTO users(username,domain,nostr_pubkey,is_prism,nwc_uri) VALUES(?,?,NULL,0,NULL) RETURNING id")
++                .bind(&c.local_part).bind(&c.domain).fetch_one(&mut *tx).await?;
++            sqlx::query("UPDATE bw_address_claims SET user_id=? WHERE local_part=? COLLATE NOCASE")
++                .bind(id)
++                .bind(&c.local_part)
++                .execute(&mut *tx)
++                .await?;
++        }
++        sqlx::query("UPDATE bw_address_configs SET state='applied' WHERE local_part=? COLLATE NOCASE AND version=?")
++            .bind(&c.local_part).bind(c.version as i64).execute(&mut *tx).await?;
++    }
++    tx.commit().await?;
++    Ok(address_receipt(
++        c,
++        if apply { "applied" } else { "prepared" },
++    ))
++}
++
++async fn read_address_status(
++    req: HttpRequest,
++    state: web::Data<State>,
++    local_part: web::Path<String>,
++) -> HttpResponse {
++    if !authorized(&req, &state) {
++        return error(Status::UNAUTHORIZED);
++    }
++    if !LABEL.is_match(&local_part) || local_part.len() > 63 {
++        return error(Status::BAD_REQUEST);
++    }
++    let Ok(mut tx) = state.pool.begin().await else {
++        return error(Status::SERVICE_UNAVAILABLE);
++    };
++    match sqlx::query("SELECT config,state FROM bw_address_configs WHERE local_part=? COLLATE NOCASE ORDER BY version DESC LIMIT 1").bind(local_part.into_inner()).fetch_optional(&mut *tx).await{
++        Ok(Some(row))=>match serde_json::from_str::<AddressConfig>(row.get("config")){
++            Ok(config)=>{if row.get::<String,_>("state")=="applied"&&verify_address_applied(&mut tx,&config).await.is_err(){return error(Status::SERVICE_UNAVAILABLE);}HttpResponse::Ok().insert_header(("Cache-Control","no-store")).json(address_receipt(&config,row.get("state")))},
++            Err(_)=>error(Status::SERVICE_UNAVAILABLE)},
++        Ok(None)=>error(Status::NOT_FOUND),Err(_)=>error(Status::SERVICE_UNAVAILABLE)}
++}
++
++async fn write_address(
++    req: HttpRequest,
++    state: web::Data<State>,
++    path: web::Path<(String, String)>,
++    body: web::Bytes,
++) -> HttpResponse {
++    if !authorized(&req, &state) {
++        return error(Status::UNAUTHORIZED);
++    }
++    let (local_part, action) = path.into_inner();
++    if !["prepare", "apply"].contains(&action.as_str()) {
++        return error(Status::NOT_FOUND);
++    }
++    let Ok(cmd) = serde_json::from_slice::<AddressCommand>(&body) else {
++        return error(Status::BAD_REQUEST);
++    };
++    let c = &cmd.config;
++    if cmd.api != API
++        || local_part != c.local_part
++        || !c.valid(&state)
++        || cmd.expected_version != c.version - 1
++        || cmd.idempotency_key != format!("address:{}:{}:{}", c.local_part, c.version, c.hash())
++    {
++        return error(Status::BAD_REQUEST);
++    }
++    match change_address(&state, &cmd, action == "apply").await {
++        Ok(value) => HttpResponse::Ok()
++            .insert_header(("Cache-Control", "no-store"))
++            .json(value),
 +        Err(Failure::Conflict) => error(Status::CONFLICT),
 +        Err(Failure::Storage) => error(Status::SERVICE_UNAVAILABLE),
 +    }
@@ -492,6 +751,21 @@ index 0000000..b04b75c
 +    Some(config)
 +}
 +
++async fn public_address_config(state: &State, local_part: &str) -> Option<AddressConfig> {
++    if !LABEL.is_match(local_part) || local_part.len() > 63 {
++        return None;
++    }
++    let row=sqlx::query("SELECT config FROM bw_address_configs WHERE local_part=? COLLATE NOCASE AND state='applied' ORDER BY version DESC LIMIT 1")
++        .bind(local_part).fetch_optional(&state.pool).await.ok()??;
++    let config: AddressConfig = serde_json::from_str(row.get("config")).ok()?;
++    if config.invoice_issuance != "enabled" || !config.valid(state) {
++        return None;
++    }
++    let mut tx = state.pool.begin().await.ok()?;
++    verify_address_applied(&mut tx, &config).await.ok()?;
++    Some(config)
++}
++
 +fn lnurl_metadata(config: &Config) -> String {
 +    serde_json::json!([[
 +        "text/plain",
@@ -528,6 +802,14 @@ index 0000000..b04b75c
 +) -> HttpResponse {
 +    if request_host(&req, &state.domain).is_none() {
 +        return public_error(Status::NOT_FOUND);
++    }
++    if let Some(config) = public_address_config(&state, &path).await {
++        let metadata = serde_json::json!([[
++            "text/plain",
++            format!("Support BitcoinWalk via {}", config.local_part)
++        ]])
++        .to_string();
++        return HttpResponse::Ok().insert_header(("Cache-Control","no-store")).json(serde_json::json!({"tag":"payRequest","callback":format!("https://{}/lnurlp/{}/callback",state.domain,config.local_part),"minSendable":1000,"maxSendable":1_000_000_000u64,"metadata":metadata}));
 +    }
 +    let Some(config) = public_config(&state, &path).await else {
 +        return public_error(Status::NOT_FOUND);
@@ -577,6 +859,9 @@ index 0000000..b04b75c
 +) -> HttpResponse {
 +    if request_host(&req, &state.domain).is_none() {
 +        return public_error(Status::NOT_FOUND);
++    }
++    if let Some(config) = public_address_config(&state, &path).await {
++        return public_address_callback(&state, &config, &query).await;
 +    }
 +    let Some(config) = public_config(&state, &path).await else {
 +        return public_error(Status::NOT_FOUND);
@@ -675,6 +960,9 @@ index 0000000..b04b75c
 +    if !HEX.is_match(&payment_hash) {
 +        return public_error(Status::NOT_FOUND);
 +    }
++    if let Some(config) = public_address_config(&state, &local_part).await {
++        return public_address_verify(&state, &config, &payment_hash).await;
++    }
 +    let Some(config) = public_config(&state, &local_part).await else {
 +        return public_error(Status::NOT_FOUND);
 +    };
@@ -697,13 +985,130 @@ index 0000000..b04b75c
 +    }
 +}
 +
++async fn public_address_callback(
++    state: &State,
++    config: &AddressConfig,
++    query: &std::collections::HashMap<String, String>,
++) -> HttpResponse {
++    let Some(amount) = query
++        .get("amount")
++        .and_then(|value| value.parse::<u64>().ok())
++    else {
++        return public_error(Status::BAD_REQUEST);
++    };
++    if !(1_000..=1_000_000_000).contains(&amount) {
++        return public_error(Status::BAD_REQUEST);
++    }
++    let metadata = serde_json::json!([[
++        "text/plain",
++        format!("Support BitcoinWalk via {}", config.local_part)
++    ]])
++    .to_string();
++    let commitment = if let Some(nostr) = query.get("nostr") {
++        if nostr.len() > 12_288
++            || serde_json::from_str::<serde_json::Value>(nostr)
++                .ok()
++                .and_then(|value| value.as_object().cloned())
++                .is_none()
++        {
++            return public_error(Status::BAD_REQUEST);
++        }
++        format!("{:x}", Sha256::digest(nostr.as_bytes()))
++    } else {
++        format!("{:x}", Sha256::digest(metadata.as_bytes()))
++    };
++    let now = std::time::SystemTime::now()
++        .duration_since(std::time::UNIX_EPOCH)
++        .map(|value| value.as_secs())
++        .unwrap_or(0);
++    let existing=sqlx::query("SELECT request_id,requested_at,invoice,payment_hash FROM bw_address_public_invoices WHERE local_part=? COLLATE NOCASE AND address_version=? AND amount_msat=? AND description_hash=? AND state IN ('pending','issued') AND requested_at>? AND (expires_at IS NULL OR expires_at>?) ORDER BY requested_at DESC LIMIT 1")
++        .bind(&config.local_part).bind(config.version as i64).bind(amount as i64).bind(&commitment).bind(now.saturating_sub(86_400) as i64).bind((now+60) as i64).fetch_optional(&state.pool).await;
++    let Ok(existing) = existing else {
++        return public_error(Status::SERVICE_UNAVAILABLE);
++    };
++    if let Some(row) = &existing {
++        if let (Some(invoice), Some(hash)) = (
++            row.get::<Option<String>, _>("invoice"),
++            row.get::<Option<String>, _>("payment_hash"),
++        ) {
++            return HttpResponse::Ok().insert_header(("Cache-Control","no-store")).json(serde_json::json!({"pr":invoice,"routes":[],"verify":format!("https://{}/lnurlp/{}/verify/{hash}",state.domain,config.local_part)}));
++        }
++    }
++    let (id, requested_at) = if let Some(row) = existing {
++        (
++            row.get::<String, _>("request_id"),
++            row.get::<i64, _>("requested_at") as u64,
++        )
++    } else {
++        let id = request_id();
++        if sqlx::query("INSERT INTO bw_address_public_invoices(request_id,local_part,address_version,amount_msat,description_hash,requested_at,state) VALUES(?,?,?,?,?,?,'pending')").bind(&id).bind(&config.local_part).bind(config.version as i64).bind(amount as i64).bind(&commitment).bind(now as i64).execute(&state.pool).await.is_err(){return public_error(Status::SERVICE_UNAVAILABLE);}
++        (id, now)
++    };
++    let Some(broker) = &state.broker else {
++        return public_error(Status::SERVICE_UNAVAILABLE);
++    };
++    let issued = broker
++        .issue_address(&AddressIssueRequest::new(
++            id.clone(),
++            config.domain.clone(),
++            config.local_part.clone(),
++            config.version,
++            config.wallet_ref.clone(),
++            amount,
++            commitment,
++            requested_at,
++        ))
++        .await;
++    let Ok(issued) = issued else {
++        return public_error(Status::SERVICE_UNAVAILABLE);
++    };
++    if sqlx::query("UPDATE bw_address_public_invoices SET state='issued',invoice=?,payment_hash=?,issued_at=?,expires_at=? WHERE request_id=? AND state IN ('pending','issued')").bind(&issued.invoice).bind(&issued.payment_hash).bind(issued.issued_at as i64).bind(issued.expires_at as i64).bind(&id).execute(&state.pool).await.is_err(){return public_error(Status::SERVICE_UNAVAILABLE);}
++    HttpResponse::Ok().insert_header(("Cache-Control","no-store")).json(serde_json::json!({"pr":issued.invoice,"routes":[],"verify":format!("https://{}/lnurlp/{}/verify/{}",state.domain,config.local_part,issued.payment_hash)}))
++}
++
++async fn public_address_verify(
++    state: &State,
++    config: &AddressConfig,
++    payment_hash: &str,
++) -> HttpResponse {
++    let found:Option<i64>=sqlx::query_scalar("SELECT 1 FROM bw_address_public_invoices WHERE local_part=? COLLATE NOCASE AND address_version=? AND payment_hash=? AND state='issued'").bind(&config.local_part).bind(config.version as i64).bind(payment_hash).fetch_optional(&state.pool).await.ok().flatten();
++    if found.is_none() {
++        return public_error(Status::NOT_FOUND);
++    }
++    let Some(broker) = &state.broker else {
++        return public_error(Status::SERVICE_UNAVAILABLE);
++    };
++    match broker
++        .status_address(
++            &config.domain,
++            &config.local_part,
++            config.version,
++            payment_hash,
++        )
++        .await
++    {
++        Ok(status) => HttpResponse::Ok()
++            .insert_header(("Cache-Control", "no-store"))
++            .json(serde_json::json!({"settled":status.settled})),
++        Err(_) => public_error(Status::SERVICE_UNAVAILABLE),
++    }
++}
++
 +fn routes(cfg: &mut web::ServiceConfig) {
 +    cfg.app_data(web::PayloadConfig::new(16_384))
 +        .route("/v1/bitcoinwalk/capabilities", web::get().to(capabilities))
 +        .route("/v1/bitcoinwalk/cities/{id}", web::get().to(read_status))
 +        .route(
++            "/v1/bitcoinwalk/addresses/{local_part}",
++            web::get().to(read_address_status),
++        )
++        .route(
 +            "/v1/bitcoinwalk/cities/{id}/{action}",
 +            web::post().to(write),
++        )
++        .route(
++            "/v1/bitcoinwalk/addresses/{local_part}/{action}",
++            web::post().to(write_address),
 +        );
 +}
 +fn managed_routes(cfg: &mut web::ServiceConfig) {
@@ -732,6 +1137,10 @@ index 0000000..b04b75c
 +        "CREATE TABLE IF NOT EXISTS bw_configs(city_id TEXT NOT NULL,version INTEGER NOT NULL,hash TEXT NOT NULL,config TEXT NOT NULL,state TEXT NOT NULL CHECK(state IN ('prepared','applied')),PRIMARY KEY(city_id,version))",
 +        "CREATE TABLE IF NOT EXISTS bw_public_invoices(request_id TEXT PRIMARY KEY,city_id TEXT NOT NULL,payout_version INTEGER NOT NULL,amount_msat INTEGER NOT NULL,description_hash TEXT NOT NULL,requested_at INTEGER NOT NULL,state TEXT NOT NULL CHECK(state IN ('pending','issued')),invoice TEXT,payment_hash TEXT UNIQUE,issued_at INTEGER,expires_at INTEGER)",
 +        "CREATE INDEX IF NOT EXISTS bw_public_invoice_match ON bw_public_invoices(city_id,payout_version,amount_msat,description_hash,requested_at)",
++        "CREATE TABLE IF NOT EXISTS bw_address_claims(local_part TEXT PRIMARY KEY COLLATE NOCASE,domain TEXT NOT NULL COLLATE NOCASE,user_id INTEGER UNIQUE)",
++        "CREATE TABLE IF NOT EXISTS bw_address_configs(local_part TEXT NOT NULL COLLATE NOCASE,version INTEGER NOT NULL,hash TEXT NOT NULL,config TEXT NOT NULL,state TEXT NOT NULL CHECK(state IN ('prepared','applied')),PRIMARY KEY(local_part,version))",
++        "CREATE TABLE IF NOT EXISTS bw_address_public_invoices(request_id TEXT PRIMARY KEY,local_part TEXT NOT NULL COLLATE NOCASE,address_version INTEGER NOT NULL,amount_msat INTEGER NOT NULL,description_hash TEXT NOT NULL,requested_at INTEGER NOT NULL,state TEXT NOT NULL CHECK(state IN ('pending','issued')),invoice TEXT,payment_hash TEXT UNIQUE,issued_at INTEGER,expires_at INTEGER)",
++        "CREATE INDEX IF NOT EXISTS bw_address_public_invoice_match ON bw_address_public_invoices(local_part,address_version,amount_msat,description_hash,requested_at)",
 +    ] {
 +        sqlx::query(sql).execute(pool).await?;
 +    }
@@ -771,6 +1180,8 @@ index 0000000..b04b75c
 +        .split(',')
 +        .map(str::to_string)
 +        .collect();
++    let organization_destination = std::env::var("BW_ORGANIZATION_DESTINATION")
++        .unwrap_or_else(|_| "bitcoinwalk@getalby.com".into());
 +    if !DOMAIN.is_match(&domain)
 +        || domain.len() > 253
 +        || !HEX.is_match(&revision)
@@ -783,6 +1194,7 @@ index 0000000..b04b75c
 +        })
 +        || wallets.is_empty()
 +        || wallets.iter().any(|w| !LABEL.is_match(w) || w.len() > 63)
++        || !PAYOUT.is_match(&organization_destination)
 +        || std::env::var_os("NIP57_PRIVATE_KEY").is_some()
 +        || std::env::var_os("DATABASE_URL").is_some()
 +    {
@@ -876,6 +1288,12 @@ index 0000000..b04b75c
 +    } else {
 +        None
 +    };
++    let payout_authority = if managed {
++        let path = std::env::var("BW_PAYOUT_AUTHORITY_TOKEN_FILE").map_err(|_| unavailable())?;
++        Some(PayoutAuthorityBroker::from_token_file(&path).map_err(|_| unavailable())?)
++    } else {
++        None
++    };
 +    let state = web::Data::new(State {
 +        pool,
 +        token_hash: Sha256::digest(token.as_bytes()).into(),
@@ -884,6 +1302,8 @@ index 0000000..b04b75c
 +        wallets,
 +        managed,
 +        broker,
++        payout_authority,
++        organization_destination,
 +    });
 +    HttpServer::new(move || {
 +        let app = App::new().app_data(state.clone());
@@ -910,10 +1330,10 @@ index 0000000..b04b75c
 +mod tests;
 diff --git c/src/bitcoinwalk/tests.rs w/src/bitcoinwalk/tests.rs
 new file mode 100644
-index 0000000..c4a4577
+index 0000000..ec26b6c
 --- /dev/null
 +++ w/src/bitcoinwalk/tests.rs
-@@ -0,0 +1,413 @@
+@@ -0,0 +1,536 @@
 +use super::*;
 +use actix_web::test;
 +
@@ -959,6 +1379,32 @@ index 0000000..c4a4577
 +        wallets: vec!["isolated-test".into()],
 +        managed: false,
 +        broker: None,
++        payout_authority: None,
++        organization_destination: "bitcoinwalk@getalby.com".into(),
++    }
++}
++
++fn address(local_part: &str) -> AddressConfig {
++    AddressConfig {
++        version: 1,
++        domain: "bitcoinwalk.org".into(),
++        local_part: local_part.into(),
++        wallet_ref: "isolated-test".into(),
++        receiving_destination: "bitcoinwalk@getalby.com".into(),
++        invoice_issuance: "disabled".into(),
++    }
++}
++fn address_command(config: AddressConfig) -> AddressCommand {
++    AddressCommand {
++        api: API.into(),
++        expected_version: config.version - 1,
++        idempotency_key: format!(
++            "address:{}:{}:{}",
++            config.local_part,
++            config.version,
++            config.hash()
++        ),
++        config,
 +    }
 +}
 +async fn count(s: &State, table: &str) -> i64 {
@@ -1041,6 +1487,103 @@ index 0000000..c4a4577
 +        row.get::<String, _>("nostr_pubkey"),
 +        cmd.config.brand_pubkey
 +    );
++}
++
++#[actix_web::test]
++async fn standalone_addresses_are_no_split_and_collision_safe() {
++    let s = state().await;
++    let donate = address_command(address("donate"));
++    assert!(change_address(&s, &donate, true).await.is_err());
++    let prepared = change_address(&s, &donate, false).await.unwrap();
++    assert_eq!(change_address(&s, &donate, false).await.unwrap(), prepared);
++    let applied = change_address(&s, &donate, true).await.unwrap();
++    assert_eq!(change_address(&s, &donate, true).await.unwrap(), applied);
++    let row = sqlx::query(
++        "SELECT username,domain,nostr_pubkey,nwc_uri,is_prism FROM users WHERE username='donate'",
++    )
++    .fetch_one(&s.pool)
++    .await
++    .unwrap();
++    assert_eq!(row.get::<String, _>("domain"), "bitcoinwalk.org");
++    assert!(row.get::<Option<String>, _>("nostr_pubkey").is_none());
++    assert!(row.get::<Option<String>, _>("nwc_uri").is_none());
++    assert!(!row.get::<bool, _>("is_prism"));
++    assert_eq!(count(&s, "prism_splits").await, 0);
++    let mut city = config();
++    city.local_part = "donate".into();
++    assert!(matches!(
++        change(&s, &command(city), false).await,
++        Err(Failure::Conflict)
++    ));
++    let mut drift = address("donate");
++    drift.receiving_destination = "other@example.org".into();
++    assert!(matches!(
++        change_address(&s, &address_command(drift), false).await,
++        Err(Failure::Conflict)
++    ));
++}
++
++#[actix_web::test]
++async fn standalone_address_http_is_private_and_fail_closed() {
++    let s = web::Data::new(state().await);
++    let app = test::init_service(App::new().app_data(s.clone()).configure(routes)).await;
++    let c = address("endo");
++    let value = serde_json::to_value(address_command(c.clone())).unwrap();
++    let path = "/v1/bitcoinwalk/addresses/endo/prepare";
++    assert_eq!(
++        test::call_service(
++            &app,
++            test::TestRequest::post()
++                .uri(path)
++                .set_json(&value)
++                .to_request()
++        )
++        .await
++        .status(),
++        Status::UNAUTHORIZED
++    );
++    let response = test::call_service(
++        &app,
++        test::TestRequest::post()
++            .uri(path)
++            .insert_header(("Authorization", format!("Bearer {TOKEN}")))
++            .set_json(&value)
++            .to_request(),
++    )
++    .await;
++    assert_eq!(response.status(), Status::OK);
++    let apply = test::call_service(
++        &app,
++        test::TestRequest::post()
++            .uri("/v1/bitcoinwalk/addresses/endo/apply")
++            .insert_header(("Authorization", format!("Bearer {TOKEN}")))
++            .set_json(&value)
++            .to_request(),
++    )
++    .await;
++    assert_eq!(apply.status(), Status::OK);
++    let status = test::call_service(
++        &app,
++        test::TestRequest::get()
++            .uri("/v1/bitcoinwalk/addresses/endo")
++            .insert_header(("Authorization", format!("Bearer {TOKEN}")))
++            .to_request(),
++    )
++    .await;
++    assert_eq!(status.status(), Status::OK);
++    sqlx::query("UPDATE users SET is_prism=1 WHERE username='endo'")
++        .execute(&s.pool)
++        .await
++        .unwrap();
++    let status = test::call_service(
++        &app,
++        test::TestRequest::get()
++            .uri("/v1/bitcoinwalk/addresses/endo")
++            .insert_header(("Authorization", format!("Bearer {TOKEN}")))
++            .to_request(),
++    )
++    .await;
++    assert_eq!(status.status(), Status::SERVICE_UNAVAILABLE);
 +}
 +
 +#[actix_web::test]
@@ -1329,10 +1872,10 @@ index 0000000..c4a4577
 +}
 diff --git c/src/bitcoinwalk_issuer.rs w/src/bitcoinwalk_issuer.rs
 new file mode 100644
-index 0000000..c9edf76
+index 0000000..efa2dda
 --- /dev/null
 +++ w/src/bitcoinwalk_issuer.rs
-@@ -0,0 +1,233 @@
+@@ -0,0 +1,443 @@
 +//! Private BitcoinWalk invoice-broker client. It never reads an NWC credential:
 +//! Rustress submits invoice facts to the loopback payout service, which creates
 +//! and records the invoice before returning it.
@@ -1349,6 +1892,22 @@ index 0000000..c9edf76
 +    token: String,
 +}
 +
++#[derive(Clone)]
++pub struct PayoutAuthorityBroker {
++    client: Client,
++    token: String,
++}
++
++#[derive(Deserialize)]
++#[serde(rename_all = "camelCase", deny_unknown_fields)]
++struct AuthorityReceipt {
++    api: String,
++    state: String,
++    city_id: String,
++    payout_version: u64,
++    config_hash: String,
++}
++
 +#[derive(Clone, Debug, Serialize)]
 +#[serde(rename_all = "camelCase")]
 +pub struct IssueRequest {
@@ -1360,6 +1919,48 @@ index 0000000..c9edf76
 +    pub description_hash: String,
 +    pub requested_at: u64,
 +    pub expiry_seconds: u64,
++}
++
++#[derive(Clone, Debug, Serialize)]
++#[serde(rename_all = "camelCase")]
++pub struct AddressIssueRequest {
++    pub api: &'static str,
++    pub request_id: String,
++    pub resource_type: &'static str,
++    pub domain: String,
++    pub local_part: String,
++    pub address_version: u64,
++    pub wallet_ref: String,
++    pub amount_msat: String,
++    pub description_hash: String,
++    pub requested_at: u64,
++    pub expiry_seconds: u64,
++}
++impl AddressIssueRequest {
++    pub fn new(
++        request_id: String,
++        domain: String,
++        local_part: String,
++        address_version: u64,
++        wallet_ref: String,
++        amount_msat: u64,
++        description_hash: String,
++        requested_at: u64,
++    ) -> Self {
++        Self {
++            api: API,
++            request_id,
++            resource_type: "standalone",
++            domain,
++            local_part,
++            address_version,
++            wallet_ref,
++            amount_msat: amount_msat.to_string(),
++            description_hash,
++            requested_at,
++            expiry_seconds: 3600,
++        }
++    }
 +}
 +
 +impl IssueRequest {
@@ -1400,6 +2001,17 @@ index 0000000..c9edf76
 +    api: &'static str,
 +    city_id: &'a str,
 +    payout_version: u64,
++    payment_hash: &'a str,
++}
++
++#[derive(Serialize)]
++#[serde(rename_all = "camelCase")]
++struct AddressStatusRequest<'a> {
++    api: &'static str,
++    resource_type: &'static str,
++    domain: &'a str,
++    local_part: &'a str,
++    address_version: u64,
 +    payment_hash: &'a str,
 +}
 +
@@ -1503,6 +2115,29 @@ index 0000000..c9edf76
 +        Ok(invoice)
 +    }
 +
++    pub async fn issue_address(&self, request: &AddressIssueRequest) -> Result<IssuedInvoice, ()> {
++        if request.api != API
++            || request.resource_type != "standalone"
++            || request.domain.is_empty()
++            || request.local_part.is_empty()
++            || request.wallet_ref.is_empty()
++            || !(1_000..=1_000_000_000)
++                .contains(&request.amount_msat.parse::<u64>().map_err(|_| ())?)
++            || !valid_hex(&request.description_hash)
++        {
++            return Err(());
++        }
++        let invoice: IssuedInvoice = self.post("/v1/invoices/issue", request).await?;
++        if invoice.amount_msat != request.amount_msat
++            || !valid_hex(&invoice.payment_hash)
++            || !invoice.invoice.starts_with("lnbc")
++            || invoice.expires_at <= invoice.issued_at
++        {
++            return Err(());
++        }
++        Ok(invoice)
++    }
++
 +    pub async fn status(
 +        &self,
 +        city_id: &str,
@@ -1528,6 +2163,112 @@ index 0000000..c9edf76
 +        }
 +        Ok(status)
 +    }
++
++    pub async fn status_address(
++        &self,
++        domain: &str,
++        local_part: &str,
++        address_version: u64,
++        payment_hash: &str,
++    ) -> Result<InvoiceStatus, ()> {
++        if !valid_hex(payment_hash) {
++            return Err(());
++        }
++        let status: InvoiceStatus = self
++            .post(
++                "/v1/invoices/status",
++                &AddressStatusRequest {
++                    api: API,
++                    resource_type: "standalone",
++                    domain,
++                    local_part,
++                    address_version,
++                    payment_hash,
++                },
++            )
++            .await?;
++        if status.api != API || status.payment_hash != payment_hash {
++            return Err(());
++        }
++        Ok(status)
++    }
++}
++
++impl PayoutAuthorityBroker {
++    pub fn from_token_file(path: &str) -> Result<Self, ()> {
++        #[cfg(unix)]
++        {
++            use std::os::unix::fs::{MetadataExt, PermissionsExt};
++            let metadata = std::fs::symlink_metadata(path).map_err(|_| ())?;
++            if !metadata.is_file()
++                || metadata.file_type().is_symlink()
++                || metadata.nlink() != 1
++                || metadata.permissions().mode() & 0o077 != 0
++                || metadata.len() > 1024
++            {
++                return Err(());
++            }
++        }
++        if !Path::new(path).is_absolute() {
++            return Err(());
++        }
++        let token = std::fs::read_to_string(path).map_err(|_| ())?;
++        let token = token.trim();
++        if !(43..=256).contains(&token.len())
++            || !token
++                .bytes()
++                .all(|byte| byte.is_ascii_alphanumeric() || b"_-".contains(&byte))
++        {
++            return Err(());
++        }
++        let client = Client::builder()
++            .timeout(Duration::from_secs(20))
++            .redirect(reqwest::redirect::Policy::none())
++            .build()
++            .map_err(|_| ())?;
++        Ok(Self {
++            client,
++            token: token.to_owned(),
++        })
++    }
++    pub async fn register<T: Serialize>(
++        &self,
++        config: &T,
++        city_id: &str,
++        payout_version: u64,
++        config_hash: &str,
++    ) -> Result<(), ()> {
++        let response = self
++            .client
++            .post(format!("{ORIGIN}/v1/authority"))
++            .bearer_auth(&self.token)
++            .header("Accept", "application/json")
++            .json(config)
++            .send()
++            .await
++            .map_err(|_| ())?;
++        if response.status() != StatusCode::OK
++            || response
++                .content_length()
++                .is_some_and(|length| length > 16_384)
++        {
++            return Err(());
++        }
++        let bytes = response.bytes().await.map_err(|_| ())?;
++        if bytes.len() > 16_384 {
++            return Err(());
++        }
++        let receipt: AuthorityReceipt = serde_json::from_slice(&bytes).map_err(|_| ())?;
++        if receipt.api != "bitcoinwalk-payout-authority-v1"
++            || receipt.state != "recorded"
++            || receipt.city_id != city_id
++            || receipt.payout_version != payout_version
++            || receipt.config_hash != config_hash
++        {
++            return Err(());
++        }
++        Ok(())
++    }
 +}
 +
 +#[cfg(test)]
@@ -1548,6 +2289,18 @@ index 0000000..c9edf76
 +        assert_eq!(valid.amount_msat, "100000");
 +        assert!(valid_hex(&valid.description_hash));
 +        assert!(!valid_hex(&"AB".repeat(32)));
++        let address = AddressIssueRequest::new(
++            "00000000-0000-4000-8000-000000000003".into(),
++            "bitcoinwalk.org".into(),
++            "donate".into(),
++            1,
++            "bitcoinwalk-rustress".into(),
++            100_000,
++            "cd".repeat(32),
++            1_800_000_000,
++        );
++        assert_eq!(address.resource_type, "standalone");
++        assert_eq!(address.amount_msat, "100000");
 +    }
 +
 +    #[test]

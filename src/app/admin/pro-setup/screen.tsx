@@ -57,7 +57,7 @@ function ProSetupForm({enabled, actor, cities}: {enabled: boolean; actor: string
       const response = await fetch("/api/pro-setup", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({event}), signal: AbortSignal.timeout(60_000)});
       const body = await response.json(); if (!response.ok) throw new Error(body.error || "Payout destination could not be saved.");
       setPreview(value => value ? {...value, payout: {configured: true, destination: body.payout.destination, version: body.payout.version},
-        steps: value.steps.map(step => step.label === "Personal payout destination" ? {...step, state: "ready", detail: `Owner-confirmed destination version ${body.payout.version} is saved privately. It is not active until provisioning is verified.`} : step)} : value);
+        steps: value.steps.map(step => step.label === "Personal payout destination" ? {...step, state: "ready", detail: body.payout.update==="queued"?`Destination version ${body.payout.version} is being verified. The current destination remains active until it passes.`:`Owner-confirmed destination version ${body.payout.version} is saved privately. It is not active until provisioning is verified.`} : step)} : value);
       setDestination(body.payout.destination); setMessage(body.payout.message);
     } catch (error) {setMessage(error instanceof Error ? error.message : "Destination was not saved.");}
     finally {inFlight.current = false; setBusy(false);}

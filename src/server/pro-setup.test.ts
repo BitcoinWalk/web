@@ -76,7 +76,8 @@ describe("Pro setup fresh authority", () => {
     const proof=finalizeEvent(citySignerProofTemplate(command,origin),key);
     await expect(saveProSetupSigner(cityId,owner,{...command,brandPubkey:editor},proof,origin)).rejects.toThrow("expected identity");
     await expect(saveProSetupSigner(cityId,owner,{...command,brandPubkey:owner},proof,origin)).rejects.toThrow("separate");
-    expect(await saveProSetupSigner(cityId,owner,command,proof,origin)).toMatchObject({pubkey:brandPubkey,version:1,state:"confirmed-not-active"});
+    expect(await saveProSetupSigner(cityId,owner,command,proof,origin)).toMatchObject({pubkey:brandPubkey,version:1,state:"confirmed-not-active",
+      message:expect.stringContaining("did not publish, replace or deactivate")});
     expect(await clearProSetupSigner(cityId,owner)).toMatchObject({cleared:true,state:"setup-required"});
     expect(JSON.stringify(database.prepare("SELECT * FROM pro_setup_task").get())).not.toContain("nsec");
   });

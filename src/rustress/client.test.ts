@@ -20,6 +20,19 @@ function fixture(state = "prepared") {
   return {client: new RustressProvisioner(options, transport), transport};
 }
 describe("isolated Rustress provisioning adapter", () => {
+  it("accepts the reviewed standalone-address capability while retaining the revision pin",async()=>{
+    const transport=vi.fn<typeof fetch>(async url=>json(String(url).endsWith("capabilities")?{...capability,standaloneNoSplitAddresses:true}:receipt()));
+    await expect(new RustressProvisioner(options,transport).prepare(config)).resolves.toEqual(receipt());
+  });
+  it("distinguishes confirmed absence from unavailable or unpinned providers",async()=>{
+    for(const status of [404,401,500]){
+      const transport=vi.fn<typeof fetch>(async url=>String(url).endsWith("capabilities")?json(capability):new Response(null,{status}));
+      await expect(new RustressProvisioner(options,transport).status(config)).rejects.toMatchObject({outcome:status===404?"absent":"unavailable"});
+    }
+    const transport=vi.fn<typeof fetch>(async()=>json({...capability,adapterRevision:"0".repeat(64)}));
+    await expect(new RustressProvisioner(options,transport).status(config)).rejects.toMatchObject({outcome:"unavailable"});
+    expect(transport).toHaveBeenCalledTimes(1);
+  });
   it("pins capabilities and independently reads back a prepared configuration", async () => {
     const {client, transport} = fixture();
     expect(await client.prepare(config)).toEqual(receipt());

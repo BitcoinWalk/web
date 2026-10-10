@@ -91,9 +91,10 @@ async function main() {
     do {
       try {
         // Re-read retained history: event timestamps are author-controlled, not an ingestion cursor.
-        const revisionEvents = await history(pool, config.sourceRelay, 30303);
-        const decisionEvents = await history(pool, config.sourceRelay, 30304, SUPER_ADMIN_PUBKEY);
-        const calendarEvents = await history(pool, config.sourceRelay, 31923);
+        const sourceReadRelay=config.sourceReadRelay??config.sourceRelay;
+        const revisionEvents = await history(pool, sourceReadRelay, 30303);
+        const decisionEvents = await history(pool, sourceReadRelay, 30304, SUPER_ADMIN_PUBKEY);
+        const calendarEvents = await history(pool, sourceReadRelay, 31923);
         const revisions = revisionEvents.map(parseCityRevision).filter((r): r is CityRevision => r !== null);
         const decisions = decisionEvents.map(parseApprovalRecord).filter((r): r is ApprovalRecord => r !== null);
         const pending = pendingCityRevisions(revisions, decisions);
@@ -120,20 +121,19 @@ async function main() {
         const liveIDs = new Set(live.map(item => `live:${item.approval.event.id}`));
         const replicationStates=new Map(replication!.cities.map(city=>[city.cityId,city.state]));
         const directoryStates=new Map((directory??[]).map(request=>[request.id,`${request.status}:${request.activationState}`]));
-        const proSetupRecipients=new Map((proSetup??[]).map(task=>[task.cityId,task.ownerPubkey]));
+        const proSetupCurrent=new Map((proSetup??[]).map(task=>[task.kind==="setup"?`pro-setup:${task.cityId}`:`payout-update:${task.cityId}:${task.payoutVersion}:${task.state==="active"?"active":task.state==="blocked"||task.state==="needs-attention"?"attention":"pending"}`,task.ownerPubkey]));
         for (const row of outbox!.due(Math.floor(Date.now()/1000))) {
           if (stopping) break;
           if (row.purpose === "review" && !config.recipients.includes(row.recipient)) { outbox!.state(row, "removed-recipient"); continue; }
           const replicationCity=row.submission.startsWith("replication:")?row.submission.split(":")[1]:"";
           const directoryMatch=/^directory:([0-9a-f-]{36}):(directory-(?:invitation|active|failed))$/.exec(row.submission),directoryState=directoryMatch?directoryStates.get(directoryMatch[1]):undefined;
-          const proSetupMatch=/^pro-setup:([0-9a-f-]{36})$/.exec(row.submission);
-          const current=row.purpose==="pro-setup-required"?!!proSetupMatch&&proSetupRecipients.get(proSetupMatch[1])===row.recipient:row.purpose==="replication-degraded"?replicationStates.get(replicationCity)==="degraded":row.purpose==="replication-recovered"?replicationStates.get(replicationCity)==="healthy":row.purpose==="directory-invitation"?directoryState?.startsWith("awaiting-owner:")===true:row.purpose==="directory-active"?directoryState?.endsWith(":active")===true:row.purpose==="directory-failed"?directoryState?.endsWith(":failed")===true:row.purpose==="review"?pendingIDs.has(row.submission):liveIDs.has(row.submission);
+          const current=row.purpose==="pro-setup-required"||row.purpose.startsWith("payout-update-")?proSetupCurrent.get(row.submission)===row.recipient:row.purpose==="replication-degraded"?replicationStates.get(replicationCity)==="degraded":row.purpose==="replication-recovered"?replicationStates.get(replicationCity)==="healthy":row.purpose==="directory-invitation"?directoryState?.startsWith("awaiting-owner:")===true:row.purpose==="directory-active"?directoryState?.endsWith(":active")===true:row.purpose==="directory-failed"?directoryState?.endsWith(":failed")===true:row.purpose==="review"?pendingIDs.has(row.submission):liveIDs.has(row.submission);
           if(!current){outbox!.state(row,"obsolete");continue;}
           let relays:string[];
           try {
             // Recheck decisions immediately before sending delayed work.
             if (row.purpose === "review") {
-              const fresh = (await history(pool, config.sourceRelay, 30304, SUPER_ADMIN_PUBKEY)).map(parseApprovalRecord).filter((r): r is ApprovalRecord => r !== null);
+              const fresh = (await history(pool, sourceReadRelay, 30304, SUPER_ADMIN_PUBKEY)).map(parseApprovalRecord).filter((r): r is ApprovalRecord => r !== null);
               if (!pendingCityRevisions(revisions, fresh).some(r => r.event.id === row.submission)) { outbox!.state(row, "obsolete"); continue; }
             }
             const lists = await readAnyComplete(pool, config.discoveryRelays, { kinds: [10050], authors: [row.recipient], limit: 10 });

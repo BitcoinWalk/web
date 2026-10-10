@@ -52,6 +52,16 @@ describe("durable disabled-only provisioning workflow",()=>{
     await f.workflow.run(config.cityId);f.provider.status.mockRejectedValue(new ProvisioningError("unavailable"));
     expect((await f.workflow.run(config.cityId))?.state).toBe("unknown");expect(f.provider.prepare).toHaveBeenCalledTimes(1);
   });
+  it("recovers an unknown reservation only after confirmed provider absence",async()=>{
+    const f=fixture();await f.workflow.enqueue("request");
+    f.provider.prepare.mockRejectedValueOnce(new ProvisioningError("unavailable"));
+    expect((await f.workflow.run(config.cityId))?.state).toBe("unknown");
+    f.provider.status.mockRejectedValueOnce(new ProvisioningError("absent"));
+    expect((await f.workflow.run(config.cityId))?.state).toBe("verified");
+    expect(f.provider.prepare).toHaveBeenCalledTimes(2);
+    expect(f.provider.prepare.mock.calls[0]).toEqual(f.provider.prepare.mock.calls[1]);
+    expect(f.provider.apply).toHaveBeenCalledTimes(1);
+  });
   it("does not apply if authority changes after prepare",async()=>{
     const f=fixture();await f.workflow.enqueue("request");
     f.provider.prepare.mockImplementationOnce(async()=>{f.resolve.mockResolvedValue({config,proofHash:"f".repeat(64)});return f.provider.status();});

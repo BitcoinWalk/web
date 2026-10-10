@@ -38,7 +38,7 @@ describe("Pro setup preview API", () => {
     expect(JSON.stringify(await response.json())).not.toContain("private secret");
   });
   it("saves only the exact owner-signed payout request and does not claim activation", async()=>{
-    vi.mocked(saveProSetupPayout).mockResolvedValue({cityId,version:1,destination:"alice@wallet.example",confirmedAt:1,state:"saved-not-active",message:"saved"});
+    vi.mocked(saveProSetupPayout).mockResolvedValue({cityId,version:1,destination:"alice@wallet.example",confirmedAt:1,state:"saved-not-active",update:"not-required",message:"saved"});
     const response=await POST(payoutRequest()),body=await response.json();
     expect(response.status).toBe(200);expect(body.payout).toMatchObject({version:1,state:"saved-not-active"});
     expect(saveProSetupPayout).toHaveBeenCalledWith(cityId,expect.stringMatching(/^[0-9a-f]{64}$/),"alice@wallet.example",expect.objectContaining({kind:27235}));

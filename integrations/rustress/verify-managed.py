@@ -22,7 +22,8 @@ binary = root / "releases" / expected / "rustress"
 assert hashlib.sha256(binary.read_bytes()).hexdigest() == expected
 token_path = root / "secrets/provision-api-token"
 issuer_path = home / ".local/state/bitcoinwalk-rustress/secrets/issuer-api-token"
-for path in [token_path, issuer_path]:
+authority_path = home / ".local/state/bitcoinwalk-rustress/secrets/authority-api-token"
+for path in [token_path, issuer_path, authority_path]:
     result = path.lstat()
     assert path.is_file() and not path.is_symlink() and result.st_uid == os.geteuid()
     assert result.st_mode & 0o077 == 0 and result.st_nlink == 1

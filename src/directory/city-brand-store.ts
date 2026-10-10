@@ -45,9 +45,13 @@ export class CityBrandStore {
     return challenge;
   }
   cancel(id: string, actor: string, authority: CityBrandAuthority) {
+    this.expire();
     const row = this.request(id);
     if (actor !== authority.ownerPubkey || row.city_id !== authority.cityId) throw new Error("Only the current city owner may cancel this request.");
+    if (row.status === "expired") return "expired" as const;
+    if (row.status !== "pending") throw new Error("Only a pending city account request can be cancelled.");
     this.db.prepare("UPDATE city_brand_request SET status='cancelled' WHERE id=? AND status='pending'").run(id);
+    return "cancelled" as const;
   }
   private request(id: string) {
     const row = this.db.prepare("SELECT * FROM city_brand_request WHERE id=?").get(id) as RequestRow | undefined;

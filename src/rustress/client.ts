@@ -4,7 +4,7 @@ import {activationReceiptSchema, capabilitiesSchema, managedProvisionConfigSchem
 type Transport = typeof fetch;
 type Options = {origin: string; token: string; domain: string; adapterRevision: string};
 export class ProvisioningError extends Error {
-  constructor(readonly outcome: "rejected" | "unknown" | "unavailable") {
+  constructor(readonly outcome: "rejected" | "unknown" | "unavailable" | "absent") {
     super(outcome === "unknown" ? "Provisioning outcome is unknown. Read status before retrying the exact configuration."
       : outcome === "rejected" ? "Provisioning request rejected. Review configuration and authority."
         : "Provisioning service unavailable or incompatible.");
@@ -45,6 +45,8 @@ class ProviderClient<M extends Mode> {
       // Error bodies may contain provider credentials. Never parse or expose them.
       if (!response.ok) {
         await response.body?.cancel();
+        if (!mutation && response.status === 404 && /^\/v1\/bitcoinwalk\/cities\/[0-9a-f-]+$/.test(path))
+          throw new ProvisioningError("absent");
         throw new ProvisioningError(mutation && ![400,401,403,409,422].includes(response.status) ? "unknown" : "rejected");
       }
       const reader = response.body?.getReader();
@@ -91,7 +93,7 @@ class ProviderClient<M extends Mode> {
     const config = this.#config(input);
     await this.capabilities();
     try {return this.#receipt(await this.#request(`/v1/bitcoinwalk/cities/${config.cityId}`), config);}
-    catch {throw new ProvisioningError("unavailable");}
+    catch (error) {if(error instanceof ProvisioningError && error.outcome === "absent")throw error;throw new ProvisioningError("unavailable");}
   }
   async #write(action: "prepare" | "apply", input: ProvisionConfig): Promise<ReceiptFor<M>> {
     const config = this.#config(input);

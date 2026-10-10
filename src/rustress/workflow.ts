@@ -77,9 +77,16 @@ export class ProvisionWorkflow {
       if (["preparing", "applying", "unknown", "verified"].includes(phase)) {
         set("unknown");
         // An interrupted POST is reconciled read-only. Unavailable is NOT absent.
-        const receipt = exact(await this.provider.status(config), config);
-        await fresh();
-        phase = receipt.state === "applied" ? "verified" : "prepared";
+        try {
+          const receipt = exact(await this.provider.status(config), config);
+          await fresh();
+          phase = receipt.state === "applied" ? "verified" : "prepared";
+        } catch(error) {
+          // Only an authenticated, revision-pinned 404 proves absence. Retry
+          // the exact immutable payload/idempotency key after fresh authority.
+          if(!(error instanceof ProvisioningError)||error.outcome!=="absent")throw error;
+          await fresh();phase="queued";
+        }
         set(phase);
         if (phase === "verified") return this.status(cityId);
       }
@@ -99,6 +106,7 @@ export class ProvisionWorkflow {
       await fresh(); set("verified");
     } catch (error) {
       // Never persist/log provider messages, destinations or authority details.
+      console.warn(`Managed reservation deferred: ${error instanceof AuthorityChanged ? "authority changed" : error instanceof ProvisioningError ? `provider ${error.outcome}` : "evidence or worker unavailable"}.`);
       const state = error instanceof AuthorityChanged || error instanceof ProvisioningError && error.outcome === "rejected" ? "blocked" : row.phase === "queued" && this.row(cityId)?.phase === "queued" ? "queued" : "unknown";
       this.db.prepare(`UPDATE ${this.table} SET phase=? WHERE city=? AND lease=? AND until>?`).run(state, cityId, lease, this.now());
     } finally {

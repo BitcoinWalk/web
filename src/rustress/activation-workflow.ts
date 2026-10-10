@@ -22,7 +22,7 @@ class AuthorityChanged extends Error {}
  * recoverable, separately read back and always preceded by fresh evidence. */
 export class ActivationWorkflow {
   constructor(private db:DatabaseSync,private reservation:ReservationProvider,private activation:ActivationProvider,
-    private verify:PublicVerifier,private resolve:(requestId:string)=>Promise<ActivationEvidence>,private now=()=>Date.now()){
+    private verify:PublicVerifier,private resolve:(requestId:string,current?:ProvisionConfig)=>Promise<ActivationEvidence>,private now=()=>Date.now()){
     db.exec(`CREATE TABLE IF NOT EXISTS rustress_activation_task (
       city TEXT PRIMARY KEY,request TEXT NOT NULL UNIQUE,reserved_config TEXT NOT NULL,activation_config TEXT NOT NULL,
       proof TEXT NOT NULL,public_origin TEXT NOT NULL,phase TEXT NOT NULL,nip05 TEXT NOT NULL,lnurl TEXT NOT NULL,
@@ -58,9 +58,10 @@ export class ActivationWorkflow {
       if(!result.changes)throw new Error("Activation worker lease expired.");
     };
     const fresh=async()=>{
-      const evidence=await this.resolve(initial.request),activation=verifyCityActivation(evidence.reserved,evidence.activation);
+      const stored=JSON.parse(initial.activation_config) as ProvisionConfig;
+      const evidence=await this.resolve(initial.request,stored),activation=verifyCityActivation(evidence.reserved,evidence.activation);
       if(JSON.stringify(evidence.reserved)!==initial.reserved_config||JSON.stringify(activation)!==initial.activation_config||
-        evidence.proofHash!==initial.proof||evidence.publicOrigin!==initial.public_origin)throw new AuthorityChanged();
+        (initial.phase!=="active"&&evidence.proofHash!==initial.proof)||evidence.publicOrigin!==initial.public_origin)throw new AuthorityChanged();
       const current=this.row(cityId);if(current?.lease!==lease||current.until<=this.now())throw new Error("Activation worker lease expired.");
       return evidence;
     };
