@@ -6,7 +6,8 @@ const config={cityId,version:2,domain:"bitcoinwalk.org",localPart:"madeira",bran
 
 describe("public city payment boundary",()=>{
  it("routes Basic cities only to BitcoinWalk HQ",()=>{const action=resolvePublicCityPayment(cityId,{state:"personal",pubkey:"4".repeat(64)},{entitled:()=>false,activation:()=>undefined,lightningEnabled:()=>true});expect(action).toEqual({kind:"donate",href:"lightning:donate@bitcoinwalk.org"});});
- it("exposes Zap the host only for an exact active Pro city binding",()=>{const action=resolvePublicCityPayment(cityId,host,{entitled:()=>true,activation:()=>({phase:"active",lnurl:"active",activation_config:JSON.stringify(config)}),lightningEnabled:()=>true});expect(action).toEqual({kind:"zap",href:"lightning:madeira@bitcoinwalk.org"});});
+ it("exposes Zap the host for the exact active Pro city binding after payment-record migration",()=>{const action=resolvePublicCityPayment(cityId,host,{entitled:()=>false,activation:()=>({phase:"active",lnurl:"active",activation_config:JSON.stringify(config)}),lightningEnabled:()=>true});expect(action).toEqual({kind:"zap",href:"lightning:madeira@bitcoinwalk.org"});});
+ it("fails closed for a paid entitlement whose activation has not started",()=>{const action=resolvePublicCityPayment(cityId,host,{entitled:()=>true,activation:()=>undefined,lightningEnabled:()=>true});expect(action.kind).toBe("unavailable");});
  it.each([
   {title:"feature disabled",enabled:false,phase:"active",lnurl:"active",pubkey:brand},
   {title:"activation incomplete",enabled:true,phase:"verifying",lnurl:"active",pubkey:brand},

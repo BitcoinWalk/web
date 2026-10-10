@@ -25,14 +25,20 @@ export function resolvePublicCityPayment(cityId: string, host: PublicCityHost,
   deps?: PaymentDependencies): PublicCityPaymentAction {
   try {
     const source = deps ?? dependencies();
-    if (!source.entitled(cityId)) return {kind: "donate", href: "lightning:donate@bitcoinwalk.org"};
-    if (host.state !== "brand" || !source.lightningEnabled()) return {kind: "unavailable"};
     const row = source.activation(cityId);
-    if (!row || row.phase !== "active" || row.lnurl !== "active") return {kind: "unavailable"};
-    const config = managedProvisionConfigSchema.parse(JSON.parse(row.activation_config));
-    if (config.cityId !== cityId || config.brandPubkey !== host.pubkey || config.invoiceIssuance !== "enabled")
-      return {kind: "unavailable"};
-    return {kind: "zap", href: `lightning:${config.localPart}@${config.domain}`};
+    if (row) {
+      if (row.phase !== "active" || row.lnurl !== "active" || host.state !== "brand" || !source.lightningEnabled())
+        return {kind: "unavailable"};
+      const config = managedProvisionConfigSchema.parse(JSON.parse(row.activation_config));
+      if (config.cityId !== cityId || config.brandPubkey !== host.pubkey || config.invoiceIssuance !== "enabled")
+        return {kind: "unavailable"};
+      // An active v2 configuration is downstream of settled entitlement and
+      // fresh authority checks. It remains valid evidence after legacy payment
+      // records are migrated or compacted.
+      return {kind: "zap", href: `lightning:${config.localPart}@${config.domain}`};
+    }
+    if (source.entitled(cityId)) return {kind: "unavailable"};
+    return {kind: "donate", href: "lightning:donate@bitcoinwalk.org"};
   } catch {
     return {kind: "unavailable"};
   }
