@@ -1,6 +1,6 @@
 import {describe,it,expect} from "vitest";
 import {finalizeEvent,type Event} from "nostr-tools";
-import {managedCities,visibleManagedCities,ARCHIVE_NOTE,createCalendarDeletion,createOrganizerCancellation,createCityModerationDecision,type ManagedCity} from "./moderation";
+import {managedCities,visibleManagedCities,ARCHIVE_NOTE,createCalendarDeletion,createOrganizerCancellation,createCityModerationDecision,createCityPresentationDecision,type ManagedCity} from "./moderation";
 import type {ApprovalRecord} from "./city-records";
 const city={cityId:"66f137cb-2ac1-4eef-8358-7dd66b45922f",slug:"radom",cityName:"Radom",description:"Walk",startAt:"2026-10-02T15:00:00Z",meetingPoint:{description:"Square",latitude:1,longitude:2},heroImageUrl:"https://example.com/i"};
 const event=(id:string,created_at:number):Event=>({id:id.repeat(64),created_at,kind:30304,pubkey:"a".repeat(64),sig:"",content:"",tags:[]});
@@ -32,6 +32,15 @@ describe("city lifecycle",()=>{
   expect(JSON.parse(restore.content)).not.toHaveProperty("heroImageUrl");
   expect(restore.tags.some(t=>t[3]==="initial-walk")).toBe(false);
   expect(()=>createCityModerationDecision({...row,previousApproval:unrelated},"approve")).toThrow("does not match");
+ });
+ it("changes only the approved public URL presentation and retains initial walks",()=>{
+  const initialEventIds=["c".repeat(64),"d".repeat(64)],decision={...approval,approval:{...approval.approval,initialEventIds,heroImageUrl:"https://example.com/approved.webp",slug:"wurzburg",aliases:[]}};
+  const row:ManagedCity={revision,decision,head:decision.event.id,state:"approved"};
+  const template=createCityPresentationDecision(row,"wuerzburg",["Wurzburg"]),content=JSON.parse(template.content);
+  expect(content).toEqual({...decision.approval,slug:"wuerzburg",aliases:["Wurzburg"]});
+  expect(template.tags).toContainEqual(["city","wuerzburg"]);
+  for(const id of initialEventIds)expect(template.tags).toContainEqual(["e",id,"","initial-walk"]);
+  expect(()=>createCityPresentationDecision({...row,state:"disapproved"},"wuerzburg",["Wurzburg"])).toThrow("Only an approved city");
  });
  it("hides archived cities by default and only reveals them on explicit request",()=>{
   const archivedIds=["6302b5c2-b579-4441-a828-9bffce073f97","05b52cd1-9e17-4d1a-80e9-1d3d7114db01"];

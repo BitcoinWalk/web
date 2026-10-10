@@ -40,6 +40,21 @@ export function createCityModerationDecision(row:ManagedCity,action:"approve"|"d
   note:action==="archive"?ARCHIVE_NOTE:action==="approve"?"Restore city approval.":"DISAPPROVE: Hide the city and its calendar from public views; preserve ownership, editors and history."
  });
 }
+/** Change only the super-admin-controlled public presentation of an approved city.
+ * Organizer ownership, the signed city revision and all initial walks stay exact. */
+export function createCityPresentationDecision(row:ManagedCity,slug:string,aliases:string[]):EventTemplate{
+ const approval=row.decision.approval;
+ if(row.state!=="approved"||approval.status!=="approved")throw new Error("Only an approved city can change its public URL.");
+ return createApprovalEvent({
+  cityId:row.revision.city.cityId,
+  cityRevisionId:row.revision.event.id,
+  status:"approved",
+  ...(approval.initialEventIds?{initialEventIds:approval.initialEventIds}:approval.initialEventId?{initialEventId:approval.initialEventId}:{}),
+  ...(approval.heroImageUrl?{heroImageUrl:approval.heroImageUrl}:{}),
+  slug,
+  aliases,
+ });
+}
 export function assertExactSigned(signed:Event,template:EventTemplate){
  if(!isSuperAdmin(signed.pubkey)||!verifyEvent(signed)||signed.kind!==template.kind||signed.created_at!==template.created_at||signed.content!==template.content||JSON.stringify(signed.tags)!==JSON.stringify(template.tags))throw new Error("Signer returned a different identity or event. Nothing published.");
 }
