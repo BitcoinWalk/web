@@ -192,6 +192,16 @@ Roll out to existing paid cities only after their owners provide a destination. 
 
 Acceptance covers organizer Pro registration and existing-city self-upgrade, plus gift settlement with absent, valid and stale destinations. Verify Guide delivery failure, cross-device completion, an owner who never completes setup, unauthorized giver/editor/previous-owner access, repeated setup submissions, simultaneous gifts/self-purchase and restart between payment and notification. Paid status must survive every recoverable setup failure; no second purchase invoice is generated and city Lightning invoices remain disabled until payout setup is verified. Exercise these states with fixtures under BW-101/BW-102 and repeat the complete public gift journey when BW-99 is implemented.
 
+BW-99 recovery increment, 10 October 2026: the payer can copy a private recovery
+link whose 256-bit token stays in the URL fragment, is imported into device-local
+storage and is removed from the address bar before the status request. The server
+stores only its hash. The link reveals invoice/status to its holder but grants no
+city, organizer or payout authority. Concurrent devices and different visitors
+reuse the city-wide open invoice. After a wallet-confirmed expiry, the same token
+can be rebound to one replacement invoice while the old record remains durable;
+bounded hourly reconciliation still accepts a cryptographically verified late
+settlement and the resulting entitlement suppresses the replacement checkout.
+
 ## Execution order and user input
 
 Recommended sequence: BW-103 (authority contract), then BW-104 (artwork) and BW-100 (Rustress adapter), then BW-101/BW-105 (payout and account setup), then BW-18/BW-19 (reliable splits and verified endpoints), then BW-106 (public replacement and city signing), then BW-102 (combined pilot acceptance). BW-99 remains future scope and uses the same setup task; fixture gift entitlements test recovery before its public checkout is built. BW-20 and BW-23 keep independent relay/chat readiness gates. No circular dependency on gift checkout is introduced.
