@@ -1,6 +1,6 @@
 import type {Event} from "nostr-tools";
 import {queryAuthorizations,queryDirectoryRecords,queryRelayEvents} from "../nostr/city-records";
-import {CITY_DIRECTORY_KIND,discoverCityDirectoryChainForSigning,discoverExistingCityDirectoryRoot} from "../nostr/city-directory";
+import {CITY_DIRECTORY_KIND,discoverCityDirectoryChainForReading,discoverExistingCityDirectoryRoot} from "../nostr/city-directory";
 import {latestEventModerations,organizerPublishingStatus,queryEventModerations} from "../nostr/event-moderation";
 import {serverDirectoryReadRelay,serverReadRelays} from "../lib/server-relay-config";
 import {relayConfig} from "../lib/relay-config";
@@ -18,7 +18,7 @@ export const citySetupEvidence={
     };
     const discovery=await discoverExistingCityDirectoryRoot(relayConfig.directoryRelays,cityId,creator,read);
     if(!discovery.root)return null;
-    const {state}=await discoverCityDirectoryChainForSigning(relayConfig.directoryRelays,{cityId,rootEventId:discovery.root.id,initialOwnerPubkey:creator},read);
+    const {state}=await discoverCityDirectoryChainForReading(relayConfig.directoryRelays,{cityId,rootEventId:discovery.root.id,initialOwnerPubkey:creator},read);
     return {ownerPubkey:state.content.ownerPubkey,eventId:state.currentEvent.id};
   },
   restrictions:async(cityId:string,owner:string)=>{

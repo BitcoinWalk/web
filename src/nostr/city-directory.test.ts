@@ -7,6 +7,7 @@ import {
   createCityDirectoryOwnerUpdate,
   createCityDirectoryRecovery,
   createCityDirectoryRotation,
+  discoverCityDirectoryChainForReading,
   discoverCityDirectoryChainForSigning,
   discoverExistingCityDirectoryRoot,
   normalizeDirectoryRelays,
@@ -136,6 +137,18 @@ describe("city endpoint directory chain resolution",()=>{
     expect(accepted.relays).toEqual(["wss://one.example/","wss://two.example/"]);
     await expect(discoverCityDirectoryChainForSigning(["wss://one.example/","wss://two.example/"],anchor,async relay=>relay.includes("one")?[root,update]:[root])).rejects.toThrow("do not agree");
     await expect(discoverCityDirectoryChainForSigning(["wss://one.example/","wss://two.example/"],anchor,async relay=>relay.includes("one")?[root,update]:Promise.reject(new Error("offline")))).rejects.toThrow("all configured directory transports");
+  });
+
+  it("allows read-only authority checks through one agreeing healthy transport",async()=>{
+    const root=finalizeEvent(createCityDirectoryRoot(input,1234),ownerSecret);
+    const update=finalizeEvent(createCityDirectoryOwnerUpdate(root,{signerPubkey:owner,operatorPubkeys:[operator],recoveryPubkey:recovery,primaryRelay:"wss://updated.example/",mirrorRelays:[]},1235),ownerSecret);
+    const anchor={cityId,rootEventId:root.id,initialOwnerPubkey:owner};
+    const accepted=await discoverCityDirectoryChainForReading(["wss://one.example/","wss://two.example/"],anchor,async relay=>relay.includes("one")?[root,update]:Promise.reject(new Error("offline")));
+    expect(accepted.state.currentEvent).toBe(update);
+    expect(accepted.relays).toEqual(["wss://one.example/"]);
+    expect(accepted.unavailableRelays).toEqual(["wss://two.example/"]);
+    await expect(discoverCityDirectoryChainForReading(["wss://one.example/","wss://two.example/"],anchor,async()=>Promise.reject(new Error("offline")))).rejects.toThrow("No configured directory transport");
+    await expect(discoverCityDirectoryChainForReading(["wss://one.example/","wss://two.example/"],anchor,async relay=>relay.includes("one")?[root,update]:[root])).rejects.toThrow("do not agree");
   });
 });
 

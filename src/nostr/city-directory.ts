@@ -198,6 +198,20 @@ export async function discoverCityDirectoryChainForSigning(relayValues:string[],
   return {state:states[0],relays};
 }
 
+/** Read-only authority checks may continue through a transport outage because
+ * every accepted successor is published and read back on every configured
+ * transport before it becomes active. Signing remains stricter above. */
+export async function discoverCityDirectoryChainForReading(relayValues:string[],anchor:CityDirectoryAnchor,read:DiscoverRead=defaultDiscoverRead):Promise<{state:CityDirectoryState;relays:string[];unavailableRelays:string[]}>{
+  const relays=normalizeDirectoryRelays(relayValues);
+  const outcomes=await Promise.allSettled(relays.map(relay=>read(relay,anchor.cityId)));
+  const reachableRelays=relays.filter((_,index)=>outcomes[index].status==="fulfilled");
+  const unavailableRelays=relays.filter((_,index)=>outcomes[index].status==="rejected");
+  if(!reachableRelays.length)throw new Error("No configured directory transport is available for authority verification.");
+  const states=outcomes.flatMap(outcome=>outcome.status==="fulfilled"?[resolveCityDirectoryChain(outcome.value,anchor)]:[]);
+  if(states.some(state=>state.currentEvent.id!==states[0].currentEvent.id))throw new Error("Available directory transports do not agree on the current signed event; fail closed and audit them before continuing.");
+  return {state:states[0],relays:reachableRelays,unavailableRelays};
+}
+
 export function verifySignedCityDirectoryTemplate(event:Event,template:EventTemplate,ownerPubkey:string):Event{
   if(event.pubkey!==ownerPubkey)throw new Error("The directory root must be signed by the verified city owner.");
   if(!verifyEvent(event))throw new Error("The signer returned an invalid directory signature.");
