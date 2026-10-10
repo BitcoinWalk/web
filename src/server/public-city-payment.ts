@@ -6,7 +6,6 @@ import {getPaymentRuntime} from "../payments/runtime";
 type PaymentDependencies = {
   entitled: (cityId: string) => boolean;
   activation: (cityId: string) => {phase: string; lnurl: string; activation_config: string} | undefined;
-  verifyPublicAddress: (localPart: string) => Promise<string | undefined>;
 };
 
 const dependencies = (): PaymentDependencies => {
@@ -15,19 +14,6 @@ const dependencies = (): PaymentDependencies => {
     entitled: cityId => getPaymentRuntime().store.entitled(cityId),
     activation: cityId => db.prepare("SELECT phase,lnurl,activation_config FROM rustress_activation_task WHERE city=?").get(cityId) as
       {phase: string; lnurl: string; activation_config: string} | undefined,
-    verifyPublicAddress: async localPart => {
-      if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(localPart)) return undefined;
-      // City NIP-05 and Lightning identities belong to the product identity
-      // domain, not whichever staging/production hostname renders this page.
-      const origin = new URL("https://bitcoinwalk.org");
-      const response = await fetch(`${origin.origin}/.well-known/lnurlp/${localPart}`, {next:{revalidate:300},signal:AbortSignal.timeout(8_000)});
-      if (!response.ok) return undefined;
-      const body = await response.json() as {tag?:unknown;callback?:unknown;minSendable?:unknown;maxSendable?:unknown};
-      if (body.tag !== "payRequest" || typeof body.callback !== "string" || typeof body.minSendable !== "number" || typeof body.maxSendable !== "number") return undefined;
-      const callback = new URL(body.callback);
-      if (callback.protocol !== "https:" || callback.hostname !== origin.hostname || body.minSendable < 1 || body.maxSendable < body.minSendable) return undefined;
-      return `${localPart}@${origin.hostname}`;
-    },
   };
 };
 
@@ -48,13 +34,12 @@ export async function resolvePublicCityPayment(cityId: string, citySlug: string,
       // records are migrated or compacted.
       return {kind: "zap", href: `lightning:${config.localPart}@${config.domain}`};
     }
-    // Existing Pro cities can predate the local activation ledger or retain a
-    // stale staging acceptance row after its temporary serving window closes.
-    // Their super-admin-approved brand binding establishes the tier;
-    // independently validate the canonical endpoint before presenting it.
+    // The public brand binding is super-admin signed and relay-enforced only
+    // after Pro entitlement and authority checks. Migrated cities can predate
+    // the local activation ledger or retain a stale staging acceptance row.
     if (host.state === "brand") {
-      const address = await source.verifyPublicAddress(citySlug);
-      return address ? {kind:"zap",href:`lightning:${address}`} : {kind:"unavailable"};
+      if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(citySlug)) return {kind:"unavailable"};
+      return {kind:"zap",href:`lightning:${citySlug}@bitcoinwalk.org`};
     }
     if (source.entitled(cityId)) return {kind: "unavailable"};
     return {kind: "donate", href: "lightning:donate@bitcoinwalk.org"};
