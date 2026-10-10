@@ -1,7 +1,7 @@
 import { resolveApprovedCity, type CityRevision, type ApprovalRecord } from "../nostr/city-records";
 import type { CityDocument } from "./city";
 export type PaidDirectoryCity={slug:string;featured:boolean;subdomainReady:boolean};
-export type DirectoryCity={city:CityDocument;href:string;tier:"free"|"paid";featured:boolean};
+export type DirectoryCity={city:CityDocument;href:string;tier:"free"|"paid";featured:boolean;hasUpcomingWalk:boolean};
 export type DirectoryOccurrence={start:number;status:"active"|"grace"|"upcoming"|"past";meetingPoint:CityDocument["meetingPoint"]};
 export function approvedDirectory(revisions:CityRevision[],approvals:ApprovalRecord[],paid:Record<string,PaidDirectoryCity>):DirectoryCity[] {
   const ids=[...new Set(revisions.map(r=>r.city.cityId))];
@@ -13,7 +13,7 @@ export function approvedDirectory(revisions:CityRevision[],approvals:ApprovalRec
       const chosen=resolveApprovedCity(versions,decisions,slug);
       if(!chosen)continue;
       const entitlement=Object.hasOwn(paid,id)&&paid[id].slug===slug?paid[id]:undefined;
-      rows.push({city:chosen.city,href:`/${encodeURIComponent(slug)}`,tier:entitlement?"paid":"free",featured:!!entitlement?.featured});
+      rows.push({city:chosen.city,href:`/${encodeURIComponent(slug)}`,tier:entitlement?"paid":"free",featured:!!entitlement?.featured,hasUpcomingWalk:false});
     }
   }
   // Slug collisions need administrator review; don't send visitors to a different city.
@@ -24,13 +24,13 @@ export function filterDirectory(rows:DirectoryCity[],query:string):DirectoryCity
   const q=normalize(query.trim());
   return rows.filter(r=>normalize(`${r.city.cityName} ${(r.city.aliases??[]).join(" ")} ${r.city.meetingPoint.description}`).includes(q));
 }
-/** Homepage cards represent a current or upcoming walk, not a stale city-profile
- * date. The caller supplies signature-verified, approval-bound occurrences. */
-export function directoryWithUpcomingWalks(rows:DirectoryCity[],occurrences:ReadonlyMap<string,DirectoryOccurrence>):DirectoryCity[] {
-  return rows.flatMap(row=>{
+/** Retain every approved city on the homepage map. When a current or upcoming
+ * signed occurrence exists, use its exact date and meeting point on the card. */
+export function directoryWithWalkSchedule(rows:DirectoryCity[],occurrences:ReadonlyMap<string,DirectoryOccurrence>):DirectoryCity[] {
+  return rows.map(row=>{
     const occurrence=occurrences.get(row.city.cityId);
-    if(!occurrence||(occurrence.status!=="active"&&occurrence.status!=="upcoming"))return [];
-    return [{...row,city:{...row.city,startAt:new Date(occurrence.start*1000).toISOString(),meetingPoint:{...occurrence.meetingPoint}}}];
+    if(!occurrence||(occurrence.status!=="active"&&occurrence.status!=="upcoming"))return row;
+    return {...row,hasUpcomingWalk:true,city:{...row.city,startAt:new Date(occurrence.start*1000).toISOString(),meetingPoint:{...occurrence.meetingPoint}}};
   });
 }
 export function directoryImage(value:string|undefined):string|undefined {
