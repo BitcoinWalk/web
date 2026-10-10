@@ -27,6 +27,8 @@ export const configSchema = z.object({
   }),
   directoryStatusURL:z.string().url().refine(value=>{const u=new URL(value);return (u.href==="http://127.0.0.1:3345/api/directory-notifications"||u.href==="http://127.0.0.1:3338/api/directory-notifications")&&!u.username&&!u.password&&!u.hash&&!u.search;}).optional(),
   directoryAdminURL:z.string().url().refine(value=>new URL(value).href==="https://bitcoinwalk.org/admin").optional(),
+  proSetupStatusURL:z.string().url().refine(value=>{const u=new URL(value);return (u.href==="http://127.0.0.1:3345/api/pro-setup-notifications"||u.href==="http://127.0.0.1:3338/api/pro-setup-notifications")&&!u.username&&!u.password&&!u.hash&&!u.search;}).optional(),
+  proSetupAdminURL:z.string().url().refine(value=>{const u=new URL(value);return u.protocol==="https:"&&["bitcoinwalk.org","app-staging.bitcoinwalk.org"].includes(u.hostname)&&u.pathname==="/admin/upgrade"&&!u.port&&!u.search&&!u.hash&&!u.username&&!u.password;}).optional(),
   enabled: z.boolean().default(false),
 });
 export type GuideConfig = z.infer<typeof configSchema>;
@@ -71,6 +73,11 @@ export function directoryAlert(purpose:"directory-invitation"|"directory-active"
  if(purpose==="directory-invitation")return `BitcoinWalk directory signature requested for ${city}.\n\nReview the city relay endpoint and authorities, add your separate offline recovery npub, then sign the exact request: ${link}\n\nOpening the link grants no authority. Sign only after every field matches what you agreed with BitcoinWalk. Never share a private key.`;
  if(purpose==="directory-active")return `The BitcoinWalk directory entry for ${city} is active.\n\nBoth independent directory transports returned the exact owner-signed event. No further organizer action is required.\n\nBitcoinWalk Guide is automated; replies are not monitored.`;
  return `The BitcoinWalk directory activation for ${city} did not complete.\n\nYour owner signature remains unchanged and no replacement event was created. BitcoinWalk will review the transport failure and retry the exact event; do not sign a duplicate request.\n\nBitcoinWalk Guide is automated; replies are not monitored.`;
+}
+
+export function proSetupAlert(cityName:string,cityId:string,adminURL:string):string{
+ const city=cityName.replace(/[\p{C}\p{Z}]+/gu," ").trim(),url=new URL(adminURL);url.searchParams.set("city",cityId);
+ return `Your BitcoinWalk in ${city} is ready for Pro setup.\n\nComplete or resume the city identity, payout and public profile setup: ${url.href}\n\nYour payment is already recorded. Do not pay again. BitcoinWalk never asks for your private key; keep the city signer recovery method safe.\n\nBitcoinWalk Guide is automated; replies are not monitored.`;
 }
 
 export function selectInbox(events: Event[], recipient: string, allowed: string[], now = Math.floor(Date.now()/1000)): string[] {

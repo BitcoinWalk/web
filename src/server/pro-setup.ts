@@ -55,6 +55,26 @@ async function resolveProSetupEvidence(cityId: string, deps = proSetupDependenci
     approvalEventId: row.decision.event.id, entitlementId: entitlement.invoiceId, eligible: true};
   return {authority, row, entitlement};
 }
+
+export type ProSetupNotification = {cityId:string;cityName:string;ownerPubkey:string;state:ProSetupPreview["setup"]["state"];updatedAt:number};
+/** Guide-safe projection. Each row is re-authorized against current approval,
+ * ownership, entitlement and moderation before it can name a recipient. */
+export async function listProSetupNotifications():Promise<ProSetupNotification[]> {
+  const db=getPaymentRuntime().store.db,store=new ProSetupTaskStore(db),rows:ProSetupNotification[]=[];
+  for(const cityId of store.cityIds()){
+    try{
+      const active=db.prepare("SELECT id FROM city_brand_request WHERE city_id=? AND status='active' LIMIT 1").get(cityId);
+      if(active)continue;
+      const resolved=await resolveProSetupEvidence(cityId),{task}=ensureSetupTask(resolved);
+      rows.push({cityId,cityName:resolved.row.revision.city.cityName,ownerPubkey:resolved.authority.ownerPubkey,state:task.state,updatedAt:task.updatedAt});
+    }catch(error){
+      const message=error instanceof Error?error.message:"";
+      if(message.startsWith("An approved city and verified creator authorization")||message.startsWith("A settled Pro entitlement")||message.startsWith("City or organizer publishing is suspended"))continue;
+      throw error;
+    }
+  }
+  return rows;
+}
 export async function resolveProSetupAuthority(cityId: string, actor: string, deps = proSetupDependencies) {
   const result = await resolveProSetupEvidence(cityId, deps);
   if (actor !== result.authority.ownerPubkey) throw new Error("Only the current city owner can prepare its Pro account.");

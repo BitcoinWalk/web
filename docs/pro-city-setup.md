@@ -26,12 +26,18 @@ Default off: `BITCOINWALK_PRO_SETUP_PREVIEW=true` enables only this preview. The
 
 The route is intentionally absent from normal navigation while activation is incomplete. Test through the direct dashboard path after explicitly enabling staging preview. Signed-in city choices are only navigation hints; the backend independently enforces ownership, including after rotation. An empty/incomplete city picker does not authorize entering another city's records.
 
+## Resumable owner handoff — 10 October 2026
+
+Paid cities now remain actionable from **My cities**. The payment list is read through the existing owner-signed endpoint; a Pro city displays **Complete Pro setup**, linking to `/admin/upgrade?city=<uuid>`. The query value only selects a city already present in the signed-in dashboard. It grants no authority and never triggers a signer prompt automatically; every server action still reconstructs current authority.
+
+BitcoinWalk Guide has a separate signed, loopback-only feed for incomplete Pro tasks. The app returns a row only after rechecking current approval, current anchored owner, settled entitlement and moderation. Active branded bindings are omitted. The feed contains city name/ID, owner pubkey and coarse task state only—never the payer, entitlement identifier or payout destination. The durable encrypted outbox sends one city-specific resume link, retries the exact envelope, suppresses work that is no longer actionable and sends one new message if verified ownership changes. Opening the link cannot activate or alter anything.
+
 ## Work remaining before BW-105 can close
 
 1. BW-101 continuation: owner-signed fields, LNURL endpoint/cycle validation, versioned private destination history, registration-before-checkout recovery and the durable entitlement/setup-task foundation are implemented. Basic upgrade and real gift entry, Guide delivery, provisioning revalidation and staging acceptance remain. Retain entitlement through all retries; never ask an already-paid city to repurchase. See [payout setup evidence](organizer-payout-setup.md).
 2. Deploy and accept BW-106's implemented kind-30312 relay admission plus exact publication/read-back checkpoint; then expose recovery without creating a second identity.
-3. Publish the city-signed profile while preserving existing fields, adding verified NIP-05/LNURL only after BW-19 readiness. No personal identity rename.
-4. Add the My cities entry point and Guide notification; perform created-key backup, imported-key, Amber/Clave bunker, wrong-key reconnect, cancellation, owner/admin expiry, self-purchase/fixture-gift recovery and staging/pilot acceptance under BW-102. Real gift checkout remains BW-99.
+3. The city-signed profile and verified NIP-05/LNURL fields passed the Madeira pilot. Retain regression coverage and never rename the personal identity.
+4. Deploy and accept the My cities entry point and Guide notification, then finish created-key backup, imported-key, Amber/Clave bunker, wrong-key reconnect, cancellation, owner/admin expiry and real self-purchase/gift recovery coverage. Real gift checkout remains BW-99.
 
 BW-105 remains In progress. The dependency gates are reported in the UI, not hidden behind a successful-looking Submit button.
 

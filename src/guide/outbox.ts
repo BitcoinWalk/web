@@ -1,10 +1,11 @@
 import { DatabaseSync } from "node:sqlite";
 import type { ApprovalRecord, CityRevision } from "../nostr/city-records";
 import type { Event } from "nostr-tools";
-import { approvalAlert, directoryAlert, liveAlert, replicationAlert, wrapAlert } from "./core";
+import { approvalAlert, directoryAlert, liveAlert, proSetupAlert, replicationAlert, wrapAlert } from "./core";
 import type {GuideDirectoryRequest} from "./directory";
+import type {GuideProSetupTask} from "./pro-setup";
 
-export type Delivery = { submission: string; recipient: string; wrapped: string; attempts: number; next_attempt: number; state: string; purpose: "review" | "live" | "replication-degraded" | "replication-recovered"|"directory-invitation"|"directory-active"|"directory-failed" };
+export type Delivery = { submission: string; recipient: string; wrapped: string; attempts: number; next_attempt: number; state: string; purpose: "review" | "live" | "replication-degraded" | "replication-recovered"|"directory-invitation"|"directory-active"|"directory-failed"|"pro-setup-required" };
 export type ReplicationCityStatus={cityId:string;destination:string;state:"healthy"|"pending"|"degraded";counts:Record<string,number>};
 export type ReplicationRecipient={recipient:string;cityName:string};
 export type LivePublication = { revision: CityRevision; approval: ApprovalRecord; event: Event };
@@ -23,6 +24,24 @@ export class Outbox {
     this.db.exec("CREATE TABLE IF NOT EXISTS live_seen (id TEXT PRIMARY KEY)");
     this.db.exec("CREATE TABLE IF NOT EXISTS replication_state (city_id TEXT PRIMARY KEY, state TEXT NOT NULL, recipient TEXT NOT NULL, generation INTEGER NOT NULL DEFAULT 0)");
     this.db.exec("CREATE TABLE IF NOT EXISTS directory_state (request_id TEXT PRIMARY KEY, state TEXT NOT NULL, recipient TEXT NOT NULL)");
+    this.db.exec("CREATE TABLE IF NOT EXISTS pro_setup_state (city_id TEXT PRIMARY KEY, recipient TEXT NOT NULL, state TEXT NOT NULL)");
+  }
+  ingestProSetup(tasks:GuideProSetupTask[],secret:Uint8Array,adminURL:string):number{
+    this.db.exec("BEGIN IMMEDIATE");
+    try{
+      let queued=0;
+      for(const task of tasks){
+        const previous=this.db.prepare("SELECT recipient,state FROM pro_setup_state WHERE city_id=?").get(task.cityId) as {recipient:string;state:string}|undefined;
+        if(!previous||previous.recipient!==task.ownerPubkey){
+          const wraps=wrapAlert(proSetupAlert(task.cityName,task.cityId,adminURL),task.ownerPubkey,secret);
+          this.db.prepare("INSERT OR IGNORE INTO delivery (submission,recipient,wrapped,sender_copy,purpose) VALUES (?,?,?,?, 'pro-setup-required')")
+            .run(`pro-setup:${task.cityId}`,task.ownerPubkey,JSON.stringify(wraps.recipient),JSON.stringify(wraps.sender));queued++;
+        }
+        this.db.prepare("INSERT INTO pro_setup_state(city_id,recipient,state) VALUES(?,?,?) ON CONFLICT(city_id) DO UPDATE SET recipient=excluded.recipient,state=excluded.state")
+          .run(task.cityId,task.ownerPubkey,task.state);
+      }
+      this.db.exec("COMMIT");return queued;
+    }catch(error){this.db.exec("ROLLBACK");throw error;}
   }
   ingestDirectory(requests:GuideDirectoryRequest[],secret:Uint8Array,adminURL:string):number{
     this.db.exec("BEGIN IMMEDIATE");

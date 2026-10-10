@@ -8,6 +8,13 @@ the pinned Guide identity one signed read of the sanitized replication report;
 the Guide receives no relay status credential. Healthy replication was baselined
 without historical messages. Mobile push remains an acceptance item.
 
+The current source also supports owner-only Pro setup reminders. A signed loopback
+feed exposes only freshly authorized incomplete tasks. The Guide queues one encrypted
+city-specific `/admin/upgrade` link, preserves exact-event retry across restart and
+notifies a replacement verified owner once. It receives no payout destination,
+payment credential or activation authority. This path awaits staging deployment and
+one real delivery/resume acceptance before BW-105 can close.
+
 ## Identity and scope
 
 - Display name: BitcoinWalk Guide; metadata marks it as a bot.

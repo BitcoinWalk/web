@@ -29,6 +29,7 @@ export default function OrganizerPage() {
   const [identity,setIdentity] = useState("");
   const [cities,setCities] = useState<OrganizerCityInventoryItem[]>([]);
   const [logoPacks,setLogoPacks]=useState<LogoPackView[]>([]);
+  const [proCityIds,setProCityIds]=useState<Set<string>>(new Set());
   const [decisions,setDecisions] = useState<ApprovalRecord[]>([]);
   const [base,setBase] = useState<CityRevision|null>(null);
   const [pin,setPin] = useState<LocationValue|null>(null);
@@ -45,7 +46,7 @@ export default function OrganizerPage() {
   async function load() {
     if(lock.current) return;
     if (base && !submitted && !window.confirm("Reloading discards any unsent form changes. Continue?")) return;
-    lock.current=true;setBusy(true);select(null);setCities([]);setIdentity("");
+    lock.current=true;setBusy(true);select(null);setCities([]);setProCityIds(new Set());setIdentity("");
     try {
       if (!relayConfig.readRelays.length) throw new Error("No read relay configured.");
       const key=await getBrowserExtensionPubkey();
@@ -61,6 +62,7 @@ export default function OrganizerPage() {
       if(dashboard.selectedCity&&active.length)select(active[0].revision);
       setIdentity(key);setCities(available);setDecisions([...approvals].sort((a,b)=>compareEvents(a.event,b.event)));
       setLogoPacks(logoResult?.logoPacks??[]);
+      setProCityIds(new Set((logoResult?.payments??[]).filter(payment=>payment.tier==="paid").map(payment=>payment.cityId)));
       setMessage(active.length ? "Select a city. Pending registrations are visible here, but editing remains locked until approval grants permission." : available.length ? "Your cities are archived. Contact BitcoinWalk if one should be restored." : "No cities were returned for this identity. Check your signer account and relay connection.");
     } catch(error) {setMessage(error instanceof Error ? error.message : "Could not load walks.");}
     finally {lock.current=false;setBusy(false);}
@@ -125,6 +127,7 @@ export default function OrganizerPage() {
     {base && selectedCity?.editable && <section>
       <p>City ID: {base.city.cityId}<br/>Editing revision: {base.event.id}<br/>Revision status: {submitted ? "New edit submitted" : status}</p>
       <p><a href={`/${encodeURIComponent(base.city.slug)}`} target="_blank" rel="noreferrer">Open approved public page</a> (only available if an approved revision is published).</p>
+      {proCityIds.has(base.city.cityId)&&<section aria-label="Pro city setup"><h3>Pro city setup</h3><p>Your payment is recorded. Complete or resume the city identity, payout and public profile setup without paying again.</p><p><a className="chat-button" href={`/admin/upgrade?city=${encodeURIComponent(base.city.cityId)}`}>Complete Pro setup</a></p></section>}
       {selectedLogo?.href&&<p><a href={selectedLogo.href} target="_blank" rel="noreferrer">Download your Pro city logo pack</a></p>}
       <form key={base.event.id} onSubmit={submit}>
         <fieldset disabled={busy || submitted}>

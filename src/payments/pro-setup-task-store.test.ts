@@ -9,6 +9,7 @@ const setup = () => {const db = new DatabaseSync(":memory:"); databases.push(db)
 afterEach(() => databases.splice(0).forEach(db => db.close()));
 
 describe("durable Pro setup tasks", () => {
+  it("lists only durable task city identifiers in creation order",()=>{const {store}=setup(),second="2e3f5075-a674-40b8-b8d8-16bc2043938a";store.ensure({cityId,entitlementId,originalOwnerPubkey:owner,currentOwnerPubkey:owner},100);store.ensure({cityId:second,entitlementId:"second",originalOwnerPubkey:owner,currentOwnerPubkey:owner},101);expect(store.cityIds()).toEqual([cityId,second]);});
   it("creates one idempotent task per settled entitlement without exposing private identifiers", () => {
     const {store} = setup();
     const first = store.ensure({cityId, entitlementId, originalOwnerPubkey: owner, currentOwnerPubkey: owner, registrationVersion: 3}, 100);
