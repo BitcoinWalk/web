@@ -1,0 +1,39 @@
+"use client";
+import {useEffect,useMemo,useState,type ReactNode} from "react";
+import {nip19,type Event} from "nostr-tools";
+import {type SponsorshipRevision} from "../../../nostr/sponsorships";
+import {watchPublicProfiles,type PublicProfile} from "../../../nostr/profiles";
+import CityFinder from "../../../components/city-finder";
+import CopyValue from "../../../components/copy-value";
+import NostrUser from "../../../components/nostr-user";
+import SponsorAssetLibrary from "../../../components/sponsor-asset-library";
+import {sponsorManagementIndex} from "../../../domain/sponsor-management";
+import styles from "./sponsors.module.css";
+
+type City={id:string;name:string;slug:string};
+type Walk={event:Event;cityId:string;address:string;label:string};
+export default function SponsorWorkspace({cities,walks,rows,busy,message,refresh,editor,onSelect}:{cities:City[];walks:Walk[];rows:SponsorshipRevision[];busy:boolean;message:string;refresh:()=>void;editor:ReactNode;onSelect:(city:string,address?:string)=>void}){
+ const [view,setView]=useState<"cities"|"sponsors">("cities"),[query,setQuery]=useState(""),[expanded,setExpanded]=useState(""),[profiles,setProfiles]=useState<Record<string,PublicProfile>>({}),[inviteCity,setInviteCity]=useState("");
+ const lookup=useMemo(()=>sponsorManagementIndex(rows),[rows]);
+ const sponsorKeys=useMemo(()=>[...new Set(rows.flatMap(row=>row.sponsorship.sponsorPubkey?[row.sponsorship.sponsorPubkey]:[]))].sort(),[rows]);
+ const profileKeys=sponsorKeys.join(",");
+ useEffect(()=>profileKeys?watchPublicProfiles(profileKeys.split(","),(key,profile)=>setProfiles(old=>({...old,[key]:profile}))):undefined,[profileKeys]);
+ const name=(key:string)=>profiles[key]?.name??`${nip19.npubEncode(key).slice(0,14)}…`;
+ const assignment=(walk:Walk)=>lookup(walk.cityId,walk.address);
+ const matches=(...values:string[])=>values.join(" ").toLowerCase().includes(query.trim().toLowerCase());
+ const sponsoredCities=cities.filter(city=>walks.some(walk=>walk.cityId===city.id&&!!assignment(walk).sponsorPubkey)||!!lookup(city.id).sponsorPubkey);
+ const visibleCities=sponsoredCities.filter(city=>matches(city.name,city.slug,...walks.filter(walk=>walk.cityId===city.id).flatMap(walk=>{const key=assignment(walk).sponsorPubkey;return key?[name(key),nip19.npubEncode(key)]:[]}),nameForCity(city.id)));
+ function nameForCity(id:string){const key=lookup(id).sponsorPubkey;return key?name(key):"";}
+ function select(key:string,city:string,address?:string){if(busy)return;setExpanded(expanded===key?"":key);onSelect(city,address);}
+ const walkRow=(walk:Walk,prefix:string)=>{const key=`${prefix}:${walk.cityId}:${walk.address}`,value=assignment(walk),sponsor=value?.sponsorPubkey;
+  return <div className={styles.walk} key={key}><button className={styles.walkHeading} type="button" aria-expanded={expanded===key} aria-controls={`details-${walk.event.id}`} disabled={busy} onClick={()=>select(key,walk.cityId,walk.address)}><span aria-hidden="true">{expanded===key?"▾":"▸"}</span><span><strong>{walk.label}</strong><small>{value.value?.mode==="hidden"?"Hidden":sponsor?name(sponsor):"Sponsor invitation"}</small></span><span className={styles.badge}>Display</span></button>{expanded===key&&<div id={`details-${walk.event.id}`}>{editor}</div>}</div>;
+ };
+ const invitationUrl=`https://bitcoinwalk.org/sponsor${inviteCity?`?city=${encodeURIComponent(cities.find(city=>city.id===inviteCity)?.name??"")}`:""}`;
+ return <main className={styles.workspace}><header className={styles.heading}><div><h1>Sponsorships</h1><p>Manage who sponsors each city and walk.</p></div><button type="button" disabled={busy} onClick={refresh}>{busy?"Loading…":"Refresh"}</button></header>
+  <div className={styles.toolbar}><div className={styles.tabs} aria-label="View sponsorships">{(["cities","sponsors"] as const).map(tab=><button key={tab} type="button" aria-pressed={view===tab} disabled={busy} onClick={()=>{setView(tab);setExpanded("");}}>{tab==="cities"?`Cities (${sponsoredCities.length})`:`Sponsors (${sponsorKeys.length})`}</button>)}</div><label className={styles.search}><span className={styles.srOnly}>Search cities or sponsors</span><input type="search" placeholder="Search cities or sponsors…" value={query} onChange={event=>setQuery(event.target.value)}/></label></div>
+  {message&&<p role="status">{message}</p>}
+  <div aria-busy={busy} className={styles.groups}>{view==="cities"?<>{visibleCities.map(city=>{const allWalks=walks.filter(walk=>walk.cityId===city.id),keys=[...new Set([lookup(city.id).sponsorPubkey,...allWalks.map(walk=>assignment(walk).sponsorPubkey)].filter((key):key is string=>!!key))],editKey=`city:${city.id}`;return <section className={styles.group} key={city.id}><div className={styles.groupHeading}><div><h2>{city.name}</h2><p>{keys.map(name).join(" · ")}</p></div><span className={styles.badge}>{allWalks.length} walk{allWalks.length===1?"":"s"}</span></div>{allWalks.map(walk=>walkRow(walk,"city"))}{!allWalks.length&&<p>No scheduled walks. The city sponsor is ready for future walks.</p>}<button className={styles.textButton} type="button" disabled={busy} aria-expanded={expanded===editKey} onClick={()=>select(editKey,city.id)}>City sponsor settings</button>{expanded===editKey&&editor}</section>;})}{!visibleCities.length&&<p className={styles.empty}>{busy?"Loading sponsorships…":query?"No cities match your search.":"No sponsored cities yet. Assign a sponsor below or share an invitation."}</p>}</>:<>{sponsorKeys.filter(key=>matches(name(key),nip19.npubEncode(key),...walks.filter(walk=>assignment(walk).sponsorPubkey===key).map(walk=>walk.label))).map(key=>{const sponsorWalks=walks.filter(walk=>assignment(walk).sponsorPubkey===key);return <section className={styles.group} key={key}><div className={styles.groupHeading}><NostrUser pubkey={key} profile={profiles[key]} resolveProfile={false} variant="compact" showLightning={false}/><span className={styles.badge}>{sponsorWalks.length} walk{sponsorWalks.length===1?"":"s"}</span></div>{sponsorWalks.map(walk=>walkRow(walk,"sponsor"))}{!sponsorWalks.length&&<p>No walks currently assigned to this sponsor.</p>}<details className={styles.assets}><summary>Asset library</summary><SponsorAssetLibrary sponsorPubkey={key} cities={cities} assignments={rows}/></details></section>;})}{!sponsorKeys.some(key=>matches(name(key),nip19.npubEncode(key),...walks.filter(walk=>assignment(walk).sponsorPubkey===key).map(walk=>walk.label)))&&<p className={styles.empty}>{busy?"Loading sponsors…":query?"No sponsors match your search.":"Sponsors will appear here when their first assignment is added."}</p>}</>}</div>
+  <details className={styles.secondary}><summary>Assign a sponsor to a city</summary><p>Choose a city to set its default sponsor. Individual walks can use their own display settings.</p><CityFinder label="City" items={cities} value={expanded.startsWith("assign:")?expanded.slice(7):""} disabled={busy} onChange={id=>{setExpanded(`assign:${id}`);onSelect(id);}}/>{expanded.startsWith("assign:")&&expanded!=="assign:"&&editor}</details>
+  <section className={styles.invite}><h2>Invite a sponsor</h2><p>Share this link with a business or supporter so they can choose a walk to sponsor.</p><CityFinder label="City (optional)" placeholder="Choose a city, or share all sponsorship options" items={cities} value={inviteCity} onChange={setInviteCity}/><div className={styles.inviteLink}><CopyValue label="sponsor invitation link" value={invitationUrl}/><a href={invitationUrl} target="_blank" rel="noopener noreferrer">Preview invitation ↗</a></div></section>
+ </main>;
+}

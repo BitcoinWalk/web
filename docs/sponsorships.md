@@ -107,3 +107,15 @@ reviewable under BW-89 and BW-90.
   in invitation (`empty`) mode.
 - The earlier kind collision was corrected: kind 30308 remains reserved for
   feature flags and sponsorship assignments use kind 30311.
+# Sponsor dashboard UX — 11 October 2026
+
+The sponsorship workspace has Cities and Sponsors views with search and counts.
+Cities group walks and their sponsors; Sponsors group placements and contain a
+separate, sponsor-filtered asset library. Walk display controls expand inline.
+Hidden placements retain their previous sponsor association for management;
+cleared placements do not. City default settings and walk overrides still use
+the existing signed assignment protocol. The standalone Precedence section was removed.
+
+The invitation section copies a public `/sponsor?city=…` link, or the general
+sponsorship page when no city is selected. It does not send a DM or create a
+signed invitation. Verified organizer invitations remain BW-92.
