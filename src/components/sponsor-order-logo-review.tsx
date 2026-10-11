@@ -5,6 +5,7 @@ import type {SponsorOrder} from "../payments/sponsor-types";
 import {sponsorRequest} from "../payments/sponsor-auth";
 import {mediaRequestTemplate} from "../domain/media-request";
 import {orderLogoAssignments} from "../domain/sponsor-order-approval";
+import {sponsorOgPreviewPath} from "../domain/sponsor-og-preview";
 import {isSuperAdmin} from "../nostr/authority";
 import {getBrowserExtensionPubkey,signWithBrowserExtension,authenticateWithBrowserExtension} from "../nostr/signer";
 import {assertExactSigned} from "../nostr/moderation";
@@ -13,9 +14,21 @@ import {publishVerifiedEvent} from "../nostr/relay";
 import {relayConfig} from "../lib/relay-config";
 import {useDashboard} from "./dashboard-context";
 
-export default function SponsorOrderLogoReview({order,onChanged}:{order:SponsorOrder;onChanged:()=>Promise<void>}){
- const dashboard=useDashboard(),lock=useRef(false),[busy,setBusy]=useState(false),[preview,setPreview]=useState(""),[message,setMessage]=useState("");
+export default function SponsorOrderLogoReview({order,approved=false,onChanged}:{order:SponsorOrder;approved?:boolean;onChanged:()=>Promise<void>}){
+ const dashboard=useDashboard(),lock=useRef(false),[busy,setBusy]=useState(false),[preview,setPreview]=useState(""),[message,setMessage]=useState(""),[approvedNow,setApprovedNow]=useState(false),[og,setOg]=useState(""),[ogLoaded,setOgLoaded]=useState(false);
+ const complete=approved||approvedNow;
  async function actor(){const key=await getBrowserExtensionPubkey();if(!isSuperAdmin(key)||key!==dashboard.pubkey)throw new Error("Connect the super-admin identity.");return key;}
+ async function generate(){
+  setOg("");setOgLoaded(false);setMessage("Logo approved. Generating your OG image… Please confirm the image-generation request in your extension.");
+  try{
+   if(!order.pubkey||!order.logoHash)throw new Error("Logo unavailable.");
+   const key=await actor(),template=mediaRequestTemplate({action:"generate-sponsor-composite",targetCityId:order.cityId,sourceCityId:order.cityId,sponsorPubkey:order.pubkey,hash:order.logoHash}),event=await signWithBrowserExtension(template);assertExactSigned(event,template);if(event.pubkey!==key)throw new Error("Signer changed.");
+   const response=await fetch("/api/sponsors/assets",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({event}),cache:"no-store"}),body=await response.json();if(!response.ok)throw new Error(body.error||"Image generation failed.");
+   if(await actor()!==key)throw new Error("Signer changed.");
+   setOg(sponsorOgPreviewPath(body));setMessage("OG image generated. Loading preview…");
+  }catch(error){setMessage(`Logo remains approved. The OG image could not be generated. ${error instanceof Error?error.message:"Please retry."}`);}
+ }
+ async function retryImage(){if(lock.current)return;lock.current=true;setBusy(true);try{await generate();}finally{lock.current=false;setBusy(false);}}
  async function inspect(){if(lock.current||!order.pubkey||!order.logoHash)return;lock.current=true;setBusy(true);setPreview("");try{
   const key=await actor(),template=mediaRequestTemplate({action:"preview-sponsor-asset",cityId:order.cityId,sponsorPubkey:order.pubkey,hash:order.logoHash}),event=await signWithBrowserExtension(template);assertExactSigned(event,template);if(event.pubkey!==key)throw new Error("Signer changed.");
   const response=await fetch("/api/sponsors/assets",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({event}),cache:"no-store"}),body=await response.json();if(!response.ok)throw new Error(body.error||"Logo unavailable.");
@@ -29,7 +42,7 @@ export default function SponsorOrderLogoReview({order,onChanged}:{order:SponsorO
   const fresh=(body.orders as SponsorOrder[]).find(value=>value.id===order.id);if(!fresh||fresh.pubkey!==order.pubkey||fresh.logoHash!==order.logoHash||fresh.cityId!==order.cityId||JSON.stringify(fresh.walks)!==JSON.stringify(order.walks))throw new Error("Order or artwork changed. Refresh payments and review again.");
   const assignments=orderLogoAssignments(fresh,await querySponsorships(relayConfig.readRelays));
   for(const value of assignments){if(await actor()!==key)throw new Error("Signer changed.");const template=createSponsorshipRevision(value),signed=await signWithBrowserExtension(template);assertExactSigned(signed,template);if(signed.pubkey!==key)throw new Error("Signer changed.");await publishVerifiedEvent(signed,relayConfig.writeRelays,1,authenticateWithBrowserExtension);}
-  setPreview("");setMessage("Logo approved for the purchased walks.");await onChanged();
+  setPreview("");setApprovedNow(true);await generate();await onChanged().catch(()=>{/* Approval and image results remain valid if the list refresh fails. */});
  }catch(error){setMessage(error instanceof Error?error.message:"Approval failed. Refresh to see any walks already approved, then retry the remaining walks.");}finally{lock.current=false;setBusy(false);}}
- return <div><button type="button" disabled={busy} onClick={()=>void inspect()}>{busy?"Working…":"Review logo"}</button>{preview&&<><div style={{background:"#e5e7eb",padding:20,marginTop:12}}><img src={`data:image/png;base64,${preview}`} alt={`Sponsor logo for ${order.cityName}`} style={{maxWidth:"100%",maxHeight:200}}/></div><button type="button" style={{background:"#ff9713",color:"#20262d",marginTop:12}} disabled={busy} onClick={()=>void approve()}>Sign and approve logo</button></>}{message&&<p role="status">{message}</p>}</div>;
+ return <div aria-busy={busy}>{complete?<button type="button" disabled={busy} onClick={()=>void retryImage()}>{busy?"Generating OG image…":"Generate / preview OG image"}</button>:<button type="button" disabled={busy} onClick={()=>void inspect()}>{busy?"Working…":"Review logo"}</button>}{preview&&!complete&&<><div style={{background:"#e5e7eb",padding:20,marginTop:12}}><img src={`data:image/png;base64,${preview}`} alt={`Sponsor logo for ${order.cityName}`} style={{maxWidth:"100%",maxHeight:200}}/></div><button type="button" style={{background:"#ff9713",color:"#20262d",marginTop:12}} disabled={busy} onClick={()=>void approve()}>Sign and approve logo</button></>}{message&&<p role="status">{message}</p>}{og&&<figure style={{margin:"16px 0"}}><img src={og} alt={`${order.cityName} OG image with approved sponsor logo`} style={{width:"100%",maxWidth:600,height:"auto",borderRadius:8}} onLoad={()=>{setOgLoaded(true);setMessage("Logo approved and OG image generated successfully.");}} onError={()=>{setOgLoaded(false);setMessage("Logo approved and OG image generated, but the preview could not be loaded. Retry or open the full-size image.");}}/>{ogLoaded&&<figcaption>OG image preview · 1200 × 630</figcaption>}<p><a href={og} target="_blank" rel="noopener noreferrer">Open full-size OG image</a></p></figure>}</div>;
 }

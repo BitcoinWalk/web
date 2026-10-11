@@ -109,6 +109,14 @@ reviewable under BW-89 and BW-90.
   feature flags and sponsorship assignments use kind 30311.
 # Sponsor dashboard UX — 11 October 2026
 
+Logo approval now also requests the authenticated OG composite generator after
+the purchased-walk assignments pass relay read-back. The component stays visible
+after approval and displays generation progress, an inline image preview and a
+full-size image link. Already approved orders expose Generate / preview OG image.
+Generation failure leaves approval intact and can be retried independently; a
+failed image load is reported separately. This follow-up is included in staging
+release 0.3.266; signed browser verification and production rollout remain.
+
 App 0.3.265 adds exact-order logo review to Sponsors and payments. The super-admin
 previews the uploaded hash and signs individual purchased-walk assignments.
 Paid state, sponsor identity and artwork are refreshed before signing; conflicting
