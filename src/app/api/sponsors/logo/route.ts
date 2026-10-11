@@ -15,7 +15,7 @@ const safeUploadErrors=[
   "SVG logos must be 512 KB or smaller.","SVG declarations and processing instructions are not supported.","Invalid SVG XML.",
   "Use a standard SVG document.","SVG logo is too complex.","SVG supports outlined shapes only; remove text, styles, images and effects.",
   "Invalid SVG namespace.","SVG resources are not supported.","Convert SVG text to paths.","Unsupported SVG node.",
-  "Use explicit RGB or hex SVG colours.","Logo must be between 1 byte and 5 MB.","Upload PNG, WebP or SVG. JPEG is not accepted.",
+  "Use simple SVG element IDs.","Use explicit RGB or hex SVG colours.","Logo must be between 1 byte and 5 MB.","Upload PNG, WebP or SVG. JPEG is not accepted.",
   "File contents must match the selected format; animation is not accepted.","Logo dimensions must be between 32 and 8192 pixels."
 ];
 function safeUploadError(error:unknown){const message=error instanceof Error?error.message:"";return safeUploadErrors.includes(message)||message.startsWith("Unsupported SVG attribute: ")?message:null;}

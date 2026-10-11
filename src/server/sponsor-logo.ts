@@ -5,7 +5,7 @@ import sharp from "sharp";
 export const MAX_SPONSOR_LOGO_BYTES = 5 * 1024 * 1024;
 const SVG_NS = "http://www.w3.org/2000/svg";
 const elements = new Set(["svg", "g", "path", "rect", "circle", "ellipse", "line", "polyline", "polygon", "title", "desc"]);
-const attributes = new Set(["xmlns", "width", "height", "viewBox", "preserveAspectRatio", "x", "y", "x1", "y1", "x2", "y2", "cx", "cy", "r", "rx", "ry", "d", "points", "fill", "stroke", "stroke-width", "stroke-linecap", "stroke-linejoin", "stroke-miterlimit", "stroke-dasharray", "stroke-dashoffset", "fill-rule", "clip-rule", "opacity", "fill-opacity", "stroke-opacity", "transform"]);
+const attributes = new Set(["xmlns", "id", "width", "height", "viewBox", "preserveAspectRatio", "x", "y", "x1", "y1", "x2", "y2", "cx", "cy", "r", "rx", "ry", "d", "points", "fill", "stroke", "stroke-width", "stroke-linecap", "stroke-linejoin", "stroke-miterlimit", "stroke-dasharray", "stroke-dashoffset", "fill-rule", "clip-rule", "opacity", "fill-opacity", "stroke-opacity", "transform"]);
 
 /** Re-serialize a narrow, resource-free SVG subset, never pass raw XML to Sharp. */
 export function validateSponsorSvg(bytes: Buffer): Buffer {
@@ -25,6 +25,7 @@ export function validateSponsorSvg(bytes: Buffer): Buffer {
       const attr = node.attributes.item(index)!;
       if (!attributes.has(attr.name) || attr.value.length > 65536) throw new Error(`Unsupported SVG attribute: ${attr.name}`);
       if (attr.name === "xmlns") {if (attr.value !== SVG_NS) throw new Error("Invalid SVG namespace."); continue;}
+      if (attr.name === "id" && !/^[A-Za-z_][A-Za-z0-9_.:-]{0,127}$/.test(attr.value)) throw new Error("Use simple SVG element IDs.");
       if (/[&<>]|url\s*\(|[\u0000-\u001f]/i.test(attr.value)) throw new Error("SVG resources are not supported.");
       if ((attr.name === "fill" || attr.name === "stroke") && !/^(?:none|transparent|black|white|#[a-f\d]{3,8}|rgb\([\d.,%\s]+\))$/i.test(attr.value)) throw new Error("Use explicit RGB or hex SVG colours.");
     }

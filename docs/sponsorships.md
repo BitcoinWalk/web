@@ -110,7 +110,7 @@ reviewable under BW-89 and BW-90.
 # Sponsor dashboard UX — 11 October 2026
 
 App 0.3.267 makes approved logo assignments control OG/Twitter artwork
-control OG/Twitter artwork independently of the sponsorship module visibility
+independently of the sponsorship module visibility
 flag. Signed hidden assignments, occurrence expiry and payment coverage still
 apply. Admin generation and public metadata share the same image renderer.
 Each purchased walk has a signed Restore default city OG image control; this
@@ -133,6 +133,12 @@ content-addressed approved asset store and verifies that the returned hash is
 the exact order hash. Public walk metadata can then load that same immutable
 asset. Existing signed approvals can be repaired by using Generate / preview;
 no new sponsor payment or assignment approval is required.
+
+App 0.3.269 accepts ordinary bounded SVG `id` attributes used by common vector
+exporters, including IDs on groups and outlined paths. IDs remain inert because
+scripts, styles, `use`, external resources, live text, fonts and animation stay
+outside the accepted SVG subset; malformed IDs continue to fail before Sharp
+rasterization.
 
 Logo approval now also requests the authenticated OG composite generator after
 the purchased-walk assignments pass relay read-back. The component stays visible

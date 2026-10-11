@@ -13,6 +13,12 @@ describe("sponsor logo normalization", () => {
     const result = await normalizeSponsorLogo(svg('<path fill="#fff" d="M10 10H100V50H10Z"/>'), "image/svg+xml");
     expect(await sharp(result.body).metadata()).toMatchObject({format:"png",hasAlpha:true});
   });
+  it("accepts ordinary exporter IDs on outlined SVG groups and shapes", async () => {
+    const input = svg('<g id="Layer_1"><path id="teamtoxic-logo" fill="#fff" d="M10 10H100V50H10Z"/></g>');
+    expect(validateSponsorSvg(input).toString()).toContain('id="teamtoxic-logo"');
+    const result = await normalizeSponsorLogo(input, "image/svg+xml");
+    expect(await sharp(result.body).metadata()).toMatchObject({format:"png",hasAlpha:true});
+  });
   it("rejects JPEG even when disguised as PNG", async () => {
     const input = await sharp({create:{width:64,height:64,channels:3,background:"white"}}).jpeg().toBuffer();
     await expect(normalizeSponsorLogo(input,"image/jpeg")).rejects.toThrow("JPEG");
@@ -26,6 +32,7 @@ describe("sponsor logo normalization", () => {
     '<path onload="alert(1)"/>', '<style>@import "https://evil.example";</style>',
     '<foreignObject/>', '<text>Needs outlining</text>', '<use href="#a"/>',
     '<path fill="url(https://evil.example)"/>', '<g xmlns="http://evil.example"/>',
+    '<path id="bad id"/>',
   ])("rejects unsafe or unsupported SVG: %s", body => expect(() => validateSponsorSvg(svg(body))).toThrow());
   it("rejects entity declarations and broken XML", () => {
     expect(() => validateSponsorSvg(Buffer.from('<!DOCTYPE svg [<!ENTITY x SYSTEM "file:///etc/passwd">]>'+svg("")))).toThrow();
