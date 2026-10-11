@@ -1,6 +1,6 @@
 import {describe,it,expect} from "vitest";
 import {finalizeEvent,type Event} from "nostr-tools";
-import {managedCities,visibleManagedCities,ARCHIVE_NOTE,createCalendarDeletion,createOrganizerCancellation,createCityModerationDecision,createCityPresentationDecision,type ManagedCity} from "./moderation";
+import {managedCities,visibleManagedCities,needsChangesCities,ARCHIVE_NOTE,createCalendarDeletion,createOrganizerCancellation,createCityModerationDecision,createCityPresentationDecision,createNeedsChangesArchiveDecision,type ManagedCity} from "./moderation";
 import type {ApprovalRecord} from "./city-records";
 const city={cityId:"66f137cb-2ac1-4eef-8358-7dd66b45922f",slug:"radom",cityName:"Radom",description:"Walk",startAt:"2026-10-02T15:00:00Z",meetingPoint:{description:"Square",latitude:1,longitude:2},heroImageUrl:"https://example.com/i"};
 const event=(id:string,created_at:number):Event=>({id:id.repeat(64),created_at,kind:30304,pubkey:"a".repeat(64),sig:"",content:"",tags:[]});
@@ -57,6 +57,13 @@ describe("city lifecycle",()=>{
   const archive:ApprovalRecord={event:event("c",3),approval:{...approval.approval,status:"revoked",note:ARCHIVE_NOTE}};
   expect(managedCities([revision],[approval,archive])[0].state).toBe("archived");
   expect(managedCities([revision],[archive,{...approval,event:event("d",4)}])[0].state).toBe("approved");
+ });
+ it("finds rejected creator submissions and archives their exact revision",()=>{
+  const rejected:ApprovalRecord={event:event("c",3),approval:{...approval.approval,status:"rejected",note:"Please revise"}};
+  const rows=needsChangesCities([revision],[rejected]);
+  expect(rows).toEqual([{revision,rejection:rejected}]);
+  expect(JSON.parse(createNeedsChangesArchiveDecision(rows[0]).content)).toEqual({...rejected.approval,status:"revoked",note:ARCHIVE_NOTE});
+  expect(needsChangesCities([revision],[rejected,{...approval,event:event("d",4)}])).toEqual([]);
  });
  it("rejecting an alternative does not undo archive or approval",()=>{
   const rejected:ApprovalRecord={event:event("c",3),approval:{...approval.approval,cityRevisionId:"f".repeat(64),status:"rejected"}};

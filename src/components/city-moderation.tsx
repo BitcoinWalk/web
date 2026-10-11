@@ -6,7 +6,7 @@ import AdminCityLink from "./admin-city-link";
 import {relayConfig} from "../lib/relay-config";
 import {directoryConfig} from "../lib/directory-config";
 import {queryDirectoryRecords,queryCalendarEvents,queryCalendarDeletion} from "../nostr/city-records";
-import {managedCities,ARCHIVE_NOTE,assertExactSigned,createCalendarDeletion,createCityModerationDecision,createCityPresentationDecision,type ManagedCity} from "../nostr/moderation";
+import {managedCities,needsChangesCities,archivedCityIds,ARCHIVE_NOTE,assertExactSigned,createCalendarDeletion,createCityModerationDecision,createCityPresentationDecision,createNeedsChangesArchiveDecision,type ManagedCity,type NeedsChangesCity} from "../nostr/moderation";
 import {getBrowserExtensionPubkey,signWithBrowserExtension,authenticateWithBrowserExtension} from "../nostr/signer";
 import {isSuperAdmin} from "../nostr/authority";
 import {calendarNevent,approvedCalendarWalks,type CalendarWalk} from "../nostr/calendar-records";
@@ -23,14 +23,17 @@ export default function CityModeration(){
  useDashboardAutoLoad(()=>run(async()=>{await reload();setMessage("City list loaded. Select a city to review its state and walks.");}));
  const [pastCities,setPastCities]=useState<Set<string>>(new Set());
  const [logoPacks,setLogoPacks]=useState<LogoPackView[]>([]);
+ const [needsChanges,setNeedsChanges]=useState<NeedsChangesCity[]>([]);
+ const [paidCityIds,setPaidCityIds]=useState<Set<string>>(new Set());
+ const [paymentInventoryReady,setPaymentInventoryReady]=useState(false);
  const [selectedId,setSelectedId]=useState(dashboard.selectedCity);
  const [calendarWalks,setCalendarWalks]=useState<CalendarWalk[]>([]);
  const [publicUrls,setPublicUrls]=useState<Record<string,string>>({});
  const [publicAliases,setPublicAliases]=useState<Record<string,string>>({});
  const lock=useRef(false);const [busy,setBusy]=useState(false),[rows,setRows]=useState<ManagedCity[]>([]),[events,setEvents]=useState<Event[]>([]),[message,setMessage]=useState("Loading cities…");
  async function admin(){if(!isSuperAdmin(await getBrowserExtensionPubkey()))throw new Error("Select the BitcoinWalk super-admin in your extension.");}
- async function records(){const r=await queryDirectoryRecords(relayConfig.writeRelays);setCalendarWalks(approvedCalendarWalks(r.revisions,r.approvals));return managedCities(r.revisions,r.approvals);}
- async function reload(cityId=selectedId){setRows([]);setEvents([]);const r=await records();const e=cityId?await queryCalendarEvents(relayConfig.writeRelays,{cityId}):[];if(e.length>=500)throw new Error("This city's event read limit was reached. Ask an administrator to review its history.");await admin();const pubkey=await getBrowserExtensionPubkey(),logoResult=await signPayment({action:"list"},pubkey).then(paymentFetch).catch(()=>null);setRows(r);setEvents(e);setLogoPacks(logoResult?.logoPacks??[]);}
+ async function records(){const r=await queryDirectoryRecords(relayConfig.writeRelays);setCalendarWalks(approvedCalendarWalks(r.revisions,r.approvals));setNeedsChanges(needsChangesCities(r.revisions,r.approvals));return managedCities(r.revisions,r.approvals);}
+ async function reload(cityId=selectedId){setRows([]);setEvents([]);setPaymentInventoryReady(false);const r=await records();const e=cityId?await queryCalendarEvents(relayConfig.writeRelays,{cityId}):[];if(e.length>=500)throw new Error("This city's event read limit was reached. Ask an administrator to review its history.");await admin();const pubkey=await getBrowserExtensionPubkey(),logoResult=await signPayment({action:"list"},pubkey).then(paymentFetch).catch(()=>null);setRows(r);setEvents(e);setLogoPacks(logoResult?.logoPacks??[]);setPaidCityIds(new Set((logoResult?.payments??[]).filter(payment=>payment.tier==="paid").map(payment=>payment.cityId)));setPaymentInventoryReady(!!logoResult);}
  async function run(action:()=>Promise<void>){if(lock.current)return;lock.current=true;setBusy(true);try{await admin();await action();}catch(e){setMessage(e instanceof Error?e.message:"Operation failed. Reload before retrying.");}finally{lock.current=false;setBusy(false);}}
  async function current(row:ManagedCity){const found=(await records()).find(r=>r.revision.city.cityId===row.revision.city.cityId);if(!found||found.head!==row.head)throw new Error("City decisions changed. Reload before continuing.");return found;}
  async function decide(row:ManagedCity,action:"approve"|"disapprove"|"archive"){
@@ -46,6 +49,25 @@ export default function CityModeration(){
    await reload(city.cityId);setSelectedId(city.cityId);setMessage(`${city.cityName}: ${saved.state}. Confirmed by relay read-back. No relay infrastructure was deleted.`);
   });
  }
+ async function archiveRejectedTests(){await run(async()=>{
+  if(!paymentInventoryReady)throw new Error("Payment inventory is unavailable. Refresh cities before archiving anything.");
+  const blocked=needsChanges.filter(row=>paidCityIds.has(row.revision.city.cityId)||!!directoryConfig.paidCities[row.revision.city.cityId]);
+  if(blocked.length)throw new Error(`Paid or relay-backed cities require individual review: ${blocked.map(row=>row.revision.city.cityName).join(", ")}. Nothing was archived.`);
+  const names=needsChanges.map(row=>row.revision.city.cityName);
+  if(!names.length){setMessage("No Needs changes cities remain to archive.");return;}
+  if(!window.confirm(`Archive all ${names.length} Needs changes cities?\n\n${names.join("\n")}\n\nEach city requires a super-admin signature. History is retained and no infrastructure is deleted.`)){setMessage("Cancelled. No city was archived.");return;}
+  const completed:string[]=[];
+  for(const row of needsChanges){
+   const directory=await queryDirectoryRecords(relayConfig.writeRelays),latest=needsChangesCities(directory.revisions,directory.approvals).find(item=>item.revision.city.cityId===row.revision.city.cityId&&item.revision.event.id===row.revision.event.id&&item.rejection.event.id===row.rejection.event.id);
+   if(!latest)throw new Error(`${completed.length} ${completed.length===1?"city was":"cities were"} archived, then ${row.revision.city.cityName} changed. Reload before continuing.`);
+   const template=createNeedsChangesArchiveDecision(latest);setMessage(`Sign archive ${completed.length+1} of ${needsChanges.length}: ${row.revision.city.cityName}`);
+   const signed=await signWithBrowserExtension(template);assertExactSigned(signed,template);await admin();
+   await publishVerifiedEvent(signed,relayConfig.writeRelays,1,authenticateWithBrowserExtension);
+   const readback=await queryDirectoryRecords(relayConfig.writeRelays);if(!archivedCityIds(readback.approvals).has(row.revision.city.cityId))throw new Error(`${row.revision.city.cityName} was acknowledged but archive read-back failed. Stop and reload.`);
+   completed.push(row.revision.city.cityName);
+  }
+  await reload();setMessage(`${completed.length} Needs changes ${completed.length===1?"city":"cities"} archived and verified: ${completed.join(", ")}. No infrastructure was deleted.`);
+ });}
  async function removeEvent(row:ManagedCity,item:ManagedCalendarEvent){await run(async()=>{
   await requireOccurrenceCancellationRelay(relayConfig.writeRelays);
   await current(row);const live=await queryCalendarEvents(relayConfig.writeRelays,{ids:[item.event.id]});if(!live.some(e=>e.id===item.event.id&&e.pubkey===item.event.pubkey))throw new Error("This exact occurrence is no longer public. Reload before deleting.");
@@ -75,6 +97,7 @@ export default function CityModeration(){
   <h2>City list</h2>
   <p>Select a city to review its state and published walks. Unpublishing is reversible; archiving a free-tier city preserves its history. Paid-relay deletion is not enabled.</p>
   <button disabled={busy} onClick={()=>run(async()=>{await reload();setMessage("City state and selected city's walks refreshed.");})}>Refresh cities</button>
+  {!!needsChanges.length&&<details><summary><strong>Needs changes cleanup ({needsChanges.length})</strong></summary><div><p>Rejected or disapproved submissions remain in signed history. Archive the eligible test cities to move them out of active organizer lists without deleting history or infrastructure.</p><ul>{needsChanges.map(row=><li key={row.revision.city.cityId}>{row.revision.city.cityName}</li>)}</ul><button disabled={busy||!paymentInventoryReady} onClick={archiveRejectedTests}>Archive all eligible Needs changes cities</button>{!paymentInventoryReady&&<p>Payment inventory must load before this action is enabled.</p>}</div></details>}
   <CityFinder disabled={busy} value={available.some(row=>row.revision.city.cityId===selectedId)?selectedId:""} onChange={selectCity} items={available.map(row=>({id:row.revision.city.cityId,name:row.revision.city.cityName,meta:row.state,keywords:[row.revision.city.slug,row.revision.city.cityId]}))}/>
   <details><summary><strong>Archived cities ({archived.length})</strong></summary><div><p>Archived cities are hidden from public and organizer active views. Select one here to review or restore it.</p>{archived.length?<CityFinder disabled={busy} label="Archived city" placeholder="Search archived cities…" value={archived.some(row=>row.revision.city.cityId===selectedId)?selectedId:""} onChange={selectCity} items={archived.map(row=>({id:row.revision.city.cityId,name:row.revision.city.cityName,meta:"archived",keywords:[row.revision.city.slug,row.revision.city.cityId]}))}/>:<p>No archived cities.</p>}</div></details>
   <p role="status">{message}</p>

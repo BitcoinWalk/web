@@ -106,10 +106,10 @@ export default function OrganizerPage() {
   const status=base ? decisions.find(r=>r.approval.cityRevisionId===base.event.id)?.approval.status ?? "pending / no decision returned" : "";
   const cityGroups=[
     {key:"active",label:"Active",items:cities.filter(item=>item.status==="editable"||item.status==="approved")},
-    {key:"archived",label:"Archived",items:cities.filter(item=>item.status==="archived")},
     {key:"pending",label:"Pending",items:cities.filter(item=>item.status==="awaiting-approval")},
     {key:"needs-changes",label:"Needs changes",items:cities.filter(item=>item.status==="needs-changes")},
   ].filter(group=>group.items.length);
+  const archivedCities=cities.filter(item=>item.status==="archived");
   const selectedCity=base?cities.find(item=>item.revision.city.cityId===base.city.cityId):undefined;
   const selectedLogo=base?logoPacks.find(pack=>pack.cityId===base.city.cityId&&pack.revisionId===base.event.id&&pack.ready&&pack.publiclyListed):undefined;
   function chooseCity(cityId:string){
@@ -126,6 +126,7 @@ export default function OrganizerPage() {
       <h3 id={`organizer-cities-${group.key}`}>{group.label}</h3>
       <div className="organizer-city-list">{group.items.map(item=><button key={item.revision.city.cityId} type="button" disabled={busy} aria-pressed={base?.city.cityId===item.revision.city.cityId} onClick={()=>chooseCity(item.revision.city.cityId)}><strong>{item.revision.city.cityName}</strong><span>/{item.revision.city.slug}</span></button>)}</div>
     </section>)}</div>}
+    {!!archivedCities.length&&<details className="organizer-city-archive"><summary><strong>Archived ({archivedCities.length})</strong></summary><div className="organizer-city-list">{archivedCities.map(item=><button key={item.revision.city.cityId} type="button" disabled={busy} aria-pressed={base?.city.cityId===item.revision.city.cityId} onClick={()=>chooseCity(item.revision.city.cityId)}><strong>{item.revision.city.cityName}</strong><span>/{item.revision.city.slug}</span></button>)}</div></details>}
     {base && selectedCity&&!selectedCity.editable&&<section><h3>{base.city.cityName} — {selectedCity.status==="archived"?"Archived":selectedCity.status==="needs-changes"?"Needs changes":"Pending approval"}</h3><p>{selectedCity.status==="archived"?"This city is read-only and hidden from public and active organizer views. Contact BitcoinWalk to request restoration.":"This city belongs to your connected identity, but it cannot be edited or used to publish walks until a super-admin approves it."}</p></section>}
     {base && selectedCity?.editable && <section>
       <p>City ID: {base.city.cityId}<br/>Editing revision: {base.event.id}<br/>Revision status: {submitted ? "New edit submitted" : status}</p>

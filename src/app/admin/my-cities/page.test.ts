@@ -6,8 +6,11 @@ const source=()=>readFileSync("src/app/organizer/_screen.tsx","utf8");
 describe("my cities inventory",()=>{
  it("shows direct status groups without a redundant city finder",()=>{
   const page=source();
-  for(const label of ['label:"Active"','label:"Archived"','label:"Pending"','label:"Needs changes"'])expect(page).toContain(label);
+  for(const label of ['label:"Active"','label:"Pending"','label:"Needs changes"'])expect(page).toContain(label);
   expect(page).toContain(".filter(group=>group.items.length)");
+  expect(page).toContain('const archivedCities=cities.filter(item=>item.status==="archived")');
+  expect(page).toContain('<details className="organizer-city-archive">');
+  expect(page.indexOf("organizer-city-archive")).toBeGreaterThan(page.indexOf("organizer-city-groups"));
   expect(page).not.toContain("<CityFinder");
   expect(page).not.toContain("Search your cities");
  });

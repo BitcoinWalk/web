@@ -14,6 +14,20 @@ export function archivedCityIds(approvals:ApprovalRecord[]):Set<string>{
  return archived;
 }
 export type ManagedCity={revision:CityRevision;decision:ApprovalRecord;previousApproval?:ApprovalRecord;head:string;state:"approved"|"disapproved"|"archived"};
+export type NeedsChangesCity={revision:CityRevision;rejection:ApprovalRecord};
+export function needsChangesCities(revisions:CityRevision[],approvals:ApprovalRecord[]):NeedsChangesCity[]{
+ const archived=archivedCityIds(approvals),managed=new Set(managedCities(revisions,approvals).map(row=>row.revision.city.cityId)),latest=new Map<string,CityRevision>(),result:NeedsChangesCity[]=[];
+ for(const revision of [...revisions].sort((a,b)=>compareEvents(a.event,b.event))){const key=`${revision.event.pubkey}:${revision.city.cityId}`;if(!latest.has(key))latest.set(key,revision);}
+ for(const revision of latest.values()){
+  if(archived.has(revision.city.cityId)||managed.has(revision.city.cityId))continue;
+  const decision=[...approvals].sort((a,b)=>compareEvents(a.event,b.event)).find(item=>item.approval.cityId===revision.city.cityId&&item.approval.cityRevisionId===revision.event.id);
+  if(decision&&(decision.approval.status==="rejected"||decision.approval.status==="revoked"))result.push({revision,rejection:decision});
+ }
+ return result.sort((a,b)=>a.revision.city.cityName.localeCompare(b.revision.city.cityName));
+}
+export function createNeedsChangesArchiveDecision(row:NeedsChangesCity):EventTemplate{
+ return createApprovalEvent({cityId:row.revision.city.cityId,cityRevisionId:row.revision.event.id,status:"revoked",note:ARCHIVE_NOTE});
+}
 export function visibleManagedCities(rows:ManagedCity[],showArchived=false):ManagedCity[]{
  return rows.filter(row=>showArchived||row.state!=="archived");
 }
