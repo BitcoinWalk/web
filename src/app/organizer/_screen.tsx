@@ -104,8 +104,8 @@ export default function OrganizerPage() {
   }
 
   const status=base ? decisions.find(r=>r.approval.cityRevisionId===base.event.id)?.approval.status ?? "pending / no decision returned" : "";
+  const activeCities=cities.filter(item=>item.status==="editable"||item.status==="approved");
   const cityGroups=[
-    {key:"active",label:"Active",items:cities.filter(item=>item.status==="editable"||item.status==="approved")},
     {key:"pending",label:"Pending",items:cities.filter(item=>item.status==="awaiting-approval")},
     {key:"needs-changes",label:"Needs changes",items:cities.filter(item=>item.status==="needs-changes")},
   ].filter(group=>group.items.length);
@@ -118,10 +118,9 @@ export default function OrganizerPage() {
     select(next);return true;
   }
   return <section>
-    <h2>City profile</h2>
-    <p>Edit the city description, hero image and default meeting point. Scheduled walks are managed separately in Walks. Pending edits are publicly readable; do not include private details.</p>
     <button type="button" disabled={busy} onClick={load}>{busy?"Loading cities…":"Refresh cities"}</button>
     {message&&<p role="status" aria-live="polite">{message}</p>}
+    {!!activeCities.length&&<div className="organizer-city-active" aria-labelledby="organizer-cities-active"><h3 id="organizer-cities-active">Active</h3><div className="organizer-city-list">{activeCities.map(item=><button key={item.revision.city.cityId} type="button" disabled={busy} aria-pressed={base?.city.cityId===item.revision.city.cityId} onClick={()=>chooseCity(item.revision.city.cityId)}><strong>{item.revision.city.cityName}</strong><span>/{item.revision.city.slug}</span></button>)}</div></div>}
     {!!cityGroups.length&&<div className="organizer-city-groups">{cityGroups.map(group=><section key={group.key} aria-labelledby={`organizer-cities-${group.key}`}>
       <h3 id={`organizer-cities-${group.key}`}>{group.label}</h3>
       <div className="organizer-city-list">{group.items.map(item=><button key={item.revision.city.cityId} type="button" disabled={busy} aria-pressed={base?.city.cityId===item.revision.city.cityId} onClick={()=>chooseCity(item.revision.city.cityId)}><strong>{item.revision.city.cityName}</strong><span>/{item.revision.city.slug}</span></button>)}</div>
@@ -129,6 +128,8 @@ export default function OrganizerPage() {
     {!!archivedCities.length&&<details className="organizer-city-archive"><summary><strong>Archived ({archivedCities.length})</strong></summary><div className="organizer-city-list">{archivedCities.map(item=><button key={item.revision.city.cityId} type="button" disabled={busy} aria-pressed={base?.city.cityId===item.revision.city.cityId} onClick={()=>chooseCity(item.revision.city.cityId)}><strong>{item.revision.city.cityName}</strong><span>/{item.revision.city.slug}</span></button>)}</div></details>}
     {base && selectedCity&&!selectedCity.editable&&<section><h3>{base.city.cityName} — {selectedCity.status==="archived"?"Archived":selectedCity.status==="needs-changes"?"Needs changes":"Pending approval"}</h3><p>{selectedCity.status==="archived"?"This city is read-only and hidden from public and active organizer views. Contact BitcoinWalk to request restoration.":"This city belongs to your connected identity, but it cannot be edited or used to publish walks until a super-admin approves it."}</p></section>}
     {base && selectedCity?.editable && <section>
+      <h2>City profile</h2>
+      <p>Edit the city description, hero image and default meeting point. Scheduled walks are managed separately in Walks. Pending edits are publicly readable; do not include private details.</p>
       <p>City ID: {base.city.cityId}<br/>Editing revision: {base.event.id}<br/>Revision status: {submitted ? "New edit submitted" : status}</p>
       <p><a href={`/${encodeURIComponent(base.city.slug)}`} target="_blank" rel="noreferrer">Open approved public page</a> (only available if an approved revision is published).</p>
       {proCityIds.has(base.city.cityId)&&<section aria-label="Pro city setup"><h3>Pro city setup</h3><p>Your payment is recorded. Complete or resume the city identity, payout and public profile setup without paying again.</p><p><a className="chat-button" href={`/admin/upgrade?city=${encodeURIComponent(base.city.cityId)}`}>Complete Pro setup</a></p></section>}
