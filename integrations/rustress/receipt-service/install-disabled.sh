@@ -1,6 +1,6 @@
 #!/bin/sh
 set -eu
-service=bitcoinwalk-rustress-receipt;version=0.1.2;worker_image="$service-worker:$version";signer_image="$service-signer:$version";egress_image="$service-relay-egress:$version"
+service=bitcoinwalk-rustress-receipt;version=0.1.3;worker_image="$service-worker:$version";signer_image="$service-signer:$version";egress_image="$service-relay-egress:$version"
 service_egress="$service-relay-egress"
 root="$HOME/.local/state/bitcoinwalk-rustress/receipt-service";worker="$root/worker";signer="$root/signer";socket="$root/socket";mode="$root/receipt-mode"
 fail(){ printf '%s\n' "Receipt service installation failed." >&2;exit 1; }

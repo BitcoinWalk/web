@@ -1,6 +1,6 @@
 #!/bin/sh
 set -eu
-service=bitcoinwalk-rustress-receipt;version=0.1.2;worker="$service-worker";signer="$service-signer";image="$signer:$version"
+service=bitcoinwalk-rustress-receipt;version=0.1.3;worker="$service-worker";signer="$service-signer";image="$signer:$version"
 root="$HOME/.local/state/bitcoinwalk-rustress/receipt-service";mode="$root/receipt-mode";secrets="$root/secrets";config="$root/config";state="$root/signer"
 fail(){ printf '%s\n' "Receipt provider identity bootstrap refused." >&2;exit 1; }
 [ "$(id -u)" -ne 0 ]&&[ "$(id -un)" = bitcoinwalk ]||fail

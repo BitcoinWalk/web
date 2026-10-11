@@ -1,6 +1,6 @@
 #!/bin/sh
 set -eu
-root=$(CDPATH= cd -- "$(dirname "$0")/.."&&pwd);version=0.1.2;target="$root/release-build/bitcoinwalk-rustress-receipt-service-$version"
+root=$(CDPATH= cd -- "$(dirname "$0")/.."&&pwd);version=0.1.3;target="$root/release-build/bitcoinwalk-rustress-receipt-service-$version"
 rm -rf "$target";mkdir -p "$target"
 cp "$root/release-build/rustress-receipt-worker.cjs" "$root/release-build/rustress-receipt-relay-egress.cjs" "$root/release-build/initialize-rustress-receipt-worker.cjs" "$root/release-build/rustress-receipt-signer.cjs" "$root/release-build/initialize-rustress-receipt-identity.cjs" "$root/release-build/verify-rustress-receipt-worker.cjs" "$root/release-build/verify-rustress-receipt-restore.cjs" "$root/deploy/backup-sqlite-online.mjs" "$target/"
 cp "$root/integrations/rustress/receipt-service/Dockerfile.worker" "$root/integrations/rustress/receipt-service/Dockerfile.signer" "$root/integrations/rustress/receipt-service/Dockerfile.egress" "$root/integrations/rustress/receipt-service/check-package.sh" "$target/"
