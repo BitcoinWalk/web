@@ -109,6 +109,14 @@ reviewable under BW-89 and BW-90.
   feature flags and sponsorship assignments use kind 30311.
 # Sponsor dashboard UX — 11 October 2026
 
+App 0.3.265 adds exact-order logo review to Sponsors and payments. The super-admin
+previews the uploaded hash and signs individual purchased-walk assignments.
+Paid state, sponsor identity and artwork are refreshed before signing; conflicting
+sponsors and hidden assignments require explicit resolution in Display settings.
+Partially completed approvals can resume, and the UI distinguishes pending,
+partial and complete approval. Unclaimed checkout rows are hidden in this sponsor
+view while retained in the payment store.
+
 The sponsorship workspace has Cities and Sponsors views with search and counts.
 Cities group walks and their sponsors; Sponsors group placements and contain a
 separate, sponsor-filtered asset library. Walk display controls expand inline.
