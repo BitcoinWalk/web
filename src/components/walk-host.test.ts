@@ -10,7 +10,7 @@ describe("published walk host panel",()=>{
   const html=renderToStaticMarkup(createElement(WalkHost,{pubkey,profile:{name:"BitcoinWalk in London",picture:"https://example.org/city.png",nip05:"london@bitcoinwalk.org",lnurl:"private@example.org"},payment:{kind:"zap",href:"lightning:london@bitcoinwalk.org"},resolveProfile:false}));
   expect(html).toContain("BitcoinWalk in London");expect(html).toContain("https://example.org/city.png");expect(html).toContain("london@bitcoinwalk.org");
   expect(html).toContain(`nostr:${nip19.npubEncode(pubkey)}`);expect(html).toContain('aria-label="Copy npub"');
-  expect(html).not.toContain("private@example.org");expect(html).toContain('href="lightning:london@bitcoinwalk.org"');expect(html).toContain("Zap the host");
+  expect(html).not.toContain("private@example.org");expect(html).not.toContain('href="lightning:london@bitcoinwalk.org"');expect(html).toContain("Zap the host");
  });
  it("uses the same host-card space for the Basic HQ donation",()=>{
   const html=renderToStaticMarkup(createElement(WalkHost,{pubkey,profile:{name:"Alice",lnurl:"alice@example.org"},payment:{kind:"donate",href:"lightning:donate@bitcoinwalk.org"},resolveProfile:false}));

@@ -2,6 +2,15 @@
 set -eu
 here=$(CDPATH= cd -- "$(dirname "$0")"&&pwd)
 sh -n "$here/install-disabled.sh"
+sh -n "$here/rehearse-docker.sh"
+sh -n "$here/preflight-disabled.sh"
+test -f "$here/rehearse-receipt-docker-fixture.cjs"
+grep -q 'version=0.1.2' "$here/install-disabled.sh"
+grep -q 'version=0.1.2' "$here/bootstrap-provider-identity.sh"
+grep -Eq 'version[0-9]* = "0\.1\.2"' "$here/rustress-receipt-worker.cjs"
+grep -q 'receipt-\$component:0.1.2' "$here/backup-receipt-state.sh"
+grep -q 'receipt-signer:0.1.2' "$here/backup-receipt-state.sh"
+grep -q '/run/bitcoinwalk-receipt-worker/socket/intake.sock' "$here/rustress-receipt-worker.cjs"
 grep -q '^ENTRYPOINT \["node","/app/rustress-receipt-signer.cjs"\]$' "$here/Dockerfile.signer"
 ! grep -q '^EXPOSE ' "$here/Dockerfile.signer"
 grep -q '^ENTRYPOINT \["node","/app/rustress-receipt-relay-egress.cjs"\]$' "$here/Dockerfile.egress"

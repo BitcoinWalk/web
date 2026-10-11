@@ -99,6 +99,11 @@ export class PayoutInvoiceIssuer{
    if(!("cityId" in saved))throw new Error();
    if(saved.cityId!==claim.cityId||saved.payoutVersion!==claim.payoutVersion||saved.amountMsat!==claim.amountMsat||saved.descriptionHash!==claim.descriptionHash)throw new Error();
    const result=await this.receiptLookup(claim.paymentHash) as Record<string,unknown>;
+   if(result?.type==="incoming"&&result.state==="pending"&&result.payment_hash===created.paymentHash&&result.invoice===created.invoice&&String(result.amount)===created.amountMsat&&
+    !result.preimage&&!result.settled_at){
+    return {api:PAYOUT_RECEIPT_EVIDENCE_API,cityId:saved.cityId,payoutVersion:saved.payoutVersion,invoice:created.invoice,paymentHash:created.paymentHash,
+     amountMsat:created.amountMsat,descriptionHash:saved.descriptionHash,state:"unsettled" as const,expiresAt:created.expiresAt,observedAt:this.now()};
+   }
    if(!result||result.type!=="incoming"||result.state!=="settled"||result.payment_hash!==created.paymentHash||result.invoice!==created.invoice||String(result.amount)!==created.amountMsat||
     !Number.isSafeInteger(result.settled_at)||Number(result.settled_at)<created.issuedAt||Number(result.settled_at)>this.now()+30||typeof result.preimage!=="string"||!hex.safeParse(result.preimage).success||
     createHash("sha256").update(Buffer.from(result.preimage,"hex")).digest("hex")!==created.paymentHash)throw new Error();

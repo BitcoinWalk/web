@@ -1,0 +1,12 @@
+[Unit]
+Description=BitcoinWalk Rustress receipt loopback proxy connection
+
+[Service]
+ExecStart=/usr/bin/nc -U /run/user/%U/bitcoinwalk-rustress-receipt-worker/intake.sock
+StandardInput=socket
+StandardOutput=socket
+StandardError=journal
+NoNewPrivileges=true
+RestrictAddressFamilies=AF_UNIX
+MemoryMax=16M
+TasksMax=8

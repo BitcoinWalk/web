@@ -1,7 +1,7 @@
-diff --git c/Cargo.lock w/Cargo.lock
+diff --git a/Cargo.lock b/Cargo.lock
 index 562791b..fb1b984 100644
---- c/Cargo.lock
-+++ w/Cargo.lock
+--- a/Cargo.lock
++++ b/Cargo.lock
 @@ -2281,16 +2281,20 @@ dependencies = [
   "chrono",
   "dotenv",
@@ -23,10 +23,10 @@ index 562791b..fb1b984 100644
   "tokio",
  ]
  
-diff --git c/Cargo.toml w/Cargo.toml
+diff --git a/Cargo.toml b/Cargo.toml
 index b8272e2..a1e4ad1 100644
---- c/Cargo.toml
-+++ w/Cargo.toml
+--- a/Cargo.toml
++++ b/Cargo.toml
 @@ -22,3 +22,9 @@ nostr-relay-pool = { git = "https://github.com/rust-nostr/nostr", rev = "684c695
  nostr-sdk = { git = "https://github.com/rust-nostr/nostr", rev = "684c69528c3453b4515c0fadf56d72e25286fbf6" }
  bech32 = "0.11"
@@ -37,21 +37,12 @@ index b8272e2..a1e4ad1 100644
 +
 +[dev-dependencies]
 +tempfile = "3"
-diff --git c/rust-toolchain.toml w/rust-toolchain.toml
+diff --git a/src/bitcoinwalk.rs b/src/bitcoinwalk.rs
 new file mode 100644
-index 0000000..c3891f0
+index 0000000..268a7dc
 --- /dev/null
-+++ w/rust-toolchain.toml
-@@ -0,0 +1,3 @@
-+[toolchain]
-+channel = "1.90.0"
-+profile = "minimal"
-diff --git c/src/bitcoinwalk.rs w/src/bitcoinwalk.rs
-new file mode 100644
-index 0000000..3d3b187
---- /dev/null
-+++ w/src/bitcoinwalk.rs
-@@ -0,0 +1,1276 @@
++++ b/src/bitcoinwalk.rs
+@@ -0,0 +1,1292 @@
 +//! BW-100: private provisioning in a separately stamped fixture database only.
 +//! No public address, invoice or wallet functionality is registered in this mode.
 +use actix_web::{App, HttpRequest, HttpResponse, HttpServer, web};
@@ -65,6 +56,7 @@ index 0000000..3d3b187
 +use crate::bitcoinwalk_issuer::{
 +    AddressIssueRequest, InvoiceBroker, IssueRequest, PayoutAuthorityBroker,
 +};
++use crate::bitcoinwalk_receipts::{ReceiptBroker, save_intent};
 +
 +const API: &str = "bitcoinwalk-provisioning-v1";
 +const UPSTREAM: &str = "c72fdeccd80025d181efc1b1d45baeb8bfbde4a9";
@@ -234,6 +226,7 @@ index 0000000..3d3b187
 +    wallets: Vec<String>,
 +    managed: bool,
 +    broker: Option<InvoiceBroker>,
++    receipts: Option<ReceiptBroker>,
 +    payout_authority: Option<PayoutAuthorityBroker>,
 +    organization_destination: String,
 +}
@@ -875,16 +868,12 @@ index 0000000..3d3b187
 +    if !(1_000..=1_000_000_000).contains(&amount) {
 +        return public_error(Status::BAD_REQUEST);
 +    }
++    let canonical_lnurl=bech32::encode::<bech32::Bech32>(bech32::Hrp::parse("lnurl").unwrap(),format!("https://{}/.well-known/lnurlp/{}",state.domain,config.local_part).as_bytes()).unwrap();
 +    let commitment = if let Some(nostr) = query.get("nostr") {
-+        if nostr.len() > 12_288
-+            || serde_json::from_str::<serde_json::Value>(nostr)
-+                .ok()
-+                .and_then(|value| value.as_object().cloned())
-+                .is_none()
-+        {
-+            return public_error(Status::BAD_REQUEST);
++        let Some(receipts)=&state.receipts else {return public_error(Status::SERVICE_UNAVAILABLE);};
++        match receipts.validate(&config.brand_pubkey,amount,nostr,&canonical_lnurl).await {
++            Ok(hash)=>hash,Err(_)=>return public_error(Status::BAD_REQUEST),
 +        }
-+        format!("{:x}", Sha256::digest(nostr.as_bytes()))
 +    } else {
 +        format!("{:x}", Sha256::digest(lnurl_metadata(&config).as_bytes()))
 +    };
@@ -903,6 +892,11 @@ index 0000000..3d3b187
 +            row.get::<Option<String>, _>("invoice"),
 +            row.get::<Option<String>, _>("payment_hash"),
 +        ) {
++            if let Some(raw)=query.get("nostr") {
++                let id=row.get::<String,_>("request_id");
++                if save_intent(&state.pool,&id,&config.city_id,config.payout_version,&config.brand_pubkey,amount,raw,&canonical_lnurl).await.is_err()
++                    || state.receipts.as_ref().unwrap().deliver(&state.pool,&id).await.is_err(){return public_error(Status::SERVICE_UNAVAILABLE);}
++            }
 +            return HttpResponse::Ok().insert_header(("Cache-Control", "no-store")).json(serde_json::json!({
 +                "pr":invoice,"routes":[],"verify":format!("https://{}/lnurlp/{}/verify/{payment_hash}",state.domain,config.local_part)
 +            }));
@@ -925,6 +919,9 @@ index 0000000..3d3b187
 +    let Some(broker) = &state.broker else {
 +        return public_error(Status::SERVICE_UNAVAILABLE);
 +    };
++    if let Some(raw)=query.get("nostr") {
++        if save_intent(&state.pool,&id,&config.city_id,config.payout_version,&config.brand_pubkey,amount,raw,&canonical_lnurl).await.is_err(){return public_error(Status::SERVICE_UNAVAILABLE);}
++    }
 +    let issued = broker
 +        .issue(&IssueRequest::new(
 +            id.clone(),
@@ -943,6 +940,7 @@ index 0000000..3d3b187
 +        .execute(&state.pool).await.is_err() {
 +        return public_error(Status::SERVICE_UNAVAILABLE);
 +    }
++    if query.contains_key("nostr") && state.receipts.as_ref().unwrap().deliver(&state.pool,&id).await.is_err(){return public_error(Status::SERVICE_UNAVAILABLE);}
 +    HttpResponse::Ok().insert_header(("Cache-Control", "no-store")).json(serde_json::json!({
 +        "pr":issued.invoice,"routes":[],"verify":format!("https://{}/lnurlp/{}/verify/{}",state.domain,config.local_part,issued.payment_hash)
 +    }))
@@ -1137,6 +1135,7 @@ index 0000000..3d3b187
 +        "CREATE TABLE IF NOT EXISTS bw_configs(city_id TEXT NOT NULL,version INTEGER NOT NULL,hash TEXT NOT NULL,config TEXT NOT NULL,state TEXT NOT NULL CHECK(state IN ('prepared','applied')),PRIMARY KEY(city_id,version))",
 +        "CREATE TABLE IF NOT EXISTS bw_public_invoices(request_id TEXT PRIMARY KEY,city_id TEXT NOT NULL,payout_version INTEGER NOT NULL,amount_msat INTEGER NOT NULL,description_hash TEXT NOT NULL,requested_at INTEGER NOT NULL,state TEXT NOT NULL CHECK(state IN ('pending','issued')),invoice TEXT,payment_hash TEXT UNIQUE,issued_at INTEGER,expires_at INTEGER)",
 +        "CREATE INDEX IF NOT EXISTS bw_public_invoice_match ON bw_public_invoices(city_id,payout_version,amount_msat,description_hash,requested_at)",
++        "CREATE TABLE IF NOT EXISTS bw_zap_outbox(request_id TEXT PRIMARY KEY,claim TEXT NOT NULL,delivered INTEGER NOT NULL DEFAULT 0 CHECK(delivered IN (0,1)),attempts INTEGER NOT NULL DEFAULT 0,next_attempt INTEGER NOT NULL DEFAULT 0)",
 +        "CREATE TABLE IF NOT EXISTS bw_address_claims(local_part TEXT PRIMARY KEY COLLATE NOCASE,domain TEXT NOT NULL COLLATE NOCASE,user_id INTEGER UNIQUE)",
 +        "CREATE TABLE IF NOT EXISTS bw_address_configs(local_part TEXT NOT NULL COLLATE NOCASE,version INTEGER NOT NULL,hash TEXT NOT NULL,config TEXT NOT NULL,state TEXT NOT NULL CHECK(state IN ('prepared','applied')),PRIMARY KEY(local_part,version))",
 +        "CREATE TABLE IF NOT EXISTS bw_address_public_invoices(request_id TEXT PRIMARY KEY,local_part TEXT NOT NULL COLLATE NOCASE,address_version INTEGER NOT NULL,amount_msat INTEGER NOT NULL,description_hash TEXT NOT NULL,requested_at INTEGER NOT NULL,state TEXT NOT NULL CHECK(state IN ('pending','issued')),invoice TEXT,payment_hash TEXT UNIQUE,issued_at INTEGER,expires_at INTEGER)",
@@ -1302,9 +1301,17 @@ index 0000000..3d3b187
 +        wallets,
 +        managed,
 +        broker,
++        receipts: if managed && std::env::var("BW_RECEIPT_INTAKE_ENABLED").as_deref()==Ok("1") {
++            let path=std::env::var("BW_RECEIPT_INTAKE_TOKEN_FILE").map_err(|_|unavailable())?;
++            Some(ReceiptBroker::from_token_file(&path,"/home/bitcoinwalk/.local/state/bitcoinwalk-rustress/receipt-service/worker-socket/intake.sock").map_err(|_|unavailable())?)
++        } else {None},
 +        payout_authority,
 +        organization_destination,
 +    });
++    if let Some(receipts)=state.receipts.clone(){
++        let pool=state.pool.clone();
++        actix_web::rt::spawn(async move {loop {receipts.retry(&pool).await;tokio::time::sleep(Duration::from_secs(15)).await;}});
++    }
 +    HttpServer::new(move || {
 +        let app = App::new().app_data(state.clone());
 +        if managed {
@@ -1328,12 +1335,12 @@ index 0000000..3d3b187
 +
 +#[cfg(test)]
 +mod tests;
-diff --git c/src/bitcoinwalk/tests.rs w/src/bitcoinwalk/tests.rs
+diff --git a/src/bitcoinwalk/tests.rs b/src/bitcoinwalk/tests.rs
 new file mode 100644
-index 0000000..ec26b6c
+index 0000000..03577c4
 --- /dev/null
-+++ w/src/bitcoinwalk/tests.rs
-@@ -0,0 +1,536 @@
++++ b/src/bitcoinwalk/tests.rs
+@@ -0,0 +1,541 @@
 +use super::*;
 +use actix_web::test;
 +
@@ -1379,6 +1386,7 @@ index 0000000..ec26b6c
 +        wallets: vec!["isolated-test".into()],
 +        managed: false,
 +        broker: None,
++        receipts: None,
 +        payout_authority: None,
 +        organization_destination: "bitcoinwalk@getalby.com".into(),
 +    }
@@ -1732,6 +1740,10 @@ index 0000000..ec26b6c
 +    );
 +    assert!(body.get("allowsNostr").is_none());
 +    assert!(body.get("nostrPubkey").is_none());
++    let rejected = test::call_service(&app, test::TestRequest::get()
++        .uri("/lnurlp/fixture-city/callback?amount=1000&nostr=%7B%7D")
++        .insert_header(("Host", "bitcoinwalk.org")).to_request()).await;
++    assert_eq!(rejected.status(), Status::SERVICE_UNAVAILABLE);
 +
 +    assert_eq!(
 +        test::call_service(
@@ -1870,11 +1882,11 @@ index 0000000..ec26b6c
 +    }
 +    assert_eq!(count(&s, "users").await, 0);
 +}
-diff --git c/src/bitcoinwalk_issuer.rs w/src/bitcoinwalk_issuer.rs
+diff --git a/src/bitcoinwalk_issuer.rs b/src/bitcoinwalk_issuer.rs
 new file mode 100644
 index 0000000..efa2dda
 --- /dev/null
-+++ w/src/bitcoinwalk_issuer.rs
++++ b/src/bitcoinwalk_issuer.rs
 @@ -0,0 +1,443 @@
 +//! Private BitcoinWalk invoice-broker client. It never reads an NWC credential:
 +//! Rustress submits invoice facts to the loopback payout service, which creates
@@ -2319,20 +2331,21 @@ index 0000000..efa2dda
 +        );
 +    }
 +}
-diff --git c/src/main.rs w/src/main.rs
-index 15ce1ae..645c8b3 100644
---- c/src/main.rs
-+++ w/src/main.rs
-@@ -18,6 +18,8 @@ use std::sync::Arc;
+diff --git a/src/main.rs b/src/main.rs
+index 15ce1ae..ad1cd2a 100644
+--- a/src/main.rs
++++ b/src/main.rs
+@@ -18,6 +18,9 @@ use std::sync::Arc;
  use tokio::sync::Mutex;
  use tokio::time::{Duration, sleep, timeout};
  
 +mod bitcoinwalk;
 +mod bitcoinwalk_issuer;
++mod bitcoinwalk_receipts;
  mod db;
  
  use crate::db::{
-@@ -1550,10 +1552,31 @@ async fn admin_update_prism(
+@@ -1550,10 +1553,31 @@ async fn admin_update_prism(
  
  #[actix_web::main]
  async fn main() -> std::io::Result<()> {
@@ -2364,3 +2377,313 @@ index 15ce1ae..645c8b3 100644
      run_migrations(&pool).await;
      let pool = Arc::new(pool);
  
+diff --git a/src/bitcoinwalk_receipts.rs b/src/bitcoinwalk_receipts.rs
+new file mode 100644
+index 0000000..d1a54e9
+--- /dev/null
++++ b/src/bitcoinwalk_receipts.rs
+@@ -0,0 +1,304 @@
++//! Private, default-off receipt intake. No NWC, signer key or public relay access.
++use serde_json::{Value, json};
++use sha2::{Digest, Sha256};
++use sqlx::{Row, SqlitePool};
++use std::{
++    io::{Read, Write},
++    os::unix::{fs::MetadataExt, net::UnixStream},
++    time::Duration,
++};
++
++const OUTBOX_GLOBAL_LIMIT: i64 = 1024;
++const OUTBOX_CITY_LIMIT: i64 = 64;
++const OUTBOX_GLOBAL_BYTES: i64 = 16 * 1024 * 1024;
++const OUTBOX_CITY_BYTES: i64 = 1024 * 1024;
++
++#[derive(Clone)]
++pub struct ReceiptBroker {
++    socket: String,
++    token: String,
++}
++impl ReceiptBroker {
++    pub fn from_token_file(path: &str, socket: &str) -> Result<Self, ()> {
++        let meta = std::fs::symlink_metadata(path).map_err(|_| ())?;
++        if !std::path::Path::new(path).is_absolute()
++            || !std::path::Path::new(socket).is_absolute()
++            || !meta.is_file()
++            || meta.file_type().is_symlink()
++            || meta.nlink() != 1
++            || meta.mode() & 0o077 != 0
++            || meta.uid() != unsafe { libc::geteuid() }
++            || meta.len() > 1024
++        {
++            return Err(());
++        }
++        let token = std::fs::read_to_string(path)
++            .map_err(|_| ())?
++            .trim()
++            .to_owned();
++        if !(43..=256).contains(&token.len())
++            || !token
++                .bytes()
++                .all(|v| v.is_ascii_alphanumeric() || b"_-".contains(&v))
++        {
++            return Err(());
++        }
++        Ok(Self {
++            socket: socket.into(),
++            token,
++        })
++    }
++    async fn call(&self, path: &'static str, value: Value) -> Result<Value, ()> {
++        let this = self.clone();
++        tokio::task::spawn_blocking(move || {
++            let document=serde_json::to_vec(&value).map_err(|_|())?;
++            if document.len()>98304{return Err(());}
++            let mut socket=UnixStream::connect(&this.socket).map_err(|_|())?;
++            socket.set_read_timeout(Some(Duration::from_secs(5))).map_err(|_|())?;
++            socket.set_write_timeout(Some(Duration::from_secs(5))).map_err(|_|())?;
++            write!(socket,"POST {path} HTTP/1.1\r\nHost: localhost\r\nAuthorization: Bearer {}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",this.token,document.len()).map_err(|_|())?;
++            socket.write_all(&document).map_err(|_|())?;
++            let mut bytes=Vec::new();socket.take(32769).read_to_end(&mut bytes).map_err(|_|())?;
++            if bytes.len()>32768{return Err(());}
++            let boundary=bytes.windows(4).position(|v|v==b"\r\n\r\n").ok_or(())?;
++            let headers=std::str::from_utf8(&bytes[..boundary]).map_err(|_|())?;
++            let code=headers.lines().next().and_then(|l|l.split_whitespace().nth(1)).ok_or(())?;
++            if !matches!(code,"200"|"202"){return Err(());}
++            let length=headers.lines().skip(1).find_map(|line|{let(k,v)=line.split_once(':')?;k.eq_ignore_ascii_case("content-length").then(||v.trim().parse::<usize>().ok()).flatten()}).ok_or(())?;
++            if length!=bytes.len()-boundary-4{return Err(());}
++            serde_json::from_slice(&bytes[boundary+4..]).map_err(|_|())
++        }).await.map_err(|_|())?
++    }
++    pub async fn validate(
++        &self,
++        recipient: &str,
++        amount: u64,
++        raw: &str,
++        lnurl: &str,
++    ) -> Result<String, ()> {
++        if raw.len() > 12288 {
++            return Err(());
++        }
++        let result=self.call("/v1/requests/validate",json!({"recipientPubkey":recipient,"amountMsat":amount.to_string(),"zapRequest":raw,"lnurl":lnurl})).await?;
++        let expected = format!("{:x}", Sha256::digest(raw.as_bytes()));
++        if result["descriptionHash"].as_str() != Some(&expected) {
++            return Err(());
++        }
++        Ok(expected)
++    }
++    pub async fn deliver(&self, pool: &SqlitePool, id: &str) -> Result<(), ()> {
++        let row=sqlx::query("SELECT o.claim,o.delivered,i.payment_hash FROM bw_zap_outbox o JOIN bw_public_invoices i USING(request_id) WHERE o.request_id=? AND i.state='issued'")
++            .bind(id).fetch_optional(pool).await.map_err(|_|())?.ok_or(())?;
++        if row.get::<i64, _>("delivered") == 1 {
++            return Ok(());
++        }
++        let mut claim: Value =
++            serde_json::from_str(&row.get::<String, _>("claim")).map_err(|_| ())?;
++        let hash = row.get::<String, _>("payment_hash");
++        claim["paymentHash"] = json!(hash);
++        let result = self.call("/v1/receipts", claim).await?;
++        if result["api"] != "bitcoinwalk-zap-receipt-v1"
++            || result["paymentHash"] != hash
++            || !matches!(
++                result["state"].as_str(),
++                Some("prepared" | "signed" | "published")
++            )
++        {
++            return Err(());
++        }
++        // The worker now owns the exact durable claim. Keep only a small
++        // acknowledgement tombstone so callback retries remain idempotent.
++        sqlx::query("UPDATE bw_zap_outbox SET delivered=1,claim='{}' WHERE request_id=? AND delivered=0")
++            .bind(id)
++            .execute(pool)
++            .await
++            .map_err(|_| ())?;
++        Ok(())
++    }
++    pub async fn retry(&self, pool: &SqlitePool) {
++        let now = std::time::SystemTime::now()
++            .duration_since(std::time::UNIX_EPOCH)
++            .map(|v| v.as_secs())
++            .unwrap_or(0) as i64;
++        if let Ok(rows)=sqlx::query("SELECT o.request_id,o.attempts FROM bw_zap_outbox o JOIN bw_public_invoices i USING(request_id) WHERE o.delivered=0 AND i.state='issued' AND o.next_attempt<=? ORDER BY o.next_attempt,o.rowid LIMIT 10").bind(now).fetch_all(pool).await{
++            for row in rows {let id=row.get::<String,_>("request_id");if self.deliver(pool,&id).await.is_err(){
++                let attempts=(row.get::<i64,_>("attempts")+1).min(1000);let delay=(15_i64*2_i64.pow((attempts-1).min(8) as u32)).min(3600);
++                let _=sqlx::query("UPDATE bw_zap_outbox SET attempts=?,next_attempt=? WHERE request_id=? AND delivered=0").bind(attempts).bind(now+delay).bind(&id).execute(pool).await;
++            }}
++        }
++    }
++}
++
++#[cfg(test)]
++mod tests {
++    use super::*;
++    /// Explicit synthetic cross-language harness only; never a production key.
++    #[tokio::test]
++    #[ignore = "requires the local Node receipt rehearsal harness"]
++    async fn real_worker_intake_rehearsal() {
++        let path=std::env::var("BW_RECEIPT_REHEARSAL_FIXTURE").expect("fixture required");
++        let fixture:Value=serde_json::from_slice(&std::fs::read(path).unwrap()).unwrap();
++        let broker=ReceiptBroker::from_token_file(fixture["tokenFile"].as_str().unwrap(),fixture["socket"].as_str().unwrap()).unwrap();
++        let c=&fixture["claim"];
++        let raw=c["zapRequest"].as_str().unwrap();let recipient=c["recipientPubkey"].as_str().unwrap();let amount=c["amountMsat"].as_str().unwrap().parse::<u64>().unwrap();
++        assert!(broker.validate(recipient,amount+1,raw,"lnurl1fixture").await.is_err());
++        assert_eq!(broker.validate(recipient,amount,raw,"lnurl1fixture").await.unwrap(),format!("{:x}",Sha256::digest(raw.as_bytes())));
++        let p=pool().await;
++        save_intent(&p,"req",c["cityId"].as_str().unwrap(),c["payoutVersion"].as_u64().unwrap(),recipient,amount,raw,"lnurl1fixture").await.unwrap();
++        sqlx::query("INSERT INTO bw_public_invoices VALUES('req',?,'issued')").bind(c["paymentHash"].as_str().unwrap()).execute(&p).await.unwrap();
++        broker.deliver(&p,"req").await.unwrap();broker.deliver(&p,"req").await.unwrap();
++    }
++    async fn pool() -> SqlitePool {
++        let pool = sqlx::sqlite::SqlitePoolOptions::new()
++            .max_connections(1)
++            .connect("sqlite::memory:")
++            .await
++            .unwrap();
++        sqlx::query("CREATE TABLE bw_zap_outbox(request_id TEXT PRIMARY KEY,claim TEXT NOT NULL,delivered INTEGER DEFAULT 0,attempts INTEGER DEFAULT 0,next_attempt INTEGER DEFAULT 0)").execute(&pool).await.unwrap();
++        sqlx::query("CREATE TABLE bw_public_invoices(request_id TEXT PRIMARY KEY,payment_hash TEXT,state TEXT)").execute(&pool).await.unwrap();
++        pool
++    }
++    async fn intent(pool: &SqlitePool, raw: &str) -> Result<(), ()> {
++        save_intent(
++            pool,
++            "req",
++            "city",
++            1,
++            "recipient",
++            1000,
++            raw,
++            "lnurl1fixture",
++        )
++        .await
++    }
++    #[tokio::test]
++    async fn intent_is_durable_idempotent_and_conflict_rejecting() {
++        let p = pool().await;
++        intent(&p, "exact signed bytes").await.unwrap();
++        intent(&p, "exact signed bytes").await.unwrap();
++        assert!(intent(&p, "changed bytes").await.is_err());
++        let count: i64 = sqlx::query_scalar("SELECT count(*) FROM bw_zap_outbox")
++            .fetch_one(&p)
++            .await
++            .unwrap();
++        assert_eq!(count, 1);
++    }
++    #[tokio::test]
++    async fn one_city_cannot_exhaust_another_city_outbox_budget() {
++        let p=pool().await;
++        for i in 0..OUTBOX_CITY_LIMIT {
++            save_intent(&p,&format!("a-{i}"),"city-a",1,"recipient",1000,&format!("signed-{i}"),"lnurl1fixture").await.unwrap();
++        }
++        assert!(save_intent(&p,"a-full","city-a",1,"recipient",1000,"another","lnurl1fixture").await.is_err());
++        save_intent(&p,"b-0","city-b",1,"recipient",1000,"other-city","lnurl1fixture").await.unwrap();
++        let count:i64=sqlx::query_scalar("SELECT COUNT(*) FROM bw_zap_outbox WHERE delivered=0").fetch_one(&p).await.unwrap();
++        assert_eq!(count,OUTBOX_CITY_LIMIT+1);
++    }
++    #[tokio::test]
++    async fn unavailable_worker_preserves_claim_and_backs_off() {
++        let p = pool().await;
++        intent(&p, "exact").await.unwrap();
++        sqlx::query("INSERT INTO bw_public_invoices VALUES('req','hash','issued')")
++            .execute(&p)
++            .await
++            .unwrap();
++        let broker = ReceiptBroker {
++            socket: "/nonexistent/bw-test.sock".into(),
++            token: "x".repeat(48),
++        };
++        broker.retry(&p).await;
++        broker.retry(&p).await;
++        let row = sqlx::query("SELECT delivered,attempts FROM bw_zap_outbox")
++            .fetch_one(&p)
++            .await
++            .unwrap();
++        assert_eq!(row.get::<i64, _>("delivered"), 0);
++        assert_eq!(row.get::<i64, _>("attempts"), 1);
++    }
++    #[tokio::test]
++    async fn issued_claim_is_acknowledged_after_restart_without_duplicates() {
++        let dir = tempfile::tempdir().unwrap();
++        let path = dir.path().join("intake.sock");
++        let listener = std::os::unix::net::UnixListener::bind(&path).unwrap();
++        let thread = std::thread::spawn(move || {
++            let (mut socket, _) = listener.accept().unwrap();
++            let mut bytes = Vec::new();
++            let mut byte = [0];
++            while !bytes.ends_with(b"\r\n\r\n") {
++                socket.read_exact(&mut byte).unwrap();
++                bytes.push(byte[0]);
++            }
++            let headers = String::from_utf8(bytes).unwrap();
++            let len: usize = headers
++                .lines()
++                .find_map(|line| line.strip_prefix("Content-Length: "))
++                .unwrap()
++                .parse()
++                .unwrap();
++            let mut body = vec![0; len];
++            socket.read_exact(&mut body).unwrap();
++            let claim: Value = serde_json::from_slice(&body).unwrap();
++            assert_eq!(claim["zapRequest"], "exact");
++            assert_eq!(claim["paymentHash"], "hash");
++            let reply =
++                json!({"api":"bitcoinwalk-zap-receipt-v1","state":"prepared","paymentHash":"hash"})
++                    .to_string();
++            write!(
++                socket,
++                "HTTP/1.1 202 Accepted\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
++                reply.len(),
++                reply
++            )
++            .unwrap();
++        });
++        let p = pool().await;
++        intent(&p, "exact").await.unwrap();
++        sqlx::query("INSERT INTO bw_public_invoices VALUES('req','hash','issued')")
++            .execute(&p)
++            .await
++            .unwrap();
++        let broker = ReceiptBroker {
++            socket: path.to_string_lossy().into_owned(),
++            token: "x".repeat(48),
++        };
++        broker.deliver(&p, "req").await.unwrap();
++        thread.join().unwrap();
++        broker.deliver(&p, "req").await.unwrap(); // worker is gone; durable acknowledgement is sufficient
++        let row=sqlx::query("SELECT claim,delivered FROM bw_zap_outbox WHERE request_id='req'").fetch_one(&p).await.unwrap();
++        assert_eq!(row.get::<String,_>("claim"),"{}");
++        assert_eq!(row.get::<i64,_>("delivered"),1);
++    }
++}
++
++pub async fn save_intent(
++    pool: &SqlitePool,
++    id: &str,
++    city: &str,
++    version: u64,
++    recipient: &str,
++    amount: u64,
++    raw: &str,
++    lnurl: &str,
++) -> Result<(), ()> {
++    let claim=json!({"api":"bitcoinwalk-zap-receipt-v1","cityId":city,"payoutVersion":version,"recipientPubkey":recipient,"amountMsat":amount.to_string(),"zapRequest":raw,"lnurl":lnurl}).to_string();
++    let mut transaction=pool.begin().await.map_err(|_|())?;
++    if let Some(row)=sqlx::query("SELECT claim,delivered FROM bw_zap_outbox WHERE request_id=?")
++        .bind(id)
++        .fetch_optional(&mut *transaction).await.map_err(|_|())? {
++        if row.get::<i64,_>("delivered")==1||row.get::<String,_>("claim")==claim {
++            transaction.commit().await.map_err(|_|())?;
++            return Ok(());
++        }
++        return Err(());
++    }
++    let global=sqlx::query("SELECT COUNT(*) AS count,COALESCE(SUM(length(CAST(claim AS BLOB))),0) AS bytes FROM bw_zap_outbox WHERE delivered=0")
++        .fetch_one(&mut *transaction).await.map_err(|_|())?;
++    let local=sqlx::query("SELECT COUNT(*) AS count,COALESCE(SUM(length(CAST(claim AS BLOB))),0) AS bytes FROM bw_zap_outbox WHERE delivered=0 AND json_extract(claim,'$.cityId')=?")
++        .bind(city).fetch_one(&mut *transaction).await.map_err(|_|())?;
++    let bytes=claim.len() as i64;
++    if global.get::<i64,_>("count")>=OUTBOX_GLOBAL_LIMIT||global.get::<i64,_>("bytes")+bytes>OUTBOX_GLOBAL_BYTES||
++       local.get::<i64,_>("count")>=OUTBOX_CITY_LIMIT||local.get::<i64,_>("bytes")+bytes>OUTBOX_CITY_BYTES{return Err(());}
++    sqlx::query("INSERT INTO bw_zap_outbox(request_id,claim,delivered) VALUES(?,?,0)")
++        .bind(id).bind(&claim).execute(&mut *transaction).await.map_err(|_|())?;
++    transaction.commit().await.map_err(|_|())
++}

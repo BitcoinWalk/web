@@ -12,7 +12,7 @@ describe("shared public host presentation", () => {
     const html = renderToStaticMarkup(createElement(CityHostPanel, {host: {state: "brand", pubkey: key, name: "BitcoinWalk in London"},payment:{kind:"zap",href:"lightning:london@bitcoinwalk.org"}}));
     expect(html).toContain(nip19.npubEncode(key));
     expect(html).toContain("BitcoinWalk in London");
-    expect(html).toContain('href="lightning:london@bitcoinwalk.org"');
+    expect(html).not.toContain('href="lightning:london@bitcoinwalk.org"');
     expect(html).toContain("Zap the host");
     expect(html).not.toContain(nip19.npubEncode("2".repeat(64)));
   });

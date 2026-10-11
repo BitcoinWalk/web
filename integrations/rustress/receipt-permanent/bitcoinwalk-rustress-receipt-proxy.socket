@@ -1,0 +1,10 @@
+[Unit]
+Description=BitcoinWalk Rustress receipt loopback proxy
+
+[Socket]
+ListenStream=127.0.0.1:8897
+Accept=yes
+NoDelay=true
+
+[Install]
+WantedBy=sockets.target

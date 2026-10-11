@@ -1,0 +1,3 @@
+.connected{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:1rem;text-align:left}
+.connected>article{background:transparent}
+@media(max-width:36rem){.connected{grid-template-columns:minmax(0,1fr)}.connected>button{width:100%}}

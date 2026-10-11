@@ -1,5 +1,26 @@
 # Rustress receipt-service independent security review
 
+## 11 October BW-88 candidate — supplemental review pending
+
+Receipt candidate `0.1.1` has reproducible SHA-256
+`f61dfc3f3702b712f17818e8a134e022ce04b259be41935507a26c8c26259a89`.
+The prior review below does not cover authenticated Rustress intake, durable
+provider outbox, worker retry/retention, unsettled evidence responses or this
+candidate's deployment scripts. The package is staged on `.240` for approved
+isolated tests only; the installed production service remains unchanged.
+Nineteen provider tests, 93 focused receipt/payout tests, typecheck, package policy,
+synthetic encrypted restore and source-bundle rootless Docker restart rehearsal
+are engineering evidence, not independent approval. See the operations runbook
+for the exact remaining package, review and activation gates. Preserve the prior
+review target below as historical evidence; do not relabel it as this review.
+
+After explicit authorization, matching Rustress `0.1.5` and payout `0.2.15`
+archives were staged with verified digests on `.240`. Actual old/new binaries
+passed isolated old→new→old→new tests against synthetic tmpfs databases, retaining
+the Rustress outbox and payout ledger/snapshot. No production installer or signed
+operation was run. This additional compatibility evidence does not replace the
+pending independent review of the combined delta or receipt activation controls.
+
 Review target: `44691fa61614b30aba2ad6be7f2dd94e8f18e475`
 
 Implementation range: `3b80256^..44691fa`
