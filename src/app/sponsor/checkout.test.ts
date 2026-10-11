@@ -3,4 +3,5 @@ import {describe,expect,it} from "vitest";
 
 describe("sponsor checkout recovery",()=>{
  it("requires an explicit upload action after choosing the recovery file",()=>{const source=readFileSync("src/app/sponsor/checkout.tsx","utf8"),chooser=source.indexOf('accept="application/json,.json"'),button=source.indexOf('Upload and recover checkout');expect(chooser).toBeGreaterThan(0);expect(button).toBeGreaterThan(chooser);expect(source).toContain('setRecoveryFile(event.target.files?.[0]??null)');expect(source).toContain('disabled={busy||!recoveryFile}');expect(source).not.toContain('onChange={event=>{const file=event.target.files?.[0]');});
+ it("does not silently restore a previous sponsor or city from browser storage",()=>{const source=readFileSync("src/app/sponsor/checkout.tsx","utf8");expect(source).not.toContain("localStorage.getItem(STORAGE)");expect(source).not.toContain("setCityId(existing.cityId)");expect(source).toContain('initialCity.toLocaleLowerCase()');});
 });

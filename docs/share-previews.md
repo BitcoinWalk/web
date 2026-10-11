@@ -1,5 +1,15 @@
 # BW-15: link previews
 
+## Clean sponsor selection and future walks: 0.3.259
+
+The base `/sponsor` route now always opens without a selected city, package or
+walk. A previous checkout saved in the same browser is never silently restored,
+including after changing Nostr accounts. Explicit `?city=` links still preselect
+their matching city, and an existing checkout can be restored only through the
+visible private recovery-file action. The server-side sponsorship catalogue
+continues to exclude past and imminent-start walks; regression coverage now
+asserts that past occurrences return no selectable dates.
+
 ## Sponsor recovery and tighter composition: 0.3.258
 
 The checkout recovery disclosure now keeps file selection and recovery as two
