@@ -127,6 +127,13 @@ or deletion is needed. Signed clear/hidden decisions and payment coverage remain
 authoritative. Archived images and signed approvals are retained for history.
 Third-party social previews can remain cached until those services refresh them.
 
+App 0.3.268 closes the asset activation gap found by the staging end-to-end
+check. Generate / preview first promotes the reviewed pending logo into the
+content-addressed approved asset store and verifies that the returned hash is
+the exact order hash. Public walk metadata can then load that same immutable
+asset. Existing signed approvals can be repaired by using Generate / preview;
+no new sponsor payment or assignment approval is required.
+
 Logo approval now also requests the authenticated OG composite generator after
 the purchased-walk assignments pass relay read-back. The component stays visible
 after approval and displays generation progress, an inline image preview and a

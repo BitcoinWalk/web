@@ -5,7 +5,7 @@ import type {SponsorOrder} from "../payments/sponsor-types";
 import {sponsorRequest} from "../payments/sponsor-auth";
 import {mediaRequestTemplate} from "../domain/media-request";
 import {orderLogoAssignments,restoreOrderWalkOg} from "../domain/sponsor-order-approval";
-import {sponsorOgPreviewPath} from "../domain/sponsor-og-preview";
+import {exactApprovedSponsorAsset,sponsorOgPreviewPath} from "../domain/sponsor-og-preview";
 import {isSuperAdmin} from "../nostr/authority";
 import {getBrowserExtensionPubkey,signWithBrowserExtension,authenticateWithBrowserExtension} from "../nostr/signer";
 import {assertExactSigned} from "../nostr/moderation";
@@ -18,6 +18,13 @@ export default function SponsorOrderLogoReview({order,approved=false,onChanged}:
  const dashboard=useDashboard(),lock=useRef(false),[busy,setBusy]=useState(false),[preview,setPreview]=useState(""),[message,setMessage]=useState(""),[approvedNow,setApprovedNow]=useState(false),[og,setOg]=useState(""),[ogLoaded,setOgLoaded]=useState(false);
  const complete=approved||approvedNow;
  async function actor(){const key=await getBrowserExtensionPubkey();if(!isSuperAdmin(key)||key!==dashboard.pubkey)throw new Error("Connect the super-admin identity.");return key;}
+ async function promote(){
+  if(!order.pubkey||!order.logoHash)throw new Error("Logo unavailable.");
+  const key=await actor(),template=mediaRequestTemplate({action:"review-sponsor-logo",cityId:order.cityId,sponsorPubkey:order.pubkey}),event=await signWithBrowserExtension(template);assertExactSigned(event,template);if(event.pubkey!==key)throw new Error("Signer changed.");
+  const response=await fetch("/api/sponsors/logo/review",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({event}),cache:"no-store"}),body=await response.json();
+  if(!response.ok)throw new Error(body.error||"Approved logo could not be activated.");
+  exactApprovedSponsorAsset(body,order.logoHash);
+ }
  async function restore(address:string){
   if(lock.current)return;lock.current=true;setBusy(true);
   try{
@@ -30,6 +37,7 @@ export default function SponsorOrderLogoReview({order,approved=false,onChanged}:
   setOg("");setOgLoaded(false);setMessage("Logo approved. Generating your OG image… Please confirm the image-generation request in your extension.");
   try{
    if(!order.pubkey||!order.logoHash)throw new Error("Logo unavailable.");
+   await promote();
    const key=await actor(),template=mediaRequestTemplate({action:"generate-sponsor-composite",targetCityId:order.cityId,sourceCityId:order.cityId,sponsorPubkey:order.pubkey,hash:order.logoHash}),event=await signWithBrowserExtension(template);assertExactSigned(event,template);if(event.pubkey!==key)throw new Error("Signer changed.");
    const response=await fetch("/api/sponsors/assets",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({event}),cache:"no-store"}),body=await response.json();if(!response.ok)throw new Error(body.error||"Image generation failed.");
    if(await actor()!==key)throw new Error("Signer changed.");
