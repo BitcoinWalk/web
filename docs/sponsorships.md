@@ -109,6 +109,24 @@ reviewable under BW-89 and BW-90.
   feature flags and sponsorship assignments use kind 30311.
 # Sponsor dashboard UX — 11 October 2026
 
+App 0.3.267 makes approved logo assignments control OG/Twitter artwork
+control OG/Twitter artwork independently of the sponsorship module visibility
+flag. Signed hidden assignments, occurrence expiry and payment coverage still
+apply. Admin generation and public metadata share the same image renderer.
+Each purchased walk has a signed Restore default city OG image control; this
+clears its approved logo hash while preserving sponsor identity, website and
+dates. It does not change another walk or delete uploaded assets. The logo can
+be reviewed and approved again to reapply sponsored artwork. Social clients may
+retain previously cached previews after a change.
+
+Sponsored OG/Twitter metadata automatically reverts to the default city image
+at the walk's start timestamp plus 43,200 seconds (12 hours), independent of the
+scheduled end. The visible sponsor module still expires at the walk's end.
+Dynamic metadata evaluates this cutoff on each request; no cron, extra signature
+or deletion is needed. Signed clear/hidden decisions and payment coverage remain
+authoritative. Archived images and signed approvals are retained for history.
+Third-party social previews can remain cached until those services refresh them.
+
 Logo approval now also requests the authenticated OG composite generator after
 the purchased-walk assignments pass relay read-back. The component stays visible
 after approval and displays generation progress, an inline image preview and a

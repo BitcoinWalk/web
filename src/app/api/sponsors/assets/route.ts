@@ -7,8 +7,8 @@ import {isSuperAdmin} from "../../../../nostr/authority";
 import {listSponsorLogoUploads,previewSponsorLogo} from "../../../../server/sponsor-logo-store";
 import {loadCalendarWalks} from "../../../../nostr/calendar-records";
 import {serverReadRelays} from "../../../../lib/server-relay-config";
-import {bundledCityBackground,ensureShareImage,managedBackground,renderShareImage} from "../../../../server/share-image";
-import {shareOrigin} from "../../../../server/share-preview";
+import {bundledCityBackground,managedBackground,renderShareImage} from "../../../../server/share-image";
+import {renderedShareImage} from "../../../../server/share-preview";
 import {shareBackgroundPosition} from "../../../../domain/hero-presentation";
 import {getPaymentRuntime} from "../../../../payments/runtime";
 export const runtime="nodejs",dynamic="force-dynamic";
@@ -36,8 +36,9 @@ export async function POST(request:Request){
   if(command.action==="generate-sponsor-composite"){
    const city=(await loadCalendarWalks(serverReadRelays())).find(row=>row.revision.city.cityId===command.targetCityId);if(!city)return Response.json({error:"Approved city unavailable."},{status:404,headers});
    const sponsor=Buffer.from((await previewSponsorLogo({cityId:command.sourceCityId,sponsorPubkey:command.sponsorPubkey,hash:command.hash})).base64,"base64");
-   const images=[city.approval.approval.heroImageUrl,city.revision.city.heroImageUrl],background=await managedBackground(images)??await bundledCityBackground(city.revision.city.slug);
-   const imageHash=await ensureShareImage(background,sponsor,undefined,shareBackgroundPosition(images));return Response.json({url:`${shareOrigin()}/api/og/files/${imageHash}.jpg`,hash:imageHash},{headers});
+   const images=[city.approval.approval.heroImageUrl,city.revision.city.heroImageUrl];
+   const url=await renderedShareImage(command.targetCityId,city.revision.city.slug,images,sponsor),hash=/\/([a-f0-9]{64})\.jpg$/.exec(url)?.[1];
+   return Response.json({url,hash},{headers});
   }
   return Response.json({error:"Invalid action."},{status:403,headers});
  }catch{return Response.json({error:"Asset unavailable. Refresh the library and retry."},{status:400,headers});}

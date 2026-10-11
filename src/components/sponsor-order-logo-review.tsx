@@ -4,7 +4,7 @@ import {useRef,useState} from "react";
 import type {SponsorOrder} from "../payments/sponsor-types";
 import {sponsorRequest} from "../payments/sponsor-auth";
 import {mediaRequestTemplate} from "../domain/media-request";
-import {orderLogoAssignments} from "../domain/sponsor-order-approval";
+import {orderLogoAssignments,restoreOrderWalkOg} from "../domain/sponsor-order-approval";
 import {sponsorOgPreviewPath} from "../domain/sponsor-og-preview";
 import {isSuperAdmin} from "../nostr/authority";
 import {getBrowserExtensionPubkey,signWithBrowserExtension,authenticateWithBrowserExtension} from "../nostr/signer";
@@ -18,6 +18,14 @@ export default function SponsorOrderLogoReview({order,approved=false,onChanged}:
  const dashboard=useDashboard(),lock=useRef(false),[busy,setBusy]=useState(false),[preview,setPreview]=useState(""),[message,setMessage]=useState(""),[approvedNow,setApprovedNow]=useState(false),[og,setOg]=useState(""),[ogLoaded,setOgLoaded]=useState(false);
  const complete=approved||approvedNow;
  async function actor(){const key=await getBrowserExtensionPubkey();if(!isSuperAdmin(key)||key!==dashboard.pubkey)throw new Error("Connect the super-admin identity.");return key;}
+ async function restore(address:string){
+  if(lock.current)return;lock.current=true;setBusy(true);
+  try{
+   const key=await actor(),value=restoreOrderWalkOg(order,address,await querySponsorships(relayConfig.readRelays));
+   if(value){const template=createSponsorshipRevision(value),event=await signWithBrowserExtension(template);assertExactSigned(event,template);if(event.pubkey!==key)throw new Error("Signer changed.");await publishVerifiedEvent(event,relayConfig.writeRelays,1,authenticateWithBrowserExtension);}
+   setApprovedNow(false);setOg("");setOgLoaded(false);setMessage("Default city OG image restored for this walk. Sponsorship remains active. Previously shared previews may be cached by other apps.");await onChanged();
+  }catch(error){setMessage(error instanceof Error?error.message:"Could not restore the default OG image.");}finally{lock.current=false;setBusy(false);}
+ }
  async function generate(){
   setOg("");setOgLoaded(false);setMessage("Logo approved. Generating your OG image… Please confirm the image-generation request in your extension.");
   try{
@@ -44,5 +52,5 @@ export default function SponsorOrderLogoReview({order,approved=false,onChanged}:
   for(const value of assignments){if(await actor()!==key)throw new Error("Signer changed.");const template=createSponsorshipRevision(value),signed=await signWithBrowserExtension(template);assertExactSigned(signed,template);if(signed.pubkey!==key)throw new Error("Signer changed.");await publishVerifiedEvent(signed,relayConfig.writeRelays,1,authenticateWithBrowserExtension);}
   setPreview("");setApprovedNow(true);await generate();await onChanged().catch(()=>{/* Approval and image results remain valid if the list refresh fails. */});
  }catch(error){setMessage(error instanceof Error?error.message:"Approval failed. Refresh to see any walks already approved, then retry the remaining walks.");}finally{lock.current=false;setBusy(false);}}
- return <div aria-busy={busy}>{complete?<button type="button" disabled={busy} onClick={()=>void retryImage()}>{busy?"Generating OG image…":"Generate / preview OG image"}</button>:<button type="button" disabled={busy} onClick={()=>void inspect()}>{busy?"Working…":"Review logo"}</button>}{preview&&!complete&&<><div style={{background:"#e5e7eb",padding:20,marginTop:12}}><img src={`data:image/png;base64,${preview}`} alt={`Sponsor logo for ${order.cityName}`} style={{maxWidth:"100%",maxHeight:200}}/></div><button type="button" style={{background:"#ff9713",color:"#20262d",marginTop:12}} disabled={busy} onClick={()=>void approve()}>Sign and approve logo</button></>}{message&&<p role="status">{message}</p>}{og&&<figure style={{margin:"16px 0"}}><img src={og} alt={`${order.cityName} OG image with approved sponsor logo`} style={{width:"100%",maxWidth:600,height:"auto",borderRadius:8}} onLoad={()=>{setOgLoaded(true);setMessage("Logo approved and OG image generated successfully.");}} onError={()=>{setOgLoaded(false);setMessage("Logo approved and OG image generated, but the preview could not be loaded. Retry or open the full-size image.");}}/>{ogLoaded&&<figcaption>OG image preview · 1200 × 630</figcaption>}<p><a href={og} target="_blank" rel="noopener noreferrer">Open full-size OG image</a></p></figure>}</div>;
+ return <div aria-busy={busy}>{complete?<button type="button" disabled={busy} onClick={()=>void retryImage()}>{busy?"Generating OG image…":"Generate / preview OG image"}</button>:<button type="button" disabled={busy} onClick={()=>void inspect()}>{busy?"Working…":"Review logo"}</button>}{preview&&!complete&&<><div style={{background:"#e5e7eb",padding:20,marginTop:12}}><img src={`data:image/png;base64,${preview}`} alt={`Sponsor logo for ${order.cityName}`} style={{maxWidth:"100%",maxHeight:200}}/></div><button type="button" style={{background:"#ff9713",color:"#20262d",marginTop:12}} disabled={busy} onClick={()=>void approve()}>Sign and approve logo</button></>}{complete&&<details><summary>Restore default city OG image</summary><p>Sign to remove the approved logo from a walk’s sharing image. The sponsor assignment remains active.</p>{order.walks.map(walk=><div key={walk.address}><p>{walk.label}</p><button type="button" disabled={busy} onClick={()=>void restore(walk.address)}>Sign and restore default city OG image</button></div>)}</details>}{message&&<p role="status">{message}</p>}{og&&<figure style={{margin:"16px 0"}}><img src={og} alt={`${order.cityName} OG image with approved sponsor logo`} style={{width:"100%",maxWidth:600,height:"auto",borderRadius:8}} onLoad={()=>{setOgLoaded(true);setMessage("Logo approved and OG image generated successfully.");}} onError={()=>{setOgLoaded(false);setMessage("Logo approved and OG image generated, but the preview could not be loaded. Retry or open the full-size image.");}}/>{ogLoaded&&<figcaption>OG image preview · 1200 × 630</figcaption>}<p><a href={og} target="_blank" rel="noopener noreferrer">Open full-size OG image</a></p></figure>}</div>;
 }
