@@ -9,6 +9,7 @@ grep -q -- '--restart unless-stopped --network host' "$here/start-operation.sh";
 grep -q 'bitcoinwalk-payout-operation-expiry' "$here/start-operation.sh";grep -q 'flock -n 9' "$here/start-operation.sh"
 grep -q 'Persistent=true' "$here/bitcoinwalk-payout-operation-expiry.timer";grep -q 'OnCalendar=@' "$here/start-operation.sh"
 grep -q 'OnUnitActiveSec=5min' "$here/bitcoinwalk-payout-operation-monitor.timer"
+grep -Fq 'while [ "$attempt" -le 4 ]' "$here/monitor-operation.sh";grep -q 'attempt=.*sleep 5' "$here/monitor-operation.sh"
 grep -q 'ca20993a-5b7f-443e-931e-8dbaa61d05fe' "$here/operation-cities.json"
 grep -q '"0.2.14"' "$here/refresh-host-evidence.py"
 printf '%s\n' 'Payout operation package policy checks passed.'
