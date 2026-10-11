@@ -4,7 +4,7 @@ import {join} from "node:path";
 import sharp from "sharp";
 import {readMedia} from "./media-store";
 import type {ShareBackgroundPosition} from "../domain/hero-presentation";
-const VERSION="og-city-v8",WIDTH=1200,HEIGHT=630;
+const VERSION="og-city-v9",WIDTH=1200,HEIGHT=630;
 const digest=(body:Buffer)=>createHash("sha256").update(body).digest("hex");
 const root=()=>join(process.env.BITCOINWALK_MEDIA_ROOT||join(process.env.TMPDIR||"/tmp","bitcoinwalk-media"),"og");
 const pending=new Map<string,Promise<string>>();
@@ -34,8 +34,8 @@ export async function renderShareImage(background:Buffer|null,icon:Buffer,sponso
   if(sponsor){
     // Both overlays retain their alpha: no panel, plate or runtime font rendering.
     const caption=await sharp(label??await readFile(join(process.cwd(),"public","brand","bitcoinwalk-powered-by.png"))).resize(180,30,{fit:"inside"}).png().toBuffer({resolveWithObject:true});
-    const logo=await sharp(sponsor,{limitInputPixels:16_000_000}).resize(320,80,{fit:"contain",background:{r:255,g:255,b:255,alpha:0}}).png().toBuffer();
-    layers.push({input:caption.data,left:Math.floor((WIDTH-caption.info.width)/2),top:411},{input:logo,left:440,top:454});
+    const logo=await sharp(sponsor,{limitInputPixels:16_000_000}).resize(400,100,{fit:"contain",background:{r:255,g:255,b:255,alpha:0}}).png().toBuffer();
+    layers.push({input:caption.data,left:Math.floor((WIDTH-caption.info.width)/2),top:350},{input:logo,left:400,top:390});
   }
   return base.composite(layers).toColourspace("srgb").jpeg({quality:82,mozjpeg:true}).toBuffer();
 }

@@ -1,5 +1,17 @@
 # BW-15: link previews
 
+## Sponsor recovery and tighter composition: 0.3.258
+
+The checkout recovery disclosure now keeps file selection and recovery as two
+explicit steps. Choosing the private JSON file shows its name; the adjacent
+**Upload and recover checkout** button remains disabled until a file is chosen
+and performs the authenticated order lookup only when pressed.
+
+Sponsored OG images retain the three-element stack introduced in 0.3.257, but
+move **Powered by** and the sponsor mark closer to the BitcoinWalk symbol. The
+sponsor slot is enlarged from 320×80 to 400×100. Cache version `og-city-v9`
+generates a new immutable image while retaining prior historical files.
+
 ## Sponsored three-line composition: 0.3.257
 
 Sponsored city and walk previews now omit the localized city wordmark. Their
@@ -21,7 +33,7 @@ identity, city, order, browser origin or unpaid checkout fails closed.
 
 The sponsor-facing guide calls for a transparent horizontal 4:1 mark: ideally
 1024×256 pixels and at least 640×160 for PNG/WebP. The rendered slot is
-320×80. PNG/WebP may be at most 5 MB; outlined SVG may be at most 512 KB and
+400×100. PNG/WebP may be at most 5 MB; outlined SVG may be at most 512 KB and
 must not contain text, fonts, scripts, styles, embedded images or external
 resources. JPEG and animation remain rejected. The guide also recommends sRGB,
 tight cropping and roughly 5% clear space.
