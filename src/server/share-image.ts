@@ -4,7 +4,7 @@ import {join} from "node:path";
 import sharp from "sharp";
 import {readMedia} from "./media-store";
 import type {ShareBackgroundPosition} from "../domain/hero-presentation";
-const VERSION="og-city-v7",WIDTH=1200,HEIGHT=630;
+const VERSION="og-city-v8",WIDTH=1200,HEIGHT=630;
 const digest=(body:Buffer)=>createHash("sha256").update(body).digest("hex");
 const root=()=>join(process.env.BITCOINWALK_MEDIA_ROOT||join(process.env.TMPDIR||"/tmp","bitcoinwalk-media"),"og");
 const pending=new Map<string,Promise<string>>();
@@ -24,8 +24,11 @@ export async function managedBackground(urls:Array<string|undefined|null>):Promi
 }
 export async function renderShareImage(background:Buffer|null,icon:Buffer,sponsor:Buffer|null=null,label?:Buffer,cityLogo?:Buffer,position:ShareBackgroundPosition="attention"):Promise<Buffer>{
   const base=background?sharp(background,{limitInputPixels:20_000_000}).rotate().resize(WIDTH,HEIGHT,{fit:"cover",position}):sharp({create:{width:WIDTH,height:HEIGHT,channels:3,background:"#25333a"}});
-  const markWidth=cityLogo?(sponsor?460:720):280,markHeight=cityLogo?(sponsor?358:560):280;
-  const mark=await sharp(cityLogo??icon,{limitInputPixels:16_000_000}).resize(markWidth,markHeight,{fit:"contain",background:{r:0,g:0,b:0,alpha:0}}).png().toBuffer({resolveWithObject:true});
+  // Sponsored previews deliberately use the city-neutral BitcoinWalk symbol.
+  // The localized lockup is reserved for unsponsored previews so the sponsored
+  // stack contains only: BitcoinWalk symbol, Powered by, sponsor logo.
+  const localizedLogo=sponsor?undefined:cityLogo,markWidth=localizedLogo?720:280,markHeight=localizedLogo?560:280;
+  const mark=await sharp(localizedLogo??icon,{limitInputPixels:16_000_000}).resize(markWidth,markHeight,{fit:"contain",background:{r:0,g:0,b:0,alpha:0}}).png().toBuffer({resolveWithObject:true});
   const shade=Buffer.from('<svg width="1200" height="630"><defs><radialGradient id="s"><stop stop-color="#000" stop-opacity=".48"/><stop offset="1" stop-color="#000" stop-opacity=".12"/></radialGradient></defs><rect width="1200" height="630" fill="url(#s)"/></svg>');
   const layers:Array<{input:Buffer;left?:number;top?:number}>=[{input:shade},{input:mark.data,left:Math.floor((WIDTH-mark.info.width)/2),top:sponsor?35:Math.floor((HEIGHT-mark.info.height)/2)}];
   if(sponsor){
@@ -39,12 +42,13 @@ export async function renderShareImage(background:Buffer|null,icon:Buffer,sponso
 export async function ensureShareImage(background:Buffer|null,sponsor:Buffer|null=null,cityLogo?:Buffer,position:ShareBackgroundPosition="attention"):Promise<string>{
   const icon=await readFile(join(process.cwd(),"public","brand","bitcoinwalk-share-icon.png"));
   const label=sponsor?await readFile(join(process.cwd(),"public","brand","bitcoinwalk-powered-by.png")):undefined;
-  const key=createHash("sha256").update(JSON.stringify([VERSION,digest(icon),background?digest(background):null,sponsor?digest(sponsor):null,label?digest(label):null,cityLogo?digest(cityLogo):null,position])).digest("hex");
+  const localizedLogo=sponsor?undefined:cityLogo;
+  const key=createHash("sha256").update(JSON.stringify([VERSION,digest(icon),background?digest(background):null,sponsor?digest(sponsor):null,label?digest(label):null,localizedLogo?digest(localizedLogo):null,position])).digest("hex");
   const existing=pending.get(key);if(existing)return existing;
   if(pending.size>=2)throw new Error("Share image renderer busy");
   const work=(async()=>{await mkdir(root(),{recursive:true,mode:0o700});const manifest=join(root(),key+".json");
     try{const stored=JSON.parse(await readFile(manifest,"utf8"));if(typeof stored.hash==="string"&&await readShareImage(stored.hash))return stored.hash;}catch{}
-    const body=await renderShareImage(background,icon,sponsor,label,cityLogo,position),hash=digest(body),file=join(root(),hash+".jpg"),temp=file+"."+randomUUID()+".tmp";
+    const body=await renderShareImage(background,icon,sponsor,label,localizedLogo,position),hash=digest(body),file=join(root(),hash+".jpg"),temp=file+"."+randomUUID()+".tmp";
     try{await writeFile(temp,body,{mode:0o600});await rename(temp,file);}finally{await unlink(temp).catch(()=>{});}
     const mt=manifest+"."+randomUUID()+".tmp";try{await writeFile(mt,JSON.stringify({hash,version:VERSION}),{mode:0o600});await rename(mt,manifest);}finally{await unlink(mt).catch(()=>{});}
     return hash;

@@ -11,7 +11,6 @@ import {bundledCityBackground,ensureShareImage,managedBackground,renderShareImag
 import {shareOrigin} from "../../../../server/share-preview";
 import {shareBackgroundPosition} from "../../../../domain/hero-presentation";
 import {getPaymentRuntime} from "../../../../payments/runtime";
-import {getLogoCatalog} from "../../../../logos/runtime";
 export const runtime="nodejs",dynamic="force-dynamic";
 export async function POST(request:Request){
  const headers={"Cache-Control":"no-store"};
@@ -28,8 +27,7 @@ export async function POST(request:Request){
    try{getPaymentRuntime().sponsors.authorizeArtwork(command.orderId,body.token,actor,command.cityId);}catch{return Response.json({error:"Paid sponsor authorization required."},{status:403,headers});}
    const city=(await loadCalendarWalks(serverReadRelays())).find(row=>row.revision.city.cityId===command.cityId);if(!city)return Response.json({error:"Approved city unavailable."},{status:404,headers});
    const sponsor=Buffer.from((await previewSponsorLogo({cityId:command.cityId,sponsorPubkey:actor,hash:command.hash})).base64,"base64"),images=[city.approval.approval.heroImageUrl,city.revision.city.heroImageUrl],background=await managedBackground(images)??await bundledCityBackground(city.revision.city.slug);
-   let cityLogo:Buffer|undefined;try{const catalog=getLogoCatalog(),pack=await catalog.readyForCity({cityId:command.cityId,slug:city.revision.city.slug});if(pack)cityLogo=(await catalog.file(pack.jobKey,`${pack.slug}-bitcoinwalk-on-black.png`))?.data;}catch{}
-   const icon=await readFile(join(process.cwd(),"public","brand","bitcoinwalk-share-icon.png")),label=await readFile(join(process.cwd(),"public","brand","bitcoinwalk-powered-by.png")),image=await renderShareImage(background,icon,sponsor,label,cityLogo,shareBackgroundPosition(images)),hash=createHash("sha256").update(image).digest("hex"),slug=city.revision.city.slug.replace(/[^a-z0-9-]/g,"");
+   const icon=await readFile(join(process.cwd(),"public","brand","bitcoinwalk-share-icon.png")),label=await readFile(join(process.cwd(),"public","brand","bitcoinwalk-powered-by.png")),image=await renderShareImage(background,icon,sponsor,label,undefined,shareBackgroundPosition(images)),hash=createHash("sha256").update(image).digest("hex"),slug=city.revision.city.slug.replace(/[^a-z0-9-]/g,"");
    return Response.json({base64:image.toString("base64"),hash,mime:"image/jpeg",width:1200,height:630,downloadName:`bitcoinwalk-${slug}-sponsor-og.jpg`},{headers});
   }
   if(!isSuperAdmin(body.event.pubkey)||!["list-sponsor-assets","preview-sponsor-asset","generate-sponsor-composite"].includes(command.action))return Response.json({error:"Signed super-admin authorization required."},{status:403,headers});

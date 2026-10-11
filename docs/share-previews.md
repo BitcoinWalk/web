@@ -1,5 +1,16 @@
 # BW-15: link previews
 
+## Sponsored three-line composition: 0.3.257
+
+Sponsored city and walk previews now omit the localized city wordmark. Their
+overlay is deliberately limited to three stacked elements: the city-neutral
+BitcoinWalk symbol, the pinned transparent **Powered by** label and the exact
+approved sponsor logo. The same rule applies to sponsor-built private previews,
+super-admin composites and public OG images. Unsponsored previews retain the
+localized BitcoinWalk city lockup. Cache version `og-city-v8` creates new
+content-addressed images without deleting previously generated historical OG
+files.
+
 ## Paid sponsor self-service artwork: 0.3.256
 
 After Lightning settlement and Nostr identity association, the exact paid
