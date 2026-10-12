@@ -85,7 +85,29 @@
 .ogPreview { margin-top: 1rem; }
 .ogPreview img { display: block; width: 100%; height: auto; border-radius: .5rem; }
 
+.receipt {
+  max-width: 44rem;
+  margin: 1.5rem 0;
+  padding: 1.25rem;
+  border: 2px solid #f7931a;
+  border-radius: .75rem;
+  background: #fff8ed;
+}
+
+.receipt h3 { margin-top: .35rem; }
+.receipt dl { margin: 1rem 0; }
+.receipt dl div { display: grid; grid-template-columns: 8rem minmax(0,1fr); gap: .75rem; padding: .35rem 0; }
+.receipt dt { font-weight: 700; }
+.receipt dd { margin: 0; overflow-wrap: anywhere; }
+.primaryAction { font-weight: 800; }
+.confirmation { display: flex; align-items: flex-start; gap: .65rem; margin: 1rem 0; }
+.confirmation input { flex: 0 0 auto; width: auto; margin-top: .25rem; }
+.recoveryDetails { margin: 1.5rem 0; }
+
 @media (max-width: 28rem) {
   .package { grid-template-columns: auto minmax(0, 1fr) auto; }
   .badge { grid-column: 2 / -1; justify-self: start; }
+  .receipt { padding: 1rem; }
+  .receipt dl div { display: block; }
+  .receipt dd { margin-top: .2rem; }
 }

@@ -9,6 +9,7 @@ const headers={"Cache-Control":"no-store"},token=z.string().regex(/^[a-f0-9]{64}
 const command=z.discriminatedUnion("action",[
  z.object({action:z.literal("create"),token,cityId:z.uuid(),count:z.union([z.literal(1),z.literal(2),z.literal(5)]),ids:z.array(z.string().regex(/^[a-f0-9]{64}$/)).min(1).max(5)}).strict(),
  z.object({action:z.literal("status"),token,id:z.uuid()}).strict(),
+ z.object({action:z.literal("acknowledge-recovery"),token,id:z.uuid()}).strict(),
  z.object({action:z.literal("claim"),token,id:z.uuid(),event}).strict(),
  z.object({action:z.literal("list"),event}).strict(),
  z.object({action:z.literal("mine"),event}).strict(),
@@ -25,6 +26,7 @@ export async function POST(request:Request){
   if(body.action==="list")return Response.json({orders:service.list()},{headers});
   if(body.action==="mine")return Response.json({orders:service.mine(actor!)},{headers});
   if(body.action==="claim")return Response.json({order:await service.claim(body.id,body.token,actor!,JSON.stringify(body.event))},{headers});
+  if(body.action==="acknowledge-recovery")return Response.json({order:await service.acknowledgeRecovery(body.id,body.token)},{headers});
   if(body.action==="status")return Response.json({order:await service.status(body.id,body.token)},{headers});
   // Caddy appends the connecting address on the right; never trust a supplied leftmost IP.
   const client=request.headers.get("x-forwarded-for")?.split(",").at(-1)?.trim()||"unknown";
