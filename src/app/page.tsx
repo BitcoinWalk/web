@@ -3,11 +3,12 @@ import {redirect} from "next/navigation";
 import CityDirectory from "../components/city-directory";
 import {paidCityForHost} from "../domain/event-routing";
 import {directoryConfig} from "../lib/directory-config";
+import {loadHomeSponsoredWalks} from "../server/home-sponsored-walks";
 
 export const dynamic="force-dynamic";
 
 export default async function HomePage(){
   const paid=paidCityForHost((await headers()).get("host"),directoryConfig.paidCities);
-  if(!paid)return <CityDirectory/>;
+  if(!paid)return <CityDirectory sponsoredWalks={await loadHomeSponsoredWalks()}/>;
   redirect(`https://bitcoinwalk.org/${encodeURIComponent(paid.slug)}`);
 }
