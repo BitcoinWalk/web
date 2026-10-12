@@ -11,11 +11,12 @@ const row:CityIdentityHealth={cityId:"city",cityName:"Madeira",slug:"madeira",av
 
 describe("city identity health UI",()=>{
  it("summarizes complete Pro cities and exposes a recheck action",()=>{
-  const pilot={...row,cityId:"test",cityName:"Islamabad",tier:"pilot" as const};
+ const pilot={...row,cityId:"test",cityName:"Islamabad",tier:"pilot" as const};
   const missing={...row,cityId:"wuerzburg",cityName:"Würzburg",slug:"wuerzburg",availableInEnvironment:false,status:"not-configured" as const};
   const html=renderToStaticMarkup(createElement(CityIdentityHealthOverview,{rows:[row,pilot,missing],busy:false,onRecheck:()=>{},onReview:()=>{}}));
   expect(html).toContain("1 of 2 Pro cities complete");
-  expect(html).toContain("1 test identity");
+  expect(html).not.toContain("Islamabad");
+  expect(html).toContain("Paid Pro city");
   expect(html).toContain("Würzburg");
   expect(html).toContain("Open production city");
   expect(html).toContain("Review Madeira");

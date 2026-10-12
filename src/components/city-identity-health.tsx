@@ -31,13 +31,12 @@ function IdentityActions({row,busy=false,onRecheck,onOpenCity}:{row:CityIdentity
 
 export function CityIdentityHealthOverview({rows,busy,error,onRecheck,onReview}:{rows:CityIdentityHealth[];busy:boolean;error?:string;onRecheck():void;onReview(cityId:string):void}){
  const [expanded,setExpanded]=useState<string>("");
- const pro=rows.filter(row=>row.tier==="pro"),complete=pro.filter(row=>row.status==="complete").length,pilots=rows.filter(row=>row.tier==="pilot"),identities=[...pro,...pilots];
+ const pro=rows.filter(row=>row.tier==="pro"),complete=pro.filter(row=>row.status==="complete").length;
  return <section aria-labelledby="city-identity-health-heading" style={{border:"1px solid #d7dce2",borderRadius:"0.65rem",padding:"1rem",margin:"1rem 0"}}>
   <h3 id="city-identity-health-heading" style={{marginTop:0}}>City identity health</h3>
   <p><strong>{complete} of {pro.length} Pro {pro.length===1?"city":"cities"} complete</strong>. Basic cities are not required to have a separate city identity.</p>
-  {!!pilots.length&&<p><strong>{pilots.length} test {pilots.length===1?"identity":"identities"}</strong> shown separately; staging pilots do not count as paid production cities.</p>}
-  {!!identities.length&&<ul style={{listStyle:"none",padding:0,display:"grid",gap:"0.75rem"}}>{identities.map(row=><li key={`${row.tier}-${row.cityId}`} style={{border:"1px solid #d7dce2",borderRadius:"0.5rem",padding:"0.75rem"}}>
-   <p style={{marginTop:0}}><strong>{row.cityName}</strong> · {row.tier==="pro"?"Pro city":"Test identity"} · <Status row={row}/></p>
+  {!!pro.length&&<ul style={{listStyle:"none",padding:0,display:"grid",gap:"0.75rem"}}>{pro.map(row=><li key={row.cityId} style={{border:"1px solid #d7dce2",borderRadius:"0.5rem",padding:"0.75rem"}}>
+   <p style={{marginTop:0}}><strong>{row.cityName}</strong> · Paid Pro city · <Status row={row}/></p>
    <p>{row.availableInEnvironment?"This city can be reviewed in the current environment.":"This paid production city is not present in the staging city directory; its inventory status is still shown here."}</p>
    <button type="button" disabled={busy} aria-expanded={expanded===row.cityId} aria-controls={`identity-review-${row.cityId}`} onClick={()=>setExpanded(value=>value===row.cityId?"":row.cityId)}>{expanded===row.cityId?"Close review":`Review ${row.cityName}`}</button>{" "}{!row.availableInEnvironment?<a href={`https://bitcoinwalk.org/${row.slug}`} target="_blank" rel="noreferrer">Open production city ↗</a>:null}
    {expanded===row.cityId?<div id={`identity-review-${row.cityId}`}><CityIdentityHealthDetails row={row} onRecheck={onRecheck} busy={busy} onOpenCity={()=>onReview(row.cityId)}/></div>:null}

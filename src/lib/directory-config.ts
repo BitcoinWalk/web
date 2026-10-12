@@ -6,6 +6,7 @@ import type { PaidDirectoryCity } from "../domain/directory";
 export const directoryConfig:{paidCities:Record<string,PaidDirectoryCity>}={paidCities:{
   "ca2f9905-fb4d-4948-a12c-c792b28ec7c8":{slug:"london",cityName:"London",featured:false,subdomainReady:true},
   "8e136ccb-923b-41aa-a6d1-1290b0b3a014":{slug:"wuerzburg",cityName:"Würzburg",aliases:["wurzburg"],featured:false,subdomainReady:false},
+  "e62592ac-a5fc-42df-8f31-94416f6ee8d5":{slug:"graz",cityName:"Graz",featured:false,subdomainReady:false},
 }};
 
 const comparable=(value:string)=>value.normalize("NFKD").replace(/\p{M}/gu,"").toLowerCase().trim();
