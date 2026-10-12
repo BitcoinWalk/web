@@ -39,11 +39,13 @@ NIP-57 capability and callback already operated by the destination wallet while
 retaining the public BitcoinWalk identifier and description.
 
 The adapter accepts only the pinned HTTPS GetAlby endpoint, exact callback path,
-valid amount range, NIP-57 capability and 64-character lowercase signer key. It
-fails closed on unavailable or changed metadata. A signed 10-sat BitcoinWalk
-profile zap request produced an unpaid invoice during pre-deployment
-verification; no test invoice was paid. Managed Pro-city callbacks and their
-79/21 receipts remain unchanged.
+valid amount range, NIP-57 capability and exact reviewed signer key. It fails
+closed on unavailable or changed metadata. A signed Primal-style 10-sat
+BitcoinWalk profile zap request produced an unpaid production invoice whose
+description hash matched the exact request; no test invoice was paid. Managed
+Pro-city callbacks and their 79/21 receipts remain unchanged. Production app
+`0.3.294` rollback evidence is
+`/home/bitcoinwalk/backups/app-production-deploy.v8UHRs`.
 
 ## Decision
 
