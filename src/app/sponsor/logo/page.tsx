@@ -1,2 +1,2 @@
 import {redirect} from "next/navigation";
-export default function LegacySponsorUpload(){redirect("/admin/sponsors");}
+export default function LegacySponsorUpload(){redirect("/admin/sponsor");}

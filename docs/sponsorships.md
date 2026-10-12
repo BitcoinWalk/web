@@ -31,7 +31,7 @@ The browser keeps a random checkout recovery key; only its SHA-256 is stored
 server-side. It can be exported/imported as a private recovery file. Claims require
 both that key and a fresh order/site-bound Nostr signature, and cannot transfer
 an already-associated order to a different identity. Background checks continue
-after the browser closes. `/admin/sponsors/payments` lists payments by identity,
+after the browser closes. The **Payments** tab at `/admin/sponsor` lists payments by identity,
 including paid orders awaiting identity and existing sponsors without recorded
 payments. Access requires a super-admin signature.
 

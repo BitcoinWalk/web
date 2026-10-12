@@ -86,13 +86,13 @@ try{
     const page=await fetch(`${base}${path}`,{signal:AbortSignal.timeout(5000)});
     if(!page.ok || !(await page.text()).includes(label))throw new Error(`Packaged route failed: ${path}`);
   }
-  for(const [path,label] of [["/sponsor?city=Warszawa","Choose the city and the walk"],["/admin/sponsors/payments","Your account"],["/admin/sponsors/upload","Your account"],["/admin/sponsors/logos","Your account"]]){
+  for(const [path,label] of [["/sponsor?city=Warszawa","Choose the city and the walk"],["/admin/sponsor","Your account"],["/admin/sponsors","Your account"],["/admin/sponsors/payments","Your account"],["/admin/sponsors/upload","Your account"],["/admin/sponsors/logos","Your account"]]){
     const page=await fetch(`${base}${path}`,{signal:AbortSignal.timeout(5000)});
     if(!page.ok||!(await page.text()).includes(label))throw new Error(`Sponsor route failed: ${path}`);
   }
-  for(const path of ["/sponsor/logo","/admin/sponsors/upload","/admin/sponsors/logos"]){
+  for(const path of ["/sponsor/logo","/admin/sponsors/payments","/admin/sponsors/upload","/admin/sponsors/logos"]){
     const legacy=await fetch(`${base}${path}`,{redirect:"manual",signal:AbortSignal.timeout(5000)});
-    if(legacy.status!==307||legacy.headers.get("location")!=="/admin/sponsors")throw new Error("Old sponsor URL did not redirect into the unified page.");
+    if(legacy.status!==307||legacy.headers.get("location")!=="/admin/sponsor")throw new Error("Old sponsor URL did not redirect into the unified page.");
   }
   for(const [path,status] of [["/api/sponsors/logo",401],["/api/sponsors/logo/review",403],["/api/sponsors/assets",403]]){
     const response=await fetch(`${base}${path}`,{method:"POST",headers:{"Content-Type":"application/json"},body:"{}",signal:AbortSignal.timeout(5000)});

@@ -7,8 +7,8 @@ const nextConfig: NextConfig = {
   serverExternalPackages: ["sharp"],
   poweredByHeader: false,
   async redirects() {
-    return ["/sponsor/logo", "/admin/sponsors/upload", "/admin/sponsors/logos"].map(source => ({
-      source, destination: "/admin/sponsors", permanent: false,
+    return ["/sponsor/logo", "/admin/sponsors/payments", "/admin/sponsors/upload", "/admin/sponsors/logos"].map(source => ({
+      source, destination: "/admin/sponsor", permanent: false,
     }));
   },
   // Type checking runs before `next build`. This avoids a Node 26 child-process

@@ -1,2 +1,2 @@
-import SponsorPayments from "../../../../components/sponsor-payments";
-export default function SponsorPaymentsPage(){return <main><SponsorPayments/></main>;}
+import {redirect} from "next/navigation";
+export default function SponsorPaymentsAlias(){redirect("/admin/sponsor");}

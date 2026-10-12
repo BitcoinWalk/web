@@ -7,7 +7,7 @@ export const dashboardItems=[
  {href:"/admin/walks",label:"Walks",access:"connected"},
  {href:"/admin/organizers",label:"Organizers",access:"admin"},
  {href:"/admin/content",label:"Content",access:"admin"},
- {href:"/admin/sponsors",label:"Sponsors",access:"admin"},
+ {href:"/admin/sponsor",label:"Sponsor",access:"admin"},
  {href:"/admin/directory",label:"City relay setup",access:"relay"},
  {href:"/admin/monitoring/alerts",label:"Monitoring",access:"admin"},
 ] as const;
@@ -20,6 +20,6 @@ export function dashboardMenuLabel(href:string,label:string,role:DashboardRole,b
  if(href==="/admin/walks"&&role==="organizer")return `My walks (${badges.walks??"?"})`;
  return label;
 }
-export function dashboardAccess(path:string,role:DashboardRole){if(path==="/admin/upgrade"||path==="/admin/pro-setup"||path==="/admin/madeira-pilot")return role!=="disconnected";if(path==="/admin/sponsors")return role!=="disconnected";if(path.startsWith("/admin/sponsors/"))return role==="super-admin";if(path==="/admin/alerts")return role==="super-admin";if(path==="/admin/accept-invitation"||path==="/admin/appearance"||Object.hasOwn(legacyDashboardRoutes,path))return true;if(path==="/admin/monitoring"||path.startsWith("/admin/monitoring/"))return role==="super-admin";return dashboardNavigation(role).some(item=>item.href===path);}
+export function dashboardAccess(path:string,role:DashboardRole){if(path==="/admin/upgrade"||path==="/admin/pro-setup"||path==="/admin/madeira-pilot")return role!=="disconnected";if(path==="/admin/sponsor"||path==="/admin/sponsors")return role!=="disconnected";if(path.startsWith("/admin/sponsors/"))return role==="super-admin";if(path==="/admin/alerts")return role==="super-admin";if(path==="/admin/accept-invitation"||path==="/admin/appearance"||Object.hasOwn(legacyDashboardRoutes,path))return true;if(path==="/admin/monitoring"||path.startsWith("/admin/monitoring/"))return role==="super-admin";return dashboardNavigation(role).some(item=>item.href===path);}
 export const legacyDashboardRoutes:Record<string,string>={"/organizer":"/admin/walks","/organizer/events":"/admin/walks","/organizer/invitations":"/admin/accept-invitation","/organizer/team":"/admin/walks","/admin/calendar":"/admin/walks","/admin/hosting":"/admin/walks","/admin/approvals":"/admin/requests","/admin/moderation":"/admin/walks?tab=moderation","/admin/editors":"/admin/organizers?tab=editors","/admin/invitations":"/admin/organizers?tab=invitations"};
 export function legacyDashboardHref(path:string,search="",hash=""){const target=legacyDashboardRoutes[path];if(!target)throw new Error("Unknown legacy dashboard route");return target+(search?target.includes("?")?`&${search.slice(1)}`:search:"")+hash;}
