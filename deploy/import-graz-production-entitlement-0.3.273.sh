@@ -5,9 +5,10 @@ umask 077
 test "$(id -un)" = bitcoinwalk || { echo "Run as bitcoinwalk, not root." >&2; exit 1; }
 test "$#" -eq 0 || { echo "Usage: $0" >&2; exit 1; }
 cd "$(dirname "$0")"
-sha256sum -c GRAZ-PRODUCTION-ENTITLEMENT-0.3.272-SHA256SUMS
+sha256sum -c GRAZ-PRODUCTION-ENTITLEMENT-0.3.273-SHA256SUMS
 
 runtime=/opt/bitcoinwalk-app-staging/runtime/bin/node
+backup_helper=/home/bitcoinwalk/bin/backup-sqlite-online.mjs
 importer="$PWD/import-graz-production-entitlement.cjs"
 source=/var/lib/bitcoinwalk-app-staging/payments.sqlite
 target=/home/bitcoinwalk/.local/state/bitcoinwalk-production/payments.sqlite
@@ -15,7 +16,7 @@ unit=bitcoinwalk-app-production.service
 health=http://127.0.0.1:3345/api/healthz
 backup=$(mktemp -d /home/bitcoinwalk/backups/graz-production-entitlement.XXXXXX)
 
-for file in "$runtime" "$importer" "$source" "$target";do test -f "$file" && test ! -L "$file";done
+for file in "$runtime" "$backup_helper" "$importer" "$source" "$target";do test -f "$file" && test ! -L "$file";done
 systemctl --user is-active --quiet "$unit"
 curl -fsS --max-time 10 "$health" >"$backup/health.before.json"
 grep -q '"status":"ok"' "$backup/health.before.json"
@@ -23,7 +24,7 @@ curl -fsS --max-time 15 https://bitcoinwalk.org/graz >"$backup/graz.before.html"
 grep -q 'BitcoinWalk Graz' "$backup/graz.before.html"
 "$runtime" "$importer" --verify-only | tee "$backup/verify.before.txt"
 grep -q 'GRAZ_ENTITLEMENT_VERIFY_OK already_present=false' "$backup/verify.before.txt"
-/home/bitcoinwalk/bin/backup-sqlite-online.mjs "$target" "$backup/payments.before.sqlite"
+"$runtime" "$backup_helper" "$target" "$backup/payments.before.sqlite"
 
 completed=false
 recover(){ status=$?;trap - EXIT HUP INT TERM

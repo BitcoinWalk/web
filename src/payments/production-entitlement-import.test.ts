@@ -25,6 +25,6 @@ it("verifies, atomically imports and exactly retries a pristine settled entitlem
 it("rejects partial collisions and setup that has progressed",()=>{const f=fixture();f.target.prepare("INSERT INTO paid_city_entitlement VALUES(?,?,?,?,?)").run(cityId,f.expected.owner,hash,invoiceId,now-10);
  expect(()=>importSettledCityEntitlement(f.source,f.target,f.expected,false)).toThrow("conflicting");f.target.prepare("DELETE FROM paid_city_entitlement").run();f.source.prepare("UPDATE pro_setup_task SET brandVersion=1 WHERE cityId=?").run(cityId);
  expect(()=>importSettledCityEntitlement(f.source,f.target,f.expected,false)).toThrow("no longer pristine");});
-it("ships a non-root, backup-first and rollback-safe production installer",()=>{const script=readFileSync("deploy/import-graz-production-entitlement-0.3.272.sh","utf8");
- for(const value of ["Run as bitcoinwalk, not root","sha256sum -c","--verify-only","backup-sqlite-online.mjs","systemctl --user stop","payments.before.sqlite","GRAZ_ENTITLEMENT_IMPORT_OK created=true","https://bitcoinwalk.org/graz"])expect(script).toContain(value);
+it("ships a non-root, backup-first and rollback-safe production installer",()=>{const script=readFileSync("deploy/import-graz-production-entitlement-0.3.273.sh","utf8");
+ for(const value of ["Run as bitcoinwalk, not root","sha256sum -c","--verify-only","\"$runtime\" \"$backup_helper\"","systemctl --user stop","payments.before.sqlite","GRAZ_ENTITLEMENT_IMPORT_OK created=true","https://bitcoinwalk.org/graz"])expect(script).toContain(value);
  expect(script).not.toContain("sudo ");});
