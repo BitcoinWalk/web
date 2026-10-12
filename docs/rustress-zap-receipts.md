@@ -28,6 +28,23 @@ this presentation slice is accepted.
 
 Last reviewed: 11 October 2026
 
+## Standalone HQ aliases — 13 October 2026
+
+`donate@bitcoinwalk.org` and `endo@bitcoinwalk.org` remain no-split aliases for
+the existing `bitcoinwalk@getalby.com` receiver. Their original Rustress
+metadata exposed ordinary LNURL-pay only, which meant native clients such as
+Primal correctly refused to request a Nostr zap invoice. App `0.3.294` resolves
+this without creating another provider identity: discovery advertises the exact
+NIP-57 capability and callback already operated by the destination wallet while
+retaining the public BitcoinWalk identifier and description.
+
+The adapter accepts only the pinned HTTPS GetAlby endpoint, exact callback path,
+valid amount range, NIP-57 capability and 64-character lowercase signer key. It
+fails closed on unavailable or changed metadata. A signed 10-sat BitcoinWalk
+profile zap request produced an unpaid invoice during pre-deployment
+verification; no test invoice was paid. Managed Pro-city callbacks and their
+79/21 receipts remain unchanged.
+
 ## Decision
 
 BitcoinWalk will use one dedicated NIP-57 provider identity to authorize zap

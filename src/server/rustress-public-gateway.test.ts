@@ -45,9 +45,18 @@ describe("managed public city gateway",()=>{
     expect(await (await managedNip05("madeira",deps)).json()).toEqual({names:{}});
     expect((await managedLnurl("madeira","/.well-known/lnurlp/madeira","",deps)).status).toBe(200);
     expect(f.transport).toHaveBeenCalledTimes(1);expect(String(f.transport.mock.calls[0][0])).toContain("lnurlp");});
-  it("proxies an explicitly installed standalone address without inventing NIP-05",async()=>{const db=new DatabaseSync(":memory:");dbs.push(db);installStandaloneAddress(db,{version:1,domain:"bitcoinwalk.org",localPart:"donate",walletRef:"bitcoinwalk-rustress",receivingDestination:"bitcoinwalk@getalby.com",invoiceIssuance:"enabled"});
-    const transport=vi.fn<typeof fetch>(async()=>new Response(JSON.stringify({tag:"payRequest",callback:"https://bitcoinwalk.org/lnurlp/donate/callback",metadata:"[]",minSendable:1000,maxSendable:1_000_000_000}),{headers:{"Content-Type":"application/json"}})),deps={db,transport,origin:"http://127.0.0.1:18895",nip05Enabled:()=>true,lnurlEnabled:()=>true};
-    expect(await (await managedNip05("donate",deps)).json()).toEqual({names:{}});expect((await managedLnurl("donate","/.well-known/lnurlp/donate","",deps)).status).toBe(200);expect(transport).toHaveBeenCalledTimes(1);});
+  it("advertises the exact Nostr-capable receiver for standalone aliases without inventing NIP-05",async()=>{const db=new DatabaseSync(":memory:");dbs.push(db);installStandaloneAddress(db,{version:1,domain:"bitcoinwalk.org",localPart:"donate",walletRef:"bitcoinwalk-rustress",receivingDestination:"bitcoinwalk@getalby.com",invoiceIssuance:"enabled"});
+    const transport=vi.fn<typeof fetch>(async()=>new Response(JSON.stringify({tag:"payRequest",callback:"https://bitcoinwalk.org/lnurlp/donate/callback",metadata:"[]",minSendable:1000,maxSendable:1_000_000_000}),{headers:{"Content-Type":"application/json"}}));
+    const signer="79f00d3f5a19ec806189fcab03c1be4ff81d18ee4f653c88fac41fe03570f432",aliasTransport=vi.fn<typeof fetch>(async()=>new Response(JSON.stringify({tag:"payRequest",callback:"https://getalby.com/lnurlp/bitcoinwalk/callback",metadata:"[]",minSendable:1000,maxSendable:10_000_000_000,allowsNostr:true,nostrPubkey:signer}),{headers:{"Content-Type":"application/json"}})),deps={db,transport,aliasTransport,origin:"http://127.0.0.1:18895",nip05Enabled:()=>true,lnurlEnabled:()=>true};
+    expect(await (await managedNip05("donate",deps)).json()).toEqual({names:{}});const discovery=await managedLnurl("donate","/.well-known/lnurlp/donate","",deps),body=await discovery.json();
+    expect(discovery.status).toBe(200);expect(discovery.headers.get("access-control-allow-origin")).toBe("*");expect(body).toMatchObject({allowsNostr:true,nostrPubkey:signer,callback:"https://getalby.com/lnurlp/bitcoinwalk/callback",metadata:JSON.stringify([["text/identifier","donate@bitcoinwalk.org"],["text/plain","Support BitcoinWalk"]])});
+    expect(aliasTransport).toHaveBeenCalledTimes(1);expect(transport).not.toHaveBeenCalled();
+    expect((await managedLnurl("donate","/lnurlp/donate/callback","?amount=1000",deps)).status).toBe(200);expect(transport).toHaveBeenCalledTimes(1);
+  });
+  it("fails a standalone Nostr discovery closed when the backing receiver is invalid",async()=>{const db=new DatabaseSync(":memory:");dbs.push(db);installStandaloneAddress(db,{version:1,domain:"bitcoinwalk.org",localPart:"donate",walletRef:"bitcoinwalk-rustress",receivingDestination:"bitcoinwalk@getalby.com",invoiceIssuance:"enabled"});
+    const transport=vi.fn<typeof fetch>(),aliasTransport=vi.fn<typeof fetch>(async()=>new Response(JSON.stringify({tag:"payRequest",callback:"https://evil.example/callback",minSendable:1000,maxSendable:1000,allowsNostr:true,nostrPubkey:"f".repeat(64)}),{headers:{"Content-Type":"application/json"}})),deps={db,transport,aliasTransport,origin:"http://127.0.0.1:18895",nip05Enabled:()=>true,lnurlEnabled:()=>true};
+    expect((await managedLnurl("donate","/.well-known/lnurlp/donate","",deps)).status).toBe(503);expect(transport).not.toHaveBeenCalled();
+  });
   it("keeps the legacy bounded activation switch compatible and requires the exact pilot mode",()=>{
     const previous={mode:process.env.BITCOINWALK_RUSTRESS_MANAGED_MADEIRA_PILOT,legacy:process.env.BITCOINWALK_RUSTRESS_ACTIVATION_ENABLED,nip05:process.env.BITCOINWALK_RUSTRESS_NIP05_ENABLED,lnurl:process.env.BITCOINWALK_RUSTRESS_LNURL_ENABLED};
     try{process.env.BITCOINWALK_RUSTRESS_MANAGED_MADEIRA_PILOT="activation-v1";process.env.BITCOINWALK_RUSTRESS_ACTIVATION_ENABLED="1";delete process.env.BITCOINWALK_RUSTRESS_NIP05_ENABLED;delete process.env.BITCOINWALK_RUSTRESS_LNURL_ENABLED;
@@ -55,7 +64,9 @@ describe("managed public city gateway",()=>{
       delete process.env.BITCOINWALK_RUSTRESS_ACTIVATION_ENABLED;process.env.BITCOINWALK_RUSTRESS_NIP05_ENABLED="1";
       expect(gatewayTest.publicCapabilityEnabled("NIP05")).toBe(true);expect(gatewayTest.publicCapabilityEnabled("LNURL")).toBe(false);
       process.env.BITCOINWALK_RUSTRESS_MANAGED_MADEIRA_PILOT="reservation-v1";expect(gatewayTest.publicCapabilityEnabled("NIP05")).toBe(false);
-    }finally{for(const [key,value] of Object.entries({BITCOINWALK_RUSTRESS_MANAGED_MADEIRA_PILOT:previous.mode,BITCOINWALK_RUSTRESS_ACTIVATION_ENABLED:previous.legacy,BITCOINWALK_RUSTRESS_NIP05_ENABLED:previous.nip05,BITCOINWALK_RUSTRESS_LNURL_ENABLED:previous.lnurl}))value===undefined?delete process.env[key]:process.env[key]=value;}
+    }finally{for(const [key,value] of Object.entries({BITCOINWALK_RUSTRESS_MANAGED_MADEIRA_PILOT:previous.mode,BITCOINWALK_RUSTRESS_ACTIVATION_ENABLED:previous.legacy,BITCOINWALK_RUSTRESS_NIP05_ENABLED:previous.nip05,BITCOINWALK_RUSTRESS_LNURL_ENABLED:previous.lnurl})){
+      if(value===undefined)delete process.env[key];else process.env[key]=value;
+    }}
   });
   it("preserves the canonical virtual host over a loopback-only transport",async()=>{
     const server=createServer((request,response)=>{response.setHeader("Content-Type","application/json");response.setHeader("Access-Control-Allow-Origin","*");response.end(JSON.stringify({host:request.headers.host}));});

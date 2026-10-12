@@ -5,13 +5,14 @@ import {activeNamedIdentity,activePublicIdentity,activeRootIdentity,type PublicI
 import {getPaymentRuntime} from "../payments/runtime";
 import {activeStandaloneAddress} from "../rustress/standalone-address-store";
 
-type Dependencies={db:DatabaseSync;origin:string;transport:JsonTransport;nip05Enabled?:()=>boolean;lnurlEnabled?:()=>boolean;standaloneLnurlEnabled?:()=>boolean};
+type Dependencies={db:DatabaseSync;origin:string;transport:JsonTransport;aliasTransport?:JsonTransport;nip05Enabled?:()=>boolean;lnurlEnabled?:()=>boolean;standaloneLnurlEnabled?:()=>boolean};
 const label=/^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 function publicCapabilityEnabled(capability:"NIP05"|"LNURL"){
   if(process.env.BITCOINWALK_RUSTRESS_MANAGED_MADEIRA_PILOT!=="activation-v1")return false;
   return process.env[`BITCOINWALK_RUSTRESS_${capability}_ENABLED`]==="1"||process.env.BITCOINWALK_RUSTRESS_ACTIVATION_ENABLED==="1";
 }
 function dependencies():Dependencies{return {db:getPaymentRuntime().store.db,origin:process.env.BITCOINWALK_RUSTRESS_MANAGED_ORIGIN??"",transport:loopbackVirtualHostRequest,
+  aliasTransport:fetch,
   nip05Enabled:()=>publicCapabilityEnabled("NIP05"),lnurlEnabled:()=>publicCapabilityEnabled("LNURL"),standaloneLnurlEnabled:()=>process.env.BITCOINWALK_RUSTRESS_STANDALONE_LNURL_ENABLED==="1"};}
 function activeConfig(localPart:string,db:DatabaseSync):ProvisionConfig|null{
   if(!label.test(localPart)||localPart.length>63)return null;
@@ -33,6 +34,23 @@ async function provider(path:string,config:Pick<ProvisionConfig,"domain">,deps:D
   catch{return null;}finally{await reader.cancel();}
 }
 const headers={"Cache-Control":"no-store","Content-Type":"application/json; charset=utf-8"};
+const zapAliasEndpoint="https://getalby.com/.well-known/lnurlp/bitcoinwalk";
+const zapAliasSigner="79f00d3f5a19ec806189fcab03c1be4ff81d18ee4f653c88fac41fe03570f432";
+async function standaloneZapMetadata(localPart:string,transport:JsonTransport){
+  let response:Response;try{response=await transport(zapAliasEndpoint,{method:"GET",redirect:"error",cache:"no-store",signal:AbortSignal.timeout(5000),headers:{Accept:"application/json"}});}catch{return null;}
+  if(!response.ok||!/^application\/json(?:\s*;|$)/i.test(response.headers.get("content-type")??"")){await response.body?.cancel();return null;}
+  const reader=response.body?.getReader();if(!reader)return null;const decoder=new TextDecoder();let text="",bytes=0;
+  try{for(;;){const part=await reader.read();if(part.done)break;bytes+=part.value.length;if(bytes>65_536)return null;text+=decoder.decode(part.value,{stream:true});}text+=decoder.decode();
+    const value=JSON.parse(text) as Record<string,unknown>,callback=new URL(String(value.callback));
+    if(value.tag!=="payRequest"||value.allowsNostr!==true||value.nostrPubkey!==zapAliasSigner||
+      !Number.isSafeInteger(value.minSendable)||!Number.isSafeInteger(value.maxSendable)||Number(value.minSendable)<1||Number(value.maxSendable)<Number(value.minSendable)||
+      callback.protocol!=="https:"||callback.hostname!=="getalby.com"||callback.port||callback.username||callback.password||callback.pathname!=="/lnurlp/bitcoinwalk/callback"||callback.hash)
+      return null;
+    return {tag:"payRequest",callback:callback.href,minSendable:value.minSendable,maxSendable:value.maxSendable,
+      metadata:JSON.stringify([["text/identifier",`${localPart}@bitcoinwalk.org`],["text/plain",localPart==="donate"?"Support BitcoinWalk":"Support Endo at BitcoinWalk"]]),
+      allowsNostr:true,nostrPubkey:value.nostrPubkey};
+  }catch{return null;}finally{await reader.cancel();}
+}
 export async function managedNip05(name:string,deps=dependencies()){
   if(deps.nip05Enabled&&!deps.nip05Enabled())return Response.json({names:{}},{headers:{...headers,"Access-Control-Allow-Origin":"*"}});
   const root=name==="_"?activeRootIdentity(deps.db):null;
@@ -50,6 +68,10 @@ export async function managedLnurl(localPart:string,path:string,search="",deps=d
   if(city&&deps.lnurlEnabled&&!deps.lnurlEnabled()||standalone&&deps.standaloneLnurlEnabled&&!deps.standaloneLnurlEnabled())return Response.json({status:"ERROR",reason:"Address not found"},{status:404,headers});
   const config=city??standalone,allowed=path===`/.well-known/lnurlp/${localPart}`||path===`/lnurlp/${localPart}`||path.startsWith(`/lnurlp/${localPart}/`);
   if(!config||!allowed||search.length>2048||path.includes("..")||!/^\/[A-Za-z0-9._~!$&'()*+,;=:@%/-]+$/.test(path))return Response.json({status:"ERROR",reason:"Address not found"},{status:404,headers});
+  if(standalone&&search===""&&(path===`/.well-known/lnurlp/${localPart}`||path===`/lnurlp/${localPart}`)){
+    const metadata=await standaloneZapMetadata(localPart,deps.aliasTransport??fetch);
+    return metadata?Response.json(metadata,{headers:{...headers,"Access-Control-Allow-Origin":"*"}}):Response.json({status:"ERROR",reason:"Payment service unavailable"},{status:503,headers});
+  }
   const text=await provider(path+search,config,deps);return text===null?Response.json({status:"ERROR",reason:"Payment service unavailable"},{status:503,headers}):new Response(text,{headers});
 }
-export const gatewayTest={activeConfig,publicCapabilityEnabled,loopbackTransport:loopbackVirtualHostRequest};
+export const gatewayTest={activeConfig,publicCapabilityEnabled,loopbackTransport:loopbackVirtualHostRequest,standaloneZapMetadata};
