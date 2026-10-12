@@ -2,7 +2,7 @@ import {describe,expect,it} from "vitest";
 import {classifyCityIdentityTier,summarizeCityIdentityHealth,type CityIdentityHealthEvidence} from "./pro-city-identity-health";
 
 const base=(overrides:Partial<CityIdentityHealthEvidence>={}):CityIdentityHealthEvidence=>({
- cityId:"11111111-1111-4111-8111-111111111111",cityName:"Madeira",slug:"madeira",tier:"pro",checkedAt:100,
+ cityId:"11111111-1111-4111-8111-111111111111",cityName:"Madeira",slug:"madeira",availableInEnvironment:true,tier:"pro",checkedAt:100,
  task:{cityId:"11111111-1111-4111-8111-111111111111",state:"ready-for-proof",signer:{pubkey:"a".repeat(64),version:1,confirmedAt:80},createdAt:1,updatedAt:90},
  active:{eventId:"b".repeat(64),verifiedAt:85,challenge:{binding:{brandPubkey:"a".repeat(64)},profile:{}} as never},binding:"pass",
  profile:{reachable:3,matching:3,nip05:3,lightning:3},capabilities:{overall:"active",nip05:"active",lightning:"active",retryable:false,detail:"verified"},nip05Verified:true,activationUpdatedAt:95,...overrides,
