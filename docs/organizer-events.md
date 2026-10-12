@@ -17,6 +17,10 @@ each city, while Upcoming and Past isolate published walks. Chronological city
 grouping and hosted-walk context are preserved. Older canceled records still use
 the cancellation date with the existing explanatory notice.
 
+App `0.3.284` moves that selector directly below the Walks heading and reuses the
+same compact segmented-toggle presentation as the Sponsors workspace. Refresh is
+kept in the same top control row on desktop and stacks cleanly on small screens.
+
 Regression coverage exercises scheduled events after profile/hero/meeting-point
 changes, active/grace/next routing, past visibility, duplicate-prevention coverage,
 missing/unapproved/mismatched provenance, invalid signatures and revocation.

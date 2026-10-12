@@ -33,6 +33,7 @@ import {calendarDiscoverySummary,publishCalendarDiscoveryEvent,type CalendarDisc
 import {createEventModeration,latestEventModerations,moderationKey,organizerPublishingStatus,queryEventModerations,queryEventModerationsForCities,requireEventModerationRelay,walkAddress,type EventModerationRecord} from "../../../nostr/event-moderation";
 import {publishingAccessNotice,type OrganizerPublishingAccess} from "../../../domain/publishing-access";
 import {isSuperAdmin} from "../../../nostr/authority";
+import sponsorStyles from "../../admin/sponsors/sponsors.module.css";
 
 const LocationPicker = dynamic(() => import("../../../components/location-picker"), { ssr: false });
 
@@ -518,6 +519,10 @@ export default function OrganizerEventsPage({canModerate=false}:{canModerate?:bo
   const publishingBlocked=publishingAccess!=="active",publishingNotice=publishingAccessNotice(publishingAccess);
 
   return <main>
+    <div className={sponsorStyles.toolbar}>
+      <div className={sponsorStyles.statusToggle} role="group" aria-label="Filter walks">{(["all","next","upcoming","past"] as WalkListFilter[]).map(value=><button key={value} type="button" aria-pressed={walkFilter===value} disabled={busy} onClick={()=>setWalkFilter(value)}>{value==="all"?"All":value==="next"?"Next Walk":value[0].toUpperCase()+value.slice(1)}</button>)}</div>
+      <button type="button" disabled={busy} onClick={load}>{busy?"Loading walks…":"Refresh"}</button>
+    </div>
     {message&&<p role="status">{message}</p>}
     {hostingError&&<p role="alert">Hosting assignments could not be loaded: {hostingError}</p>}
     {!!owner && !!walks.length && <><button disabled={busy||publishingBlocked} onClick={openForm}>+ Add a walk</button>{publishingNotice&&<p role={publishingAccess==="suspended"?"alert":"status"}>{publishingNotice}</p>}</>}
@@ -553,8 +558,6 @@ export default function OrganizerEventsPage({canModerate=false}:{canModerate?:bo
     {cityId && plans[cityId] && <section><h2>Saved plan controls</h2><button disabled={busy||publishingBlocked} onClick={() => review(plans[cityId])}>Refresh / review saved drafts</button> <button disabled={busy||publishingBlocked} onClick={() => updateSaved({ paused: !plans[cityId].paused })}>{plans[cityId].paused ? "Resume" : "Pause"} recurring drafts</button><p>These controls use the saved plan, not unsaved form edits. Pausing does not cancel published walks.</p></section>}
     </section>}
     {!!owner&&<section>
-      <div role="group" aria-label="Filter walks">{(["all","next","upcoming","past"] as WalkListFilter[]).map(value=><button key={value} type="button" aria-pressed={walkFilter===value} onClick={()=>setWalkFilter(value)}>{value==="all"?"All":value==="next"?"Next Walk":value[0].toUpperCase()+value.slice(1)}</button>)}</div>
-      <button disabled={busy} onClick={load}>{busy?"Loading walks…":"Refresh walks"}</button>
       {draftWarnings.map(warning=><p role="alert" key={warning}>{warning}</p>)}
       {!rows.length&&<p>No walks found. Choose + Add a walk to prepare one.</p>}
       {!!rows.length&&!cities.length&&<p>No walks match this filter.</p>}
