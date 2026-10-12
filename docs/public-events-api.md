@@ -2,6 +2,11 @@
 
 `GET /api/events` is the versioned, read-only BitcoinWalk feed for third-party applications. It returns only upcoming walks belonging to a currently approved city and accepted by the same signed Nostr validation used by public walk pages.
 
+The public integration index at `/dev` also exposes the same verified dataset as:
+
+- `GET /events.ics` — an RFC 5545 iCalendar subscription with RFC 7986 event images;
+- `GET /events.xml` — an RSS 2.0 feed with BitcoinWalk event fields, WGS84 coordinates and Media RSS images.
+
 ## Response
 
 ```json
@@ -29,3 +34,5 @@
 `id` is the immutable signed Nostr event ID. `link` is the canonical BitcoinWalk occurrence page. `image` is generated through the same 1200 × 630 content-addressed OG pipeline as the public page and includes approved, currently covered sponsor artwork when applicable. The signed NIP-52 record currently stores one free-text meeting point, exposed as `address`; the optional `venue` field is reserved for a future separately structured venue value.
 
 The endpoint allows cross-origin GET requests and is cacheable for 60 seconds, with five minutes of stale-while-revalidate. It returns HTTP 503 rather than a partial or falsely empty list when authoritative relay reads or sponsor resolution cannot be completed.
+
+All formats are projections, never independent records. The signed Nostr occurrence, current city approval, moderation state and current sponsor coverage remain authoritative.
