@@ -11,6 +11,7 @@ const source = await readFile(sourcePath, "utf8");
 
 const statusOrder = ["🟠 In progress", "⚪ Planned", "○ Future", "🟢 Done", "🔴 Blocked"];
 const allowedStatuses = new Set(statusOrder);
+const statusAliases = new Map([["✅ Done", "🟢 Done"]]);
 const statusMeta = {
   "🟢 Done": { key: "done", label: "Done", summary: "Implemented and verified." },
   "🟠 In progress": { key: "progress", label: "In progress", summary: "Implementation or acceptance is underway." },
@@ -78,7 +79,8 @@ for (const line of lines) {
   }
 
   if (/^\| \d+\./.test(line)) {
-    const [name, status] = splitRow(line);
+    const [name, rawStatus] = splitRow(line);
+    const status = statusAliases.get(rawStatus) ?? rawStatus;
     if (!allowedStatuses.has(status)) throw new Error(`Unknown stage status: ${status}`);
     const match = name.match(/^(\d+)\.\s*(.+)$/);
     if (!match) throw new Error(`Invalid stage row: ${line}`);
@@ -88,7 +90,8 @@ for (const line of lines) {
 
   if (!/^\| BW-\d+ /.test(line)) continue;
   const cells = splitRow(line);
-  const [id, stage, rawTitle, status] = cells;
+  const [id, stage, rawTitle, rawStatus] = cells;
+  const status = statusAliases.get(rawStatus) ?? rawStatus;
   if (!allowedStatuses.has(status)) throw new Error(`Unknown status for ${id}: ${status}`);
   items.push({
     id,
