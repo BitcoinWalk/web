@@ -19,7 +19,7 @@ describe("city identity health UI",()=>{
   expect(html).toContain("Würzburg");
   expect(html).toContain("Open production city");
   expect(html).toContain("Review Madeira");
-  expect(html).toContain("Open identity requests");
+  expect(html).toContain('aria-expanded="false"');
   expect(html).toContain("Recheck identities");
  });
  it("keeps evidence and future publishing separate in the checklist",()=>{
@@ -28,5 +28,25 @@ describe("city identity health UI",()=>{
   expect(html).toContain("Dedicated city npub");
   expect(html).toContain("Future BW-118 scope");
   expect(html).toContain("No corrective action is required");
+ });
+ it("routes organizer-only identity work to a safe setup link",()=>{
+  const missing={...row,status:"action-required" as const,checks:[
+   {key:"identity" as const,label:"Dedicated city npub",state:"fail" as const,detail:"Missing."},
+   {key:"recovery" as const,label:"Recovery acknowledgement",state:"fail" as const,detail:"Missing."},
+  ]};
+  const html=renderToStaticMarkup(createElement(CityIdentityHealthDetails,{row:missing}));
+  expect(html).toContain("Copy organizer setup link");
+  expect(html).toContain("/admin/upgrade?city=city");
+  expect(html).not.toContain("Review activation request");
+ });
+ it("routes a completed organizer proof to activation review",()=>{
+  const pending={...row,status:"action-required" as const,checks:[
+   {key:"identity" as const,label:"Dedicated city npub",state:"pass" as const,detail:"Ready."},
+   {key:"recovery" as const,label:"Recovery acknowledgement",state:"pass" as const,detail:"Ready."},
+   {key:"binding" as const,label:"City binding",state:"fail" as const,detail:"Pending."},
+  ]};
+  const html=renderToStaticMarkup(createElement(CityIdentityHealthDetails,{row:pending}));
+  expect(html).toContain("Review activation request");
+  expect(html).not.toContain("Copy organizer setup link");
  });
 });
