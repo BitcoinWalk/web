@@ -97,6 +97,12 @@ Current action: build and privately activate the isolated production app on `.13
 - The application installer is non-root. The separate Caddy installer creates a backup and validates the merged configuration but never changes DNS.
 - The production-only npm audit on 7 October reported no critical, high or moderate vulnerabilities after `sharp` 0.35.5 and `source-map-js` 1.2.2 were installed. Three low-severity findings remain in the tested `bolt11` decoder chain; npm's proposed fix is a breaking downgrade and is not applied during cutover.
 
+### 8.2 Additive paid-city promotions
+
+Post-cutover cities must use the same immutable-event discipline instead of being recreated in production. A reviewed one-city manifest binds the exact approved revision and approval event. The additive builder copies the entire current production base, adds only the selected city's dependency-closed signed records, and verifies every signature and the exact added-event digest before an isolated read-back and live swap. Existing production events, the paid-city replication registry, entitlement ledger and journal must remain unchanged.
+
+A settled staging checkout is migrated separately from relay records. The importer requires the exact owner, city, revision, invoice and 21,000-sat amount; verifies the owner-signed registration payout authority; and accepts only a pristine `setup-required` task. It transfers the private payout suggestion so the organizer can confirm it in production, but never activates the destination, provisions an address, copies a signer secret or creates another invoice. A progressed setup needs a different reviewed migration path. Graz is the first use of this repeatable path under BW-119.
+
 ## 9. Superseded two-city proposal — 25 September 2026
 
 This proposal was superseded by the accepted 12-city/110-event production promotion on 7 October 2026. It remains below only as historical migration evidence and must not be used to rebuild current production.
