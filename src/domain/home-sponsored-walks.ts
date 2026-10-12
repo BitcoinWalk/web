@@ -22,3 +22,9 @@ export function sponsoredWalkPreview(rows:HomeSponsoredWalk[],limit=3):HomeSpons
  }
  return result;
 }
+
+export function filterHomeSponsoredWalks(rows:HomeSponsoredWalk[],query:string):HomeSponsoredWalk[]{
+ const needle=query.trim().toLocaleLowerCase();
+ if(!needle)return rows;
+ return rows.filter(row=>`${row.cityName} ${row.meetingPoint}`.toLocaleLowerCase().includes(needle));
+}

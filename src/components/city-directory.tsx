@@ -11,7 +11,7 @@ import {approvedCalendarWalks} from "../nostr/calendar-records";
 import {managedCalendarEvents} from "../domain/event-routing";
 import {DEFAULT_HOME_PAGE,HOME_PAGE_ID,type ContentPage} from "../domain/content";
 import {latestContentPages,queryContentRevisions} from "../nostr/content-records";
-import type {HomeSponsoredWalk} from "../domain/home-sponsored-walks";
+import {filterHomeSponsoredWalks,type HomeSponsoredWalk} from "../domain/home-sponsored-walks";
 import {heroObjectPosition} from "../domain/hero-presentation";
 import SponsoredWalks from "./sponsored-walks";
 import styles from "./city-directory.module.css";
@@ -52,7 +52,7 @@ export default function CityDirectory({sponsoredWalks=[]}:{sponsoredWalks?:HomeS
     });
     return ()=>{active=false;};
   },[attempt]);
-  const filtered=filterDirectory(rows,query);
+  const filtered=filterDirectory(rows,query),filteredSponsored=filterHomeSponsoredWalks(sponsoredWalks,query);
   return <main className={styles.home}>
     <nav className={styles.nav} data-compact={compactBrand}><Link className={styles.brand} data-compact={compactBrand} href="/" aria-label="BitcoinWalk homepage"><span><Image className={styles.wordmark} src="/brand/bitcoinwalk-horizontal.png" width={1690} height={312} priority alt="BitcoinWalk"/><Image className={styles.icon} src="/brand/bitcoinwalk-icon.png" width={312} height={312} priority alt="" aria-hidden="true"/></span></Link><div><Link className={styles.startButton} href="/start">Start a walk</Link><Link className={styles.connectLink} href="/admin" aria-label="Connect to your dashboard" title="Connect"><svg aria-hidden="true" viewBox="0 0 24 24" focusable="false"><path d="M9 3v4m6-4v4M7 7h10v3a5 5 0 0 1-10 0V7Zm5 8v3c0 2 1 3 3 3h2"/></svg></Link></div></nav>
     <header className={styles.hero}>{content.eyebrow&&<p className={styles.eyebrow}>{content.eyebrow}</p>}<h1>{content.title==="Good company. One walk at a time."?<>Good company.<br/>One walk at a time.</>:content.title}</h1>{content.intro&&<p>{content.intro}</p>}{content.ctaLabel&&content.ctaHref&&<a className={styles.link} href={content.ctaHref}>{content.ctaLabel}</a>}</header>
@@ -63,10 +63,9 @@ export default function CityDirectory({sponsoredWalks=[]}:{sponsoredWalks?:HomeS
       {status==="loading"&&<p role="status">Loading approved walks…</p>}
       {status==="error"&&<div role="alert"><p>{error}</p><button onClick={()=>{setStatus("loading");setAttempt(a=>a+1);}}>Try again</button></div>}
       {status==="ready"&&<><p role="status">{filtered.length} {filtered.length===1?"city":"cities"}{query?" matching your search":" approved"}.</p>
-        {!filtered.length?<p>{rows.length?"No matching cities. Try another name or clear your search.":"No approved cities are available yet."}</p>:view==="map"?<DirectoryMap cities={filtered}/>:<div className={styles.grid}>{filtered.map(row=><Card key={row.city.cityId} row={row}/>)}</div>}
+        {view==="map"?(!filtered.length?<p>{rows.length?"No matching cities. Try another name or clear your search.":"No approved cities are available yet."}</p>:<DirectoryMap cities={filtered}/>):!filtered.length&&!filteredSponsored.length?<p>{rows.length?"No matching cities. Try another name or clear your search.":"No approved cities are available yet."}</p>:<SponsoredWalks walks={filteredSponsored}>{filtered.map(row=><Card key={row.city.cityId} row={row}/>)}</SponsoredWalks>}
         <p className={styles.muted}>Times are shown in your device’s timezone. Map pins mark approved meeting points.</p></>}
     </section>
-    <SponsoredWalks walks={sponsoredWalks}/>
     <footer className={styles.footer}>{content.footerTitle&&<h2>{content.footerTitle}</h2>}{content.footerText&&<p>{content.footerText}</p>}{content.footerCtaLabel&&<Link className={styles.link} href="/start">{content.footerCtaLabel}</Link>}</footer>
   </main>;
 }
