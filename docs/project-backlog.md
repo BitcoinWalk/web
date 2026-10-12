@@ -1,9 +1,15 @@
 # BitcoinWalk delivery backlog
 
-Last reviewed: 11 October 2026
+Last reviewed: 12 October 2026
 Preproduction housekeeping: 2–3 October 2026. See `preproduction-review-2026-10-02.md`
 and `development-handover.md` for current evidence and operating context.
 Tracking rule: keep this file current whenever an item changes status, scope, dependency, or verification result. The file is the maintained source; a separate Plan task is not automatically synchronized.
+
+## Public integration feed — 12 October 2026
+
+| ID | Stage | Item | Status | Dependencies / acceptance |
+|---|---:|---|---|---|
+| BW-120 | 3, 7, 8 | Public future-events API | 🟠 In progress | BW-15, BW-39, BW-40 | Add a versioned, read-only `GET /api/events` feed for third-party applications. Return only future occurrences from currently approved cities that pass the existing signed NIP-52 validation and public moderation boundary. Each row uses the signed Nostr event ID, canonical `nevent` URL, ISO start/end, IANA time zone, signed meeting-point text and coordinates, and the current 1200 × 630 city OG image including only approved, payment-covered sponsor artwork. Fail with 503 rather than publish partial relay state; permit cross-origin reads with bounded caching. The first implementation and schema are documented in [public-events-api.md](public-events-api.md); staging/public acceptance and production rollout remain. |
 
 10 October scope reconciliation: BW-18, BW-19 and BW-100 are complete for
 implementation, bounded live acceptance, recovery and default-off deployment.
