@@ -25,7 +25,8 @@ import SponsorPayments from "../../../components/sponsor-payments";
 type WalkOption={event:Event;cityId:string;address:string;label:string};
 function pubkey(value:string):string{const clean=value.trim();if(/^[0-9a-f]{64}$/.test(clean))return clean;try{const decoded=nip19.decode(clean);if(decoded.type==="npub")return decoded.data;}catch{}throw new Error("Enter a valid sponsor npub.");}
 function localEpoch(value:string):number|undefined{if(!value)return;const time=new Date(value).getTime();if(!Number.isFinite(time))throw new Error("Enter a valid sponsorship date.");return Math.floor(time/1000);}
-export default function SponsorsPage(){
+export default function SponsorsPage(){const {role}=useDashboard();return role==="super-admin"?<SponsorAdminPage/>:<main><SponsorPayments audience="sponsor"/></main>;}
+function SponsorAdminPage(){
  const [selectedSponsor,setSelectedSponsor]=useState<{hash?:string;pubkey:string;cityId:string;scopeKey:string}|null>(null);
  const [composite,setComposite]=useState("");
  const dashboard=useDashboard(),lock=useRef(false),[rows,setRows]=useState<SponsorshipRevision[]>([]),[walks,setWalks]=useState<WalkOption[]>([]),[scope,setScope]=useState<"city"|"walk">("city"),[cityId,setCityId]=useState(""),[address,setAddress]=useState(""),[mode,setMode]=useState<Sponsorship["mode"]>("empty"),[identity,setIdentity]=useState(""),[website,setWebsite]=useState(""),[startsAt,setStartsAt]=useState(""),[endsAt,setEndsAt]=useState(""),[busy,setBusy]=useState(false),[message,setMessage]=useState("");

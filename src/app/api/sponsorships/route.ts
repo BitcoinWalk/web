@@ -11,6 +11,7 @@ const command=z.discriminatedUnion("action",[
  z.object({action:z.literal("status"),token,id:z.uuid()}).strict(),
  z.object({action:z.literal("claim"),token,id:z.uuid(),event}).strict(),
  z.object({action:z.literal("list"),event}).strict(),
+ z.object({action:z.literal("mine"),event}).strict(),
 ]);
 let catalogCache:{until:number;cities:Awaited<ReturnType<ReturnType<typeof getPaymentRuntime>["sponsors"]["available"]>>}|undefined;
 export async function GET(){try{if(!catalogCache||catalogCache.until<Date.now()){catalogCache={cities:await getPaymentRuntime().sponsors.available(),until:Date.now()+10000};}return Response.json({cities:catalogCache.cities},{headers});}catch{return Response.json({error:"Walk availability could not be loaded. Please try again shortly."},{status:503,headers});}}
@@ -19,9 +20,10 @@ export async function POST(request:Request){
  if(request.headers.get("origin")!==origin)return Response.json({error:"Origin not allowed."},{status:403,headers});
  let body:z.infer<typeof command>;try{body=command.parse(await paymentBody(request));}catch{return Response.json({error:"Invalid sponsorship request."},{status:400,headers});}
  try{
-  let actor:string|undefined;if(body.action==="list"||body.action==="claim"){try{actor=authorizeSponsor(body.event,origin,body.action,body.action==="claim"?body.id:undefined);}catch{return Response.json({error:"A valid Nostr signature is required."},{status:403,headers});}if(body.action==="list"&&actor!==SUPER_ADMIN_PUBKEY)return Response.json({error:"Super-admin access required."},{status:403,headers});}
+  let actor:string|undefined;if(body.action==="list"||body.action==="mine"||body.action==="claim"){try{actor=authorizeSponsor(body.event,origin,body.action,body.action==="claim"?body.id:undefined);}catch{return Response.json({error:"A valid Nostr signature is required."},{status:403,headers});}if(body.action==="list"&&actor!==SUPER_ADMIN_PUBKEY)return Response.json({error:"Super-admin access required."},{status:403,headers});}
   const service=getPaymentRuntime().sponsors;
   if(body.action==="list")return Response.json({orders:service.list()},{headers});
+  if(body.action==="mine")return Response.json({orders:service.mine(actor!)},{headers});
   if(body.action==="claim")return Response.json({order:await service.claim(body.id,body.token,actor!,JSON.stringify(body.event))},{headers});
   if(body.action==="status")return Response.json({order:await service.status(body.id,body.token)},{headers});
   // Caddy appends the connecting address on the right; never trust a supplied leftmost IP.
