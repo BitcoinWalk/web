@@ -3,13 +3,14 @@ import {isSuperAdmin} from "./authority";
 import type {ApprovalRecord,CityRevision} from "./city-records";
 import {createApprovalEvent} from "./city-event";
 export const ARCHIVE_NOTE="ARCHIVE_FREE_CITY: Hide this free-tier city and its calendar; retain ownership, editors and history. No relay infrastructure is deleted.";
+export const TEST_CITY_ARCHIVE_NOTE="RETIRE_STAGING_TEST_CITY: Hide this staging-only test city and its calendar; retain signed history and isolated test payment/provisioning evidence. No production entitlement or infrastructure is changed.";
 /** Archive is city-wide, independent of which revision an editor can load. */
 export function archivedCityIds(approvals:ApprovalRecord[]):Set<string>{
  const seen=new Set<string>(),archived=new Set<string>();
  for(const {approval} of [...approvals].sort((a,b)=>compareEvents(a.event,b.event))){
   if(approval.status==="rejected"||seen.has(approval.cityId))continue;
   seen.add(approval.cityId);
-  if(approval.status==="revoked"&&approval.note===ARCHIVE_NOTE)archived.add(approval.cityId);
+  if(approval.status==="revoked"&&(approval.note===ARCHIVE_NOTE||approval.note===TEST_CITY_ARCHIVE_NOTE))archived.add(approval.cityId);
  }
  return archived;
 }
@@ -39,11 +40,11 @@ export function managedCities(revisions:CityRevision[],approvals:ApprovalRecord[
   // A later rejection of this same revision hides it under the existing resolver.
   const rejected=ordered.some(d=>d.approval.cityId===a.cityId&&d.approval.cityRevisionId===a.cityRevisionId&&d.approval.status==="rejected"&&compareEvents(d.event,decision.event)<0);
   const previousApproval=ordered.find(d=>d.approval.cityId===a.cityId&&d.approval.cityRevisionId===a.cityRevisionId&&d.approval.status==="approved");
-  result.push({revision,decision,previousApproval,head:ordered.find(d=>d.approval.cityId===a.cityId)!.event.id,state:a.status==="approved"&&!rejected?"approved":a.note===ARCHIVE_NOTE?"archived":"disapproved"});
+  result.push({revision,decision,previousApproval,head:ordered.find(d=>d.approval.cityId===a.cityId)!.event.id,state:a.status==="approved"&&!rejected?"approved":a.note===ARCHIVE_NOTE||a.note===TEST_CITY_ARCHIVE_NOTE?"archived":"disapproved"});
  }return result.sort((a,b)=>a.revision.city.cityName.localeCompare(b.revision.city.cityName));
 }
 /** Restore the same signed revision and its approved presentation, never a new occurrence. */
-export function createCityModerationDecision(row:ManagedCity,action:"approve"|"disapprove"|"archive"):EventTemplate{
+export function createCityModerationDecision(row:ManagedCity,action:"approve"|"disapprove"|"archive"|"retire-test"):EventTemplate{
  const city=row.revision.city;
  const previous=row.previousApproval?.approval;
  if(previous&&(previous.cityId!==city.cityId||previous.cityRevisionId!==row.revision.event.id||previous.status!=="approved"))throw new Error("Previous approval does not match this city revision. Reload before restoring.");
@@ -51,7 +52,7 @@ export function createCityModerationDecision(row:ManagedCity,action:"approve"|"d
  if(action==="approve"&&(initial.length>1||(initial.length===1&&!/^[0-9a-f]{64}$/.test(initial[0][1]))))throw new Error("Invalid original first-walk reference. Nothing published.");
  return createApprovalEvent({cityId:city.cityId,cityRevisionId:row.revision.event.id,status:action==="approve"?"approved":"revoked",
   ...(action==="approve"?{...(initial.length===1?{initialEventId:initial[0][1]}:initial.length?{initialEventIds:initial.map(tag=>tag[1])}:{}),...(previous?.heroImageUrl?{heroImageUrl:previous.heroImageUrl}:{}),...(previous?.aliases?{aliases:previous.aliases}:{}),slug:previous?.slug??city.slug}:{}),
-  note:action==="archive"?ARCHIVE_NOTE:action==="approve"?"Restore city approval.":"DISAPPROVE: Hide the city and its calendar from public views; preserve ownership, editors and history."
+  note:action==="archive"?ARCHIVE_NOTE:action==="retire-test"?TEST_CITY_ARCHIVE_NOTE:action==="approve"?"Restore city approval.":"DISAPPROVE: Hide the city and its calendar from public views; preserve ownership, editors and history."
  });
 }
 /** Change only the super-admin-controlled public presentation of an approved city.

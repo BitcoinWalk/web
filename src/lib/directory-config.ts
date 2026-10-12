@@ -9,6 +9,13 @@ export const directoryConfig:{paidCities:Record<string,PaidDirectoryCity>}={paid
   "e62592ac-a5fc-42df-8f31-94416f6ee8d5":{slug:"graz",cityName:"Graz",featured:false,subdomainReady:false},
 }};
 
+// Exact staging fixtures retained only long enough to publish a signed retirement.
+// They never qualify as production paid-city inventory.
+export const stagingTestCityIds=new Set([
+ "52c6c6c2-ece9-4780-8364-6d3c00638f42", // Radom
+ "5c1c04f5-aead-4265-bce7-0f9ce0d9b5cd", // Islamabad
+]);
+
 const comparable=(value:string)=>value.normalize("NFKD").replace(/\p{M}/gu,"").toLowerCase().trim();
 export function configuredPaidCity(cityId:string,slugs:string[]=[]):PaidDirectoryCity|undefined{
  const exact=directoryConfig.paidCities[cityId];if(exact)return exact;
