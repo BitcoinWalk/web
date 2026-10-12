@@ -1,5 +1,5 @@
 import {describe,it,expect} from "vitest";
-import {DEFAULT_WALK_LIST_STATUSES,groupWalkRows,type WalkListStatus} from "./walk-list";
+import {DEFAULT_WALK_LIST_STATUSES,filterWalkRows,groupWalkRows,type WalkListStatus} from "./walk-list";
 import type {CalendarWalk} from "../nostr/calendar-records";
 const walk={revision:{city:{cityId:"norilsk",cityName:"Norilsk"}}} as CalendarWalk;
 const rows=[
@@ -21,5 +21,16 @@ describe("unified walk list filters",()=>{
     expect(groupWalkRows(rows,new Set(["past","canceled"]))[0][1].rows.map(row=>row.key)).toEqual(["past","canceled"]);
     expect(groupWalkRows(rows,new Set())).toEqual([]);
     expect(rows[0].key).toBe("canceled");
+  });
+  it("offers all, upcoming and past views without mutating the source",()=>{
+    expect(filterWalkRows(rows,"all").map(row=>row.key)).toEqual(["canceled","hosted","past","draft"]);
+    expect(filterWalkRows(rows,"upcoming").map(row=>row.key)).toEqual(["hosted"]);
+    expect(filterWalkRows(rows,"past").map(row=>row.key)).toEqual(["past"]);
+    expect(rows[0].key).toBe("canceled");
+  });
+  it("returns the nearest published non-past walk from every city",()=>{
+    const another={revision:{city:{cityId:"warszawa",cityName:"Warszawa"}}} as CalendarWalk;
+    const candidates=[...rows,{kind:"upcoming" as const,key:"later",at:40,walk},{kind:"upcoming" as const,key:"warszawa",at:50,walk:another}];
+    expect(filterWalkRows(candidates,"next").map(row=>row.key).sort()).toEqual(["hosted","warszawa"]);
   });
 });

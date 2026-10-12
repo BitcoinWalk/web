@@ -23,7 +23,7 @@ import { editDraftOccurrence, readRecurringPlan, saveRecurringPlan, upcomingDraf
 import { eventPageHref, managedCalendarEvents, type ManagedCalendarEvent } from "../../../domain/event-routing";
 import { reconcileOccurrences } from "../../../domain/recurrence-reconciliation";
 import { assertExactSigned,createOrganizerCancellation } from "../../../nostr/moderation";
-import {DEFAULT_WALK_LIST_STATUSES,groupWalkRows} from "../../../domain/walk-list";
+import {filterWalkRows,groupWalkRows,type WalkListFilter} from "../../../domain/walk-list";
 import {importCityImageURL} from "../../../lib/media-client";
 import {RichDescriptionEditor} from "../../../components/rich-description";
 import {calendarRoute} from "../../../nostr/calendar-records";
@@ -52,7 +52,7 @@ export default function OrganizerEventsPage({canModerate=false}:{canModerate?:bo
   const [showForm, setShowForm] = useState(false);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
-  const [visibleStatuses,setVisibleStatuses]=useState<Set<WalkListRow["kind"]>>(()=>new Set(DEFAULT_WALK_LIST_STATUSES));
+  const [walkFilter,setWalkFilter]=useState<WalkListFilter>("all");
   const [preview, setPreview] = useState<LocatedOccurrence[]>([]);
   const [coverage, setCoverage] = useState<{ planned: number; published: number; missing: number } | null>(null);
   const [meetingPoint, setMeetingPoint] = useState<LocationValue | null>(null);
@@ -513,7 +513,8 @@ export default function OrganizerEventsPage({canModerate=false}:{canModerate?:bo
   for(const {walk,item} of hosted){
     if(!rows.some(row=>row.key===`event:${item.event.id}`))rows.push({kind:item.status==="past"?"past":"upcoming",key:`event:${item.event.id}`,at:item.start,walk,item,hosted:true});
   }
-  const cities=groupWalkRows(rows,visibleStatuses);
+  const filteredRows=filterWalkRows(rows,walkFilter);
+  const cities=groupWalkRows(filteredRows,new Set(["draft","upcoming","past","canceled"]));
   const publishingBlocked=publishingAccess!=="active",publishingNotice=publishingAccessNotice(publishingAccess);
 
   return <main>
@@ -552,11 +553,11 @@ export default function OrganizerEventsPage({canModerate=false}:{canModerate?:bo
     {cityId && plans[cityId] && <section><h2>Saved plan controls</h2><button disabled={busy||publishingBlocked} onClick={() => review(plans[cityId])}>Refresh / review saved drafts</button> <button disabled={busy||publishingBlocked} onClick={() => updateSaved({ paused: !plans[cityId].paused })}>{plans[cityId].paused ? "Resume" : "Pause"} recurring drafts</button><p>These controls use the saved plan, not unsaved form edits. Pausing does not cancel published walks.</p></section>}
     </section>}
     {!!owner&&<section>
-      <div role="group" aria-label="Filter walks by status">{(["upcoming","draft","past","canceled"] as const).map(status=><button key={status} type="button" aria-pressed={visibleStatuses.has(status)} style={{opacity:visibleStatuses.has(status)?1:0.5}} onClick={()=>setVisibleStatuses(previous=>{const next=new Set(previous);if(next.has(status))next.delete(status);else next.add(status);return next;})}>{status[0].toUpperCase()+status.slice(1)}</button>)}</div>
+      <div role="group" aria-label="Filter walks">{(["all","next","upcoming","past"] as WalkListFilter[]).map(value=><button key={value} type="button" aria-pressed={walkFilter===value} onClick={()=>setWalkFilter(value)}>{value==="all"?"All":value==="next"?"Next Walk":value[0].toUpperCase()+value.slice(1)}</button>)}</div>
       <button disabled={busy} onClick={load}>{busy?"Loading walks…":"Refresh walks"}</button>
       {draftWarnings.map(warning=><p role="alert" key={warning}>{warning}</p>)}
       {!rows.length&&<p>No walks found. Choose + Add a walk to prepare one.</p>}
-      {!!rows.length&&!cities.length&&<p>No walks match the selected filters.</p>}
+      {!!rows.length&&!cities.length&&<p>No walks match this filter.</p>}
       {cities.map(([id,city])=><section key={id}><h3>{city.name}</h3><ol>{city.rows.map(row=><li key={row.key}>
         <strong>{row.kind==="draft"?"DRAFT":row.kind==="canceled"?"CANCELED":row.kind==="past"?"PAST":"UPCOMING"}</strong> — {row.walk.revision.city.cityName}<br/>
         {row.kind==="canceled"?<><span>Cancellation recorded {new Intl.DateTimeFormat("en-GB",{dateStyle:"full",timeStyle:"short",timeZone:"UTC"}).format(new Date(row.at*1000))} UTC. Original walk date unavailable.</span><br/><small>Event: {row.targetId}</small><br/><button type="button" onClick={()=>void navigator.clipboard.writeText(row.targetId).then(()=>setMessage("Canceled event ID copied.")).catch(()=>setMessage("Could not copy the event ID."))}>Copy event ID</button>{row.deletion.pubkey===owner&&<> <button type="button" disabled={busy} onClick={()=>void retryPublicDiscovery(row.deletion,`${row.walk.revision.city.cityName} cancellation`)}>Retry public cancellation</button></>}{discoveryByEvent[row.deletion.id]&&<p role="status">{calendarDiscoverySummary(discoveryByEvent[row.deletion.id],relayConfig.calendarDiscoveryRelays.length)}</p>}</>:row.kind==="draft"?<>

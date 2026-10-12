@@ -10,11 +10,12 @@ approved; pending revisions and mismatched/foreign-city references cannot supply
 that provenance. Revoked cities remain excluded. New publications still reference
 the current city approval; no signed event is rewritten by this change.
 
-The deployed unified list includes Draft, Upcoming, Past and Canceled filters,
-chronological grouping, contextual controls and hosted walks. Upcoming and Draft
-are selected initially. A shared grouping helper now has tests for every filter,
-combined/empty selection, chronology and preserved hosted context. Older canceled
-records still use the cancellation date with the existing explanatory notice.
+App `0.3.283` gives every connected user the same exclusive **All / Next Walk /
+Upcoming / Past** selector on `/admin/walks`. **All** preserves draft, canceled and
+published records. **Next Walk** returns one nearest published non-past walk from
+each city, while Upcoming and Past isolate published walks. Chronological city
+grouping and hosted-walk context are preserved. Older canceled records still use
+the cancellation date with the existing explanatory notice.
 
 Regression coverage exercises scheduled events after profile/hero/meeting-point
 changes, active/grace/next routing, past visibility, duplicate-prevention coverage,
