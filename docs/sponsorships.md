@@ -160,8 +160,9 @@ The sponsorship workspace has Cities and Sponsors views with search and counts.
 Cities group walks and their sponsors; Sponsors group placements and contain a
 separate, sponsor-filtered asset library. Walk display controls expand inline.
 App 0.3.281 uses a compact **All / Next walk / Upcoming / Past** toggle in both
-views. Next walk is the earliest active or future walk; Upcoming includes an
-active walk. Each row still shows its exact current status, and empty filtered
+views. From app 0.3.282, Next walk returns the earliest active or future walk
+from every city with published walks—one result per city—while Upcoming includes
+all active and future walks. Each row still shows its exact current status, and empty filtered
 results are reported without changing any signed assignment. Connected ordinary
 sponsors get the same hidden Sponsors / Payments page structure at
 `/admin/sponsor`, but both tabs remain scoped by a fresh signature to orders and
