@@ -159,6 +159,9 @@ view while retained in the payment store.
 The sponsorship workspace has Cities and Sponsors views with search and counts.
 Cities group walks and their sponsors; Sponsors group placements and contain a
 separate, sponsor-filtered asset library. Walk display controls expand inline.
+App 0.3.280 adds one shared walk-status filter to both views: All walks,
+Upcoming, Happening now and Past. Each row shows its current status, and empty
+filtered results are reported without changing any signed assignment.
 Hidden placements retain their previous sponsor association for management;
 cleared placements do not. City default settings and walk overrides still use
 the existing signed assignment protocol. The standalone Precedence section was removed.
