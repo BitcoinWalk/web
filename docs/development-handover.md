@@ -52,10 +52,11 @@ Reviewed 2 October 2026. Read this first, then the specific design document and
 
 - BW-17 checkout, BW-56 replication, BW-59 reconciliation, BW-60 directory and
   BW-66 Guide notifications are accepted on staging; retain their detailed evidence.
-- BW-61 remains **paused by user**. Candidate `wss://replica.bitcoinwalk.org/`
-  passed exact Memphis 7/7 visible-state backfill and repeated restart in 0.8.51/52.
-  It is not the live replication destination or a signed directory endpoint.
-  Do not repeat backfill/reset or sign a successor without resuming this workstream.
+- BW-61 is **closed without activation**. Memphis was test-only and is retired
+  from both public apps. Candidate `wss://replica.bitcoinwalk.org/` passed exact
+  Memphis 7/7 visible-state backfill and repeated restart in 0.8.51/52, but it
+  never became the live registry or signed-directory destination. Do not activate
+  that retired candidate; scope any future real-city migration independently.
 - BW-81 is accepted: super-admin Monitoring combines Alerts and Relays with
   bounded checks, accessible RAG states and explicit stale/unknown/failed
   evidence. Live staging acceptance on 4 October 2026 confirmed desktop/mobile
@@ -82,4 +83,5 @@ assertions, so web tests decrease from 466 to 461 without deleting behavior test
 Read `preproduction-review-2026-10-02.md` for backup evidence and security findings.
 Recommended next action: validate and deploy the patched framework release on
 staging, then address BW-53 production storage/build and restore rehearsal gates.
-Do not reopen paused BW-61 as a prerequisite for unrelated work.
+Do not treat the closed, non-activated BW-61 test as a prerequisite or as
+production endpoint-migration acceptance.

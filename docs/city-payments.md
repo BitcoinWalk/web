@@ -125,4 +125,5 @@ the same verified entitlement authoritative in City Management:
 The organizer's Pro checkout remains below the table. A paid entitlement is
 never downgraded by a later city revision or a temporary wallet outage.
 
-BW-61 remains paused. Payment work does not migrate the Memphis replica.
+BW-61 closed without activation after Memphis was retired as test-only. Payment
+work did not migrate or authorize that replica.
