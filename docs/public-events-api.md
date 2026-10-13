@@ -57,15 +57,22 @@ history.
       "canonicalUrl": "https://bitcoinwalk.org/madeira",
       "chat": {
         "scope": "global",
-        "url": "https://bitcoinwalk.org/join"
+        "url": "https://bitcoinwalk.org/join",
+        "nip29": {
+          "relay": "wss://chat.bitcoinwalk.org",
+          "groupId": "13bc3a423b4f2954"
+        }
       }
     }
   ]
 }
 ```
 
-The chat URL is operator-controlled verified routing data. Free cities may use
-the verified global community. A paid city whose dedicated NIP-29 group has not
-passed provisioning and read-back returns `{"scope":"city","url":null}`; it
-never falls back to the global room. Like `/api/events`, a failed authoritative
-read returns HTTP 503 rather than a partial directory.
+The chat URL and NIP-29 destination are operator-controlled verified routing
+data. The public destination contains only the exact relay and group ID needed
+by a compatible client; it contains no owner, payment or private-relay data.
+Free cities may use the verified global community during migration. A paid city
+whose dedicated NIP-29 group has not passed provisioning and read-back returns
+`{"scope":"city","url":null,"nip29":null}`; it never falls back to the global
+room. Like `/api/events`, a failed authoritative read returns HTTP 503 rather
+than a partial directory.

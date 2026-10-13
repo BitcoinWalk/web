@@ -14,6 +14,10 @@ export type PublicCityDirectoryItem = {
   chat: {
     scope: "global" | "city";
     url: string | null;
+    nip29: {
+      relay: string;
+      groupId: string;
+    } | null;
   };
 };
 
@@ -44,7 +48,7 @@ export async function loadPublicCityDirectory(now = Date.now()): Promise<PublicC
       slug: city.slug,
       aliases,
       canonicalUrl: `${origin}/${encodeURIComponent(city.slug)}`,
-      chat: { scope: chat.scope, url: chat.url },
+      chat: { scope: chat.scope, url: chat.url, nip29: chat.nip29 },
     });
   }
   return {

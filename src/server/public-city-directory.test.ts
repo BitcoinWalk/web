@@ -32,7 +32,11 @@ describe("public city directory", () => {
       id: "a",
       slug: "madeira",
       canonicalUrl: "https://bitcoinwalk.org/madeira",
-      chat: { scope: "global", url: "https://bitcoinwalk.org/join" },
+      chat: {
+        scope: "global",
+        url: "https://bitcoinwalk.org/join",
+        nip29: { relay: "wss://chat.bitcoinwalk.org", groupId: "13bc3a423b4f2954" },
+      },
     });
     expect(directory.cities[1].aliases).toEqual(["Zuerich"]);
   });
@@ -41,6 +45,6 @@ describe("public city directory", () => {
     mocks.loadCalendarWalks.mockResolvedValue([
       row("8e136ccb-923b-41aa-a6d1-1290b0b3a014", "Würzburg", "wuerzburg", ["Wurzburg"]),
     ]);
-    expect((await loadPublicCityDirectory(0)).cities[0].chat).toEqual({ scope: "city", url: null });
+    expect((await loadPublicCityDirectory(0)).cities[0].chat).toEqual({ scope: "city", url: null, nip29: null });
   });
 });

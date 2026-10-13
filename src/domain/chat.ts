@@ -40,6 +40,7 @@ export function resolveCityChat(cityId: string | undefined, slug: string, config
     environment: config.environment,
     walkieTalkieEnabled,
     armadaEnabled,
+    nip29: walkieTalkieEnabled && directUrl ? destination : null,
     url: armadaEnabled?(!paidScope && config.environment === "production" && directUrl
       ? PRODUCTION_GLOBAL_COMMUNITY_URL
       : directUrl):null,
