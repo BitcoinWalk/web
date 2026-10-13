@@ -1,6 +1,6 @@
 import {finalizeEvent,getPublicKey,type EventTemplate} from "nostr-tools";
 import {describe,expect,it} from "vitest";
-import {mergeNip29Messages,nip29JoinTemplate,nip29MessageTemplate,nip29RoomName,validNip29Destination} from "./nip29-chat";
+import {mergeNip29Messages,nip29JoinTemplate,nip29MessageTemplate,nip29RoomName,uniqueNip29Rooms,validNip29Destination} from "./nip29-chat";
 
 const key=new Uint8Array(32).fill(4),pubkey=getPublicKey(key),group="bitcoinwalk-london";
 const signed=(template:EventTemplate)=>finalizeEvent(template,key);
@@ -16,6 +16,13 @@ describe("NIP-29 dashboard chat",()=>{
   const rows=mergeNip29Messages([], [other,first],group,20);
   expect(rows).toEqual([{id:first.id,pubkey,content:"hello",createdAt:10}]);
   expect(mergeNip29Messages(rows,[first],group,20)).toEqual(rows);
+ });
+ it("collapses cities that currently share one room instead of pretending the chat changed",()=>{
+  const shared={relay:"wss://chat.bitcoinwalk.org",groupId:"shared"};
+  expect(uniqueNip29Rooms([{id:"a",name:"Warszawa",slug:"warszawa",chat:{scope:"global",nip29:shared}},{id:"b",name:"Madeira",slug:"madeira",chat:{scope:"global",nip29:shared}},{id:"c",name:"London",slug:"london",chat:{scope:"city",nip29:{relay:"wss://london.bitcoinwalk.org",groupId:"chat"}}}])).toEqual([
+   expect.objectContaining({label:"BitcoinWalk shared",scope:"global",cityIds:["a","b"]}),
+   expect.objectContaining({label:"London",scope:"city",cityIds:["c"]}),
+  ]);
  });
  it("uses signed metadata only and builds exact join and message requests",()=>{
   const metadata=signed({kind:39000,created_at:10,tags:[["d",group],["name","chat"]],content:""});

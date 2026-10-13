@@ -6,6 +6,7 @@ export const dashboardItems=[
  {href:"/admin/requests",label:"Requests",access:"admin"},
  {href:"/admin/walks",label:"Walks",access:"connected"},
  {href:"/admin/chat",label:"Chat",access:"connected"},
+ {href:"/admin/guide",label:"Guide",access:"connected"},
  {href:"/admin/organizers",label:"Organizers",access:"admin"},
  {href:"/admin/content",label:"Content",access:"admin"},
  {href:"/admin/sponsor",label:"Sponsor",access:"admin"},
