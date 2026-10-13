@@ -9,7 +9,7 @@ import styles from "./nostr-user.module.css";
 type Props={
  pubkey:string;
  profile?:PublicProfile;
- variant?:"compact"|"card";
+ variant?:"compact"|"card"|"avatar";
  resolveProfile?:boolean;
  createdCities?:string[];
  editorCities?:string[];
@@ -31,7 +31,7 @@ export default function NostrUser({pubkey,profile:provided,variant="card",resolv
    {profile?.picture&&profile.picture!==failed
     // Public profile images are loaded by the browser and never proxied through BitcoinWalk.
     // eslint-disable-next-line @next/next/no-img-element
-    ?<img src={profile.picture} alt="" width={variant==="compact"?48:64} height={variant==="compact"?48:64} loading="lazy" referrerPolicy="no-referrer" onError={()=>setFailed(profile.picture)} />
+    ?<img src={profile.picture} alt="" width={variant==="card"?64:variant==="compact"?48:44} height={variant==="card"?64:variant==="compact"?48:44} loading="lazy" referrerPolicy="no-referrer" onError={()=>setFailed(profile.picture)} />
     :<span className={styles.avatar} aria-hidden="true">👤</span>}
    <div className={styles.details}>
     <div className={styles.nameLine}><strong className={styles.name}><CopyValue label="username" value={profile?.name??"Unnamed Nostr user"}/></strong>{profile?.nip05?<span className={styles.nip05}><CopyValue label="NIP-05" value={profile.nip05}/><span className={styles[verification]}>{verification==="verified"?"✓ verified":verification==="checking"?"checking…":"not verified"}</span></span>:<span className={styles.nip05Missing}>NIP-05 not provided</span>}</div>
