@@ -7,9 +7,15 @@ const nextConfig: NextConfig = {
   serverExternalPackages: ["sharp"],
   poweredByHeader: false,
   async redirects() {
-    return ["/sponsor/logo", "/admin/sponsors/payments", "/admin/sponsors/upload", "/admin/sponsors/logos"].map(source => ({
+    const dashboard = ["/sponsor/logo", "/admin/sponsors/payments", "/admin/sponsors/upload", "/admin/sponsors/logos"].map(source => ({
       source, destination: "/admin/sponsor", permanent: false,
     }));
+    const community = ["/join", "/join-chat"].map(source => ({
+      source,
+      destination: "https://armada.buzz/s/chat.bitcoinwalk.org/13bc3a423b4f2954",
+      permanent: true,
+    }));
+    return [...dashboard, ...community];
   },
   // Type checking runs before `next build`. This avoids a Node 26 child-process
   // incompatibility with Next's duplicate TypeScript configuration probe.

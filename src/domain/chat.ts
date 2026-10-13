@@ -5,6 +5,8 @@ export type ChatConfig = {
   paidCities: Record<string, { slug: string; destination: ChatDestination | null }>;
 };
 
+export const PRODUCTION_GLOBAL_COMMUNITY_URL = "https://bitcoinwalk.org/join";
+
 export function armadaChatUrl(destination: ChatDestination): string | null {
   try {
     const relay = new URL(destination.relay);
@@ -28,9 +30,12 @@ export function resolveCityChat(cityId: string | undefined, slug: string, config
     destination = paid?.slug === slug && paid.destination?.relay === `wss://${slug}.bitcoinwalk.org`
       ? paid.destination : null;
   }
+  const directUrl = destination ? armadaChatUrl(destination) : null;
   return {
     scope: paidScope ? "city" as const : "global" as const,
     environment: config.environment,
-    url: destination ? armadaChatUrl(destination) : null,
+    url: !paidScope && config.environment === "production" && directUrl
+      ? PRODUCTION_GLOBAL_COMMUNITY_URL
+      : directUrl,
   };
 }

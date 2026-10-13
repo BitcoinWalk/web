@@ -10,7 +10,7 @@ describe("event community action",()=>{
   it("links a free walk to the global Armada community",()=>{
     const html=renderToStaticMarkup(createElement(CityChat,{cityId:"free",slug:"memphis",config,paid:false}));
     expect(html).toContain("Join the community on Armada");
-    expect(html).toContain("https://armada.buzz/s/chat.bitcoinwalk.org/global");
+    expect(html).toContain("https://bitcoinwalk.org/join");
   });
   it("links an entitled paid walk to its city relay",()=>{
     const html=renderToStaticMarkup(createElement(CityChat,{cityId:"paid",slug:"warsaw",config,paid:true}));

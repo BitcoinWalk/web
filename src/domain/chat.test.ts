@@ -9,11 +9,15 @@ const config: ChatConfig = {
     pending: { slug: "radom", destination: null },
   },
 };
+const productionConfig: ChatConfig = { ...config, environment: "production" };
 
 describe("operator-controlled chat routing", () => {
   it("routes free and legacy cities to the global channel", () => {
     expect(resolveCityChat("free", "radom", config).url).toBe("https://armada.buzz/s/chat-staging.bitcoinwalk.org/global-test");
     expect(resolveCityChat(undefined, "austin", config).scope).toBe("global");
+  });
+  it("uses the canonical BitcoinWalk join alias for production global chat", () => {
+    expect(resolveCityChat("free", "radom", productionConfig).url).toBe("https://bitcoinwalk.org/join");
   });
   it("routes a provisioned paid city to its dedicated relay and group", () => {
     expect(resolveCityChat("paid", "austin", config)).toEqual({ scope: "city", environment: "staging", url: "https://armada.buzz/s/austin.bitcoinwalk.org/city-test" });
