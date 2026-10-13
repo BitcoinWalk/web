@@ -12,6 +12,7 @@ knowledge base.
   Community, Search and Direct-message relay settings for Basic/free and
   Pro/paid cities, including private city communities and Guide DMs.
 - [City chat integration](chat-integration.md)
+- [Paid-city community provisioning](paid-city-communities.md)
 - [Organizer staging guide](organizer-staging.md)
 - [Organizer events](organizer-events.md)
 - [Co-organizers](co-organizers.md)

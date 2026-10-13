@@ -1,0 +1,6 @@
+import {finalizeEvent,generateSecretKey,getPublicKey} from "nostr-tools";
+import {describe,expect,it,vi} from "vitest";
+const key=generateSecretKey(),admin=getPublicKey(key),origin="https://bitcoinwalk.org";
+vi.mock("./authority",()=>({isSuperAdmin:(value:string)=>value===admin}));
+import {authorizeChatProvision,chatProvisionRequest} from "./chat-provision-request";
+describe("chat provisioning authorization",()=>{it("binds the exact action, payload, origin and method",()=>{const action={action:"verify" as const,cityId:"ca2f9905-fb4d-4948-a12c-c792b28ec7c8",slug:"london",groupId:"group"},event=finalizeEvent(chatProvisionRequest(action,origin,100),key);expect(authorizeChatProvision(event,action,origin,100)).toBe(admin);expect(()=>authorizeChatProvision(event,{...action,groupId:"other"},origin,100)).toThrow("Signed super-admin");expect(()=>authorizeChatProvision(event,action,"https://app-staging.bitcoinwalk.org",100)).toThrow("Signed super-admin");});});

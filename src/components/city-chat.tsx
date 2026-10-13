@@ -4,7 +4,7 @@ import { directoryConfig } from "../lib/directory-config";
 
 export function cityChatDetails({ cityId, slug, config = chatConfig, paid }: { cityId?: string; slug: string; config?: ChatConfig; paid?: boolean }) {
   const entitlement = cityId && Object.hasOwn(directoryConfig.paidCities, cityId) ? directoryConfig.paidCities[cityId] : undefined;
-  const verifiedPaid = paid ?? (!!entitlement && entitlement.slug === slug);
+  const verifiedPaid = paid ?? (entitlement?.slug === slug ? true : undefined);
   return resolveCityChat(cityId, slug, config, verifiedPaid);
 }
 

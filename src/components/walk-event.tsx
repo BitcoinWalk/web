@@ -19,11 +19,12 @@ import {resolvePublicCityPayment} from "../server/public-city-payment";
 import SponsorModule from "./sponsor-module";
 import type {SponsorshipPresentation} from "../domain/sponsorship";
 import PublicCitySupport from "./public-city-support";
+import type {ChatConfig} from "../domain/chat";
 
-export default async function WalkEvent({event,walk,currentProfile,logoHref,titleLogo,sponsorship={state:"hidden"},sponsorOgImage}:{event:Event;walk:CalendarWalk;currentProfile:CalendarSource;logoHref?:string;titleLogo?:LogoVariantAsset;sponsorship?:SponsorshipPresentation;sponsorOgImage?:string}) {
+export default async function WalkEvent({event,walk,currentProfile,logoHref,titleLogo,sponsorship={state:"hidden"},sponsorOgImage,chatConfig}:{event:Event;walk:CalendarWalk;currentProfile:CalendarSource;logoHref?:string;titleLogo?:LogoVariantAsset;sponsorship?:SponsorshipPresentation;sponsorOgImage?:string;chatConfig?:ChatConfig}) {
   const city=walk.revision.city,occurrence=calendarOccurrence(event),point=occurrence?.meetingPoint??city.meetingPoint;
   const startSeconds=occurrence?.start??Math.floor(new Date(city.startAt).getTime()/1000),endSeconds=occurrence?.end??startSeconds+3600,start=startSeconds*1000;
-  const chat=cityChatDetails({cityId:city.cityId,slug:city.slug});
+  const chat=cityChatDetails({cityId:city.cityId,slug:city.slug,config:chatConfig});
   const [weather,host]=await Promise.all([
     getWalkWeather({latitude:point.latitude,longitude:point.longitude,start:startSeconds,end:endSeconds}),
     resolvePublicCityHost(city.cityId,currentProfile.revision.city.cityName,event.pubkey),
@@ -44,7 +45,7 @@ export default async function WalkEvent({event,walk,currentProfile,logoHref,titl
     <PublicCitySupport cityId={currentProfile.revision.city.cityId} revisionId={currentProfile.revision.event.id} cityName={currentProfile.revision.city.cityName} requestedTier={currentProfile.revision.city.requestedTier}/>
     <SponsorModule presentation={sponsorship} cityName={city.cityName} ogImageUrl={sponsorOgImage} endsAt={endSeconds}/>
     <CalendarShare nevent={calendarNevent(event,relayConfig.calendarRelayHints)}/>
-    <CityChat cityId={city.cityId} slug={city.slug}/>
+    <CityChat cityId={city.cityId} slug={city.slug} config={chatConfig}/>
     {logoHref&&<p><a href={logoHref}>Download the official BitcoinWalk {city.cityName} logo pack</a></p>}
     {weather.kind!=="past"&&<footer className="walk-event-footer"><WeatherAttribution/></footer>}
   </main>;

@@ -13,6 +13,8 @@ import {shareBackgroundPosition} from "../../../../domain/hero-presentation";
 import {cityProvisioningCapabilities,type CapabilityState} from "../../../../rustress/provisioning-capabilities";
 import {RelayProvisionStore} from "../../../../relay-provisioning/store";
 import {classifyRelayEvidence,inspectRelay} from "../../../../server/relay-monitor";
+import {ChatProvisionStore} from "../../../../chat-provisioning/store";
+import {armadaChatUrl} from "../../../../domain/chat";
 
 export const dynamic="force-dynamic",runtime="nodejs";
 type Check={status:"green"|"amber"|"red"|"na";message:string;url?:string};
@@ -64,6 +66,8 @@ export async function POST(request:Request){
     }else relay={status:"amber",message:`Paid city — ${slug}.bitcoinwalk.org is queued for idempotent isolated provisioning.`};
    }
   }
-  return reply({cityId:city.cityId,revisionId:managed.revision.event.id,checks:{logos,og,meta,payment,paymentAuthorization,nip05,lnurl,relay}});
+  let community:Check={status:"na",message:"Basic city — the global BitcoinWalk community is used."};
+  if(entitled){try{const record=new ChatProvisionStore(paymentRuntime.store.db).get(city.cityId),url=record?.phase==="active"&&record.slug===slug?armadaChatUrl({relay:record.relay,groupId:record.groupId}):null;community=url?{status:"green",message:"Verified paid-city Armada community is active.",url}:record?.phase==="needs-attention"?{status:"red",message:"Paid-city community needs administrator attention."}:{status:"amber",message:"Paid-city community is not active yet. Verify it under Monitoring → Communities."};}catch{community={status:"amber",message:"Paid-city community registry is not available yet."};}}
+  return reply({cityId:city.cityId,revisionId:managed.revision.event.id,checks:{logos,og,meta,payment,paymentAuthorization,nip05,lnurl,relay,community}});
  }catch{return reply({error:"City activation checks could not complete. Retry status; do not approve again."},500);}
 }

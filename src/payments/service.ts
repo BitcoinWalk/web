@@ -24,6 +24,9 @@ export class PaymentStore {
     registrationVersion INTEGER,payoutVersion INTEGER,brandPubkey TEXT,brandVersion INTEGER NOT NULL DEFAULT 0,backupAcknowledgedAt INTEGER,
     artworkRevisionId TEXT,artworkAvatar TEXT,artworkBanner TEXT,artworkVersion INTEGER NOT NULL DEFAULT 0,
     state TEXT NOT NULL,createdAt INTEGER NOT NULL,updatedAt INTEGER NOT NULL);
+   CREATE TABLE IF NOT EXISTS city_chat_provisioning(cityId TEXT PRIMARY KEY,entitlementId TEXT NOT NULL,slug TEXT NOT NULL,relay TEXT NOT NULL,groupId TEXT NOT NULL,
+    phase TEXT NOT NULL,evidenceDigest TEXT,metadataEventId TEXT,verifiedAt INTEGER,activatedAt INTEGER,createdAt INTEGER NOT NULL,updatedAt INTEGER NOT NULL,
+    UNIQUE(relay,groupId));
    CREATE TABLE IF NOT EXISTS gift_city_checkout(tokenHash TEXT PRIMARY KEY,cityId TEXT NOT NULL,invoiceId TEXT NOT NULL,createdAt INTEGER NOT NULL);`);
  }
  rows():PaymentRow[]{return this.db.prepare("SELECT * FROM payment_invoice ORDER BY createdAt DESC,rowid DESC").all() as PaymentRow[];}

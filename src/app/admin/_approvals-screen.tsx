@@ -38,6 +38,7 @@ const pendingActivation=(paid:boolean):ActivationState=>({
   nip05:paid?{status:"amber",message:"Checking managed NIP-05 provisioning…"}:{status:"na",message:"Basic city — managed NIP-05 is not included."},
   lnurl:paid?{status:"amber",message:"Checking managed Lightning address provisioning…"}:{status:"na",message:"Basic city — managed Lightning address is not included."},
   relay:paid?{status:"amber",message:"Checking paid-city relay provisioning…"}:{status:"na",message:"Basic city — dedicated relay not required."},
+  community:paid?{status:"amber",message:"Checking the paid-city Armada community…"}:{status:"na",message:"Basic city — the global BitcoinWalk community is used."},
 });
 const failedActivation=(message:string,paid:boolean):ActivationState=>({
   logos:{status:"red",message},og:{status:"red",message},meta:{status:"red",message},
@@ -46,8 +47,9 @@ const failedActivation=(message:string,paid:boolean):ActivationState=>({
   nip05:paid?{status:"amber",message:"NIP-05 status was not confirmed."}:{status:"na",message:"Basic city — managed NIP-05 is not included."},
   lnurl:paid?{status:"amber",message:"Lightning address status was not confirmed."}:{status:"na",message:"Basic city — managed Lightning address is not included."},
   relay:paid?{status:"amber",message:"Paid relay status was not confirmed."}:{status:"na",message:"Basic city — dedicated relay not required."},
+  community:paid?{status:"amber",message:"Paid-city community status was not confirmed."}:{status:"na",message:"Basic city — the global BitcoinWalk community is used."},
 });
-const activationLabels:Record<keyof ActivationState,string>={logos:"Logo pack",og:"OG image",meta:"Meta title and description",payment:"Pro payment",paymentAuthorization:"Payment authorization",nip05:"NIP-05",lnurl:"Lightning address (LNURL)",relay:"City relay"};
+const activationLabels:Record<keyof ActivationState,string>={logos:"Logo pack",og:"OG image",meta:"Meta title and description",payment:"Pro payment",paymentAuthorization:"Payment authorization",nip05:"NIP-05",lnurl:"Lightning address (LNURL)",relay:"City relay",community:"City community"};
 const initialActivation=(submission:Submission):ActivationState=>{
   const paid=submission.paid,pending=!paid&&submission.city.requestedTier==="paid";
   return {
@@ -59,6 +61,7 @@ const initialActivation=(submission:Submission):ActivationState=>{
     nip05:paid?{status:"amber",message:"Provisioning status is checked after approval."}:pending?{status:"amber",message:"Available after payment is verified."}:{status:"na",message:"Basic city — managed NIP-05 is not included."},
     lnurl:paid?{status:"amber",message:"Provisioning status is checked after approval."}:pending?{status:"amber",message:"Available after payment is verified."}:{status:"na",message:"Basic city — managed Lightning address is not included."},
     relay:paid?{status:"amber",message:"Paid relay provisioning will be checked after approval."}:pending?{status:"amber",message:"Dedicated relay waits for verified payment."}:{status:"na",message:"Basic city — dedicated relay not required."},
+    community:paid?{status:"amber",message:"Armada group verification is completed separately after the city relay is active."}:pending?{status:"amber",message:"City community waits for verified payment."}:{status:"na",message:"Basic city — the global BitcoinWalk community is used."},
   };
 };
 

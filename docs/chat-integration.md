@@ -15,28 +15,23 @@ categories is documented in [Configure Armada relays for BitcoinWalk](armada-rel
 
 ## Routing and trust
 
-`src/lib/chat-config.ts` is public, operator-controlled configuration. It selects the verified production global group `13bc3a423b4f2954` on `chat.bitcoinwalk.org`. The Khatru relay, HTTPS/WSS, signed metadata, super-admin access and open regular-user joining were human-tested on 23 September 2026.
+`src/lib/chat-config.ts` selects only the verified production global group `13bc3a423b4f2954` on `chat.bitcoinwalk.org`. Paid-city destinations come from the entitlement-bound SQLite registry described in [Paid-city community provisioning](paid-city-communities.md). The Khatru relay, HTTPS/WSS, signed metadata, super-admin access and open regular-user joining were human-tested on 23 September 2026.
 
 On 29 September the user confirmed that the obsolete Zooid service is turned off,
 completing BW-24. BW-53 retains the post-migration check that Khatru and the public
 aliases remain healthy and Zooid does not restart or receive traffic.
 
 - Free cities, old approved city records and the Austin demo use global chat.
-- Paid cities are registered by immutable city UUID in both the verified entitlement registry and chat provisioning registry, with their expected slug and provisioned destination. A paid city without a valid dedicated destination shows a setup message and never falls back to global chat.
+- Paid cities are registered by immutable city UUID in both the verified entitlement registry and chat provisioning registry, with their expected slug and provisioned destination. A paid city without a separately verified and activated dedicated destination shows a setup message and never falls back to global chat.
 - A paid destination must match `wss://<slug>.bitcoinwalk.org` and have a verified group ID. The resolver only generates links on `https://armada.buzz`.
 - Organizer-supplied legacy `chatUrl` values do not control the rendered button or paid status. No existing signed records are rewritten.
 - New walk submissions automatically include the configured global link; the manual URL field is removed. Missing chat provisioning does not prevent submission. The legacy field is now optional, and calendar payloads omit it when absent.
 
-After provisioning and testing a real paid relay/group, add an entry under `paidCities`:
-
-```ts
-"<verified-city-uuid>": {
-  slug: "<approved-slug>",
-  destination: { relay: "wss://<approved-slug>.bitcoinwalk.org", groupId: "<verified-group-id>" },
-}
-```
-
-Do not use placeholder values in live configuration. No paid cities have been provisioned by this change. This static mapping is the initial operator-managed integration boundary, not payment verification or automatic provisioning. A future trusted provisioning registry should replace it.
+After provisioning a real paid relay/group, use **Monitoring → Communities** to
+verify signed public/open NIP-29 metadata and then activate the exact destination
+with a second super-admin signature. Do not place paid destinations in source
+configuration or use placeholder group IDs. No paid group is activated merely by
+deploying the registry.
 
 ## Verification / launch gates
 
