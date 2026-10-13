@@ -7,7 +7,7 @@ const groupPattern=/^[A-Za-z0-9_-]{1,128}$/;
 const hexPattern=/^[0-9a-f]{64}$/;
 
 export type ChatProvisionPhase="candidate"|"verified"|"active"|"needs-attention";
-export type ChatProvisionRow={cityId:string;entitlementId:string;slug:string;relay:string;groupId:string;phase:ChatProvisionPhase;evidenceDigest:string|null;metadataEventId:string|null;verifiedAt:number|null;activatedAt:number|null;createdAt:number;updatedAt:number};
+export type ChatProvisionRow={cityId:string;entitlementId:string;slug:string;relay:string;groupId:string;phase:ChatProvisionPhase;evidenceDigest:string|null;metadataEventId:string|null;verifiedAt:number|null;activatedAt:number|null;publicEnabled:0|1;publicUpdatedAt:number|null;createdAt:number;updatedAt:number};
 export type ChatProvisionInput={cityId:string;slug:string;groupId:string};
 export type ChatVerification={metadataEventId:string;publiclyReadable:boolean;openJoin:boolean};
 
@@ -21,13 +21,16 @@ export class ChatProvisionStore{
  constructor(readonly db:DatabaseSync){
   db.exec(`CREATE TABLE IF NOT EXISTS city_chat_provisioning(
    cityId TEXT PRIMARY KEY,entitlementId TEXT NOT NULL,slug TEXT NOT NULL,relay TEXT NOT NULL,groupId TEXT NOT NULL,
-   phase TEXT NOT NULL,evidenceDigest TEXT,metadataEventId TEXT,verifiedAt INTEGER,activatedAt INTEGER,createdAt INTEGER NOT NULL,updatedAt INTEGER NOT NULL,
+   phase TEXT NOT NULL,evidenceDigest TEXT,metadataEventId TEXT,verifiedAt INTEGER,activatedAt INTEGER,publicEnabled INTEGER NOT NULL DEFAULT 1,publicUpdatedAt INTEGER,createdAt INTEGER NOT NULL,updatedAt INTEGER NOT NULL,
    UNIQUE(relay,groupId));`);
+  const columns=this.db.prepare("PRAGMA table_info(city_chat_provisioning)").all() as Array<{name:string}>;
+  if(!columns.some(column=>column.name==="publicEnabled"))this.db.exec("ALTER TABLE city_chat_provisioning ADD COLUMN publicEnabled INTEGER NOT NULL DEFAULT 1");
+  if(!columns.some(column=>column.name==="publicUpdatedAt"))this.db.exec("ALTER TABLE city_chat_provisioning ADD COLUMN publicUpdatedAt INTEGER");
  }
  private entitlement(cityId:string){return this.db.prepare("SELECT invoiceId FROM paid_city_entitlement WHERE cityId=?").get(cityId) as {invoiceId:string}|undefined;}
  get(cityId:string){return this.db.prepare("SELECT * FROM city_chat_provisioning WHERE cityId=?").get(cityId) as ChatProvisionRow|undefined;}
  rows(){return this.db.prepare("SELECT * FROM city_chat_provisioning ORDER BY slug,cityId").all() as ChatProvisionRow[];}
- active(){return this.db.prepare("SELECT * FROM city_chat_provisioning WHERE phase='active' ORDER BY slug,cityId").all() as ChatProvisionRow[];}
+ active(){return this.db.prepare("SELECT * FROM city_chat_provisioning WHERE phase='active' AND publicEnabled=1 ORDER BY slug,cityId").all() as ChatProvisionRow[];}
  propose(input:ChatProvisionInput,now=Math.floor(Date.now()/1000)){
   if(!cityIdPattern.test(input.cityId)||!slugPattern.test(input.slug)||!groupPattern.test(input.groupId))throw new Error("Enter a valid paid city, canonical slug and Armada group ID.");
   const entitlement=this.entitlement(input.cityId);if(!entitlement)throw new Error("A settled Pro entitlement is required before chat provisioning.");
@@ -54,6 +57,12 @@ export class ChatProvisionStore{
   const entitlement=this.entitlement(cityId);if(!entitlement||entitlement.invoiceId!==row.entitlementId)throw new Error("The settled Pro entitlement changed before activation.");
   this.db.prepare("UPDATE city_chat_provisioning SET phase='active',activatedAt=?,updatedAt=? WHERE cityId=? AND phase='verified' AND evidenceDigest=?")
    .run(now,now,cityId,evidenceDigest);
+  return this.get(cityId)!;
+ }
+ setPublicEnabled(cityId:string,enabled:boolean,now=Math.floor(Date.now()/1000)){
+  const row=this.get(cityId);if(!row||row.phase!=="active")throw new Error("Active community activation is required before changing public visibility.");
+  const entitlement=this.entitlement(cityId);if(!entitlement||entitlement.invoiceId!==row.entitlementId)throw new Error("The settled Pro entitlement changed before the visibility update.");
+  this.db.prepare("UPDATE city_chat_provisioning SET publicEnabled=?,publicUpdatedAt=?,updatedAt=? WHERE cityId=? AND phase='active'").run(enabled?1:0,now,now,cityId);
   return this.get(cityId)!;
  }
  markAttention(cityId:string,now=Math.floor(Date.now()/1000)){

@@ -21,6 +21,7 @@ describe("operator-controlled chat routing", () => {
   });
   it("routes a provisioned paid city to its dedicated relay and group", () => {
     expect(resolveCityChat("paid", "austin", config)).toEqual({ scope: "city", environment: "staging", url: "https://armada.buzz/s/austin.bitcoinwalk.org/city-test" });
+    expect(resolveCityChat("paid", "austin", {...config,paidCities:{paid:{slug:"austin",destination:{relay:"wss://austin.bitcoinwalk.org/",groupId:"city-test"}}}}).url).toBe("https://armada.buzz/s/austin.bitcoinwalk.org/city-test");
   });
   it("does not fabricate a link or fall back to global for pending paid cities", () => {
     expect(resolveCityChat("pending", "radom", config)).toMatchObject({ scope: "city", url: null });

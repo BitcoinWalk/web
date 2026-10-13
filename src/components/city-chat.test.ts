@@ -9,7 +9,9 @@ const config:ChatConfig={environment:"production",global:{relay:"wss://chat.bitc
 describe("event community action",()=>{
   it("links a free walk to the global Armada community",()=>{
     const html=renderToStaticMarkup(createElement(CityChat,{cityId:"free",slug:"memphis",config,paid:false}));
-    expect(html).toContain("Join the community on Armada");
+    expect(html).toContain("Open Armada");
+    expect(html).toContain("NIP-29");
+    expect(html).toContain("NIP-17 direct messages remain separate");
     expect(html).toContain("https://bitcoinwalk.org/join");
   });
   it("links an entitled paid walk to its city relay",()=>{
@@ -18,7 +20,7 @@ describe("event community action",()=>{
   });
   it("never falls back to global chat for a paid city awaiting provisioning",()=>{
     const html=renderToStaticMarkup(createElement(CityChat,{cityId:"missing",slug:"madeira",config,paid:true}));
-    expect(html).toContain("Chat is being set up");
+    expect(html).toContain("organizer has not enabled a public Armada link");
     expect(html).not.toContain("chat.bitcoinwalk.org/global");
   });
 });

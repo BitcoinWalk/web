@@ -15,6 +15,7 @@ const commandSchema = z.discriminatedUnion("action", [
   z.object({action: z.literal("prepare-brand-publication"), requestId: z.uuid()}).strict(),
   z.object({action: z.literal("confirm-brand-publication"), requestId: z.uuid()}).strict(),
   z.object({action: z.literal("retry-city-provisioning"), cityId: z.uuid()}).strict(),
+  z.object({action: z.literal("set-community-visibility"), cityId: z.uuid(), enabled: z.boolean()}).strict(),
 ]);
 export type ProSetupCommand = z.infer<typeof commandSchema>;
 export function proSetupTemplate(command: ProSetupCommand, origin: string, now = Math.floor(Date.now() / 1000)): EventTemplate {

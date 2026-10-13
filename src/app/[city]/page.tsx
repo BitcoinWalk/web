@@ -21,6 +21,8 @@ import {previewText} from "../../domain/share-preview";
 import {resolveCityRoute} from "../../domain/city-route";
 import PublicCityHost from "../../components/public-city-host";
 import PublicCitySupport from "../../components/public-city-support";
+import CityChat from "../../components/city-chat";
+import {serverChatConfig} from "../../server/chat-config";
 
 export const dynamic="force-dynamic";
 
@@ -69,5 +71,5 @@ export default async function CityOrEventPage({params}:{params:Promise<{city:str
   if(outcome.state==="missing")notFound();
   if(outcome.state==="redirect")redirect(outcome.href);
   if(outcome.eventHref)redirect(outcome.eventHref);
-  return <main><h1>BitcoinWalk {outcome.cityName}</h1><p>No upcoming walk has been scheduled.</p><PublicCityHost cityId={outcome.cityId} cityName={outcome.cityName} citySlug={outcome.slug}/><PublicCitySupport cityId={outcome.cityId} revisionId={outcome.revisionId} cityName={outcome.cityName} requestedTier={outcome.requestedTier}/><SponsorModule presentation={outcome.sponsorship} cityName={outcome.cityName} ogImageUrl={outcome.sponsorOgImage}/>{outcome.logoHref&&<p><Link href={outcome.logoHref}>Download the official city logo pack</Link></p>}<p><Link href="/">Browse BitcoinWalks</Link></p></main>;
+  return <main><h1>BitcoinWalk {outcome.cityName}</h1><p>No upcoming walk has been scheduled.</p><PublicCityHost cityId={outcome.cityId} cityName={outcome.cityName} citySlug={outcome.slug}/><PublicCitySupport cityId={outcome.cityId} revisionId={outcome.revisionId} cityName={outcome.cityName} requestedTier={outcome.requestedTier}/><SponsorModule presentation={outcome.sponsorship} cityName={outcome.cityName} ogImageUrl={outcome.sponsorOgImage}/><CityChat cityId={outcome.cityId} slug={outcome.slug} config={serverChatConfig()}/>{outcome.logoHref&&<p><Link href={outcome.logoHref}>Download the official city logo pack</Link></p>}<p><Link href="/">Browse BitcoinWalks</Link></p></main>;
 }

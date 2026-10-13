@@ -22,6 +22,8 @@ import {CityBrandStore} from "../directory/city-brand-store";
 import type {EventTemplate} from "nostr-tools";
 import {cityProvisioningCapabilities, type CityProvisioningCapabilities} from "../rustress/provisioning-capabilities";
 import {verifyNip05} from "../nostr/profiles";
+import {ChatProvisionStore} from "../chat-provisioning/store";
+import {armadaChatUrl} from "../domain/chat";
 
 /** This preflight cannot publish, create invoices, assign identities or activate payments. */
 export type ProSetupPreview = {
@@ -34,6 +36,7 @@ export type ProSetupPreview = {
   signer: {configured: boolean; pubkey?: string; version?: number};
   activation?: {requestId: string; expiresAt: number; proofsReady: boolean};
   capabilities: CityProvisioningCapabilities;
+  community: {active:boolean;publicEnabled:boolean;url?:string};
   steps: Array<{label: string; state: "ready" | "blocked"; detail: string}>;
 };
 
@@ -146,12 +149,14 @@ export async function prepareProSetupPreview(cityId: string, actor: string, orig
   const update=updateTable?getPaymentRuntime().store.db.prepare("SELECT payout_version payoutVersion,phase state FROM rustress_payout_update_task WHERE city=? ORDER BY payout_version DESC LIMIT 1").get(cityId) as {payoutVersion:number;state:string}|undefined:undefined;
   const payoutActivation=activeRow?.phase==="active"?update&&update.payoutVersion>activeRow.payoutVersion?{activeVersion:activeRow.payoutVersion,pendingVersion:update.payoutVersion,state:update.state==="active"?"active" as const:update.state==="blocked"||update.state==="needs-attention"?"needs-attention" as const:"pending" as const}:{activeVersion:activeRow.payoutVersion,state:"active" as const}:{state:"not-active" as const};
   const capabilities = cityProvisioningCapabilities(getPaymentRuntime().store.db,cityId);
+  const communityRow=new ChatProvisionStore(getPaymentRuntime().store.db).get(cityId),communityActive=communityRow?.phase==="active";
+  const communityUrl=communityActive?armadaChatUrl({relay:communityRow.relay,groupId:communityRow.groupId}):null;
   const publicOriginValue=process.env.BITCOINWALK_PUBLIC_ORIGIN?.trim()||"https://bitcoinwalk.org",publicOrigin=new URL(publicOriginValue);
   if(publicOrigin.protocol!=="https:"||publicOrigin.origin!==publicOriginValue)throw new Error("Canonical public origin is not configured.");
   const identifier=`${slug}@${publicOrigin.hostname}`;
   const verifiedNip05=capabilities.nip05==="active"&&!!task.signer&&await verifyNip05(task.signer.pubkey,identifier);
   return {cityId, cityName: city.cityName, revisionId: row.revision.event.id, status: "preparation-only",
-    capabilities,
+    capabilities,community:{active:communityActive,publicEnabled:communityActive&&communityRow.publicEnabled===1,...(communityUrl?{url:communityUrl}:{})},
     setup: {state: task.state, updatedAt: task.updatedAt},
     signer: task.signer ? {configured: true, pubkey: task.signer.pubkey, version: task.signer.version} : {configured: false},
     ...(pending ? {activation: {requestId: pending.id, expiresAt: pending.expires_at, proofsReady: !!pending.owner_proof && !!pending.brand_proof}} : {}),
@@ -168,6 +173,14 @@ export async function prepareProSetupPreview(cityId: string, actor: string, orig
       {label: "NIP-05 identity", state: capabilities.nip05 === "active" ? "ready" : "blocked", detail: capabilities.nip05 === "active" ? `${slug}@bitcoinwalk.org is independently verified against the city signer.` : `Status: ${capabilities.nip05}. ${capabilities.detail}`},
       {label: "Lightning address", state: capabilities.lightning === "active" ? "ready" : "blocked", detail: capabilities.lightning === "active" ? `${slug}@bitcoinwalk.org passed independent LNURL-pay verification.` : `Status: ${capabilities.lightning}. ${capabilities.detail}`},
     ]};
+}
+
+export async function setProCommunityVisibility(cityId:string,actor:string,enabled:boolean){
+  const before=await resolveProSetupAuthority(cityId,actor),store=new ChatProvisionStore(getPaymentRuntime().store.db),row=store.get(cityId);
+  if(!row||row.phase!=="active")throw new Error("Active community activation is required before changing public visibility.");
+  const after=await resolveProSetupAuthority(cityId,actor);if(JSON.stringify(before.authority)!==JSON.stringify(after.authority))throw new Error("City authority changed during the community visibility update. Reload and try again.");
+  const updated=store.setPublicEnabled(cityId,enabled),url=armadaChatUrl({relay:updated.relay,groupId:updated.groupId});
+  return {active:true,publicEnabled:updated.publicEnabled===1,...(url?{url}:{}),message:enabled?"Armada is now shown on this city’s public pages.":"Armada is now hidden from this city’s public pages. The NIP-29 group and history were not deleted."};
 }
 
 export async function prepareBrandRequest(cityId: string, actor: string, origin: string) {

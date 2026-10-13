@@ -29,7 +29,7 @@ export function resolveCityChat(cityId: string | undefined, slug: string, config
   if (paidScope) {
     const relay=paid?.destination?.relay,canonical=`wss://${slug}.bitcoinwalk.org`;
     const retainedStagingPilot=config.environment==="staging"&&slug.endsWith("-staging")&&relay===`wss://chat-${slug}.bitcoinwalk.org`;
-    destination = paid?.slug === slug && (relay === canonical || retainedStagingPilot)
+    destination = paid?.slug === slug && (relay === canonical || relay === `${canonical}/` || retainedStagingPilot)
       ? paid.destination : null;
   }
   const directUrl = destination ? armadaChatUrl(destination) : null;

@@ -14,6 +14,13 @@ Concord is not a third BitcoinWalk chat layer.
 - Pro cities use distinct groups on their combined
   `wss://<slug>.bitcoinwalk.org/` event/community relay.
 - Supports the existing Nostr identity and NIP-46 browser-signing path.
+- Presents **Open Armada** as a client action, not as a separate protocol or
+  BitcoinWalk chat layer. The current organizer may hide or show that public
+  client link with an exact signed ON/OFF command without deleting the group,
+  membership or history.
+- Retains NIP-17 for backward-compatible direct messages and invitations. NIP-17
+  is not the public group transport and its messages are never mirrored into the
+  NIP-29 room.
 - Is described as relay-readable. It must never be labelled end-to-end
   encrypted or used for secrets.
 

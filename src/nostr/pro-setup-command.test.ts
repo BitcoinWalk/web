@@ -31,6 +31,7 @@ describe("private Pro setup commands", () => {
     event.content = JSON.stringify({...save, destination: "attacker@wallet.example"});
     expect(() => authorizeProSetup(event, origin, now)).toThrow();
   });
+  it("binds the public Armada visibility choice into the owner's signature",()=>{const save={action:"set-community-visibility" as const,cityId:command.cityId,enabled:false},event=finalizeEvent(proSetupTemplate(save,origin,now),key);expect(authorizeProSetup(event,origin,now)).toEqual(save);event.content=JSON.stringify({...save,enabled:true});expect(()=>authorizeProSetup(event,origin,now)).toThrow();});
   it("requires a separate proof from the exact city signer", () => {
     const brandKey = new Uint8Array(32).fill(3), brandPubkey = getPublicKey(brandKey);
     const save = {action: "confirm-city-signer" as const, cityId: command.cityId, brandPubkey, backupAcknowledged: true as const};

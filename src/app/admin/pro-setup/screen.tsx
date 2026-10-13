@@ -62,6 +62,19 @@ function ProSetupForm({enabled, actor, cities}: {enabled: boolean; actor: string
     } catch (error) {setMessage(error instanceof Error ? error.message : "Destination was not saved.");}
     finally {inFlight.current = false; setBusy(false);}
   }
+  async function setCommunityVisibility(enabled:boolean){
+    if(!preview||!actor||inFlight.current)return;
+    inFlight.current=true;setBusy(true);setMessage("Approve the public Armada visibility change in your signer.");
+    try{
+      const command={action:"set-community-visibility" as const,cityId:preview.cityId,enabled},origin=window.location.origin;
+      const event=await signWithBrowserExtension(proSetupTemplate(command,origin));
+      if(event.pubkey!==actor||JSON.stringify(authorizeProSetup(event,origin))!==JSON.stringify(command))throw new Error("Your signer changed the community visibility request. Reconnect and try again.");
+      const response=await fetch("/api/pro-setup",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({event}),signal:AbortSignal.timeout(60_000)}),body=await response.json();
+      if(!response.ok)throw new Error(body.error||"Armada visibility could not be changed.");
+      setPreview(value=>value?{...value,community:body.community}:value);setMessage(body.community.message);
+    }catch(error){setMessage(error instanceof Error?error.message:"Armada visibility was not changed.");}
+    finally{inFlight.current=false;setBusy(false);}
+  }
   return <section>
     <h1>Upgrade your city</h1>
     <p>Your personal account remains your dashboard login. Your city will have its own public BitcoinWalk identity.</p>
@@ -80,6 +93,16 @@ function ProSetupForm({enabled, actor, cities}: {enabled: boolean; actor: string
         {preview.profile.nip05 && <p>NIP-05: <strong>{preview.profile.nip05}</strong></p>}
         <section aria-label="City service status"><h3>City services</h3><p><strong>{preview.capabilities.overall}</strong> — {preview.capabilities.detail}</p>
           <ul><li>NIP-05: <strong>{preview.capabilities.nip05}</strong></li><li>Lightning address: <strong>{preview.capabilities.lightning}</strong></li></ul></section>
+        <fieldset disabled={busy||!preview.community.active}>
+          <legend>Public community link</legend>
+          <p><strong>Open Armada</strong> is a client link for this city&apos;s existing public NIP-29 Walkie Talkie. Hiding it does not delete the group or its history. NIP-17 direct messages remain separate.</p>
+          {!preview.community.active&&<p>The city community must be activated by the super-admin before this control becomes available.</p>}
+          <div role="group" aria-label="Show Open Armada on public city and walk pages">
+            <button type="button" aria-pressed={preview.community.publicEnabled} onClick={()=>void setCommunityVisibility(true)} disabled={busy||!preview.community.active||preview.community.publicEnabled}>ON</button>
+            <button type="button" aria-pressed={!preview.community.publicEnabled} onClick={()=>void setCommunityVisibility(false)} disabled={busy||!preview.community.active||!preview.community.publicEnabled}>OFF</button>
+          </div>
+          <p>Current public state: <strong>{preview.community.publicEnabled?"Open Armada is shown":"Open Armada is hidden"}</strong>.</p>
+        </fieldset>
         <fieldset disabled={busy}>
           <legend>Personal payout destination</legend>
           <label>Lightning address or LNURL-pay
