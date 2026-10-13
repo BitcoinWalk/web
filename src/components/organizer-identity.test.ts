@@ -36,4 +36,14 @@ describe("OrganizerIdentity",()=>{
     expect(html).toContain("Open your dashboard.");
     expect(html).not.toContain("Step 2 of 3");
   });
+
+  it("can limit a screen to existing-account connection",()=>{
+    const html=renderToStaticMarkup(createElement(OrganizerIdentity,{allowAccountCreation:false,disabled:false,onIdentityChange:vi.fn(),heading:"Connect your BitcoinWalk Host",intro:"Connect an existing identity."}));
+    expect(html).toContain("Connect your BitcoinWalk Host");
+    expect(html).toContain("Connect with browser extension");
+    expect(html).toContain("Private key or signer");
+    expect(html).not.toContain("Create new account");
+    expect(html).not.toContain("Locally created accounts");
+    expect(html).not.toContain("or connect");
+  });
 });
