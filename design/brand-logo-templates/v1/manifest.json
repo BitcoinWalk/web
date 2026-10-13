@@ -1,0 +1,127 @@
+{
+  "version": 1,
+  "status": "approved-source-preservation",
+  "cityNeutral": true,
+  "assets": [
+    {
+      "slug": "bitcoinwalk-avatar-orange",
+      "label": "Symbol in orange roundel",
+      "sourceFile": "Bitcoin Walk Logo-avatar.png",
+      "png": "bitcoinwalk-avatar-orange.png",
+      "svg": "bitcoinwalk-avatar-orange.svg",
+      "width": 4167,
+      "height": 4167,
+      "sha256": "ed0384e484fb4148beadd8005e50024cf7306a5f81a1e254f8a8bc64cc3c502a"
+    },
+    {
+      "slug": "bitcoinwalk-avatar-ink",
+      "label": "Symbol in ink roundel",
+      "sourceFile": "Bitcoin Walk Logo-avatar_black.png",
+      "png": "bitcoinwalk-avatar-ink.png",
+      "svg": "bitcoinwalk-avatar-ink.svg",
+      "width": 4167,
+      "height": 4167,
+      "sha256": "e5a4ea789648152de779295e2a99a508104557dbb030bde495d973063ac76be9"
+    },
+    {
+      "slug": "bitcoinwalk-avatar-reversed",
+      "label": "Reversed symbol on orange",
+      "sourceFile": "Bitcoin Walk Logo-avatar_white.png",
+      "png": "bitcoinwalk-avatar-reversed.png",
+      "svg": "bitcoinwalk-avatar-reversed.svg",
+      "width": 4167,
+      "height": 4167,
+      "sha256": "6be203a56e537301cf502487c2481fc39fd351705b03895e51bc8c306ff44370"
+    },
+    {
+      "slug": "bitcoinwalk-symbol-orange",
+      "label": "Standalone orange symbol",
+      "sourceFile": "Bitcoin Walk Logo-icon-orange.png",
+      "png": "bitcoinwalk-symbol-orange.png",
+      "svg": "bitcoinwalk-symbol-orange.svg",
+      "width": 4167,
+      "height": 4167,
+      "sha256": "dd5629dba93c8710740cf7239d9537589049902d0c0b6c3858d8986cea288c39"
+    },
+    {
+      "slug": "bitcoinwalk-symbol-ink",
+      "label": "Standalone ink symbol",
+      "sourceFile": "Bitcoin Walk Logo-icon_black.png",
+      "png": "bitcoinwalk-symbol-ink.png",
+      "svg": "bitcoinwalk-symbol-ink.svg",
+      "width": 4167,
+      "height": 4167,
+      "sha256": "e893eb8aca53e47adf1c19d0a2d22b01bfdd2d44d2d2180bb3cc99749a85e072"
+    },
+    {
+      "slug": "bitcoinwalk-symbol-reversed",
+      "label": "Reversed standalone symbol",
+      "sourceFile": "Bitcoin Walk Logo-icon-white.png",
+      "png": "bitcoinwalk-symbol-reversed.png",
+      "svg": "bitcoinwalk-symbol-reversed.svg",
+      "width": 4167,
+      "height": 4167,
+      "sha256": "76606ae048f4d9a7d8d917541f1f9123ae8583524913a49f479bfe2e67468015"
+    },
+    {
+      "slug": "bitcoinwalk-horizontal",
+      "label": "Horizontal standard logo",
+      "sourceFile": "Bitcoin Walk Logo-horizontal.png",
+      "png": "bitcoinwalk-horizontal.png",
+      "svg": "bitcoinwalk-horizontal.svg",
+      "width": 4167,
+      "height": 4167,
+      "sha256": "f6f29df3a00646cca98b26df8a4115c5f1e5c810a409de13b143ad0639b1f218"
+    },
+    {
+      "slug": "bitcoinwalk-horizontal-ink",
+      "label": "Horizontal ink logo",
+      "sourceFile": "Bitcoin Walk Logo-horizontal-black.png",
+      "png": "bitcoinwalk-horizontal-ink.png",
+      "svg": "bitcoinwalk-horizontal-ink.svg",
+      "width": 4167,
+      "height": 4167,
+      "sha256": "1d21110d1d5043c696cbc4925c35846b1923427098966f0c3a72cd31eb41ccb0"
+    },
+    {
+      "slug": "bitcoinwalk-horizontal-reversed",
+      "label": "Horizontal reversed logo",
+      "sourceFile": "Bitcoin Walk Logo-horizontal-white.png",
+      "png": "bitcoinwalk-horizontal-reversed.png",
+      "svg": "bitcoinwalk-horizontal-reversed.svg",
+      "width": 4167,
+      "height": 4167,
+      "sha256": "e9302e1f1c29466af3e0299f488fb40b475ab29ae3dbe62e48d05fa8ee77ab90"
+    },
+    {
+      "slug": "bitcoinwalk-vertical",
+      "label": "Vertical standard logo",
+      "sourceFile": "Bitcoin Walk Logo-vertical.png",
+      "png": "bitcoinwalk-vertical.png",
+      "svg": "bitcoinwalk-vertical.svg",
+      "width": 4167,
+      "height": 4167,
+      "sha256": "055b52ac9c3c6505ea8946706ab7abc8e8ddbadc6d359c01c67f147f7a663ac8"
+    },
+    {
+      "slug": "bitcoinwalk-vertical-ink",
+      "label": "Vertical ink logo",
+      "sourceFile": "Bitcoin Walk Logo-vertical-black.png",
+      "png": "bitcoinwalk-vertical-ink.png",
+      "svg": "bitcoinwalk-vertical-ink.svg",
+      "width": 4167,
+      "height": 4167,
+      "sha256": "a18939cb236ecb5c33716a5df21ace102cf38b99ba4dc1efbf5fd955e1fcf278"
+    },
+    {
+      "slug": "bitcoinwalk-vertical-reversed",
+      "label": "Vertical reversed logo",
+      "sourceFile": "Bitcoin Walk Logo-vertical-white.png",
+      "png": "bitcoinwalk-vertical-reversed.png",
+      "svg": "bitcoinwalk-vertical-reversed.svg",
+      "width": 4167,
+      "height": 4167,
+      "sha256": "173f8c7a04cb2d38f92cc7fbbb764b2a98ec33fe60c92dda58f4933972c54bcb"
+    }
+  ]
+}
