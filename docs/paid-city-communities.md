@@ -52,12 +52,15 @@ three signed actions. London was upgraded in place to combined relay `0.9.0` on
 and separate across restart, its rehearsed relay identity stayed unchanged,
 and unauthorized creation remained denied. Evidence:
 `/var/backups/bitcoinwalk-london-combined-activation.5wFeIQ` and
-`/var/backups/bitcoinwalk-london-public-walkie-talkie.P5wwQn`. App `0.3.305`
-was deployed non-root to staging with evidence
-`/home/bitcoinwalk/backups/app-staging-deploy.UvapyY`; public health identified
-the exact release and an unsigned provisioning request returned HTTP 403. It
-migrates Pro routing from the obsolete `chat-<slug>` host to the canonical
-combined host and adds exact super-admin create, verify and activate actions.
-BW-23 can close only after London is activated through that UI and Basic-city
+`/var/backups/bitcoinwalk-london-public-walkie-talkie.P5wwQn`. The super-admin
+created and independently verified London group `bitcoinwalk-london`; signed
+metadata event `5e287d3d250a9a985607e01187aa285eea2404eb989b84ef6aca1d2bf3517f2d`
+is retained in the existing application database with phase `verified`.
+App `0.3.306` is deployed non-root to staging with evidence
+`/home/bitcoinwalk/backups/app-staging-deploy.LPG2nL`. It migrates Pro routing
+from the obsolete `chat-<slug>` host to the canonical combined host, keeps the
+three signed actions distinct, and hides completed signing controls so the UI
+shows only the next required action. BW-23 can close only after London is
+activated through that UI and Basic-city
 shared-relay groups pass cross-city isolation, join/message, restart and
 fail-closed drift tests.
