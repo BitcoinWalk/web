@@ -2,6 +2,7 @@ import {z} from "zod";
 import {verifyEvent,type Event,type EventTemplate} from "nostr-tools";
 export const MEDIA_REQUEST_KIND=27235;
 export const mediaRequestSchema=z.discriminatedUnion("action",[
+ z.object({action:z.literal("brand-studio-access")}).strict(),
  z.object({action:z.literal("list-sponsor-assets")}).strict(),
  z.object({action:z.literal("preview-sponsor-asset"),cityId:z.string().uuid(),sponsorPubkey:z.string().regex(/^[0-9a-f]{64}$/),hash:z.string().regex(/^[0-9a-f]{64}$/)}).strict(),
  z.object({action:z.literal("generate-sponsor-composite"),targetCityId:z.string().uuid(),sourceCityId:z.string().uuid(),sponsorPubkey:z.string().regex(/^[0-9a-f]{64}$/),hash:z.string().regex(/^[0-9a-f]{64}$/)}).strict(),
