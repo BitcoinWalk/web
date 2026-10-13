@@ -11,6 +11,8 @@ import {getPaymentRuntime} from "../../../../payments/runtime";
 import {directoryConfig} from "../../../../lib/directory-config";
 import {shareBackgroundPosition} from "../../../../domain/hero-presentation";
 import {cityProvisioningCapabilities,type CapabilityState} from "../../../../rustress/provisioning-capabilities";
+import {RelayProvisionStore} from "../../../../relay-provisioning/store";
+import {classifyRelayEvidence,inspectRelay} from "../../../../server/relay-monitor";
 
 export const dynamic="force-dynamic",runtime="nodejs";
 type Check={status:"green"|"amber"|"red"|"na";message:string;url?:string};
@@ -48,7 +50,20 @@ export async function POST(request:Request){
    capability(capabilities!.nip05,`${slug}@bitcoinwalk.org passed independent NIP-05 verification.`,`Status: ${capabilities!.nip05}. ${capabilities!.detail}`);
   const lnurl:Check=!entitled?{status:"na",message:city.requestedTier==="paid"?"Available after the Pro payment is verified.":"Basic city — managed Lightning address is not included."}:
    capability(capabilities!.lightning,`${slug}@bitcoinwalk.org passed independent LNURL-pay verification.`,`Status: ${capabilities!.lightning}. ${capabilities!.detail}`);
-  const relay:Check=!entitled?{status:"na",message:"Basic city — dedicated relay not required."}:configured?.subdomainReady?{status:"green",message:`${slug}.bitcoinwalk.org relay is provisioned.`}:{status:"amber",message:`Paid city — ${slug}.bitcoinwalk.org provisioning is not automated yet (BW-20).`};
+  let relay:Check={status:"na",message:"Basic city — dedicated relay not required."};
+  if(entitled){
+   if(configured?.subdomainReady)relay={status:"green",message:`${slug}.bitcoinwalk.org relay and owner directory are active.`};
+   else{
+    const task=new RelayProvisionStore(paymentRuntime.store.db).enqueue({cityId:city.cityId,revisionId:managed.revision.event.id,slug,cityName:city.cityName,approvalEventId:body.event.id});
+    if(task.phase==="needs-attention")relay={status:"red",message:"Dedicated relay provisioning needs operator attention; the accepted scope and evidence were preserved."};
+    else if(task.phase==="provisioned"){
+     const endpoint=`wss://${slug}.bitcoinwalk.org/`,evidence=await inspectRelay({url:endpoint,purpose:"Paid city relay",environment:process.env.BITCOINWALK_PUBLIC_ORIGIN?.includes("app-staging")?"staging":"production",cityId:city.cityId});
+     relay=classifyRelayEvidence(evidence)==="green"&&evidence.nip11Name===`BitcoinWalk ${city.cityName} relay`?
+      {status:"amber",message:`${slug}.bitcoinwalk.org passed DNS, TLS, WSS and NIP-11 checks; owner-signed directory activation remains.` ,url:`https://${slug}.bitcoinwalk.org/`}:
+      {status:"red",message:"The isolated relay was created, but its public DNS, TLS, WSS or exact NIP-11 read-back failed."};
+    }else relay={status:"amber",message:`Paid city — ${slug}.bitcoinwalk.org is queued for idempotent isolated provisioning.`};
+   }
+  }
   return reply({cityId:city.cityId,revisionId:managed.revision.event.id,checks:{logos,og,meta,payment,paymentAuthorization,nip05,lnurl,relay}});
  }catch{return reply({error:"City activation checks could not complete. Retry status; do not approve again."},500);}
 }
