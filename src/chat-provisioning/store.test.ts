@@ -12,6 +12,7 @@ describe("paid chat provisioning registry",()=>{
   const verified=store.verify(cityId,{metadataEventId:metadata,publiclyReadable:true,openJoin:true},12);expect(verified).toMatchObject({phase:"verified",metadataEventId:metadata});
   expect(store.activate(cityId,verified.evidenceDigest!,13)).toMatchObject({phase:"active",activatedAt:13});
  });
+ it("keeps evidence stable when activation rechecks unchanged signed metadata",()=>{const {store}=setup();store.propose({cityId,slug:"london",groupId:"bitcoinwalk-london"},10);const inspection={metadataEventId:metadata,publiclyReadable:true,openJoin:true},first=store.verify(cityId,inspection,11),second=store.verify(cityId,inspection,12);expect(second.evidenceDigest).toBe(first.evidenceDigest);expect(store.activate(cityId,second.evidenceDigest!,13)).toMatchObject({phase:"active",activatedAt:13});});
  it("rejects unpaid cities, unsafe identifiers and group reuse",()=>{const {db,store}=setup();
   expect(()=>store.propose({cityId:"91a846c2-b57a-4442-904b-167fb8b98dd6",slug:"seattle",groupId:"group"})).toThrow("settled Pro");
   expect(()=>store.propose({cityId,slug:"London",groupId:"group"})).toThrow("valid paid city");

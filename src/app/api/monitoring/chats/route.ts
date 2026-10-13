@@ -25,7 +25,7 @@ export async function POST(request:Request){
    return response({city,inspection,row:safeRow(verified)});
   }
   const row=store.get(city.cityId);if(!row||row.phase!=="verified"||row.evidenceDigest!==action.evidenceDigest)return response({error:"Verify the exact group again before activation."},409);
-  const inspection=await inspectArmadaGroup(row.relay,row.groupId),refreshed=store.verify(city.cityId,inspection);if(refreshed.evidenceDigest!==action.evidenceDigest)return response({error:"Group metadata changed. Review the fresh verification before activation.",row:safeRow(refreshed)},409);
-  return response({city,inspection,row:safeRow(store.activate(city.cityId,action.evidenceDigest))});
+  const inspection=await inspectArmadaGroup(row.relay,row.groupId),refreshed=store.verify(city.cityId,inspection);if(inspection.metadataEventId!==row.metadataEventId)return response({error:"Group metadata changed. Review the fresh verification before activation.",row:safeRow(refreshed)},409);
+  return response({city,inspection,row:safeRow(store.activate(city.cityId,refreshed.evidenceDigest!))});
  }catch(error){return response({error:error instanceof Error?error.message:"Chat provisioning could not be completed."},409);}
 }

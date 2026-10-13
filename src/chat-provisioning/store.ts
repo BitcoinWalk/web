@@ -13,7 +13,8 @@ export type ChatVerification={metadataEventId:string;publiclyReadable:boolean;op
 
 function destination(slug:string){return `wss://${slug}.bitcoinwalk.org/`;}
 function digest(row:{cityId:string;entitlementId:string;slug:string;relay:string;groupId:string},verification:ChatVerification){
- return createHash("sha256").update(JSON.stringify({version:1,...row,...verification})).digest("hex");
+ const evidence={version:1,cityId:row.cityId,entitlementId:row.entitlementId,slug:row.slug,relay:row.relay,groupId:row.groupId,metadataEventId:verification.metadataEventId,publiclyReadable:verification.publiclyReadable,openJoin:verification.openJoin};
+ return createHash("sha256").update(JSON.stringify(evidence)).digest("hex");
 }
 
 export class ChatProvisionStore{

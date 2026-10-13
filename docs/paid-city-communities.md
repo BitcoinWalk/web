@@ -56,11 +56,13 @@ and unauthorized creation remained denied. Evidence:
 created and independently verified London group `bitcoinwalk-london`; signed
 metadata event `5e287d3d250a9a985607e01187aa285eea2404eb989b84ef6aca1d2bf3517f2d`
 is retained in the existing application database with phase `verified`.
-App `0.3.306` is deployed non-root to staging with evidence
-`/home/bitcoinwalk/backups/app-staging-deploy.LPG2nL`. It migrates Pro routing
+App `0.3.307` is deployed non-root to staging with evidence
+`/home/bitcoinwalk/backups/app-staging-deploy.LOkdjV`. It migrates Pro routing
 from the obsolete `chat-<slug>` host to the canonical combined host, keeps the
 three signed actions distinct, and hides completed signing controls so the UI
-shows only the next required action. BW-23 can close only after London is
+shows only the next required action. It also makes the verification evidence
+fingerprint independent of mutable database fields; an unchanged signed group
+now remains exact during activation recheck. BW-23 can close only after London is
 activated through that UI and Basic-city
 shared-relay groups pass cross-city isolation, join/message, restart and
 fail-closed drift tests.
