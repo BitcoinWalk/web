@@ -29,6 +29,13 @@ Tracking rule: keep this file current whenever an item changes status, scope, de
 
 Mobile source is initialized at `/home/endo/Documents/Codex/WalkieTalkie`; the staged implementation plan is `docs/WALKIE-TALKIE.md` in that checkout. The first arm64 Android test APK installed successfully on a Pixel running GrapheneOS, connected through Amber over NIP-46, and received user acceptance on 13 October 2026. The next implemented slice applies the black/white/Bitcoin-orange identity, requires an approved-city choice before first sign-in, persists that city as the app context, scopes Walks to it and links its canonical `bitcoinwalk.org/<city>` page. A fail-closed versioned `/api/cities` directory projects approved city identity plus operator-verified chat routing without payment, owner or private-relay data; incomplete paid-city chat never falls back to global chat. App/website invite links remain behind their existing default-off production flag until deep-link and installation fallback acceptance. Standard DMs continue through BW-128; private Marmot and encrypted mesh work remains BW-127. The initial pure invite/counting modules pass focused tests but are not connected to the radio. Upstream's NIP-4E messaging extension and iOS background BLE behavior require explicit device acceptance; nearby counts are estimates, not verified human attendance.
 
+Production follow-up on 13 October 2026: merged app `0.3.313` combines the
+approved-city API with the Würzburg directory-read retry. All 1,594 tests,
+lint, production build and package smoke passed. Public health identifies the
+exact release; `/api/cities` returns canonical Würzburg while withholding its
+unfinished chat destination. Non-root deployment evidence:
+`/home/bitcoinwalk/backups/app-production-deploy.LklwE8`.
+
 10 October scope reconciliation: BW-18, BW-19 and BW-100 are complete for
 implementation, bounded live acceptance, recovery and default-off deployment.
 The remaining continuous production payment window, public city Lightning
