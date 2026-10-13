@@ -12,6 +12,8 @@ BW-20 turns the accepted London container pattern into a repeatable, fail-closed
 6. The provisioner proves an exact empty city state, gateway routing and restart stability before reporting a bounded set of booleans. Raw host diagnostics stay in the local system journal and recovery evidence directory.
 7. The application independently checks public DNS, TLS, HTTPS health, WSS and exact NIP-11 naming. Owner-signed directory activation and source replication remain distinct gates, so infrastructure alone never turns the full Requests checklist green.
 
+When `BITCOINWALK_RELAY_PROVISION_ENABLED=1`, the app also reconciles the approved directory every 30 seconds. This queues eligible paid cities approved before the worker was introduced without asking the organizer or super-admin to approve them again. Relays already marked ready, such as the accepted London deployment, are excluded.
+
 The app's ordinary `bitcoinwalk` service remains non-root. A small root-owned oneshot on the Docker host is the only privileged boundary because the accepted `.240` topology uses rootful Docker. It receives no wallet or organizer secrets. Every gateway and city relay process inside Docker is non-root.
 
 ## One-time wildcard gateway

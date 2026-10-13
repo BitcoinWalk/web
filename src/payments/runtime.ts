@@ -51,6 +51,13 @@ export function getPaymentRuntime():PaymentRuntime{
    .then(module=>module.reconcileManagedProvisioning()).catch(()=>console.warn("Managed provisioning deferred; durable state was retained."))
    .finally(()=>{managedBusy=false;});},30_000).unref();
  }
+ if(process.env.BITCOINWALK_RELAY_PROVISION_ENABLED==="1"){
+  let relayBusy=false;
+  const relayReconcile=()=>{if(relayBusy)return;relayBusy=true;void import("../server/relay-provision-reconcile")
+   .then(module=>module.reconcilePaidCityRelays()).catch(()=>console.warn("Paid city relay reconciliation deferred; durable tasks were retained."))
+   .finally(()=>{relayBusy=false;});};
+  setInterval(relayReconcile,30_000).unref();setTimeout(relayReconcile,2_000).unref();
+ }
  return shared[runtimeKey];
 }
 
