@@ -31,14 +31,13 @@ replacement requires a future explicit revocation workflow.
 
 ## Operator workflow
 
-1. Create a distinct city group on its tier-appropriate NIP-29 relay and keep it
-   public and open to join.
-2. Copy only the group identifier from its Armada link.
-3. As the BitcoinWalk super-admin, open **Monitoring → Communities**.
-4. Select the paid city, enter the group ID, and sign **Verify group**.
-5. Review the exact city relay, group ID, group name and signed metadata event.
-6. Sign the separate **Activate community** action.
-7. Open current Basic and Pro city walks in separate sessions and confirm that
+1. As the BitcoinWalk super-admin, open **Monitoring → Communities**.
+2. Select the city and review the generated city-scoped group identifier.
+3. Sign **Create group**. The exact tier-appropriate relay creates the group and
+   signs its public discovery metadata; no relay private key reaches the app.
+4. Review the exact city relay, group ID, group name and signed metadata event.
+5. Sign the separate **Activate community** action.
+6. Open current Basic and Pro city walks in separate sessions and confirm that
    each button resolves to its own exact group and tier-appropriate relay.
 
 Every list, verification and activation request is a fresh NIP-98-style event
@@ -47,13 +46,15 @@ trusted as authorization.
 
 ## Remaining acceptance
 
-The implementation is default-empty: no paid-city group is activated by the
-release. Staging app `0.3.304` was deployed non-root on 13 October 2026 with
-evidence `/home/bitcoinwalk/backups/app-staging-deploy.aLSZdf`; public health
-identifies the exact release and an unsigned registry request returns HTTP 403.
-Its earlier `chat-<slug>` paid-city routing is superseded by the confirmed
-combined-host design. London currently advertises no NIP-29 support on
-`wss://london.bitcoinwalk.org/`, so BW-23 can close only after that existing
-event receiver is upgraded in place, its exact event set remains unchanged, a
-real group is verified and activated, and Basic-city shared-relay groups pass
-cross-city isolation, join/message, restart and fail-closed drift tests.
+The implementation remains default-empty until the super-admin performs the
+three signed actions. London was upgraded in place to combined relay `0.9.0` on
+13 October 2026. Its event set remained exact, the NIP-29 store remained empty
+and separate across restart, its rehearsed relay identity stayed unchanged,
+and unauthorized creation remained denied. Evidence:
+`/var/backups/bitcoinwalk-london-combined-activation.5wFeIQ` and
+`/var/backups/bitcoinwalk-london-public-walkie-talkie.P5wwQn`. App `0.3.305`
+migrates Pro routing from the obsolete `chat-<slug>` host to the canonical
+combined host and adds exact super-admin create, verify and activate actions.
+BW-23 can close only after London is activated through that UI and Basic-city
+shared-relay groups pass cross-city isolation, join/message, restart and
+fail-closed drift tests.

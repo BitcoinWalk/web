@@ -11,7 +11,7 @@ export type ChatProvisionRow={cityId:string;entitlementId:string;slug:string;rel
 export type ChatProvisionInput={cityId:string;slug:string;groupId:string};
 export type ChatVerification={metadataEventId:string;publiclyReadable:boolean;openJoin:boolean};
 
-function destination(slug:string){return `wss://chat-${slug}.bitcoinwalk.org/`;}
+function destination(slug:string){return `wss://${slug}.bitcoinwalk.org/`;}
 function digest(row:{cityId:string;entitlementId:string;slug:string;relay:string;groupId:string},verification:ChatVerification){
  return createHash("sha256").update(JSON.stringify({version:1,...row,...verification})).digest("hex");
 }

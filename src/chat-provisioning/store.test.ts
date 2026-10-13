@@ -7,7 +7,7 @@ function setup(){const db=new DatabaseSync(":memory:");db.exec("CREATE TABLE pai
 
 describe("paid chat provisioning registry",()=>{
  it("binds an exact paid city destination and activates only verified evidence",()=>{const {store}=setup();
-  expect(store.propose({cityId,slug:"london",groupId:"london-community"},10)).toMatchObject({relay:"wss://chat-london.bitcoinwalk.org/",phase:"candidate",entitlementId:entitlement});
+  expect(store.propose({cityId,slug:"london",groupId:"london-community"},10)).toMatchObject({relay:"wss://london.bitcoinwalk.org/",phase:"candidate",entitlementId:entitlement});
   expect(()=>store.activate(cityId,"c".repeat(64),11)).toThrow("Fresh verified");
   const verified=store.verify(cityId,{metadataEventId:metadata,publiclyReadable:true,openJoin:true},12);expect(verified).toMatchObject({phase:"verified",metadataEventId:metadata});
   expect(store.activate(cityId,verified.evidenceDigest!,13)).toMatchObject({phase:"active",activatedAt:13});
