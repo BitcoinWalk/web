@@ -1,7 +1,7 @@
 import {getEventHash,verifyEvent,type Event,type EventTemplate} from "nostr-tools";
 import {isSuperAdmin} from "./authority";
 
-export type ChatProvisionAction={action:"list"}|{action:"verify";cityId:string;slug:string;groupId:string}|{action:"activate";cityId:string;evidenceDigest:string};
+export type ChatProvisionAction={action:"list"}|{action:"verify";cityId:string;slug:string;groupId:string}|{action:"activate";cityId:string;evidenceDigest:string}|{action:"refresh-metadata";cityId:string;evidenceDigest:string;name:string};
 const content=(action:ChatProvisionAction)=>JSON.stringify(action);
 export function chatProvisionRequest(action:ChatProvisionAction,origin:string,now=Math.floor(Date.now()/1000)):EventTemplate{return {kind:27235,created_at:now,tags:[["u",`${origin}/api/monitoring/chats`],["method","POST"],["t","bitcoinwalk-chat-provision-v1"]],content:content(action)};}
 export function authorizeChatProvision(event:Event,action:ChatProvisionAction,origin:string,now=Math.floor(Date.now()/1000)){

@@ -86,3 +86,11 @@ the independent columns with exact defaults `walkieTalkieEnabled=0` and
 remains hidden until the super-admin freshly verifies its existing signed group
 metadata and separately activates that exact evidence against the production
 origin.
+
+The super-admin completed that production verification and activation on 13
+October 2026. Release `0.3.315` adds a separately signed channel-name action for
+an active group. It publishes NIP-29 kind `9002` to the exact registered relay,
+then accepts the change only after the relay returns a new signed kind `39000`
+metadata event with the requested name. The registry refresh preserves the
+group ID, activation time, visibility controls, membership and history. Channel
+metadata stores `chat`; clients conventionally present it as `#chat`.

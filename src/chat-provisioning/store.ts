@@ -68,6 +68,15 @@ export class ChatProvisionStore{
    .run(now,now,cityId,evidenceDigest);
   return this.get(cityId)!;
  }
+ refreshActiveMetadata(cityId:string,currentEvidenceDigest:string,verification:ChatVerification,now=Math.floor(Date.now()/1000)){
+  const row=this.get(cityId);if(!row||row.phase!=="active"||row.evidenceDigest!==currentEvidenceDigest||!hexPattern.test(currentEvidenceDigest))throw new Error("The active community changed. Refresh and retry.");
+  const entitlement=this.entitlement(cityId);if(!entitlement||entitlement.invoiceId!==row.entitlementId)throw new Error("The settled Pro entitlement changed before the metadata refresh.");
+  if(!hexPattern.test(verification.metadataEventId)||!verification.publiclyReadable||!verification.openJoin)throw new Error("The NIP-29 group must remain publicly readable and open to join.");
+  const evidenceDigest=digest(row,verification),result=this.db.prepare("UPDATE city_chat_provisioning SET evidenceDigest=?,metadataEventId=?,verifiedAt=?,updatedAt=? WHERE cityId=? AND phase='active' AND evidenceDigest=?")
+   .run(evidenceDigest,verification.metadataEventId,now,now,cityId,currentEvidenceDigest);
+  if(result.changes!==1)throw new Error("The active community changed. Refresh and retry.");
+  return this.get(cityId)!;
+ }
  setVisibility(cityId:string,surface:ChatVisibilitySurface,enabled:boolean,now=Math.floor(Date.now()/1000)){
   const row=this.get(cityId);if(!row||row.phase!=="active")throw new Error("Active community activation is required before changing public visibility.");
   const entitlement=this.entitlement(cityId);if(!entitlement||entitlement.invoiceId!==row.entitlementId)throw new Error("The settled Pro entitlement changed before the visibility update.");

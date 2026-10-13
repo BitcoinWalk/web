@@ -24,6 +24,13 @@ export async function POST(request:Request){
    const candidate=store.propose(action),inspection=await inspectArmadaGroup(candidate.relay,candidate.groupId),verified=store.verify(city.cityId,inspection);
    return response({city,inspection,row:safeRow(verified)});
   }
+  if(action.action==="refresh-metadata"){
+   const row=store.get(city.cityId),name=action.name.trim();
+   if(!row||row.phase!=="active"||row.evidenceDigest!==action.evidenceDigest)return response({error:"Refresh the active community before changing its channel name."},409);
+   if(!name||name.length>80||name!==action.name)return response({error:"Enter a channel name containing 1–80 characters without surrounding spaces."},409);
+   const inspection=await inspectArmadaGroup(row.relay,row.groupId);if(inspection.name!==name)return response({error:"The relay did not publish the requested channel name."},409);
+   return response({city,inspection,row:safeRow(store.refreshActiveMetadata(city.cityId,action.evidenceDigest,inspection))});
+  }
   const row=store.get(city.cityId);if(!row||row.phase!=="verified"||row.evidenceDigest!==action.evidenceDigest)return response({error:"Verify the exact group again before activation."},409);
   const inspection=await inspectArmadaGroup(row.relay,row.groupId),refreshed=store.verify(city.cityId,inspection);if(inspection.metadataEventId!==row.metadataEventId)return response({error:"Group metadata changed. Review the fresh verification before activation.",row:safeRow(refreshed)},409);
   return response({city,inspection,row:safeRow(store.activate(city.cityId,refreshed.evidenceDigest!))});
