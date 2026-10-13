@@ -10,7 +10,8 @@ An eligible city must be approved and have a settled `paid_city_entitlement`.
 The registry binds its immutable city UUID and entitlement invoice to:
 
 - the current approved canonical slug;
-- the exact `wss://<slug>.bitcoinwalk.org/` relay;
+- the exact `wss://chat-<slug>.bitcoinwalk.org/` community relay, kept separate
+  from the city's `wss://<slug>.bitcoinwalk.org/` event/replication relay;
 - one relay-scoped Armada group ID;
 - the NIP-29 kind `39000` metadata event signed by the exact NIP-11 `self`
   identity of that relay; and
@@ -27,7 +28,7 @@ replacement requires a future explicit revocation workflow.
 
 ## Operator workflow
 
-1. Create the city group in Armada using the dedicated paid-city relay and keep
+1. Create the city group in Armada using the dedicated paid-city community relay and keep
    it public and open to join.
 2. Copy only the group identifier from its Armada link.
 3. As the BitcoinWalk super-admin, open **Monitoring → Communities**.
@@ -45,10 +46,13 @@ trusted as authorization.
 ## Remaining acceptance
 
 The implementation is default-empty: no paid-city group is activated by the
-release. Staging app `0.3.303` was deployed non-root on 13 October 2026 with
-evidence `/home/bitcoinwalk/backups/app-staging-deploy.BbhGUP`; health identifies
-the exact release and an unsigned registry request returns HTTP 403. BW-23 can
-close after a real group is created for an entitled city,
+release. Staging app `0.3.304` was deployed non-root on 13 October 2026 with
+evidence `/home/bitcoinwalk/backups/app-staging-deploy.aLSZdf`; public health
+identifies the exact release and an unsigned registry request returns HTTP 403.
+It keeps paid-city community transport separate from
+the existing city event relay. London currently advertises no NIP-29 support on
+`wss://london.bitcoinwalk.org/`, so BW-23 can close only after the separate
+`wss://chat-london.bitcoinwalk.org/` service and a real group are created,
 verified and activated through the interface, then tested for cross-city
 isolation, join/message behavior, restart persistence and fail-closed behavior
 when the entitlement or group metadata no longer matches.

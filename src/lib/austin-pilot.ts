@@ -14,7 +14,7 @@ export const austinPilotChat: ChatConfig = {
     [austinPilot.cityId]: {
       slug: austinPilot.slug,
       destination: {
-        relay: "wss://austin-staging.bitcoinwalk.org",
+        relay: "wss://chat-austin-staging.bitcoinwalk.org",
         groupId: "d8006bee1ddd5b5f",
       },
     },

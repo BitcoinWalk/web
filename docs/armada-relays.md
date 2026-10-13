@@ -17,7 +17,7 @@ remain bound to signed BitcoinWalk records and community membership.
 | Armada section | Add or enable | BitcoinWalk purpose |
 | --- | --- | --- |
 | **App relays** | Keep **Use app relays** on. Add `wss://relay.damus.io/` and `wss://nos.lol/`. Armada's current defaults may remain if they are healthy. | Profiles, lists and account discovery. These two relays also let BitcoinWalk Guide find the signed DM inbox declaration. |
-| **Community relays** | Free cities: join `wss://chat.bitcoinwalk.org/` through the official BitcoinWalk/Armada link. Paid cities: join only the provisioned `wss://<city-slug>.bitcoinwalk.org/` supplied for that city. | NIP-29 group membership, channels, history and moderation. |
+| **Community relays** | Free cities: join `wss://chat.bitcoinwalk.org/` through the official BitcoinWalk/Armada link. Paid cities: join only the provisioned `wss://chat-<city-slug>.bitcoinwalk.org/` supplied for that city. | NIP-29 group membership, channels, history and moderation. |
 | **Search relays** | Keep Armada's working NIP-50 defaults or use **Reset to defaults**. Leave empty to fall back to App relays. | Searching for people and communities by name. Search configuration does not grant access to a private city. |
 | **Direct messages** | Turn on **Use app DM relays**, **Use my own DM relays** and **Message requests**. Under personal DM relays add `wss://relay.damus.io/` and `wss://nos.lol/`, then approve the signing request. | Publishes the signed kind-10050 inbox list used for NIP-17 encrypted delivery, including BitcoinWalk Guide notifications. |
 
