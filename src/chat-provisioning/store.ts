@@ -22,11 +22,11 @@ export class ChatProvisionStore{
  constructor(readonly db:DatabaseSync){
   db.exec(`CREATE TABLE IF NOT EXISTS city_chat_provisioning(
    cityId TEXT PRIMARY KEY,entitlementId TEXT NOT NULL,slug TEXT NOT NULL,relay TEXT NOT NULL,groupId TEXT NOT NULL,
-   phase TEXT NOT NULL,evidenceDigest TEXT,metadataEventId TEXT,verifiedAt INTEGER,activatedAt INTEGER,walkieTalkieEnabled INTEGER NOT NULL DEFAULT 1,armadaEnabled INTEGER NOT NULL DEFAULT 1,visibilityUpdatedAt INTEGER,createdAt INTEGER NOT NULL,updatedAt INTEGER NOT NULL,
+   phase TEXT NOT NULL,evidenceDigest TEXT,metadataEventId TEXT,verifiedAt INTEGER,activatedAt INTEGER,walkieTalkieEnabled INTEGER NOT NULL DEFAULT 0,armadaEnabled INTEGER NOT NULL DEFAULT 1,visibilityUpdatedAt INTEGER,createdAt INTEGER NOT NULL,updatedAt INTEGER NOT NULL,
    UNIQUE(relay,groupId));`);
   const columns=this.db.prepare("PRAGMA table_info(city_chat_provisioning)").all() as Array<{name:string}>;
   const names=new Set(columns.map(column=>column.name));
-  if(!names.has("walkieTalkieEnabled"))this.db.exec("ALTER TABLE city_chat_provisioning ADD COLUMN walkieTalkieEnabled INTEGER NOT NULL DEFAULT 1");
+  if(!names.has("walkieTalkieEnabled"))this.db.exec("ALTER TABLE city_chat_provisioning ADD COLUMN walkieTalkieEnabled INTEGER NOT NULL DEFAULT 0");
   if(!names.has("armadaEnabled")){
    this.db.exec("ALTER TABLE city_chat_provisioning ADD COLUMN armadaEnabled INTEGER NOT NULL DEFAULT 1");
    if(names.has("publicEnabled"))this.db.exec("UPDATE city_chat_provisioning SET armadaEnabled=publicEnabled");

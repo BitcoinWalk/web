@@ -67,11 +67,22 @@ from the obsolete `chat-<slug>` host to the canonical combined host, keeps the
 three signed actions distinct, and hides completed signing controls so the UI
 shows only the next required action. It also makes the verification evidence
 fingerprint independent of mutable database fields; an unchanged signed group
-now remains exact during activation recheck. Existing active communities migrate
-with both public options ON unless the earlier Armada-only setting was already
-OFF. The current organizer can subsequently sign exact independent visibility
+now remains exact during activation recheck. App `0.3.311` changes the safe
+production migration policy: Walkie Talkie starts OFF while Armada starts ON,
+or retains its earlier hidden state. Environments where Walkie Talkie was
+already explicitly initialized or enabled retain that stored choice. The
+current organizer can subsequently sign exact independent visibility
 commands; public city and walk pages describe **Walkie Talkie** as NIP-29 with
 NIP-17 support and **Armada** as Concord. A canonical relay URL with or without
 a trailing slash resolves identically. BW-23 can close only after
 Basic-city shared-relay groups pass cross-city isolation, join/message, restart
 and fail-closed drift tests.
+
+Production app `0.3.311` was deployed non-root on 13 October 2026 with evidence
+`/home/bitcoinwalk/backups/app-production-deploy.Evsr97`. Public health and the
+London city page returned HTTP 200. The production database migration exposes
+the independent columns with exact defaults `walkieTalkieEnabled=0` and
+`armadaEnabled=1`, and contains no invented provisioning rows. London therefore
+remains hidden until the super-admin freshly verifies its existing signed group
+metadata and separately activates that exact evidence against the production
+origin.
