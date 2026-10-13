@@ -39,9 +39,8 @@ export function nip29JoinTemplate(groupId:string,now=Math.floor(Date.now()/1000)
  return {kind:9021,created_at:now,tags:[["h",groupId]],content:""};
 }
 
-export function nip29MessageTemplate(groupId:string,content:string,previousIds:string[],now=Math.floor(Date.now()/1000)):EventTemplate{
+export function nip29MessageTemplate(groupId:string,content:string,now=Math.floor(Date.now()/1000)):EventTemplate{
  const clean=content.trim();if(!clean||clean.length>4000)throw new Error("Write a message of no more than 4,000 characters.");
  if(!/^[A-Za-z0-9_-]{1,128}$/.test(groupId))throw new Error("Invalid community group.");
- const previous=[...new Set(previousIds)].filter(id=>hex.test(id)).slice(-3).map(id=>id.slice(0,8));
- return {kind:9,created_at:now,tags:[["h",groupId],...(previous.length?[["previous",...previous]]:[])],content:clean};
+ return {kind:9,created_at:now,tags:[["h",groupId]],content:clean};
 }

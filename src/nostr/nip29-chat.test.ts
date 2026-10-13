@@ -21,6 +21,6 @@ describe("NIP-29 dashboard chat",()=>{
   const metadata=signed({kind:39000,created_at:10,tags:[["d",group],["name","chat"]],content:""});
   expect(nip29RoomName([metadata],group,"London")).toBe("chat");
   expect(nip29JoinTemplate(group,12)).toEqual({kind:9021,created_at:12,tags:[["h",group]],content:""});
-  expect(nip29MessageTemplate(group," Hi ",["a".repeat(64)],13)).toEqual({kind:9,created_at:13,tags:[["h",group],["previous","aaaaaaaa"]],content:"Hi"});
+  expect(nip29MessageTemplate(group," Hi ",13)).toEqual({kind:9,created_at:13,tags:[["h",group]],content:"Hi"});
  });
 });
