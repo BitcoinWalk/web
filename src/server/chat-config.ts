@@ -13,7 +13,7 @@ export function serverChatConfig():ChatConfig{
   for(const row of registry.active()){
    const entitlement=db.prepare("SELECT invoiceId FROM paid_city_entitlement WHERE cityId=?").get(row.cityId) as {invoiceId:string}|undefined;
    if(entitlement?.invoiceId!==row.entitlementId)continue;
-   paidCities[row.cityId]={slug:row.slug,destination:{relay:row.relay,groupId:row.groupId}};
+   paidCities[row.cityId]={slug:row.slug,destination:{relay:row.relay,groupId:row.groupId},walkieTalkieEnabled:row.walkieTalkieEnabled===1,armadaEnabled:row.armadaEnabled===1};
   }
   return {...chatConfig,paidCities};
  }catch{return chatConfig;}

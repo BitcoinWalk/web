@@ -2,7 +2,7 @@ export type ChatDestination = { relay: string; groupId: string };
 export type ChatConfig = {
   environment: "staging" | "production";
   global: ChatDestination | null;
-  paidCities: Record<string, { slug: string; destination: ChatDestination | null }>;
+  paidCities: Record<string, { slug: string; destination: ChatDestination | null; walkieTalkieEnabled?: boolean; armadaEnabled?: boolean }>;
 };
 
 export const PRODUCTION_GLOBAL_COMMUNITY_URL = "https://bitcoinwalk.org/join";
@@ -33,11 +33,15 @@ export function resolveCityChat(cityId: string | undefined, slug: string, config
       ? paid.destination : null;
   }
   const directUrl = destination ? armadaChatUrl(destination) : null;
+  const walkieTalkieEnabled=paidScope?(paid?.walkieTalkieEnabled??!!destination):!!destination;
+  const armadaEnabled=paidScope?(paid?.armadaEnabled??!!directUrl):!!directUrl;
   return {
     scope: paidScope ? "city" as const : "global" as const,
     environment: config.environment,
-    url: !paidScope && config.environment === "production" && directUrl
+    walkieTalkieEnabled,
+    armadaEnabled,
+    url: armadaEnabled?(!paidScope && config.environment === "production" && directUrl
       ? PRODUCTION_GLOBAL_COMMUNITY_URL
-      : directUrl,
+      : directUrl):null,
   };
 }

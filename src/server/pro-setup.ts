@@ -22,7 +22,7 @@ import {CityBrandStore} from "../directory/city-brand-store";
 import type {EventTemplate} from "nostr-tools";
 import {cityProvisioningCapabilities, type CityProvisioningCapabilities} from "../rustress/provisioning-capabilities";
 import {verifyNip05} from "../nostr/profiles";
-import {ChatProvisionStore} from "../chat-provisioning/store";
+import {ChatProvisionStore,type ChatVisibilitySurface} from "../chat-provisioning/store";
 import {armadaChatUrl} from "../domain/chat";
 
 /** This preflight cannot publish, create invoices, assign identities or activate payments. */
@@ -36,7 +36,7 @@ export type ProSetupPreview = {
   signer: {configured: boolean; pubkey?: string; version?: number};
   activation?: {requestId: string; expiresAt: number; proofsReady: boolean};
   capabilities: CityProvisioningCapabilities;
-  community: {active:boolean;publicEnabled:boolean;url?:string};
+  community: {active:boolean;walkieTalkieEnabled:boolean;armadaEnabled:boolean;url?:string};
   steps: Array<{label: string; state: "ready" | "blocked"; detail: string}>;
 };
 
@@ -156,7 +156,7 @@ export async function prepareProSetupPreview(cityId: string, actor: string, orig
   const identifier=`${slug}@${publicOrigin.hostname}`;
   const verifiedNip05=capabilities.nip05==="active"&&!!task.signer&&await verifyNip05(task.signer.pubkey,identifier);
   return {cityId, cityName: city.cityName, revisionId: row.revision.event.id, status: "preparation-only",
-    capabilities,community:{active:communityActive,publicEnabled:communityActive&&communityRow.publicEnabled===1,...(communityUrl?{url:communityUrl}:{})},
+    capabilities,community:{active:communityActive,walkieTalkieEnabled:communityActive&&communityRow.walkieTalkieEnabled===1,armadaEnabled:communityActive&&communityRow.armadaEnabled===1,...(communityUrl?{url:communityUrl}:{})},
     setup: {state: task.state, updatedAt: task.updatedAt},
     signer: task.signer ? {configured: true, pubkey: task.signer.pubkey, version: task.signer.version} : {configured: false},
     ...(pending ? {activation: {requestId: pending.id, expiresAt: pending.expires_at, proofsReady: !!pending.owner_proof && !!pending.brand_proof}} : {}),
@@ -175,12 +175,12 @@ export async function prepareProSetupPreview(cityId: string, actor: string, orig
     ]};
 }
 
-export async function setProCommunityVisibility(cityId:string,actor:string,enabled:boolean){
+export async function setProCommunityVisibility(cityId:string,actor:string,surface:ChatVisibilitySurface,enabled:boolean){
   const before=await resolveProSetupAuthority(cityId,actor),store=new ChatProvisionStore(getPaymentRuntime().store.db),row=store.get(cityId);
   if(!row||row.phase!=="active")throw new Error("Active community activation is required before changing public visibility.");
   const after=await resolveProSetupAuthority(cityId,actor);if(JSON.stringify(before.authority)!==JSON.stringify(after.authority))throw new Error("City authority changed during the community visibility update. Reload and try again.");
-  const updated=store.setPublicEnabled(cityId,enabled),url=armadaChatUrl({relay:updated.relay,groupId:updated.groupId});
-  return {active:true,publicEnabled:updated.publicEnabled===1,...(url?{url}:{}),message:enabled?"Armada is now shown on this city’s public pages.":"Armada is now hidden from this city’s public pages. The NIP-29 group and history were not deleted."};
+  const updated=store.setVisibility(cityId,surface,enabled),url=armadaChatUrl({relay:updated.relay,groupId:updated.groupId}),label=surface==="walkie-talkie"?"Walkie Talkie":"Armada";
+  return {active:true,walkieTalkieEnabled:updated.walkieTalkieEnabled===1,armadaEnabled:updated.armadaEnabled===1,...(url?{url}:{}),message:enabled?`${label} is now shown on this city’s public pages.`:`${label} is now hidden from this city’s public pages. The community and its history were not deleted.`};
 }
 
 export async function prepareBrandRequest(cityId: string, actor: string, origin: string) {

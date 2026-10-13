@@ -1,6 +1,13 @@
 # City chat integration
 
-Published `nevent` pages and authenticated previews share one `CityChat` component. Its single ordinary HTTPS link uses the stable BitcoinWalk join alias for the global community or the verified direct Armada destination for a Pro city. No iframe, self-hosted Armada, custom URI scheme, login automation or private-key input is used. App opening depends on the user's installed app and operating-system link settings.
+Published `nevent` pages and authenticated previews share one `CityChat`
+component. It presents Walkie Talkie as NIP-29 messaging with NIP-17 support and
+Armada as the Concord client option. Pro organizers control the two public
+surfaces independently. Armada's ordinary HTTPS link uses the stable BitcoinWalk
+join alias for the global community or the verified direct destination for a Pro
+city. No iframe, self-hosted Armada, custom URI scheme, login automation or
+private-key input is used. App opening depends on the user's installed app and
+operating-system link settings.
 
 Production app `0.3.302` makes `https://bitcoinwalk.org/join` the stable public
 link used by every Basic-city walk. Both `/join` and the retained `/join-chat`

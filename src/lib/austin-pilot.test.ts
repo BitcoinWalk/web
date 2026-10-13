@@ -6,7 +6,7 @@ import { austinPilot, austinPilotChat } from "./austin-pilot";
 describe("isolated Austin paid-city pilot", () => {
   it("uses the verified Austin channel", () => {
     expect(resolveCityChat(austinPilot.cityId, austinPilot.slug, austinPilotChat)).toEqual({
-      scope: "city", environment: "staging",
+      scope: "city", environment: "staging", walkieTalkieEnabled:true,armadaEnabled:true,
       url: "https://armada.buzz/s/chat-austin-staging.bitcoinwalk.org/d8006bee1ddd5b5f",
     });
   });

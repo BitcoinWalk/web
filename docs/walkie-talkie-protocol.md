@@ -2,7 +2,8 @@
 
 Decision confirmed on 13 October 2026: BitcoinWalk uses NIP-29 for the public
 Walkie Talkie and reserves Marmot/MLS for a later invitation-only Private group.
-Concord is not a third BitcoinWalk chat layer.
+Armada uses Concord and is presented as a separate client option, not as the
+name of the Walkie Talkie protocol surface.
 
 ## Product boundary
 
@@ -14,15 +15,20 @@ Concord is not a third BitcoinWalk chat layer.
 - Pro cities use distinct groups on their combined
   `wss://<slug>.bitcoinwalk.org/` event/community relay.
 - Supports the existing Nostr identity and NIP-46 browser-signing path.
-- Presents **Open Armada** as a client action, not as a separate protocol or
-  BitcoinWalk chat layer. The current organizer may hide or show that public
-  client link with an exact signed ON/OFF command without deleting the group,
-  membership or history.
-- Retains NIP-17 for backward-compatible direct messages and invitations. NIP-17
-  is not the public group transport and its messages are never mirrored into the
-  NIP-29 room.
+- Uses NIP-29 for group messaging and retains NIP-17 support for compatible
+  direct messages and invitations.
+- Is independently shown or hidden by the current organizer through an exact
+  signed ON/OFF command.
 - Is described as relay-readable. It must never be labelled end-to-end
   encrypted or used for secrets.
+
+### Armada
+
+- Uses Concord and opens through the reviewed Armada community URL.
+- Is an independently controlled public option. Its signed ON/OFF toggle does
+  not enable, disable, rename or delete Walkie Talkie.
+- Hiding Armada removes its public link but preserves the underlying community,
+  membership and history.
 
 ### Private group
 

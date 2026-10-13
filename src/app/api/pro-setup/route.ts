@@ -49,7 +49,7 @@ export async function POST(request: Request) {
     if (command.action === "prepare-brand-publication") return reply({request: await prepareBrandPublication(command.requestId, event.pubkey)});
     if (command.action === "confirm-brand-publication") return reply({request: await confirmBrandPublication(command.requestId, event.pubkey)});
     if (command.action === "retry-city-provisioning") return reply({provisioning: await retryManagedProvisioning(command.cityId,event.pubkey)});
-    if (command.action === "set-community-visibility") return reply({community: await setProCommunityVisibility(command.cityId,event.pubkey,command.enabled)});
+    if (command.action === "set-community-visibility") return reply({community: await setProCommunityVisibility(command.cityId,event.pubkey,command.surface,command.enabled)});
     return reply({preview: await prepareProSetupPreview(command.cityId, event.pubkey, origin)});
   }
   catch (error) {

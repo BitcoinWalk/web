@@ -38,9 +38,10 @@ replacement requires a future explicit revocation workflow.
 4. Review the exact city relay, group ID, group name and signed metadata event.
 5. Sign the separate **Activate community** action.
 6. The current organizer opens **Upgrade your city**, previews the Pro setup and
-   signs the **Public community link** ON/OFF control. This controls only whether
-   city and walk pages show the Armada client link; it never deletes the NIP-29
-   group, membership or history.
+   independently signs the **Walkie Talkie** and **Armada** ON/OFF controls.
+   Walkie Talkie is the NIP-29/NIP-17-compatible messaging surface; Armada is
+   the Concord client option. Neither toggle deletes the underlying community,
+   membership or history.
 7. Open current Basic and Pro city walks in separate sessions and confirm that
    each button resolves to its own exact group and tier-appropriate relay.
 
@@ -60,16 +61,17 @@ and unauthorized creation remained denied. Evidence:
 created, independently verified and activated London group `bitcoinwalk-london`; signed
 metadata event `5e287d3d250a9a985607e01187aa285eea2404eb989b84ef6aca1d2bf3517f2d`
 is retained in the existing application database with phase `active`.
-App `0.3.309` is deployed non-root to staging with evidence
-`/home/bitcoinwalk/backups/app-staging-deploy.HcMl3N`. It migrates Pro routing
+App `0.3.310` is deployed non-root to staging with evidence
+`/home/bitcoinwalk/backups/app-staging-deploy.quj0i5`. It migrates Pro routing
 from the obsolete `chat-<slug>` host to the canonical combined host, keeps the
 three signed actions distinct, and hides completed signing controls so the UI
 shows only the next required action. It also makes the verification evidence
 fingerprint independent of mutable database fields; an unchanged signed group
 now remains exact during activation recheck. Existing active communities migrate
-with their public link ON. The current organizer can subsequently sign an exact
-ON/OFF visibility command; public city and walk pages label the feature **Walkie
-Talkie** and its client action **Open Armada**. A canonical relay URL with or
-without a trailing slash resolves identically. BW-23 can close only after
+with both public options ON unless the earlier Armada-only setting was already
+OFF. The current organizer can subsequently sign exact independent visibility
+commands; public city and walk pages describe **Walkie Talkie** as NIP-29 with
+NIP-17 support and **Armada** as Concord. A canonical relay URL with or without
+a trailing slash resolves identically. BW-23 can close only after
 Basic-city shared-relay groups pass cross-city isolation, join/message, restart
 and fail-closed drift tests.
