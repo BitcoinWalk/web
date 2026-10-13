@@ -42,3 +42,16 @@ Expired leases are safe to reclaim. The host provisioner is idempotent only when
 Provisioning completion is not the same as public activation. Requests remains amber until public DNS/TLS/WSS/NIP-11 succeeds and the city owner publishes the required directory state. Replication is enabled through the existing signed-entitlement registry and remains independently auditable.
 
 Every first-time host change records the prior gateway allowlist, Docker inventory, container inspection, empty audits and accepted scope beneath `/var/backups`. A failed first apply restores the old allowlist and removes only the newly created container/state. Existing city containers, London routing, NPM, source relay, Guide and app data are not modified.
+
+## Production acceptance
+
+Accepted on 13 October 2026 with production app `0.3.297`, gateway/provisioner `0.8.92` and constrained worker `0.8.95`:
+
+- Nginx Proxy Manager sends the wildcard host to the fail-closed gateway; an unregistered hostname returns 404.
+- Madeira, Würzburg and Graz were claimed from the durable production queue and reached `provisioned` with complete bounded evidence.
+- All three public hostnames returned exact city-labelled NIP-11 documents over valid TLS.
+- Each receiver runs as UID/GID 65532 with a read-only root filesystem, no published host ports and only the private Docker proxy network.
+- The worker uses a private `DOCKER_CONFIG` below its protected `/run` workspace and pins only its authenticated production API calls to `.138` while retaining `bitcoinwalk.org` TLS/SNI. Host-wide name resolution was not changed.
+- The periodic worker is enabled after an explicit empty-queue run. London continued to return its established NIP-11 document and was not added to the wildcard registry.
+
+The first Madeira apply failed before creating durable city state because Docker attempted to write beneath the systemd-protected root home. The provisioner restored the prior gateway registry and removed the candidate state. The exact `needs-attention` task was backed up, requeued once and accepted after the private runtime Docker configuration repair. Recovery and acceptance evidence is retained in the directories recorded by BW-20 in the backlog.
