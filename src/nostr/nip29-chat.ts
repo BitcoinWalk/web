@@ -24,7 +24,7 @@ export function uniqueNip29Rooms(cities:Nip29CityRoom[]):Nip29Room[]{
   const destination=validNip29Destination(city.chat?.nip29);if(!destination)continue;
   const key=`${destination.relay}\n${destination.groupId}`,existing=rooms.get(key);
   if(existing){existing.cityIds.push(city.id);continue;}
-  rooms.set(key,{key,label:city.chat.scope==="global"?"BitcoinWalk shared":city.name,scope:city.chat.scope,cityIds:[city.id],destination});
+  rooms.set(key,{key,label:city.chat.scope==="global"?"BitcoinWalk Global":city.name,scope:city.chat.scope,cityIds:[city.id],destination});
  }
  return [...rooms.values()].sort((a,b)=>a.label.localeCompare(b.label)||a.key.localeCompare(b.key));
 }

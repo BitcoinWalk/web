@@ -20,7 +20,7 @@ describe("NIP-29 dashboard chat",()=>{
  it("collapses cities that currently share one room instead of pretending the chat changed",()=>{
   const shared={relay:"wss://chat.bitcoinwalk.org",groupId:"shared"};
   expect(uniqueNip29Rooms([{id:"a",name:"Warszawa",slug:"warszawa",chat:{scope:"global",nip29:shared}},{id:"b",name:"Madeira",slug:"madeira",chat:{scope:"global",nip29:shared}},{id:"c",name:"London",slug:"london",chat:{scope:"city",nip29:{relay:"wss://london.bitcoinwalk.org",groupId:"chat"}}}])).toEqual([
-   expect.objectContaining({label:"BitcoinWalk shared",scope:"global",cityIds:["a","b"]}),
+   expect.objectContaining({label:"BitcoinWalk Global",scope:"global",cityIds:["a","b"]}),
    expect.objectContaining({label:"London",scope:"city",cityIds:["c"]}),
   ]);
  });
