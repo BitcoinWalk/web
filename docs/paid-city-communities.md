@@ -94,3 +94,6 @@ then accepts the change only after the relay returns a new signed kind `39000`
 metadata event with the requested name. The registry refresh preserves the
 group ID, activation time, visibility controls, membership and history. Channel
 metadata stores `chat`; clients conventionally present it as `#chat`.
+The release is active non-root on staging and production; deployment evidence is
+`/home/bitcoinwalk/backups/app-staging-deploy.fgxxqw` and
+`/home/bitcoinwalk/backups/app-production-deploy.eeGysZ`.
