@@ -9,7 +9,7 @@ One medium authorization finding was reproduced on staging and production: `/api
 The remaining BW-21 work is operational rather than application feature work:
 
 1. Complete the human super-admin acceptance of BW-122. Release `0.3.300` is active on staging and production; both report healthy, the former forged-header GET returns 405 and an unsigned POST returns 403. The remaining check is one successful signed refresh from the super-admin dashboard.
-2. Complete BW-123 by reducing the shared `.240` host's public listener set to deliberately public services only, with configuration backup and rollback evidence.
+2. Complete BW-123. The `.240` listener/container/proxy inventory is recorded and the narrow `0.8.93` binding change is prepared. It leaves public web, Matrix, Lightning, SSH and active FTP untouched and makes only Nginx administration 81, MetaManager 7532 and legacy Rustress 8889 loopback-only. Activation requires explicit approval because it briefly recreates three shared-host containers; the script creates a root-only backup and restores the original compose file on failure.
 3. Complete BW-124 by restoring current application, SQLite/WAL, media, configuration and relay backups into isolated paths and verifying the recovered invariants without touching live state.
 
 BW-21 closes only after all three child items are accepted. Security headers, dependency advisories and rate limits remain recurring operational checks rather than one-time evidence.
