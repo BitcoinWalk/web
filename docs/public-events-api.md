@@ -36,3 +36,36 @@ The public integration index at `/dev` also exposes the same verified dataset as
 The endpoint allows cross-origin GET requests and is cacheable for 60 seconds, with five minutes of stale-while-revalidate. It returns HTTP 503 rather than a partial or falsely empty list when authoritative relay reads or sponsor resolution cannot be completed.
 
 All formats are projections, never independent records. The signed Nostr occurrence, current city approval, moderation state and current sponsor coverage remain authoritative.
+
+## Approved city directory
+
+`GET /api/cities` is the companion app's versioned, read-only city selector. It
+returns every currently approved city, including cities with no future walk, and
+does not expose owners, payment records, private relay details or moderation
+history.
+
+```json
+{
+  "version": 1,
+  "generatedAt": "2026-10-13T12:00:00.000Z",
+  "cities": [
+    {
+      "id": "approved-city-id",
+      "name": "Madeira",
+      "slug": "madeira",
+      "aliases": [],
+      "canonicalUrl": "https://bitcoinwalk.org/madeira",
+      "chat": {
+        "scope": "global",
+        "url": "https://bitcoinwalk.org/join"
+      }
+    }
+  ]
+}
+```
+
+The chat URL is operator-controlled verified routing data. Free cities may use
+the verified global community. A paid city whose dedicated NIP-29 group has not
+passed provisioning and read-back returns `{"scope":"city","url":null}`; it
+never falls back to the global room. Like `/api/events`, a failed authoritative
+read returns HTTP 503 rather than a partial directory.
