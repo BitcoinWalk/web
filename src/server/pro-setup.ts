@@ -1,5 +1,7 @@
 import type {Event} from "nostr-tools";
 import {createHash} from "node:crypto";
+import {readFile} from "node:fs/promises";
+import {join} from "node:path";
 import {managedProvisionConfigSchema,provisionConfigSchema, provisionDigest,type ProvisionConfig} from "../rustress/contract";
 import {createCityActivation} from "../rustress/activation-contract";
 import {resolveCityBrand,type CityBrandAuthority} from "../nostr/city-brand";
@@ -9,7 +11,6 @@ import {managedCities} from "../nostr/moderation";
 import {relayConfig} from "../lib/relay-config";
 import {serverReadRelays} from "../lib/server-relay-config";
 import {getPaymentRuntime} from "../payments/runtime";
-import {getLogoCatalog} from "../logos/runtime";
 import {ProfileArtworkStore} from "../logos/profile-artwork";
 import {managedBackground} from "./share-image";
 import {PayoutDestinationStore} from "../payments/payout-destination-store";
@@ -106,21 +107,24 @@ function ensureSetupTask(resolved: Awaited<ReturnType<typeof resolveProSetupAuth
 
 let artworkStore: ProfileArtworkStore | undefined;
 let artworkConfig = "";
+async function profileBrandLogo():Promise<Buffer>{
+  try{return await readFile(join(process.cwd(),"public","brand","bitcoinwalk-horizontal-white.png"));}
+  catch{throw new Error("BitcoinWalk profile artwork is unavailable. Contact the administrator; do not create another account.");}
+}
 export async function prepareProSetupPreview(cityId: string, actor: string, origin: string): Promise<ProSetupPreview> {
   const {authority, row} = await resolveProSetupAuthority(cityId, actor);
   const city = row.revision.city, slug = row.decision.approval.slug ?? city.slug;
-  const catalog = getLogoCatalog();
-  const pack = await catalog.ready({cityId, revisionId: row.revision.event.id, slug});
-  if (!pack) throw new Error("Approved city artwork is not ready. Retry after logo generation finishes.");
-  const logo = await catalog.file(pack.jobKey, `${pack.slug}-bitcoinwalk-on-black.png`);
-  if (!logo) throw new Error("Approved city artwork is unavailable.");
   const hero = await managedBackground([row.decision.approval.heroImageUrl, city.heroImageUrl]);
   if (!hero) throw new Error("The approved city photo is unavailable. Restore it before preparing the profile.");
+  // The public identity already carries the city in its display name. Profile
+  // artwork therefore uses the stable BitcoinWalk brand lock-up and does not
+  // depend on an optional localized merchandise/logo pack.
+  const logo = await profileBrandLogo();
   const mediaRoot = process.env.BITCOINWALK_MEDIA_ROOT;
   if (!mediaRoot) throw new Error("Persistent profile artwork storage is not configured.");
   const config = `${mediaRoot}\n${origin}`;
   if (!artworkStore || artworkConfig !== config) {artworkStore = new ProfileArtworkStore(mediaRoot, origin); artworkConfig = config;}
-  const artwork = await artworkStore.ensure({cityId, revisionId: row.revision.event.id, hero, cityLogo: logo.data});
+  const artwork = await artworkStore.ensure({cityId, revisionId: row.revision.event.id, hero, cityLogo: logo});
   // A changing owner/approval/entitlement must not receive a stale prepared profile.
   const fresh = await resolveProSetupAuthority(cityId, actor);
   if (JSON.stringify(authority) !== JSON.stringify(fresh.authority)) throw new Error("City authority changed during preparation. Reload to try again.");

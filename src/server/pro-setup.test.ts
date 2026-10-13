@@ -3,14 +3,12 @@ import type {AuthorizationRecord, ApprovalRecord, CityRevision} from "../nostr/c
 import {finalizeEvent, generateSecretKey, getPublicKey, type Event} from "nostr-tools";
 import {DatabaseSync} from "node:sqlite";
 vi.mock("../payments/runtime", () => ({getPaymentRuntime: vi.fn()}));
-vi.mock("../logos/runtime", () => ({getLogoCatalog: vi.fn()}));
 vi.mock("./share-image", () => ({managedBackground: vi.fn()}));
 vi.mock("../logos/profile-artwork", () => ({ProfileArtworkStore: class {ensure = vi.fn().mockResolvedValue({avatar: {url: "https://bitcoinwalk.org/api/media/files/avatar.webp"}, banner: {url: "https://bitcoinwalk.org/api/media/files/banner.webp"}});}}));
 vi.mock("../payments/payout-destination-store", () => ({PayoutDestinationStore: class {
   current = vi.fn().mockReturnValue(null);
   registration = vi.fn().mockReturnValue({cityId: "66f137cb-2ac1-4eef-8358-7dd66b45922f", revisionId: "d".repeat(64), version: 1, ownerPubkey: "a".repeat(64), normalized: "alice@example.com", confirmedAt: 1});
 }}));
-import {getLogoCatalog} from "../logos/runtime";
 import {getPaymentRuntime} from "../payments/runtime";
 import {managedBackground} from "./share-image";
 import {clearProSetupSigner, prepareBrandRequest, prepareProSetupPreview, resolveProSetupAuthority, reviewBrandRequest, saveProSetupSigner, proSetupDependencies} from "./pro-setup";
@@ -42,12 +40,9 @@ describe("Pro setup fresh authority", () => {
     vi.spyOn(proSetupDependencies, "discover").mockImplementation(deps.discover);
     vi.spyOn(proSetupDependencies, "entitlement").mockImplementation(deps.entitlement);
     vi.spyOn(proSetupDependencies, "restrictions").mockImplementation(deps.restrictions);
-    const ready = vi.fn().mockResolvedValue({jobKey: "job", slug: "radom"});
-    vi.mocked(getLogoCatalog).mockReturnValue({ready, file: vi.fn().mockResolvedValue({data: Buffer.from("logo")})} as never);
     vi.mocked(managedBackground).mockResolvedValue(Buffer.from("hero"));
     vi.stubEnv("BITCOINWALK_MEDIA_ROOT", "/tmp/profile-fixture-unused");
     const preview = await prepareProSetupPreview(cityId, owner, "https://bitcoinwalk.org");
-    expect(ready).toHaveBeenCalledWith({cityId, revisionId: revision.event.id, slug: "radom"});
     expect(preview).toMatchObject({status: "preparation-only", profile: {name: "BitcoinWalk in Radom"}});
     expect(preview).toMatchObject({setup: {state: "setup-required"}, payout: {configured: false, suggestedDestination: "alice@example.com", registrationVersion: 1}});
     expect(preview.profile).not.toHaveProperty("nip05");
@@ -83,7 +78,7 @@ describe("Pro setup fresh authority", () => {
   });
   it("binds the saved signer and exact approved artwork into a private BW-103 request",async()=>{
     vi.spyOn(proSetupDependencies,"snapshot").mockImplementation(deps.snapshot);vi.spyOn(proSetupDependencies,"grants").mockImplementation(deps.grants);vi.spyOn(proSetupDependencies,"discover").mockImplementation(deps.discover);vi.spyOn(proSetupDependencies,"entitlement").mockImplementation(deps.entitlement);vi.spyOn(proSetupDependencies,"restrictions").mockImplementation(deps.restrictions);
-    vi.mocked(getLogoCatalog).mockReturnValue({ready:vi.fn().mockResolvedValue({jobKey:"job",slug:"radom"}),file:vi.fn().mockResolvedValue({data:Buffer.from("logo")})} as never);vi.mocked(managedBackground).mockResolvedValue(Buffer.from("hero"));vi.stubEnv("BITCOINWALK_MEDIA_ROOT","/tmp/profile-fixture-unused");
+    vi.mocked(managedBackground).mockResolvedValue(Buffer.from("hero"));vi.stubEnv("BITCOINWALK_MEDIA_ROOT","/tmp/profile-fixture-unused");
     await prepareProSetupPreview(cityId,owner,"https://bitcoinwalk.org");const tasks=new ProSetupTaskStore(database),brand=getPublicKey(generateSecretKey());tasks.confirmPayout(cityId,"private-invoice",owner,1);tasks.confirmSigner(cityId,"private-invoice",owner,brand);
     const request=await prepareBrandRequest(cityId,owner,"https://bitcoinwalk.org");expect(request).toMatchObject({authority:{ownerPubkey:owner},binding:{brandPubkey:brand},profile:{revisionId:revision.event.id,artworkVersion:1,signerVersion:1,payoutVersion:1,name:"BitcoinWalk in Radom",picture:"https://bitcoinwalk.org/api/media/files/avatar.webp",banner:"https://bitcoinwalk.org/api/media/files/banner.webp"}});expect(JSON.stringify(request)).toContain("private-invoice");tasks.clearSigner(cityId,"private-invoice",owner);await expect(reviewBrandRequest(request.requestId,SUPER_ADMIN_PUBKEY)).rejects.toThrow("changed");
   });

@@ -53,7 +53,8 @@ export async function POST(request: Request) {
   }
   catch (error) {
     const message = error instanceof Error ? error.message : "";
-    const safe = /^(An approved|Only the current|A settled|The settled Pro payment|Pro setup|City or organizer|Approved city artwork|The approved city photo|Persistent profile|City authority changed|City ownership, approval or entitlement changed|City signer, payout|City identity|Active city identity|No city identity|No relay|Exact city identity|Separate city signer|The separate city signer|Use a separate|Clear the saved|Complete payout|A different city account|Both organizer|Super-admin review|Super-admin publication|Super-admin provisioning|Managed city provisioning|Exact super-admin|Enter a valid|The Lightning|Lightning endpoint|This destination|Use a personal)/.test(message);
+    console.error("Pro setup request failed",{action:command.action,cityId:"cityId" in command?command.cityId:undefined,error:message.slice(0,500)});
+    const safe = /^(An approved|Only the current|A settled|The settled Pro payment|Pro setup|City or organizer|Approved city artwork|BitcoinWalk profile artwork|The approved city photo|Persistent profile|City authority changed|City ownership, approval or entitlement changed|City signer, payout|City identity|Active city identity|No city identity|No relay|Exact city identity|Separate city signer|The separate city signer|Use a separate|Clear the saved|Complete payout|A different city account|Both organizer|Super-admin review|Super-admin publication|Super-admin provisioning|Managed city provisioning|Exact super-admin|Enter a valid|The Lightning|Lightning endpoint|This destination|Use a personal)/.test(message);
     return reply({error: safe ? message : "Pro setup could not be verified. Retry later; no identity, payment or payout was changed."}, 409);
   } finally {pending.delete(rateKey);}
 }
