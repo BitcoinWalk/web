@@ -3,8 +3,9 @@
 BW-23 replaces source-code mappings with a city-bound registry in the existing
 application SQLite database. Every city receives a NIP-29 Walkie Talkie group.
 Basic cities use the shared community relay; Pro cities use their canonical
-combined city event/community relay. Concord is a separate, default-off Pro
-capability tracked by BW-127.
+combined city event/community relay. A future invitation-only Marmot private
+group is a separate product surface tracked by BW-127; it never replaces or
+mirrors the NIP-29 room.
 
 ## Trust boundary
 

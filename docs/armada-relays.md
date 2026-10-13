@@ -77,18 +77,11 @@ back to global chat when a paid destination is incomplete.
 
 **Privacy boundary:** “private city relay” means membership and relay access are
 restricted. Ordinary NIP-29 group messages are stored by the community relay;
-do not assume the relay operator cannot read them. End-to-end encrypted Concord
-communities and NIP-17 direct messages are separate protocols. Use Direct
-messages for private one-to-one information and do not post secrets in a group.
-
-### Optional Concord community for Pro cities
-
-Every Pro city keeps its NIP-29 Walkie Talkie room. A verified organizer may
-later enable an additional Concord community in Armada from the BitcoinWalk
-dashboard. The option is off by default and does not copy messages, membership
-or moderation state between protocols. Turning it off hides the entry point; it
-does not delete encrypted history or keys. Treat a full Concord invitation as a
-secret capability and never paste it into a public city profile or walk event.
+do not assume the relay operator cannot read them. NIP-17 direct messages are a
+separate protocol. Use Direct messages for private one-to-one information and
+do not post secrets in a group. A future invitation-only Marmot private group
+is tracked separately in BW-127 and is not configured through Armada's NIP-29
+community-relay settings.
 
 ## 3. Search relays
 
