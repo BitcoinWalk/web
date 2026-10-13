@@ -37,6 +37,13 @@ describe("Pro setup preview API", () => {
     expect(response.status).toBe(409);
     expect(JSON.stringify(await response.json())).not.toContain("private secret");
   });
+  it("explains a temporary directory transport outage without weakening verification",async()=>{
+    vi.mocked(prepareProSetupPreview).mockRejectedValue(new Error("Directory discovery is incomplete and cannot prove that no directory root exists. Unavailable: wss://directory-2.bitcoinwalk.org/"));
+    const response=await POST(request()),body=await response.json();
+    expect(response.status).toBe(409);
+    expect(body.error).toBe("Directory verification is temporarily unavailable. Please wait one minute and retry. No identity, payment or payout was changed.");
+    expect(JSON.stringify(body)).not.toContain("directory-2.bitcoinwalk.org");
+  });
   it("saves only the exact owner-signed payout request and does not claim activation", async()=>{
     vi.mocked(saveProSetupPayout).mockResolvedValue({cityId,version:1,destination:"alice@wallet.example",confirmedAt:1,state:"saved-not-active",update:"not-required",message:"saved"});
     const response=await POST(payoutRequest()),body=await response.json();
