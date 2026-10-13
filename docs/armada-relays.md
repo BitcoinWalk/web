@@ -17,7 +17,7 @@ remain bound to signed BitcoinWalk records and community membership.
 | Armada section | Add or enable | BitcoinWalk purpose |
 | --- | --- | --- |
 | **App relays** | Keep **Use app relays** on. Add `wss://relay.damus.io/` and `wss://nos.lol/`. Armada's current defaults may remain if they are healthy. | Profiles, lists and account discovery. These two relays also let BitcoinWalk Guide find the signed DM inbox declaration. |
-| **Community relays** | Free cities: join `wss://chat.bitcoinwalk.org/` through the official BitcoinWalk/Armada link. Paid cities: join only the provisioned `wss://chat-<city-slug>.bitcoinwalk.org/` supplied for that city. | NIP-29 group membership, channels, history and moderation. |
+| **Community relays** | Basic cities: join the city's group on `wss://chat.bitcoinwalk.org/` through the official link. Pro cities: join only the provisioned `wss://<city-slug>.bitcoinwalk.org/` supplied for that city. | NIP-29 Walkie Talkie membership, history and moderation. |
 | **Search relays** | Keep Armada's working NIP-50 defaults or use **Reset to defaults**. Leave empty to fall back to App relays. | Searching for people and communities by name. Search configuration does not grant access to a private city. |
 | **Direct messages** | Turn on **Use app DM relays**, **Use my own DM relays** and **Message requests**. Under personal DM relays add `wss://relay.damus.io/` and `wss://nos.lol/`, then approve the signing request. | Publishes the signed kind-10050 inbox list used for NIP-17 encrypted delivery, including BitcoinWalk Guide notifications. |
 
@@ -62,7 +62,7 @@ All free BitcoinWalk cities currently share the production community:
 - Preferred action: open **Join the community on Armada** from a published
   BitcoinWalk event page instead of typing the group identifier manually.
 
-### Paid cities with private relays
+### Pro cities with combined relays
 
 A provisioned paid city uses its dedicated destination:
 
@@ -80,6 +80,15 @@ restricted. Ordinary NIP-29 group messages are stored by the community relay;
 do not assume the relay operator cannot read them. End-to-end encrypted Concord
 communities and NIP-17 direct messages are separate protocols. Use Direct
 messages for private one-to-one information and do not post secrets in a group.
+
+### Optional Concord community for Pro cities
+
+Every Pro city keeps its NIP-29 Walkie Talkie room. A verified organizer may
+later enable an additional Concord community in Armada from the BitcoinWalk
+dashboard. The option is off by default and does not copy messages, membership
+or moderation state between protocols. Turning it off hides the entry point; it
+does not delete encrypted history or keys. Treat a full Concord invitation as a
+secret capability and never paste it into a public city profile or walk event.
 
 ## 3. Search relays
 

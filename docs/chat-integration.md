@@ -15,15 +15,16 @@ categories is documented in [Configure Armada relays for BitcoinWalk](armada-rel
 
 ## Routing and trust
 
-`src/lib/chat-config.ts` selects only the verified production global group `13bc3a423b4f2954` on `chat.bitcoinwalk.org`. Paid-city destinations come from the entitlement-bound SQLite registry described in [Paid-city community provisioning](paid-city-communities.md). The Khatru relay, HTTPS/WSS, signed metadata, super-admin access and open regular-user joining were human-tested on 23 September 2026.
+`src/lib/chat-config.ts` currently selects the verified production global group `13bc3a423b4f2954` on `chat.bitcoinwalk.org`. City destinations are moving to the registry described in [City Walkie Talkie provisioning](paid-city-communities.md). The Khatru relay, HTTPS/WSS, signed metadata, super-admin access and open regular-user joining were human-tested on 23 September 2026.
 
 On 29 September the user confirmed that the obsolete Zooid service is turned off,
 completing BW-24. BW-53 retains the post-migration check that Khatru and the public
 aliases remain healthy and Zooid does not restart or receive traffic.
 
-- Free cities, old approved city records and the Austin demo use global chat.
-- Paid cities are registered by immutable city UUID in both the verified entitlement registry and chat provisioning registry, with their expected slug and provisioned destination. A paid city without a separately verified and activated dedicated destination shows a setup message and never falls back to global chat.
-- A paid destination must match `wss://chat-<slug>.bitcoinwalk.org` and have a verified group ID. This avoids colliding with the city's separate event/replication relay at `wss://<slug>.bitcoinwalk.org`. The resolver only generates links on `https://armada.buzz`.
+- Basic cities use distinct city-scoped groups on the shared `wss://chat.bitcoinwalk.org/` relay.
+- Pro cities are registered by immutable city UUID in both the verified entitlement registry and community registry, with their expected slug and provisioned destination. An incomplete Pro destination shows setup required and never falls back to another city's group.
+- A Pro NIP-29 destination must match `wss://<slug>.bitcoinwalk.org/` and have a verified group ID. The same process serves the city event replica and its isolated community store. The resolver generates only approved client links.
+- Concord is independent and default-off. When BW-127 is implemented, enabling it adds a private Armada entry point without removing or mirroring the NIP-29 Walkie Talkie room.
 - Organizer-supplied legacy `chatUrl` values do not control the rendered button or paid status. No existing signed records are rewritten.
 - New walk submissions automatically include the configured global link; the manual URL field is removed. Missing chat provisioning does not prevent submission. The legacy field is now optional, and calendar payloads omit it when absent.
 
