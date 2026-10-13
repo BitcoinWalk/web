@@ -12,18 +12,6 @@ const swatches=[
  {name:"Stone",value:"#62645F",dark:true},
  {name:"White",value:"#FFFFFF",dark:false},
 ];
-const localizedVariants=[
- {file:"warszawa-bitcoinwalk-horizontal-on-white.png",name:"BitcoinWalk horizontal",use:"Light backgrounds",width:1895,height:351,dark:false},
- {file:"warszawa-bitcoinwalk-horizontal-on-black.png",name:"BitcoinWalk horizontal",use:"Dark backgrounds",width:1895,height:351,dark:true},
- {file:"warszawa-bitcoinwalk-on-white.png",name:"BitcoinWalk compact",use:"Light backgrounds",width:775,height:604,dark:false},
- {file:"warszawa-bitcoinwalk-on-black.png",name:"BitcoinWalk compact",use:"Dark backgrounds",width:775,height:604,dark:true},
- {file:"warszawa-bitcoinwalk-vertical-on-white.png",name:"BitcoinWalk vertical",use:"Light backgrounds",width:714,height:631,dark:false},
- {file:"warszawa-bitcoinwalk-vertical-on-black.png",name:"BitcoinWalk vertical",use:"Dark backgrounds",width:714,height:625,dark:true},
- {file:"warszawa-satsman-on-white.png",name:"SatsMan compact",use:"Light backgrounds",width:499,height:478,dark:false},
- {file:"warszawa-satsman-on-black.png",name:"SatsMan compact",use:"Dark backgrounds",width:499,height:486,dark:true},
- {file:"warszawa-satsman-vertical-on-white.png",name:"SatsMan vertical",use:"Light backgrounds",width:490,height:558,dark:false},
- {file:"warszawa-satsman-vertical-on-black.png",name:"SatsMan vertical",use:"Dark backgrounds",width:490,height:558,dark:true},
-];
 const globalVariants=[
  {file:"bitcoinwalk-avatar-orange",name:"Round symbol",use:"Orange roundel",dark:false},
  {file:"bitcoinwalk-avatar-ink",name:"Round symbol",use:"Ink roundel",dark:false},
@@ -52,8 +40,6 @@ export default function BrandPage(){return <main className={styles.page}>
   </div>
   <div className={styles.variantIntro}><p className={styles.eyebrow}>City-neutral Inkscape system</p><h3>Symbols and standard logos</h3><p>Use these marks when no city name is required. The complete series includes round and standalone symbols plus horizontal and vertical BitcoinWalk logos. Each master opens in Inkscape, preserves the approved artwork exactly and is available as both PNG and SVG.</p></div>
   <div className={styles.variantGrid}>{globalVariants.map(variant=><article className={styles.variantCard} key={variant.file}><div className={variant.dark?styles.globalDark:styles.globalLight}><Image src={`/brand/inkscape/global/previews/${variant.file}.png`} width={1200} height={800} alt={`${variant.name} — ${variant.use.toLowerCase()}`}/></div><div><h4>{variant.name}</h4><p>{variant.use}</p><span className={styles.formatLinks}><a href={`/brand/inkscape/global/${variant.file}.png`} download>PNG</a><a href={`/brand/inkscape/global/${variant.file}.svg`} download>SVG</a></span></div></article>)}</div>
-  <div className={styles.variantIntro}><p className={styles.eyebrow}>Localized Inkscape system</p><h3>All ten production variants</h3><p>Shown with Warszawa as the representative city pack. Every approved city pack uses the same layouts with its own city name. Choose the file by composition and background—not by stretching, recolouring or rearranging the artwork.</p></div>
-  <div className={styles.variantGrid}>{localizedVariants.map(variant=><article className={styles.variantCard} key={variant.file}><div className={variant.dark?styles.variantDark:styles.variantLight}><Image src={`/brand/inkscape/${variant.file}`} width={variant.width} height={variant.height} alt={`${variant.name} localized for Warszawa — ${variant.use.toLowerCase()}`}/></div><div><h4>{variant.name}</h4><p>{variant.use}</p><a href={`/brand/inkscape/${variant.file}`} download>Download PNG</a></div></article>)}</div>
  </section>
  <section className={`${styles.section} ${styles.tint}`} id="colour"><div className={styles.sectionIntro}><p className={styles.eyebrow}>02 · Colour</p><h2>A working palette</h2><p>These colours reflect the current website and assets. This section is deliberately labelled working: exact production tokens can be refined without changing the core orange identity.</p></div><div className={styles.swatches}>{swatches.map(item=><div className={styles.swatch} key={item.value} style={{background:item.value,color:item.dark?"white":"#252824"}}><strong>{item.name}</strong><span>{item.value}</span></div>)}</div></section>
  <section className={styles.section} id="type"><div className={styles.sectionIntro}><p className={styles.eyebrow}>03 · Typography</p><h2>Friendly, direct, legible</h2></div><div className={styles.typeGrid}><article><span className={styles.typeSample}>BitcoinWalk</span><h3>Ubuntu Bold Italic</h3><p>Used in localized logo artwork and expressive brand moments.</p></article><article><span className={styles.uiSample}>Walk. Talk. Bitcoin.</span><h3>System sans</h3><p>The current product interface uses a familiar sans-serif stack for speed and readability. A final brand typeface can replace it later.</p></article></div></section>
