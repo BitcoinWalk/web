@@ -53,6 +53,9 @@ and separate across restart, its rehearsed relay identity stayed unchanged,
 and unauthorized creation remained denied. Evidence:
 `/var/backups/bitcoinwalk-london-combined-activation.5wFeIQ` and
 `/var/backups/bitcoinwalk-london-public-walkie-talkie.P5wwQn`. App `0.3.305`
+was deployed non-root to staging with evidence
+`/home/bitcoinwalk/backups/app-staging-deploy.UvapyY`; public health identified
+the exact release and an unsigned provisioning request returned HTTP 403. It
 migrates Pro routing from the obsolete `chat-<slug>` host to the canonical
 combined host and adds exact super-admin create, verify and activate actions.
 BW-23 can close only after London is activated through that UI and Basic-city
