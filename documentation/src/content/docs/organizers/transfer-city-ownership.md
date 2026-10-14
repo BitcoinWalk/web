@@ -28,6 +28,8 @@ Prepare:
 - the current owner's Nostr account;
 - the new owner's exact `npub`;
 - access to the city's offline recovery identity;
+- a separate organizer-controlled recovery `npub` if the intended new owner is
+  currently listed as the recovery identity;
 - the new owner's private Lightning payout destination.
 
 Both owners should keep recovery backups. Do not send an `nsec`, bunker secret or wallet credential to BitcoinWalk.
@@ -36,15 +38,15 @@ The super-admin first verifies that the city is approved, its Pro entitlement is
 
 ## 1. Prepare the transfer
 
-The super-admin opens **City relay setup**, selects the city and enters the new owner's `npub`. BitcoinWalk prepares one immutable transfer request bound to the current directory event.
+The super-admin opens **City relay setup**, selects the city and enters the new owner's `npub`. If that identity is currently the city's recovery identity, the super-admin also enters the separate replacement recovery `npub`. BitcoinWalk prepares one immutable transfer request bound to the current directory event.
 
 The request does not publish anything and the new `npub` does not gain access merely because it was entered.
 
 ## 2. Current owner authorizes the handover
 
-The current owner opens the supplied request link, connects the account shown in the request and signs the exact directory rotation.
+The current owner opens the supplied request link and connects the account shown in the request. When the intended new owner is the current recovery identity, the owner first signs the reviewed recovery update and then signs the exact ownership rotation. Otherwise only the ownership rotation is required.
 
-The signature preserves the City ID, relay endpoints, operators and recovery authority. It changes only the owner. A stale predecessor, different signer or altered destination is rejected.
+The signatures preserve the City ID, relay endpoints and operators. The recovery update changes only the recovery identity; the rotation then changes only the owner. A stale predecessor, duplicate authority, different signer or altered destination is rejected.
 
 ## 3. New owner accepts
 
@@ -56,7 +58,7 @@ Signing either step alone does not activate the transfer.
 
 The super-admin reviews both signatures and activates the exact transfer. BitcoinWalk then:
 
-1. publishes and reads back the owner rotation from every configured directory transport;
+1. publishes and reads back any required recovery update and the owner rotation, in order, from every configured directory transport;
 2. publishes a versioned city-permission successor;
 3. makes the new owner the protected city editor;
 4. removes the previous owner's editor access unless retaining it was explicitly approved;
