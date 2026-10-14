@@ -26,7 +26,19 @@ export async function POST(request:Request){try{const origin=process.env.BITCOIN
  if(command.action==="sign-owner")return Response.json({request:transfers.signOwner(row.id,actor,command.event)},{headers});
  if(command.action==="supersede"){if(actor!==SUPER_ADMIN_PUBKEY)return Response.json({error:"Super-admin access required."},{status:403,headers});return Response.json({request:transfers.supersede(row.id)},{headers});}
  if(actor!==SUPER_ADMIN_PUBKEY)return Response.json({error:"Super-admin access required."},{status:403,headers});if(!row.rotationEvent||!row.acceptanceEvent)throw new Error("Both owners must sign before activation.");
- if(command.action==="prepare-activation"){const current=await evidence(row.cityId);if(current.chain.state.currentEvent.id!==row.predecessorEvent.id)throw new Error("Ownership transfer evidence changed. Audit before activation.");const cmsTemplate=transferredCityAuthorization({record:current.grant,rotationEvent:row.rotationEvent,acceptanceEvent:row.acceptanceEvent,requestId:row.id,origin,retainEditors:row.retainEditors});return Response.json({request:row,cmsTemplate},{headers});}
+ if(command.action==="prepare-activation"){
+  const current=await evidence(row.cityId,row.nextOwnerPubkey),chainEventId=current.chain.state.currentEvent.id;
+  if(chainEventId!==row.predecessorEvent.id&&chainEventId!==row.rotationEvent.id)throw new Error("Ownership transfer evidence changed. Audit before activation.");
+  if(current.owner===row.nextOwnerPubkey){
+   const grant=cityAuthorizationSchema.parse(current.grant.grant);
+   if(chainEventId!==row.rotationEvent.id||grant.version!==2||grant.ownershipEventId!==row.rotationEvent.id)throw new Error("Ownership transfer read-back is incomplete. Resume or audit the existing transfer.");
+   return Response.json({request:transfers.activate(row.id),alreadyActive:true},{headers});
+  }
+  if(current.owner!==row.currentOwnerPubkey)throw new Error("Current CMS owner does not match this transfer.");
+  const deterministicTime=Math.max(current.grant.event.created_at,row.rotationEvent.created_at,row.acceptanceEvent.created_at)+1;
+  const cmsTemplate=transferredCityAuthorization({record:current.grant,rotationEvent:row.rotationEvent,acceptanceEvent:row.acceptanceEvent,requestId:row.id,origin,retainEditors:row.retainEditors,now:deterministicTime});
+  return Response.json({request:row,cmsTemplate},{headers});
+ }
  const grant=cityAuthorizationSchema.parse(JSON.parse(command.cmsEvent.content));if(!verifyEvent(command.cmsEvent)||command.cmsEvent.pubkey!==SUPER_ADMIN_PUBKEY||grant.cityId!==row.cityId||grant.version!==2||grant.ownerPubkey!==row.nextOwnerPubkey||grant.ownershipEventId!==row.rotationEvent.id)throw new Error("The super-admin permission successor does not match the reviewed transfer.");
  const refreshed=await evidence(row.cityId,row.nextOwnerPubkey);if(refreshed.chain.state.currentEvent.id!==row.rotationEvent.id||refreshed.grant.event.id!==command.cmsEvent.id||cityOwnerPubkey(refreshed.grant.grant)!==row.nextOwnerPubkey)throw new Error("Directory and CMS transfer read-back is incomplete.");return Response.json({request:transfers.activate(row.id)},{headers});
  }catch(error){return Response.json({error:safe(error)},{status:409,headers});}}
