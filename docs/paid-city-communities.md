@@ -35,9 +35,14 @@ replacement requires a future explicit revocation workflow.
 
 1. As the BitcoinWalk super-admin, open **Monitoring → Communities**.
 2. Select the city and review the generated city-scoped group identifier.
-3. Sign **Create group**. The exact tier-appropriate relay creates the group and
-   signs its public discovery metadata; no relay private key reaches the app.
-4. Review the exact city relay, group ID, group name and signed metadata event.
+3. Sign **Create complete group**. The exact tier-appropriate relay creates the
+   group. The super-admin then signs the exact `BitcoinWalk <city>` name,
+   generated city-avatar URL and any missing founding memberships for the
+   super-admin, current signed organizer and BitcoinWalk Guide. No private key
+   reaches the app.
+4. The app authenticates to that relay and reads back its relay-signed metadata
+   and membership roster. Verification fails closed unless the exact name and
+   avatar match and all three founding identities are members.
 5. Sign the separate **Activate community** action.
 6. The current organizer opens **Upgrade your city**, previews the Pro setup and
    independently signs the **Walkie Talkie** and **Armada** ON/OFF controls.
@@ -108,3 +113,10 @@ candidates remain bound to the settled entitlement and canonical city relay.
 New Basic records default to Walkie Talkie ON and Armada OFF, while Pro defaults
 remain unchanged. Activated Basic groups now enter public routing as distinct
 city-scoped groups even though they share the same relay.
+
+The next rollout release adds NIP-29 `picture` metadata to the BitcoinWalk relay
+and a retry-safe founding-setup reconciliation action. Existing groups retain
+their ID, membership and history; reconciliation only repairs the agreed name,
+avatar and missing founding members. The organizer is resolved from the latest
+signed city authorization, with the original revision signer as the legacy
+fallback. The Guide key comes only from the configured Guide service identity.
