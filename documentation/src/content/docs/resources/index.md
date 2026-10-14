@@ -1,28 +1,12 @@
 ---
 title: Resources
-description: Canonical BitcoinWalk brand assets, developer endpoints, project status and source code.
+description: Canonical BitcoinWalk repositories, developer APIs and brand assets.
 ---
 
-Use these public resources when you need material beyond the practical guides in this documentation.
+Use these canonical public resources when you need material beyond the practical guides in this documentation.
 
-## Brand assets
-
-Download the current BitcoinWalk logos and approved brand material from the [BitcoinWalk brand page](https://bitcoinwalk.org/brand).
-
-Use that page as the canonical source instead of copying assets from old posts or third-party profiles.
-
-## Developer APIs
-
-Browse the available event feeds and integration formats on the [BitcoinWalk developer page](https://bitcoinwalk.org/dev).
-
-The developer page is the canonical live endpoint reference. This documentation may explain integrations, but it does not duplicate the endpoint specification.
-
-## Public backlog
-
-See what is complete, underway and planned in the [public BitcoinWalk backlog](https://bitcoinwalk.github.io/web/).
-
-The public backlog describes product direction without exposing private operational material.
-
-## Source code
-
-Review or contribute to the project in the [BitcoinWalk web repository on GitHub](https://github.com/BitcoinWalk/web).
+| Resource | Links | Purpose |
+| --- | --- | --- |
+| **Repositories** | [GitHub](https://github.com/BitcoinWalk/web) · [ngit](https://gitnostr.com/npub1jr8sgwrpuk66n9evk76jnfd6wxept4k3uv2vwjw42fhvzvl3mdes38wwnw/bitcoinwalk-web) | Review or contribute to the open-source BitcoinWalk application. |
+| **APIs** | [Developer page](https://bitcoinwalk.org/dev) | Use the public event feeds and current integration formats. |
+| **Brand Guide** | [Brand assets](https://bitcoinwalk.org/brand) | Download current logos and approved BitcoinWalk brand material. |

@@ -28,7 +28,7 @@ export default defineConfig({
           {label: "Relay compatibility", slug: "relays/compatibility"}
         ]},
         {label: "Resources", items: [
-          {label: "Brand, APIs and project links", slug: "resources"}
+          {label: "Repositories, APIs and brand", slug: "resources"}
         ]}
       ],
       customCss: ["./src/styles/custom.css"]
