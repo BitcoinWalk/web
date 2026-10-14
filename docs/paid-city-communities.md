@@ -13,8 +13,8 @@ An eligible city must be approved. The registry binds its immutable city UUID
 and current tier to:
 
 - the current approved canonical slug;
-- the shared `wss://chat.bitcoinwalk.org/` relay for Basic cities, or the exact
-  combined `wss://<slug>.bitcoinwalk.org/` event/community relay for Pro cities;
+- the shared `wss://chat.bitcoinwalk.org/` relay for every city. Paid city event
+  relays remain separate and are not reused as community chat relays;
 - one relay-scoped Armada group ID;
 - the NIP-29 kind `39000` metadata event signed by the exact NIP-11 `self`
   identity of that relay; and

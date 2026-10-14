@@ -28,9 +28,9 @@ On 29 September the user confirmed that the obsolete Zooid service is turned off
 completing BW-24. BW-53 retains the post-migration check that Khatru and the public
 aliases remain healthy and Zooid does not restart or receive traffic.
 
-- Basic cities use distinct city-scoped groups on the shared `wss://chat.bitcoinwalk.org/` relay.
-- Pro cities are registered by immutable city UUID in both the verified entitlement registry and community registry, with their expected slug and provisioned destination. An incomplete Pro destination shows setup required and never falls back to another city's group.
-- A Pro NIP-29 destination must match `wss://<slug>.bitcoinwalk.org/` and have a verified group ID. The same process serves the city event replica and its isolated community store. The resolver generates only approved client links.
+- Every city uses a distinct city-scoped group on the shared `wss://chat.bitcoinwalk.org/` relay.
+- Pro cities are registered by immutable city UUID in both the verified entitlement registry and community registry, with their expected slug and group ID. An incomplete Pro destination shows setup required and never falls back to another city's group.
+- A city NIP-29 destination must use the shared relay and canonical `bitcoinwalk-<slug>` group ID. Paid event relays remain separate from chat transport.
 - A future Marmot private group is independent and invitation-only. When BW-127 is implemented, it adds an explicitly encrypted native-mobile experience without removing or mirroring the NIP-29 Walkie Talkie room.
 - Organizer-supplied legacy `chatUrl` values do not control the rendered button or paid status. No existing signed records are rewritten.
 - New walk submissions automatically include the configured global link; the manual URL field is removed. Missing chat provisioning does not prevent submission. The legacy field is now optional, and calendar payloads omit it when absent.

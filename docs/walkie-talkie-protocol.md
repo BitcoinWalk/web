@@ -11,9 +11,8 @@ name of the Walkie Talkie protocol surface.
 
 - Available to every approved Basic and Pro city.
 - Uses NIP-29 with a shareable `naddr` group link and optional invite code.
-- Basic cities use distinct groups on `wss://chat.bitcoinwalk.org/`.
-- Pro cities use distinct groups on their combined
-  `wss://<slug>.bitcoinwalk.org/` event/community relay.
+- Every city uses a distinct group on `wss://chat.bitcoinwalk.org/`, including
+  Pro cities. Payment tier does not select the chat transport.
 - Supports the existing Nostr identity and NIP-46 browser-signing path.
 - Uses NIP-29 for group messaging and retains NIP-17 support for compatible
   direct messages and invitations.
