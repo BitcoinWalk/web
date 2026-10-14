@@ -3,12 +3,14 @@ import { cp, mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 const root = process.cwd();
-const version = "0.1.0";
+const packageMetadata = JSON.parse(await readFile(path.join(root, "documentation", "package.json"), "utf8"));
+const version = packageMetadata.version;
 const output = path.join(root, "release-build", `bitcoinwalk-documentation-${version}`);
 const siteSource = path.join(root, "documentation", "dist");
 const deployFiles = [
   "Caddyfile.documentation",
-  `install-documentation-${version}.sh`,
+  "install-documentation.sh",
+  "install-documentation-0.1.0.sh",
 ];
 
 async function filesUnder(directory, prefix = "") {
@@ -33,6 +35,7 @@ await cp(siteSource, path.join(output, "site"), { recursive: true, errorOnExist:
 for (const file of deployFiles) {
   await cp(path.join(root, "deploy", file), path.join(output, "deploy", file));
 }
+await writeFile(path.join(output, "VERSION"), `${version}\n`);
 
 const files = await filesUnder(output);
 const lines = [];

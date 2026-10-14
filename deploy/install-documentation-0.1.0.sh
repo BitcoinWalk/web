@@ -16,6 +16,9 @@ current="$install_root/current"
 live_caddy=/etc/caddy/Caddyfile
 live_fragment=/etc/caddy/bitcoinwalk-documentation.caddy
 import_line='import /etc/caddy/bitcoinwalk-documentation.caddy'
+release_version=${BITCOINWALK_DOCUMENTATION_VERSION:-0.1.0}
+
+[[ "$release_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo 'Invalid documentation release version.' >&2; exit 1; }
 
 test -f "$site_source/index.html"
 test -f "$site_source/sitemap-index.xml"
@@ -27,7 +30,7 @@ test -z "$(find "$site_source" -type l -print -quit)" || { echo 'Documentation p
 (cd "$package_dir" && sha256sum --check SHA256SUMS)
 
 release_hash=$(sha256sum "$checksums" | cut -d' ' -f1)
-release_name="0.1.0-${release_hash:0:16}"
+release_name="${release_version}-${release_hash:0:16}"
 release="$releases/$release_name"
 backup=$(mktemp -d /var/backups/bitcoinwalk-documentation.XXXXXX)
 install -m 0600 "$live_caddy" "$backup/Caddyfile.before"
