@@ -1,8 +1,13 @@
 import {describe,expect,it} from "vitest";
-import {resolveDashboardMenuCounts} from "./dashboard-menu";
+import {resolveDashboardMenuCounts,retainKnownDashboardMenuCounts} from "./dashboard-menu";
 import type {HostedWalk} from "./hosted-walks";
 
 describe("dashboard menu counts",()=>{
+ it("keeps confirmed counts when a later refresh is incomplete",()=>{
+  expect(retainKnownDashboardMenuCounts({cities:16,walks:12},{cities:null,walks:null})).toEqual({cities:16,walks:12});
+  expect(retainKnownDashboardMenuCounts({cities:16,walks:12},{cities:17,walks:null})).toEqual({cities:17,walks:12});
+  expect(retainKnownDashboardMenuCounts({cities:16,walks:12},{cities:0,walks:0})).toEqual({cities:0,walks:0});
+ });
  it("uses accepted active hosting assignments as the member walk capability",async()=>{
   const event={id:"e".repeat(64)} as HostedWalk["item"]["event"];
   const hosted=[{item:{event,status:"upcoming"}} as HostedWalk,{item:{event,status:"upcoming"}} as HostedWalk,{item:{event:{id:"p".repeat(64)},status:"past"}} as HostedWalk];

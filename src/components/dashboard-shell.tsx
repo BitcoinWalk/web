@@ -18,7 +18,7 @@ import {activeSignerIdentity,disconnectSignerSession} from "../nostr/signer-sess
 import styles from "./dashboard-shell.module.css";
 import DashboardAccountMenu from "./dashboard-account-menu";
 import {combinedPendingRequestCount,dashboardMenuRefreshEvent,pendingRequestCountEvent,pendingRequestCountFromEvent} from "./pending-request-count";
-import {hostedWalkCount,loadDashboardMenuCounts,resolveDashboardMenuCounts,type DashboardMenuCounts} from "../nostr/dashboard-menu";
+import {hostedWalkCount,loadDashboardMenuCounts,resolveDashboardMenuCounts,retainKnownDashboardMenuCounts,type DashboardMenuCounts} from "../nostr/dashboard-menu";
 import {creatorSubmissions} from "../domain/creator-submissions";
 import {cityOwnerPubkey} from "../domain/city";
 import AdminDataStatus,{type AdminDataHealth} from "./admin-data-status";
@@ -71,7 +71,7 @@ export default function DashboardShell({children}:{children:ReactNode}){
   if(request!==generation.current)return;if(await getBrowserExtensionPubkey()!==pubkey)throw new Error("Signer identity changed. Reconnect to load the correct permissions.");
   const incomplete=directory.status==="rejected"||hosting.status==="rejected";
   setSession(current=>incomplete?{...current,role,cityCount,grants:records}:{...current,pubkey,role,cityCount,cities,grants:records,directory:directory.value});
-  if(!incomplete){setMenuCounts(counts);setPendingCounts({cities:role==="super-admin"?pendingCityRevisions(directory.value.revisions,directory.value.approvals).length:null,proActivations:null});}
+  if(!incomplete){setMenuCounts(current=>retainKnownDashboardMenuCounts(current,counts));setPendingCounts({cities:role==="super-admin"?pendingCityRevisions(directory.value.revisions,directory.value.approvals).length:null,proActivations:null});}
   setDashboardAuthorizationCurrent(!incomplete);
   const checkedAt=new Date().toISOString();setDataHealth(incomplete?{state:"partial",message:"The last checked city information remains visible, but changes are paused until every required source can be checked.",checkedAt}:{state:"ready",message:"Permissions and city data were checked successfully.",checkedAt});
  }catch(e){if(request===generation.current){setDashboardAuthorizationCurrent(false);setDataHealth(current=>({state:"stale",message:e instanceof Error?`${e.message} Existing information remains visible, but changes are paused until Retry succeeds.`:"The latest data could not be checked. Existing information remains visible, but changes are paused until Retry succeeds.",checkedAt:current.checkedAt}));}}finally{connecting.current=false;setBusy(false);}},[session.pubkey]);
@@ -81,7 +81,7 @@ export default function DashboardShell({children}:{children:ReactNode}){
  useEffect(()=>{if(!session.pubkey)return;let alive=true;const invalidate=async(message:string)=>{await disconnectSignerSession();if(alive){clear();setError(message);}};const check=async()=>{try{const key=await getBrowserExtensionPubkey();if(alive&&key!==session.pubkey)await invalidate("Signer identity changed. Reconnect to reload your permissions.");}catch{if(alive)await invalidate("Signer unavailable. Reconnect before continuing.");}};window.addEventListener("focus",check);const timer=setInterval(check,15000);return()=>{alive=false;window.removeEventListener("focus",check);clearInterval(timer);};},[clear,session.pubkey]);
  useEffect(()=>()=>setDashboardSigningIdentity(null),[]);
  useEffect(()=>{const update=(event:Event)=>{const detail=pendingRequestCountFromEvent(event);if(!detail)return;setPendingCounts(current=>detail.source==="cities"?{...current,cities:detail.count}:{...current,proActivations:detail.count});};window.addEventListener(pendingRequestCountEvent,update);return()=>window.removeEventListener(pendingRequestCountEvent,update);},[]);
- useEffect(()=>{const refresh=()=>{if(session.pubkey)void loadDashboardMenuCounts(relayConfig.readRelays,session.pubkey,session.role).then(setMenuCounts);};window.addEventListener(dashboardMenuRefreshEvent,refresh);return()=>window.removeEventListener(dashboardMenuRefreshEvent,refresh);},[session.pubkey,session.role]);
+ useEffect(()=>{const refresh=()=>{if(session.pubkey)void loadDashboardMenuCounts(relayConfig.readRelays,session.pubkey,session.role).then(next=>setMenuCounts(current=>retainKnownDashboardMenuCounts(current,next)));};window.addEventListener(dashboardMenuRefreshEvent,refresh);return()=>window.removeEventListener(dashboardMenuRefreshEvent,refresh);},[session.pubkey,session.role]);
  if(!session.pubkey)return <DashboardContext.Provider value={session}><main className={styles.entry} data-hide-site-footer><OrganizerIdentity disabled={busy} heading="Your account" intro="Create a new Nostr identity, or connect one you already use." onIdentityChange={accountChanged}/>{error&&<p role="alert">{error}</p>}</main></DashboardContext.Provider>;
  const allowed=dashboardAccess(path,session.role)||path==="/admin/calendar";
  const status=busy?"connecting":dataHealth.state==="failed"||dataHealth.state==="stale"?"error":session.pubkey?"connected":"disconnected";

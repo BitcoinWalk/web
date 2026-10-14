@@ -7,6 +7,9 @@ import {queryHostedWalks,type HostedWalk} from "./hosted-walks";
 import {latestDashboardGrants} from "./dashboard-data";
 
 export type DashboardMenuCounts={cities:number|null;walks:number|null};
+export function retainKnownDashboardMenuCounts(current:DashboardMenuCounts,next:DashboardMenuCounts):DashboardMenuCounts{
+ return {cities:next.cities??current.cities,walks:next.walks??current.walks};
+}
 export function hostedWalkCount(hosted:HostedWalk[]|null):number|null{
  if(hosted===null)return null;
  return new Set(hosted.filter(assignment=>assignment.item.status!=="past").map(assignment=>assignment.item.event.id)).size;
