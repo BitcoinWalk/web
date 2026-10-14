@@ -30,6 +30,8 @@ describe("my cities inventory",()=>{
   expect(page).toContain("Submit correction for review");
   expect(page).toContain("correctableRejectedCityRevisions");
   expect(page).toContain('tag[3]==="initial-walk"');
+  expect(page).toContain("createInitialCalendarProposal(candidate,zone,calendarRoute(original)");
+  expect(page.indexOf("for(const walk of replacementWalks)await publishVerifiedEvent")).toBeLessThan(page.indexOf("const publication=await publishVerifiedEvent(signed"));
  });
  it("does not expose identity or legacy guidance copy",()=>{
   const page=source();

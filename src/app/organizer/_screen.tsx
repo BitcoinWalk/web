@@ -2,12 +2,12 @@
 import {useDashboard,useDashboardAutoLoad} from "../../components/dashboard-context";
 
 import dynamic from "next/dynamic";
-import { compareEvents } from "nostr-tools";
+import { compareEvents, type Event } from "nostr-tools";
 import { useRef, useState, type FormEvent } from "react";
 import type { LocationValue } from "../../components/location-picker";
 import { relayConfig } from "../../lib/relay-config";
 import { createCityUpdateEvent } from "../../nostr/city-event";
-import { queryDirectoryRecords, type ApprovalRecord, type AuthorizationRecord, type CityRevision } from "../../nostr/city-records";
+import { queryCalendarEvents, queryDirectoryRecords, type ApprovalRecord, type AuthorizationRecord, type CityRevision } from "../../nostr/city-records";
 import { queryAuthorizations } from "../../nostr/city-records";
 import { archivedCityIds } from "../../nostr/moderation";
 import { correctableRejectedCityRevisions, editableCityRevisions, editedCity } from "../../nostr/organizer-edit";
@@ -18,8 +18,11 @@ import {cityAliases} from "../../domain/city";
 import {organizerDirectorySnapshot} from "../../nostr/dashboard-snapshot";
 import {organizerCityInventory,type OrganizerCityInventoryItem} from "../../domain/organizer-city-inventory";
 import {paymentFetch,signPayment,type LogoPackView} from "../../components/city-payment";
+import {createInitialCalendarProposal} from "../../nostr/calendar-event";
+import {calendarRoute} from "../../nostr/calendar-records";
 
 const LocationPicker = dynamic(() => import("../../components/location-picker"), {ssr:false});
+function exactTag(event:Event,name:string){const tags=event.tags.filter(tag=>tag[0]===name&&tag.length===2);return tags.length===1?tags[0][1]:"";}
 
 export default function OrganizerPage() {
   const lock = useRef(false);
@@ -90,12 +93,28 @@ export default function OrganizerPage() {
       const current=(correcting?correctableRejectedCityRevisions(key,grants,revisions,approvals):editableCityRevisions(key,grants,revisions,approvals)).find(r=>r.city.cityId===base.city.cityId);
       if(!current) throw new Error(correcting?"This correction is no longer available. Reload Cities to see who must act next; nothing was signed.":"Could not confirm your current editor permission. Reload your walks; nothing was signed.");
       if(current.event.id!==base.event.id) throw new Error("A newer revision is available. Copy your unsent changes, then reload before submitting.");
-      setMessage("Approve the revision signature and relay authentication in your extension…");
-      const initialEventIds=correcting?base.event.tags.filter(tag=>tag[0]==="e"&&tag[3]==="initial-walk").map(tag=>tag[1]):[];
+      const priorInitialIds=correcting?base.event.tags.filter(tag=>tag[0]==="e"&&tag[3]==="initial-walk").map(tag=>tag[1]):[];
+      const replacementWalks:Event[]=[];
+      if(correcting&&priorInitialIds.length){
+        setMessage("Loading the original signed walks so corrected replacements can match this city…");
+        const originals=await queryCalendarEvents(relayConfig.writeRelays,{ids:priorInitialIds});
+        for(const id of priorInitialIds){
+          const original=originals.find(event=>event.id===id&&event.pubkey===key),zone=original?exactTag(original,"start_tzid"):"",start=original?Number(exactTag(original,"start")):NaN;
+          if(!original||!zone||!Number.isSafeInteger(start))throw new Error("The original signed walk could not be verified. Nothing new was signed; ask the super-admin to review the retained request.");
+          setMessage(`Approve corrected walk ${replacementWalks.length+1} of ${priorInitialIds.length}…`);
+          const replacement=await signWithBrowserExtension(createInitialCalendarProposal(candidate,zone,calendarRoute(original)??"",new Date(start*1000).toISOString()));
+          if(replacement.pubkey!==key)throw new Error("Signer identity changed; corrected walks were not published.");
+          replacementWalks.push(replacement);
+        }
+      }
+      setMessage("Approve the corrected city signature and relay authentication in your extension…");
+      const initialEventIds=replacementWalks.length?replacementWalks.map(walk=>walk.id):priorInitialIds;
       const signed=await signWithBrowserExtension(createCityUpdateEvent(candidate,base.event.id,initialEventIds.length?initialEventIds:undefined));
       if(signed.pubkey!==key || await getBrowserExtensionPubkey()!==key) throw new Error("Signer identity changed; revision was not published.");
       const afterSigning=await queryDirectoryRecords(relayConfig.writeRelays);
       if(archivedCityIds(afterSigning.approvals).has(base.city.cityId)) {setCities(items=>items.filter(item=>item.revision.city.cityId!==base.city.cityId));select(null);throw new Error("This city was archived while signing. The edit was not published.");}
+      if(correcting&&!correctableRejectedCityRevisions(key,grants,afterSigning.revisions,afterSigning.approvals).some(revision=>revision.event.id===base.event.id))throw new Error("The review state changed while you were signing. Nothing was published; reload Cities.");
+      for(const walk of replacementWalks)await publishVerifiedEvent(walk,relayConfig.writeRelays,1,authenticateWithBrowserExtension);
       const publication=await publishVerifiedEvent(signed,relayConfig.writeRelays,1,authenticateWithBrowserExtension);
       setSubmittedImageUrl(heroImageUrl??"");
       setSubmitted(true);
