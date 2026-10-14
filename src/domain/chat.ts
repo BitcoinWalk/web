@@ -2,7 +2,7 @@ export type ChatDestination = { relay: string; groupId: string };
 export type ChatConfig = {
   environment: "staging" | "production";
   global: ChatDestination | null;
-  paidCities: Record<string, { slug: string; destination: ChatDestination | null; walkieTalkieEnabled?: boolean; armadaEnabled?: boolean }>;
+  paidCities: Record<string, { slug: string; tier?: "basic"|"pro"; destination: ChatDestination | null; walkieTalkieEnabled?: boolean; armadaEnabled?: boolean }>;
 };
 
 export const PRODUCTION_GLOBAL_COMMUNITY_URL = "https://bitcoinwalk.org/join";
@@ -22,12 +22,12 @@ export function armadaChatUrl(destination: ChatDestination): string | null {
 
 /** Only operator configuration determines tier/routing, never organizer-supplied chatUrl. */
 export function resolveCityChat(cityId: string | undefined, slug: string, config: ChatConfig, paidEntitled?: boolean) {
-  const configuredPaid = cityId && Object.hasOwn(config.paidCities, cityId) ? config.paidCities[cityId] : undefined;
-  const paid = paidEntitled === false ? undefined : configuredPaid;
-  const paidScope = paidEntitled === true || !!paid;
+  const configured = cityId && Object.hasOwn(config.paidCities, cityId) ? config.paidCities[cityId] : undefined;
+  const configuredBasic=configured?.tier==="basic",paid = paidEntitled === false&&!configuredBasic ? undefined : configured;
+  const paidScope = configuredBasic||paidEntitled === true || !!paid;
   let destination = config.global;
   if (paidScope) {
-    const relay=paid?.destination?.relay,canonical=`wss://${slug}.bitcoinwalk.org`;
+    const relay=paid?.destination?.relay,canonical=configuredBasic?"wss://chat.bitcoinwalk.org":`wss://${slug}.bitcoinwalk.org`;
     const retainedStagingPilot=config.environment==="staging"&&slug.endsWith("-staging")&&relay===`wss://chat-${slug}.bitcoinwalk.org`;
     destination = paid?.slug === slug && (relay === canonical || relay === `${canonical}/` || retainedStagingPilot)
       ? paid.destination : null;

@@ -4,16 +4,17 @@ import type {ChatConfig} from "../domain/chat";
 import {chatConfig} from "../lib/chat-config";
 import {getPaymentRuntime} from "../payments/runtime";
 
-/** Builds public chat routing only from active records whose original settled
- * entitlement is still present. A database/configuration failure keeps the
- * static global community available but never invents a paid destination. */
+/** Builds public chat routing only from active records whose original authority
+ * remains valid locally. Pro records require their settled entitlement; Basic
+ * records remain scoped to the shared relay and their approved city ID. */
 export function serverChatConfig():ChatConfig{
  try{
   const db=getPaymentRuntime().store.db,registry=new ChatProvisionStore(db),paidCities:ChatConfig["paidCities"]={};
   for(const row of registry.active()){
    const entitlement=db.prepare("SELECT invoiceId FROM paid_city_entitlement WHERE cityId=?").get(row.cityId) as {invoiceId:string}|undefined;
-   if(entitlement?.invoiceId!==row.entitlementId)continue;
-   paidCities[row.cityId]={slug:row.slug,destination:{relay:row.relay,groupId:row.groupId},walkieTalkieEnabled:row.walkieTalkieEnabled===1,armadaEnabled:row.armadaEnabled===1};
+   if(row.tier==="pro"&&entitlement?.invoiceId!==row.entitlementId)continue;
+   if(row.tier==="basic"&&row.relay!=="wss://chat.bitcoinwalk.org/")continue;
+   paidCities[row.cityId]={slug:row.slug,tier:row.tier,destination:{relay:row.relay,groupId:row.groupId},walkieTalkieEnabled:row.walkieTalkieEnabled===1,armadaEnabled:row.armadaEnabled===1};
   }
   return {...chatConfig,paidCities};
  }catch{return chatConfig;}

@@ -19,6 +19,10 @@ describe("operator-controlled chat routing", () => {
   it("uses the canonical BitcoinWalk join alias for production global chat", () => {
     expect(resolveCityChat("free", "radom", productionConfig).url).toBe("https://bitcoinwalk.org/join");
   });
+  it("routes a provisioned Basic city to its own group on the shared relay",()=>{
+    const basic={...config,paidCities:{basic:{slug:"seattle",tier:"basic" as const,destination:{relay:"wss://chat.bitcoinwalk.org/",groupId:"bitcoinwalk-seattle"},walkieTalkieEnabled:true,armadaEnabled:false}}};
+    expect(resolveCityChat("basic","seattle",basic,false)).toEqual({scope:"city",environment:"staging",walkieTalkieEnabled:true,armadaEnabled:false,nip29:{relay:"wss://chat.bitcoinwalk.org/",groupId:"bitcoinwalk-seattle"},url:null});
+  });
   it("routes a provisioned paid city to its dedicated relay and group", () => {
     expect(resolveCityChat("paid", "austin", config)).toEqual({ scope: "city", environment: "staging", walkieTalkieEnabled:true,armadaEnabled:true,nip29:{relay:"wss://austin.bitcoinwalk.org",groupId:"city-test"},url: "https://armada.buzz/s/austin.bitcoinwalk.org/city-test" });
     expect(resolveCityChat("paid", "austin", {...config,paidCities:{paid:{slug:"austin",destination:{relay:"wss://austin.bitcoinwalk.org/",groupId:"city-test"}}}}).url).toBe("https://armada.buzz/s/austin.bitcoinwalk.org/city-test");

@@ -26,7 +26,9 @@ rejected. Buzz's always-present `closed` tag describes explicit membership; its
 open channels still accept self-join requests, so it is not treated as private.
 The `(relay, group ID)` pair is unique,
 and public routing includes only separately activated records whose original
-settled entitlement still exists. An active destination cannot be overwritten;
+authority remains current. Pro records require their settled entitlement;
+Basic records are bound to the exact signed approval that was current during
+provisioning and can only target the shared relay. An active destination cannot be overwritten;
 replacement requires a future explicit revocation workflow.
 
 ## Operator workflow
@@ -97,3 +99,12 @@ metadata stores `chat`; clients conventionally present it as `#chat`.
 The release is active non-root on staging and production; deployment evidence is
 `/home/bitcoinwalk/backups/app-staging-deploy.fgxxqw` and
 `/home/bitcoinwalk/backups/app-production-deploy.eeGysZ`.
+
+App `0.3.326` broadens **Monitoring → Communities** from Pro-only selection to
+all approved cities through the shared city finder. Paid communities remain
+listed first for operational visibility. Basic candidates are signed against
+the exact current approval and can only use `wss://chat.bitcoinwalk.org/`; Pro
+candidates remain bound to the settled entitlement and canonical city relay.
+New Basic records default to Walkie Talkie ON and Armada OFF, while Pro defaults
+remain unchanged. Activated Basic groups now enter public routing as distinct
+city-scoped groups even though they share the same relay.
