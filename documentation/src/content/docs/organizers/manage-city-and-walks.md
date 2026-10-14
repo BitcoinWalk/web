@@ -3,6 +3,8 @@ title: Manage your city and walks
 description: Use the BitcoinWalk dashboard without handing over your Nostr identity.
 ---
 
+BitcoinWalk calls the person responsible for a city its **city host**. Someone invited to run one particular occurrence is a **walk host**; that invitation does not grant control of the city or its other walks.
+
 ## Connect the right account
 
 Open the BitcoinWalk dashboard and connect the Nostr identity that owns or edits the city. The account avatar remains visible in the upper-right menu so you can confirm the active identity before signing.

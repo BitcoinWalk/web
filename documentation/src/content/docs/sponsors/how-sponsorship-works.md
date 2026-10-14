@@ -46,7 +46,7 @@ Approved sponsorship appears only on the walks covered by the package. After a c
 
 ## Who benefits
 
-- **The local organizer and community** gain support for keeping regular, welcoming walks active. Pro organizers can also receive their share of payments sent to the city's verified BitcoinWalk Lightning address.
+- **The local host and community** gain support for keeping regular, welcoming walks active. Pro hosts can also receive their share of payments sent to the city's verified BitcoinWalk Lightning address.
 - **The sponsor** supports a specific local community and receives approved visibility on the selected walk pages and their current sharing images.
 - **BitcoinWalk HQ** maintains the shared website, public event feeds, media generation, directory, relay integrations, moderation and documentation used by every city.
 - **Participants** keep access to community-led walks without sponsors receiving attendee data or editorial control.
@@ -55,10 +55,10 @@ Approved sponsorship appears only on the walks covered by the package. After a c
 
 An active Pro city has a verified BitcoinWalk Lightning address. Payments and zaps made to that city address are allocated as follows:
 
-- **79% goes to the local Pro organizer's confirmed payout destination.**
+- **79% goes to the local Pro host's confirmed payout destination.**
 - **21% is retained by BitcoinWalk HQ** to support the shared platform and operations.
 
-The split is calculated before Lightning routing fees. The local organizer receives the full 79% allocation; BitcoinWalk pays supported outgoing routing fees from its share.
+The split is calculated before Lightning routing fees. The local host receives the full 79% allocation; BitcoinWalk pays supported outgoing routing fees from its share.
 
 The fixed sponsorship checkout described above is currently a separate booking payment. It verifies the selected walks, payment, sponsor identity and artwork, but it must not be presented as an automatic 79/21 payout. The 79/21 allocation applies when a payment or zap uses the active Pro city's verified BitcoinWalk Lightning address.
 

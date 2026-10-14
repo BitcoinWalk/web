@@ -14,14 +14,14 @@ function time(value:number){return new Intl.DateTimeFormat(undefined,{dateStyle:
 function OrganizerSetupLink({row}:{row:CityIdentityHealth}){
  const [copyState,setCopyState]=useState<"idle"|"copied"|"failed">("idle"),path=`/admin/upgrade?city=${encodeURIComponent(row.cityId)}`,href=row.availableInEnvironment?path:`https://bitcoinwalk.org${path}`;
  async function copy(){try{await navigator.clipboard.writeText(new URL(href,window.location.origin).toString());setCopyState("copied");}catch{setCopyState("failed");}}
- return <><button type="button" onClick={copy}>{copyState==="copied"?"Copied organizer setup link":"Copy organizer setup link"}</button>{" "}<Link href={href} target="_blank" rel="noreferrer">Preview organizer setup ↗</Link>{copyState==="failed"?<span role="alert"> Copy failed. Open the setup page and copy its address.</span>:null}</>;
+ return <><button type="button" onClick={copy}>{copyState==="copied"?"Copied host setup link":"Copy host setup link"}</button>{" "}<Link href={href} target="_blank" rel="noreferrer">Preview host setup ↗</Link>{copyState==="failed"?<span role="alert"> Copy failed. Open the setup page and copy its address.</span>:null}</>;
 }
 
 function IdentityActions({row,busy=false,onRecheck,onOpenCity}:{row:CityIdentityHealth;busy?:boolean;onRecheck?:()=>void;onOpenCity?:()=>void}){
  const failed=new Set(row.checks.filter(check=>check.state==="fail").map(check=>check.key)),unknown=row.checks.some(check=>check.state==="unknown"),organizerRequired=failed.has("identity")||failed.has("recovery"),bindingRequired=failed.has("binding")&&!organizerRequired,provisioningRequired=!organizerRequired&&!bindingRequired&&(failed.has("profile")||failed.has("nip05")||failed.has("lightning")),publicHref=row.availableInEnvironment?`/${row.slug}`:`https://bitcoinwalk.org/${row.slug}`;
  return <div style={{borderTop:"1px solid #d7dce2",marginTop:"0.8rem",paddingTop:"0.8rem"}}><strong>Next action</strong>
-  {organizerRequired?<><p>The organizer must create or reconnect the exact city signer and confirm its recovery method. The super-admin can send the setup link, but cannot create or hold that private key.</p><p><OrganizerSetupLink row={row}/></p></>:null}
-  {bindingRequired?<p>Review and sign the exact city-identity activation request after the organizer proof is complete.</p>:null}
+  {organizerRequired?<><p>The city host must create or reconnect the exact city signer and confirm its recovery method. The super-admin can send the setup link, but cannot create or hold that private key.</p><p><OrganizerSetupLink row={row}/></p></>:null}
+  {bindingRequired?<p>Review and sign the exact city-identity activation request after the host proof is complete.</p>:null}
   {provisioningRequired?<p>Review the activation record and retry provisioning only after its identity, NIP-05 and Lightning evidence agree.</p>:null}
   {unknown?<><p>Recheck before changing anything. Missing relay evidence is not proof that the setup failed.</p>{onRecheck?<p><button type="button" disabled={busy} onClick={onRecheck}>{busy?"Checking…":"Recheck this evidence"}</button></p>:null}</>:null}
   {row.status==="complete"?<p>No corrective action is required.</p>:null}

@@ -8,7 +8,7 @@ export const PLAN_BENEFITS = [
   { benefit: "City subdomain", free: "Not included", paid: "<city>.bitcoinwalk.org" },
   { benefit: "Community through Armada", free: "Global BitcoinWalk community", paid: "Dedicated members-only city community with moderation" },
   { benefit: "NIP-05 identity / verified badge", free: "Not included", paid: "Included after activation" },
-  { benefit: "City Lightning address / LNURL", free: "Not included", paid: "<city>@bitcoinwalk.org · 79% organizer / 21% BitcoinWalk" },
+  { benefit: "City Lightning address / LNURL", free: "Not included", paid: "<city>@bitcoinwalk.org · 79% host / 21% BitcoinWalk" },
   { benefit: "Download / transfer relay to your own node", free: "Not included", paid: "Planned — BitcoinWalk app for Umbrel, Start9 and other supported nodes" },
   { benefit: "Local marketplace", free: "Not included", paid: "Future capability — not available yet" },
 ] as const;

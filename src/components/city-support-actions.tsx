@@ -24,7 +24,7 @@ export default function CitySupportActions({cityId,revisionId,cityName,upgradeAv
    {payment&&<><button type="button" onClick={()=>void copyRecovery()}>Copy private recovery link</button><p><small>Use this link to continue on another device. Anyone with it can view this checkout, but cannot control the city or its payout.</small></p></>}
    {payment&&<button type="button" disabled={busy} onClick={()=>void run("status")}>{busy?"Checking…":"Check payment"}</button>}
   </article>}
-  {payment?.tier==="paid"&&<p role="status"><strong>Pro upgrade payment verified.</strong> The organizer can now complete the city identity and payout setup without paying again.</p>}
+  {payment?.tier==="paid"&&<p role="status"><strong>Pro upgrade payment verified.</strong> The city host can now complete the city identity and payout setup without paying again.</p>}
   {message&&<p role="status">{message}</p>}
  </section>;
 }

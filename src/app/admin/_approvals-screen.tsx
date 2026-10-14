@@ -167,7 +167,7 @@ export default function SubmissionApprovals() {
       if(status==="approved"&&initialHero&&!initialHero.includes("/api/media/files/")){setState({message:"Approve importing the landscape into protected BitcoinWalk storage…",tone:"info"});initialHero=(await importCityImageURL(submission.cityId,initialHero)).url;}
       if (status === "approved") {
         const existing = (await queryAuthorizations(relayConfig.readRelays)).find(r => r.grant.cityId === submission.cityId);
-        if (!existing && !submission.initialEventIds.length) throw new Error("This new-city submission has no signed first walk. Reject it and ask the organizer to submit again.");
+        if (!existing && !submission.initialEventIds.length) throw new Error("This new-city submission has no signed first walk. Reject it and ask the city host to submit again.");
         if (!existing) {
           setState({ message: "Step 1: sign creator registration. If a later step fails, registration remains; retrying approval will reuse it.", tone: "info" });
           const grant = await signWithBrowserExtension(createAuthorizationEvent({ cityId: submission.cityId, creatorPubkey: submission.author, creatorRevisionId: submission.eventId, editorPubkeys: [submission.author], superAdminPubkey: pubkey }));
@@ -256,7 +256,7 @@ export default function SubmissionApprovals() {
           <details>
             <summary>Review request and approval settings</summary>
             <p>{submission.meetingPoint}<br/>{submission.city.description}</p>
-            <p>Organizer: {submission.author}<br/>City ID: {submission.cityId}<br/>Revision: {submission.eventId}{submission.previous&&<><br/>Based on: {submission.previous}</>}<br/>Signed walks: {submission.initialEventIds.length||"Missing"}</p>
+            <p>City host: {submission.author}<br/>City ID: {submission.cityId}<br/>Revision: {submission.eventId}{submission.previous&&<><br/>Based on: {submission.previous}</>}<br/>Signed walks: {submission.initialEventIds.length||"Missing"}</p>
             <SubmittedCityFields submission={submission}/>
             <label>Public URL <span>bitcoinwalk.org/</span><input required minLength={2} maxLength={63} pattern="[a-z0-9]+(?:-[a-z0-9]+)*" value={slugs[submission.eventId]??(submission.previous?submission.slug:registrationSlug(submission.cityName))} onChange={event=>setSlugs(current=>({...current,[submission.eventId]:event.target.value.toLowerCase()}))}/></label>
             <label>Alternative city names <input maxLength={2020} value={aliases[submission.eventId]??(submission.city.aliases??[]).join(", ")} onChange={event=>setAliases(current=>({...current,[submission.eventId]:event.target.value}))} placeholder="One or more names, separated by commas"/></label>

@@ -10,7 +10,7 @@ describe("walk identifiers",()=>{
   const html=renderToStaticMarkup(createElement(WalkIdentifiers,{organizerNpub,nevent}));
   expect(html).toContain("npub1abc...xyz");
   expect(html).not.toContain(organizerNpub);
-  expect(html).toContain('aria-label="Copy organizer npub"');
+  expect(html).toContain('aria-label="Copy city host npub"');
   expect(html).toContain("nevent1abc...xyz");
   expect(html).not.toContain(nevent);
   expect(html).toContain('aria-label="Copy nevent"');

@@ -8,7 +8,7 @@ export function compactNostrIdentifier(value:string){
 
 export default function WalkIdentifiers({organizerNpub,nevent}:{organizerNpub:string;nevent:string}){
  return <small>
-  Organizer: <CopyValue label="organizer npub" value={organizerNpub} displayValue={compactNostrIdentifier(organizerNpub)}/><br/>
+  City host: <CopyValue label="city host npub" value={organizerNpub} displayValue={compactNostrIdentifier(organizerNpub)}/><br/>
   Nostr event: <CopyValue label="nevent" value={nevent} displayValue={compactNostrIdentifier(nevent)}/>
  </small>;
 }

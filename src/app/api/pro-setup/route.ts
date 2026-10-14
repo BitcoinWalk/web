@@ -41,7 +41,7 @@ export async function POST(request: Request) {
     if (command.action === "clear-city-signer") return reply({signer: await clearProSetupSigner(command.cityId, event.pubkey)});
     if (command.action === "prepare-brand-request") return reply({request: await prepareBrandRequest(command.cityId, event.pubkey, origin)});
     if (command.action === "submit-brand-proofs") {
-      if (!ownerProof || !brandProof) throw new Error("Both organizer and city signer proofs are required.");
+      if (!ownerProof || !brandProof) throw new Error("Both host and city signer proofs are required.");
       return reply({request: await submitBrandProofs(command.cityId, command.requestId, event.pubkey, ownerProof, brandProof)});
     }
     if (command.action === "cancel-brand-request") return reply({request: await cancelBrandRequest(command.cityId, command.requestId, event.pubkey)});

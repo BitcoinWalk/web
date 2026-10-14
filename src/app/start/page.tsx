@@ -73,12 +73,12 @@ export default function StartWalkPage() {
     catch (error) { setState({ kind: "error", message: error instanceof Error ? error.message : "Check your walk details." }); }
   }
 
-  function choosePlan(event:FormEvent<HTMLFormElement>){event.preventDefault();if(!organizerKey){setState({kind:"error",message:"Connect your chosen organizer identity first."});return;}setState({kind:"idle"});setStep(3);}
+  function choosePlan(event:FormEvent<HTMLFormElement>){event.preventDefault();if(!organizerKey){setState({kind:"error",message:"Connect your chosen host identity first."});return;}setState({kind:"idle"});setStep(3);}
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (submitting.current || locked || step !== 3) return;
-    if (!organizerKey) { setState({ kind: "error", message: "Connect your chosen organizer identity first." }); return; }
+    if (!organizerKey) { setState({ kind: "error", message: "Connect your chosen host identity first." }); return; }
     submitting.current = true;
     try {
       const candidate = draft();

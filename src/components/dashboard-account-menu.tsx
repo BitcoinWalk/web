@@ -6,7 +6,7 @@ import type {DashboardRole} from "../domain/dashboard";
 import {watchPublicProfiles,type PublicProfile} from "../nostr/profiles";
 import styles from "./dashboard-account-menu.module.css";
 
-function roleLabel(role:DashboardRole){return role==="super-admin"?"Super-admin":role==="organizer"?"Organizer":"Member";}
+function roleLabel(role:DashboardRole){return role==="super-admin"?"Super-admin":role==="organizer"?"Host":"Participant";}
 
 export default function DashboardAccountMenu({pubkey,role,walkCount,onDisconnect}:{pubkey:string;role:DashboardRole;walkCount:number|null;onDisconnect:()=>void}){
  const [profile,setProfile]=useState<PublicProfile>(),[failed,setFailed]=useState("");

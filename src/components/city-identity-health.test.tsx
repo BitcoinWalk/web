@@ -36,7 +36,7 @@ describe("city identity health UI",()=>{
    {key:"recovery" as const,label:"Recovery acknowledgement",state:"fail" as const,detail:"Missing."},
   ]};
   const html=renderToStaticMarkup(createElement(CityIdentityHealthDetails,{row:missing}));
-  expect(html).toContain("Copy organizer setup link");
+  expect(html).toContain("Copy host setup link");
   expect(html).toContain("/admin/upgrade?city=city");
   expect(html).not.toContain("Review activation request");
  });
@@ -48,6 +48,6 @@ describe("city identity health UI",()=>{
   ]};
   const html=renderToStaticMarkup(createElement(CityIdentityHealthDetails,{row:pending}));
   expect(html).toContain("Review activation request");
-  expect(html).not.toContain("Copy organizer setup link");
+  expect(html).not.toContain("Copy host setup link");
  });
 });

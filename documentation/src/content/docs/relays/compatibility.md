@@ -1,6 +1,6 @@
 ---
 title: BitcoinWalk relay compatibility
-description: What an organizer or relay operator needs before proposing a city relay.
+description: What a city host or relay operator needs before proposing a city relay.
 ---
 
 ## What City relay setup does
@@ -25,7 +25,7 @@ These are necessary but not sufficient for an official BitcoinWalk city replica.
 BitcoinWalk also requires an accepted receiver or adapter that preserves:
 
 - exact signed NIP-52 walk events;
-- city ownership and organizer authority;
+- city ownership and host authority;
 - cancellations, revocations and moderation decisions;
 - suppression of hidden or unauthorized history;
 - exact visible-event reconciliation; and

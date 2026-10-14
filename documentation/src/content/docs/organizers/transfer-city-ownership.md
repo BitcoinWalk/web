@@ -5,7 +5,7 @@ description: A safe handover procedure for an already-paid BitcoinWalk city.
 
 A Pro payment belongs to the **city**, not to the person who paid it. Transferring the city therefore does not create another purchase or erase its walks, sponsors, relay history or public URLs.
 
-Ownership transfer is a signed handover. BitcoinWalk never asks either organizer for secret signing material.
+Ownership transfer is a signed handover. BitcoinWalk never asks either host for secret signing material.
 
 ## Before you start
 

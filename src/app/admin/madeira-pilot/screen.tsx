@@ -76,7 +76,7 @@ function Pilot({enabled,actor}:{enabled:boolean;actor:string}){
     <p><strong>Staging only:</strong> production remains unchanged. Do not use this section until managed reservation and payout recovery both pass.</p>
     <button disabled={busy||managedState!=="verified"} onClick={()=>void act("activation-load")}>{busy?"Checking…":"Load public activation request"}</button>
     {activation&&<><p>NIP-05: <strong>{activation.challenge.nip05}</strong></p><p>Lightning address: <strong>{activation.challenge.lightningAddress}</strong></p>
-      <p>Organizer payout: <strong>{activation.challenge.reserved.payoutDestination}</strong> — 79%. BitcoinWalk retains 21% before routing fees.</p>
+      <p>Host payout: <strong>{activation.challenge.reserved.payoutDestination}</strong> — 79%. BitcoinWalk retains 21% before routing fees.</p>
       <p>Madeira activation consent: {activation.ownerConfirmed?"Confirmed":"Awaiting Madeira account"}. Super-admin activation grant: {activation.adminConfirmed?"Confirmed":"Awaiting signature"}.</p>
       <p>Public activation: {activationState}. No production setting is changed by these signatures.</p>
       {actor===MADEIRA_PILOT.pubkey&&<button disabled={busy||activation.ownerConfirmed} onClick={()=>void act("activation-owner")}>Authorize Madeira public endpoints</button>}

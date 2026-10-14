@@ -26,4 +26,4 @@ Weekly and repeating plans initially prepare a series of eight walks. Nothing is
 
 ## Basic and Pro cities
 
-Basic cities use shared BitcoinWalk infrastructure. Pro cities add managed city identity, payment and relay capabilities after a verified payment and organizer setup. Selecting Pro does not bypass review or transfer control of the organizer's identity.
+Basic cities use shared BitcoinWalk infrastructure. Pro cities add managed city identity, payment and relay capabilities after a verified payment and host setup. Selecting Pro does not bypass review or transfer control of the host's identity.

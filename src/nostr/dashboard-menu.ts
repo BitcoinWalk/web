@@ -7,8 +7,13 @@ import {queryHostedWalks,type HostedWalk} from "./hosted-walks";
 import {latestDashboardGrants} from "./dashboard-data";
 
 export type DashboardMenuCounts={cities:number|null;walks:number|null};
+export function hostedWalkCount(hosted:HostedWalk[]|null):number|null{
+ if(hosted===null)return null;
+ return new Set(hosted.filter(assignment=>assignment.item.status!=="past").map(assignment=>assignment.item.event.id)).size;
+}
 
 export async function resolveDashboardMenuCounts(relays:string[],actor:string,role:DashboardRole,grants:AuthorizationRecord[],directory:{revisions:CityRevision[];approvals:ApprovalRecord[]},hosted:HostedWalk[]|null):Promise<DashboardMenuCounts>{
+ if(role==="member")return {cities:null,walks:hostedWalkCount(hosted)};
  if(role!=="super-admin"&&role!=="organizer")return {cities:null,walks:null};
  const latest=latestDashboardGrants(grants);
  const cities=approvedCalendarWalks(directory.revisions,directory.approvals).filter(walk=>role==="super-admin"||latest.some(record=>record.grant.cityId===walk.revision.city.cityId&&canEditCity(actor,record.grant)));
@@ -24,8 +29,9 @@ export async function resolveDashboardMenuCounts(relays:string[],actor:string,ro
 }
 
 export async function loadDashboardMenuCounts(relays:string[],actor:string,role:DashboardRole):Promise<DashboardMenuCounts>{
- if(role!=="super-admin"&&role!=="organizer")return {cities:null,walks:null};
+ if(role==="disconnected")return {cities:null,walks:null};
  const [directory,grants,hosting]=await Promise.allSettled([queryDirectoryRecords(relays),queryAuthorizations(relays),queryHostedWalks(relays,actor)]);
+ if(role==="member")return {cities:null,walks:hostedWalkCount(hosting.status==="fulfilled"?hosting.value:null)};
  if(directory.status==="rejected"||grants.status==="rejected")return {cities:null,walks:null};
  return resolveDashboardMenuCounts(relays,actor,role,grants.value,directory.value,hosting.status==="fulfilled"?hosting.value:null);
 }

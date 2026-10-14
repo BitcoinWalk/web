@@ -31,7 +31,7 @@ export default function OrganizerPage() {
   const [decisions,setDecisions] = useState<ApprovalRecord[]>([]);
   const [base,setBase] = useState<CityRevision|null>(null);
   const [pin,setPin] = useState<LocationValue|null>(null);
-  const [message,setMessage] = useState("Connect your organizer extension to load cities you can edit.");
+  const [message,setMessage] = useState("Connect your host account to load cities you can edit.");
   const [submitted,setSubmitted] = useState(false);
   const [submittedImageUrl,setSubmittedImageUrl]=useState("");
 
@@ -126,7 +126,7 @@ export default function OrganizerPage() {
       <div className="organizer-city-list">{group.items.map(item=><button key={item.revision.city.cityId} type="button" disabled={busy} aria-pressed={base?.city.cityId===item.revision.city.cityId} onClick={()=>chooseCity(item.revision.city.cityId)}><strong>{item.revision.city.cityName}</strong><span>/{item.revision.city.slug}</span></button>)}</div>
     </section>)}</div>}
     {!!archivedCities.length&&<details className="organizer-city-archive"><summary><strong>Archived ({archivedCities.length})</strong></summary><div className="organizer-city-list">{archivedCities.map(item=><button key={item.revision.city.cityId} type="button" disabled={busy} aria-pressed={base?.city.cityId===item.revision.city.cityId} onClick={()=>chooseCity(item.revision.city.cityId)}><strong>{item.revision.city.cityName}</strong><span>/{item.revision.city.slug}</span></button>)}</div></details>}
-    {base && selectedCity&&!selectedCity.editable&&<section><h3>{base.city.cityName} — {selectedCity.status==="archived"?"Archived":selectedCity.status==="needs-changes"?"Needs changes":"Pending approval"}</h3><p>{selectedCity.status==="archived"?"This city is read-only and hidden from public and active organizer views. Contact BitcoinWalk to request restoration.":"This city belongs to your connected identity, but it cannot be edited or used to publish walks until a super-admin approves it."}</p></section>}
+    {base && selectedCity&&!selectedCity.editable&&<section><h3>{base.city.cityName} — {selectedCity.status==="archived"?"Archived":selectedCity.status==="needs-changes"?"Needs changes":"Pending approval"}</h3><p>{selectedCity.status==="archived"?"This city is read-only and hidden from public and active host views. Contact BitcoinWalk to request restoration.":"This city belongs to your connected identity, but it cannot be edited or used to publish walks until a super-admin approves it."}</p></section>}
     {base && selectedCity?.editable && <section>
       <h2>City profile</h2>
       <p>Edit the city description, hero image and default meeting point. Scheduled walks are managed separately in Walks. Pending edits are publicly readable; do not include private details.</p>

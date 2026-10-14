@@ -21,4 +21,4 @@ Guide currently helps with workflow notifications. A relay acknowledgement prove
 
 ## Armada and Concord
 
-Armada is presented separately as a Concord-compatible option when the organizer enables it. It is not another name for the NIP-29 Walkie Talkie group. Use the labels and links shown on the city page rather than assuming both buttons open the same protocol or conversation.
+Armada is presented separately as a Concord-compatible option when the city host enables it. It is not another name for the NIP-29 Walkie Talkie group. Use the labels and links shown on the city page rather than assuming both buttons open the same protocol or conversation.

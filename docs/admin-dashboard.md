@@ -1,5 +1,9 @@
 # Unified dashboard
 
+## Host terminology — 14 October 2026
+
+The dashboard now calls the city-owning role **Host** instead of Organizer. A **city host** manages the city and its walks; a **walk host** is delegated to host one specific occurrence. This is a user-interface terminology change only. Existing `organizer` role values, signed records, permissions, API contracts and compatibility URLs such as `/admin/organizers` remain unchanged, avoiding a risky data migration while the admin experience is being simplified under BW-129.
+
 ## BW-25 restore regression — 29 September 2026
 
 The user's signed retry on app 0.3.88 exposed a separate relay bug: initial approval's future-date horizon was reapplied when restoring an already released past walk. Relay 0.8.55 permits historical timing only when a retained, signature-verified super-admin approval matches the exact city, revision and initial event. Shape/content, one-hour duration, ownership, grants, and cancellation/read suppression remain enforced. New past submissions and approvals without exact prior release remain rejected. Race-enabled tests and vet passed, including wrong-city/revision/event/author and rejected-only history. The operator installed relay 0.8.55 successfully, with backup `/var/backups/bitcoinwalk-relay-initial-restore-0.8.55.rPeJmN`. On 29 September 2026 the user confirmed Larnaca disapprove/restore, archive/restore, organizer permission denial and stale-screen protection all passed and authorized closing BW-25.

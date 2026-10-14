@@ -36,7 +36,7 @@ export default function CommunityChatsPage(){
  return <main>
   <p>BitcoinWalk / dashboard / monitoring / communities</p>
   <h1>City communities</h1>
-  <p>Create a city-scoped NIP-29 Walkie Talkie channel for every approved city. Each channel is named BitcoinWalk + city, uses the approved city artwork, and starts with the super-admin, current organizer and BitcoinWalk Guide. Every Walkie Talkie channel uses the shared chat relay. Pro-city Armada and Concord routing remains on the city relay.</p>
+  <p>Create a city-scoped NIP-29 Walkie Talkie channel for every approved city. Each channel is named BitcoinWalk + city, uses the approved city artwork, and starts with the super-admin, current city host and BitcoinWalk Guide. Every Walkie Talkie channel uses the shared chat relay. Pro-city Armada and Concord routing remains on the city relay.</p>
   <button type="button" disabled={busy} onClick={load}>{busy?"Working…":"Refresh"}</button>
   <p role="status" aria-live="polite">{message}</p>
   <section>
@@ -52,7 +52,7 @@ export default function CommunityChatsPage(){
    {selected&&<>
     <p>Walkie Talkie relay: <code>{relayFor(selected)}</code></p>
     <label>Channel ID<input value={groupId} readOnly aria-readonly="true" placeholder={`bitcoinwalk-${selected.slug}`} autoComplete="off" spellCheck={false}/></label>
-    <p><Image unoptimized src={selected.avatarUrl} alt={`Group avatar for BitcoinWalk ${selected.cityName}`} width={96} height={96} style={{borderRadius:"50%",objectFit:"cover"}}/><br/><strong>BitcoinWalk {selected.cityName}</strong><br/>Founding members: super-admin, current organizer and BitcoinWalk Guide.</p>
+    <p><Image unoptimized src={selected.avatarUrl} alt={`Group avatar for BitcoinWalk ${selected.cityName}`} width={96} height={96} style={{borderRadius:"50%",objectFit:"cover"}}/><br/><strong>BitcoinWalk {selected.cityName}</strong><br/>Founding members: super-admin, current city host and BitcoinWalk Guide.</p>
     {(!current||current.phase==="active"||current.phase==="needs-attention")&&<button type="button" disabled={busy||!groupId.trim()} onClick={()=>void configure()}>{current?.phase==="active"?"Sign and reconcile founding setup":"Sign and create complete group"}</button>}
     {mayVerify&&<button type="button" disabled={busy||!groupId.trim()} onClick={()=>void verify()}>Sign and verify group</button>}
     {current&&<article className={styles.card} data-rag={current.phase==="active"?"green":current.phase==="verified"?"amber":"red"}>
@@ -60,7 +60,7 @@ export default function CommunityChatsPage(){
      <p><code>{current.relay}</code><br/><code>{current.groupId}</code></p>
      {current.metadataEventId&&<p>Signed metadata: <code>{current.metadataEventId}</code></p>}
      {current.phase==="verified"&&<><p><strong>Group created and verified.</strong> One final action remains: activate it for public walk pages.</p><button type="button" disabled={busy||activating} onClick={()=>void activate()}>{activating?"Waiting for signature…":"Sign and activate community"}</button>{actionMessage&&<p role="status" aria-live="polite"><strong>{actionMessage}</strong></p>}</>}
-     {current.phase==="active"&&<><p role="status"><strong>Setup complete.</strong> This Walkie Talkie channel is active on public walk pages. Pro-city Armada and Concord remain on their separate city relay. Reconcile again whenever the signed city organizer changes.</p>{actionMessage&&<p role="status" aria-live="polite"><strong>{actionMessage}</strong></p>}<p><a href={`https://chat.bitcoinwalk.org/${encodeURIComponent(current.slug)}`} target="_blank" rel="noopener noreferrer">Open Walkie Talkie channel ↗</a></p></>}
+     {current.phase==="active"&&<><p role="status"><strong>Setup complete.</strong> This Walkie Talkie channel is active on public walk pages. Pro-city Armada and Concord remain on their separate city relay. Reconcile again whenever the signed city host changes.</p>{actionMessage&&<p role="status" aria-live="polite"><strong>{actionMessage}</strong></p>}<p><a href={`https://chat.bitcoinwalk.org/${encodeURIComponent(current.slug)}`} target="_blank" rel="noopener noreferrer">Open Walkie Talkie channel ↗</a></p></>}
     </article>}
    </>}
   </section>}

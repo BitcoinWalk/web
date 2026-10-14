@@ -210,7 +210,7 @@ export default function OrganizerEventsPage({canModerate=false}:{canModerate?:bo
     try {
       if(publishingAccess!=="active")throw new Error(publishingAccessNotice(publishingAccess));
       const city = walks.find(w => w.revision.city.cityId === cityId)?.revision.city;
-      if (!city || !owner || !meetingPoint || frequency === "once") throw new Error("Choose an organizer city and recurring schedule first.");
+      if (!city || !owner || !meetingPoint || frequency === "once") throw new Error("Choose a host city and recurring schedule first.");
       if (!seriesId.current) seriesId.current = crypto.randomUUID();
       const existing = readRecurringPlan(window.localStorage, owner, cityId);
       const sameSchedule=existing?.seriesId===seriesId.current&&existing.firstDate===firstDate&&existing.localTime===localTime&&existing.frequency===frequency&&existing.weekday===weekday;
@@ -341,7 +341,7 @@ export default function OrganizerEventsPage({canModerate=false}:{canModerate?:bo
       const [currentWalks,grants,currentEvents]=await Promise.all([loadCalendarWalks(relayConfig.writeRelays),queryAuthorizations(relayConfig.writeRelays),completeCityEvents(relayConfig.writeRelays,cityId)]);
       const walk=currentWalks.find(w=>w.revision.city.cityId===cityId);
       const grant=grants.find(g=>g.grant.cityId===cityId);
-      if(!walk||!grant||!canEditCity(owner,grant.grant))throw new Error("This city is no longer approved for the connected organizer. Nothing was signed.");
+      if(!walk||!grant||!canEditCity(owner,grant.grant))throw new Error("This city is no longer approved for the connected host. Nothing was signed.");
       const currentRows=managedCalendarEvents(walk,currentEvents);
       const clash=chosen.find(occurrence=>{
         const matches=reconcileOccurrences([occurrence],currentRows,occurrence.timeZone).covered;

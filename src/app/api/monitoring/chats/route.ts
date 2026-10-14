@@ -23,7 +23,7 @@ async function eligible():Promise<EligibleCity[]>{
   const cityId=row.revision.city.cityId,slug=row.decision.approval.slug??row.revision.city.slug;
   const entitlement=db.prepare("SELECT invoiceId FROM paid_city_entitlement WHERE cityId=?").get(cityId) as {invoiceId:string}|undefined;
   const tier:ChatProvisionTier=entitlement?"pro":"basic",bindingId=entitlement?.invoiceId??row.decision.event.id,organizerPubkey=grants.get(cityId)?.creatorPubkey??row.revision.event.pubkey;
-  if(!/^[0-9a-f]{64}$/.test(organizerPubkey))throw new Error(`The current organizer for ${row.revision.city.cityName} could not be verified.`);
+  if(!/^[0-9a-f]{64}$/.test(organizerPubkey))throw new Error(`The current city host for ${row.revision.city.cityName} could not be verified.`);
   return {cityId,cityName:row.revision.city.cityName,slug,tier,organizerPubkey,guidePubkey,authority:{tier,bindingId,relay:WALKIE_TALKIE_RELAY}};
  })).then(rows=>rows.sort((a,b)=>a.cityName.localeCompare(b.cityName)));
 }
