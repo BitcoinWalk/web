@@ -12,7 +12,8 @@ export type CityActivationCheck={status:"green"|"amber"|"red"|"na";message:strin
 export type CityActivationResult={cityId:string;revisionId:string;checks:{
   logos:CityActivationCheck;og:CityActivationCheck;meta:CityActivationCheck;
   payment:CityActivationCheck;paymentAuthorization:CityActivationCheck;
-  nip05:CityActivationCheck;lnurl:CityActivationCheck;relay:CityActivationCheck;community:CityActivationCheck;
+  nip05:CityActivationCheck;lnurl:CityActivationCheck;relay:CityActivationCheck;
+  walkieTalkie:CityActivationCheck;community:CityActivationCheck;
 }};
 export async function completeCityActivation(event:Event):Promise<CityActivationResult>{for(let attempt=0;attempt<5;attempt++){const response=await fetch("/api/admin/city-activation",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({event})}),body=await response.json();if(response.ok)return body;if(response.status!==409||attempt===4)throw new Error(body.error||"City activation checks failed.");await new Promise(resolve=>setTimeout(resolve,1000));}throw new Error("City activation checks failed.");}
 export async function mediaAlerts():Promise<{alerts:MediaAlert[];checkedAt:string}>{return signedPost("/api/media/alerts",{action:"list-media-alerts"});}

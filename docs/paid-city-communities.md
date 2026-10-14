@@ -164,3 +164,13 @@ cities were created, read back through the authenticated private roster and
 activated independently; the dashboard reported 17 active and zero remaining.
 Both Graz and London have active shared-relay Walkie Talkie channels, while
 London's separate Pro relay and Armada/Concord route were left unchanged.
+
+App `0.3.340` makes that same resumable sequence part of every new-city
+approval. After the approval is published and its artwork is prepared, the
+browser creates the canonical channel, applies the city metadata and avatar,
+adds the current host and Guide, authenticates the private roster read-back,
+verifies the relay evidence and activates the exact record. Walkie Talkie has
+its own colour-coded approval item for every Basic and Pro city; paid-city
+Armada remains a separate Pro-only item. A failed signer or relay step leaves
+the city approval valid, marks Walkie Talkie red with a safe Monitoring retry,
+and never substitutes the global or Pro-city room.
