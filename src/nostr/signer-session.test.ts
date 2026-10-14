@@ -1,13 +1,21 @@
 import {afterEach,describe,expect,it,vi} from "vitest";
 import {finalizeEvent,generateSecretKey,getPublicKey} from "nostr-tools";
 import {activeSignerIdentity,connectBrowserSigner,disconnectSignerSession,installSignerSession} from "./signer-session";
-import {setDashboardSigningIdentity,signWithBrowserExtension,type NostrBrowserExtension} from "./signer";
+import {setDashboardAuthorizationCurrent,setDashboardSigningIdentity,signWithBrowserExtension,type NostrBrowserExtension} from "./signer";
 
 const first="1".repeat(64),second="2".repeat(64);
 const signer=(pubkey:string):NostrBrowserExtension=>({getPublicKey:async()=>pubkey,signEvent:vi.fn() as never});
 
 describe("shared signer session",()=>{
   afterEach(async()=>{setDashboardSigningIdentity(null);await disconnectSignerSession();vi.unstubAllGlobals();});
+
+  it("blocks dashboard signatures while retained authorization data is stale",async()=>{
+    const pubkey="a".repeat(64),signEvent=vi.fn(),template={kind:1,created_at:1,tags:[],content:"test"};
+    vi.stubGlobal("window",{nostr:{getPublicKey:async()=>pubkey,signEvent}});
+    setDashboardSigningIdentity(pubkey);setDashboardAuthorizationCurrent(false);
+    await expect(signWithBrowserExtension(template)).rejects.toThrow("Retry the data check before signing");
+    expect(signEvent).not.toHaveBeenCalled();
+  });
 
   it("keeps a selected signer available and restores the browser signer on disconnect",async()=>{
     const browserSigner=signer(first),temporarySigner=signer(second);

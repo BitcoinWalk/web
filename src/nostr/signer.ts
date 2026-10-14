@@ -22,10 +22,14 @@ export class SignerUnavailableError extends Error {
 /** Signs only in the user's extension; no private key is handled by BitcoinWalk. */
 let dashboardIdentity:string|null=null;
 let identityGeneration=0;
-export function setDashboardSigningIdentity(pubkey:string|null){dashboardIdentity=pubkey;identityGeneration++;}
+let dashboardAuthorizationCurrent=true;
+export function setDashboardSigningIdentity(pubkey:string|null){dashboardIdentity=pubkey;dashboardAuthorizationCurrent=true;identityGeneration++;}
+/** Prevent dashboard writes while the shell is showing retained, stale authorization data. */
+export function setDashboardAuthorizationCurrent(current:boolean){dashboardAuthorizationCurrent=current;identityGeneration++;}
 export async function signWithBrowserExtension(template: EventTemplate): Promise<Event> {
   if (typeof window === "undefined" || !window.nostr) throw new SignerUnavailableError();
   const expected=dashboardIdentity,generation=identityGeneration;
+  if(expected&&!dashboardAuthorizationCurrent)throw new Error("Dashboard data is out of date. Retry the data check before signing a change.");
   if(expected&&await window.nostr.getPublicKey()!==expected)throw new Error("Signer identity changed. Reconnect the dashboard before signing.");
   const signed=await window.nostr.signEvent(template);
   if(expected&&(identityGeneration!==generation||signed.pubkey!==expected||await window.nostr.getPublicKey()!==expected))throw new Error("Dashboard identity changed while signing. Nothing should be published; reconnect and retry.");

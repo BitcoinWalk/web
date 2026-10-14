@@ -2,6 +2,7 @@ import {createElement} from "react";
 import {renderToStaticMarkup} from "react-dom/server";
 import {describe,expect,it,vi} from "vitest";
 import DashboardShell,{DashboardBrand} from "./dashboard-shell";
+import {combinedPendingRequestCount} from "./pending-request-count";
 
 vi.mock("next/navigation",()=>({usePathname:()=>"/admin"}));
 
@@ -37,5 +38,14 @@ describe("signed-in dashboard brand",()=>{
     expect(expanded).toContain('aria-label="Close dashboard menu"');
     expect(expanded).toContain('aria-expanded="true"');
     expect(expanded).toContain('data-open="true"');
+  });
+});
+
+describe("dashboard request totals",()=>{
+  it("does not present an unknown queue as zero",()=>{
+    expect(combinedPendingRequestCount({cities:0,proActivations:null})).toBeNull();
+    expect(combinedPendingRequestCount({cities:null,proActivations:0})).toBeNull();
+    expect(combinedPendingRequestCount({cities:0,proActivations:0})).toBe(0);
+    expect(combinedPendingRequestCount({cities:2,proActivations:3})).toBe(5);
   });
 });

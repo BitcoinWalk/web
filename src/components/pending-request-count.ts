@@ -1,5 +1,6 @@
 export const pendingRequestCountEvent="bitcoinwalk:pending-request-count";
 export const dashboardMenuRefreshEvent="bitcoinwalk:dashboard-menu-refresh";
+export function combinedPendingRequestCount(counts:{cities:number|null;proActivations:number|null}){return counts.cities===null||counts.proActivations===null?null:counts.cities+counts.proActivations;}
 export type PendingRequestCountSource="cities"|"pro-activations";
 export type PendingRequestCountDetail={source:PendingRequestCountSource;count:number};
 
