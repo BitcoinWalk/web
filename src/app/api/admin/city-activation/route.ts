@@ -15,6 +15,7 @@ import {RelayProvisionStore} from "../../../../relay-provisioning/store";
 import {classifyRelayEvidence,inspectRelay} from "../../../../server/relay-monitor";
 import {ChatProvisionStore} from "../../../../chat-provisioning/store";
 import {armadaChatUrl} from "../../../../domain/chat";
+import {WalkieTalkieProvisionStore,WALKIE_TALKIE_RELAY} from "../../../../chat-provisioning/walkie-talkie-store";
 
 export const dynamic="force-dynamic",runtime="nodejs";
 type Check={status:"green"|"amber"|"red"|"na";message:string;url?:string};
@@ -66,8 +67,16 @@ export async function POST(request:Request){
     }else relay={status:"amber",message:`Paid city — ${slug}.bitcoinwalk.org is queued for idempotent isolated provisioning.`};
    }
   }
-  let community:Check={status:"na",message:"Basic city — the global BitcoinWalk community is used."};
+  let walkieTalkie:Check={status:"amber",message:"The city Walkie Talkie channel is queued by the approval workflow."};
+  try{
+   const record=new WalkieTalkieProvisionStore(paymentRuntime.store.db).get(city.cityId),expectedGroup=`bitcoinwalk-${slug}`;
+   walkieTalkie=record?.phase==="active"&&record.slug===slug&&record.relay===WALKIE_TALKIE_RELAY&&record.groupId===expectedGroup?
+    {status:"green",message:"City Walkie Talkie is active with verified NIP-29 metadata and founding members.",url:`https://chat.bitcoinwalk.org/${encodeURIComponent(slug)}`}:
+    record?.phase==="needs-attention"?{status:"red",message:"Walkie Talkie needs administrator attention. Retry under Monitoring → Communities."}:
+    record?{status:"amber",message:`Walkie Talkie is ${record.phase}; the approval workflow will safely resume it.`}:walkieTalkie;
+  }catch{walkieTalkie={status:"amber",message:"Walkie Talkie registry is not available yet; retry under Monitoring → Communities."};}
+  let community:Check={status:"na",message:"Basic city — Armada is not included."};
   if(entitled){try{const record=new ChatProvisionStore(paymentRuntime.store.db).get(city.cityId),url=record?.phase==="active"&&record.slug===slug?armadaChatUrl({relay:record.relay,groupId:record.groupId}):null;community=url?{status:"green",message:"Verified paid-city Armada community is active.",url}:record?.phase==="needs-attention"?{status:"red",message:"Paid-city community needs administrator attention."}:{status:"amber",message:"Paid-city community is not active yet. Verify it under Monitoring → Communities."};}catch{community={status:"amber",message:"Paid-city community registry is not available yet."};}}
-  return reply({cityId:city.cityId,revisionId:managed.revision.event.id,checks:{logos,og,meta,payment,paymentAuthorization,nip05,lnurl,relay,community}});
+  return reply({cityId:city.cityId,revisionId:managed.revision.event.id,checks:{logos,og,meta,payment,paymentAuthorization,nip05,lnurl,relay,walkieTalkie,community}});
  }catch{return reply({error:"City activation checks could not complete. Retry status; do not approve again."},500);}
 }
