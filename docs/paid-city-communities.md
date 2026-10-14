@@ -174,3 +174,9 @@ its own colour-coded approval item for every Basic and Pro city; paid-city
 Armada remains a separate Pro-only item. A failed signer or relay step leaves
 the city approval valid, marks Walkie Talkie red with a safe Monitoring retry,
 and never substitutes the global or Pro-city room.
+
+The user accepted and closed BW-23 on 14 October 2026 after a fresh Basic-city
+approval displayed green localized logo, OG and metadata evidence together with
+a green Walkie Talkie result confirming verified NIP-29 metadata and founding
+members. Pro payment, payout, managed address, dedicated relay and Armada rows
+correctly remained not applicable for that Basic city.
