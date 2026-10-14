@@ -2,7 +2,12 @@
   "name": "bitcoinwalk-web",
   "version": "0.1.0",
   "private": true,
+  "workspaces": [
+    "documentation"
+  ],
   "scripts": {
+    "docs:check": "npm --workspace documentation run check",
+    "docs:build": "npm --workspace documentation run build",
     "journal:package": "node scripts/package-remote-journal.mjs",
     "journal:smoke": "node scripts/smoke-remote-journal.mjs",
     "payout:acceptance:build": "esbuild scripts/run-payout-acceptance.ts --bundle --platform=node --target=node24 --format=cjs --outfile=release-build/payout-acceptance.cjs",

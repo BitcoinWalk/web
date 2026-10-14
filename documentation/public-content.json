@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "files": [
+    "index.md",
+    "start/find-or-start.md",
+    "organizers/manage-city-and-walks.md",
+    "chat/walkie-talkie-and-guide.md",
+    "chat/configure-armada.md",
+    "relays/compatibility.md"
+  ]
+}

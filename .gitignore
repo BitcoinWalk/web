@@ -6,6 +6,8 @@ coverage/
 guide-build/
 release-build/
 public-backlog-dist/
+documentation/.astro/
+documentation/dist/
 public/maplibre/
 *.tsbuildinfo
 next-env.d.ts

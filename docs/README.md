@@ -19,9 +19,11 @@ knowledge base.
 - [Organizer invitations](organizer-invitations.md)
 - [City logo packs](city-logo-packs.md)
 
-`armada-relays.md` is the approved seed guide for the public knowledge-base
-work tracked by BW-68. Until that site is deployed and its public-content
-allowlist is reviewed, use the repository copy as the maintained source.
+The public knowledge-base source lives in `documentation/`. Its explicit
+`public-content.json` allowlist and build-time disclosure checks prevent private
+operations material from entering the generated site. Repository documents
+remain implementation evidence unless separately reviewed and rewritten into
+that public corpus.
 
 ## Product and protocol
 
