@@ -129,3 +129,38 @@ their ID, membership and history; reconciliation only repairs the agreed name,
 avatar and missing founding members. The organizer is resolved from the latest
 signed city authorization, with the original revision signer as the legacy
 fallback. The Guide key comes only from the configured Guide service identity.
+
+The first all-city staging attempt on 14 October 2026 stopped safely on
+Augsburg before activation. The shared relay creates its signed kind `39002`
+roster only after the first founding member is added, while app `0.3.335`
+incorrectly required that roster first. App `0.3.336` adds the members before
+requiring the authenticated read-back and recognizes a partially created group
+only through relay-signed kind `39000` metadata bound to the relay's verified
+NIP-11 identity. Retrying therefore resumes the same group without accepting an
+attacker-authored lookalike or duplicating completed registry state.
+
+The resumed attempt then confirmed that the creator is automatically the group
+administrator and the relay correctly rejects kind `9000` when it would demote
+or reassign that administrator. App `0.3.337` therefore adds only the distinct
+organizer and Guide keys, then requires the relay-signed roster to include the
+creator/admin as well as both added founding members before verification or
+activation can proceed.
+
+The next read-back established that public kind `39000` discovery does not
+trigger NIP-42 by design, so attaching a passive authentication callback to the
+same subscription leaves the member-only kind `39002` roster invisible. App
+`0.3.338` explicitly authenticates the shared relay connection before opening
+the scoped roster subscription, reuses that authenticated connection across the
+rollout, and still accepts only a valid relay-signed event for the exact group.
+
+Live acceptance then confirmed the transport sends its NIP-42 challenge only
+with the first rejected private request, matching the relay's own integration
+tests. App `0.3.339` uses a bounded dummy-group kind-9 subscription solely to
+receive that challenge, authenticates the same socket, closes the probe without
+reading content, and only then opens the exact kind-39002 group roster query.
+
+The corrected rollout completed on staging on 14 October 2026. All 17 approved
+cities were created, read back through the authenticated private roster and
+activated independently; the dashboard reported 17 active and zero remaining.
+Both Graz and London have active shared-relay Walkie Talkie channels, while
+London's separate Pro relay and Armada/Concord route were left unchanged.
