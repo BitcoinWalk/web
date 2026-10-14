@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { canEditCity, editableCityRevisions, editedCity, localDateTime } from "./organizer-edit";
+import { canEditCity, correctableRejectedCityRevisions, editableCityRevisions, editedCity, localDateTime } from "./organizer-edit";
 import { SUPER_ADMIN_PUBKEY } from "./authority";
 import type { ApprovalRecord, AuthorizationRecord, CityRevision } from "./city-records";
 import { ARCHIVE_NOTE } from "./moderation";
@@ -43,6 +43,21 @@ describe("organizer editor",()=>{
  it("does not grant access to a different city",()=>{
   const other={...rev(creator,1),city:{...city,cityId:"77f137cb-2ac1-4eef-8358-7dd66b45922f"}};
   expect(editableCityRevisions(creator,[record(1)],[other])).toEqual([]);
+ });
+ it("allows only the original creator to replace an exact rejected unregistered revision",()=>{
+  const rejected=rev(creator,10);
+  const rejection:ApprovalRecord={event:{created_at:20,id:"reject"} as ApprovalRecord["event"],approval:{cityId:city.cityId,cityRevisionId:rejected.event.id,status:"rejected",note:"Clarify the meeting point"}};
+  expect(correctableRejectedCityRevisions(creator,[],[rejected],[rejection])).toEqual([rejected]);
+  expect(correctableRejectedCityRevisions(outsider,[],[rejected],[rejection])).toEqual([]);
+  expect(correctableRejectedCityRevisions(creator,[],[rejected],[])).toEqual([]);
+  expect(correctableRejectedCityRevisions(creator,[record(1)],[rejected],[rejection])).toEqual([]);
+ });
+ it("does not allow correction after archiving or when a newer creator revision exists",()=>{
+  const rejected=rev(creator,10),newer=rev(creator,30);
+  const rejection:ApprovalRecord={event:{created_at:20,id:"reject"} as ApprovalRecord["event"],approval:{cityId:city.cityId,cityRevisionId:rejected.event.id,status:"rejected"}};
+  const archive:ApprovalRecord={event:{created_at:40,id:"archive"} as ApprovalRecord["event"],approval:{cityId:city.cityId,cityRevisionId:rejected.event.id,status:"revoked",note:ARCHIVE_NOTE}};
+  expect(correctableRejectedCityRevisions(creator,[],[rejected,newer],[rejection])).toEqual([]);
+  expect(correctableRejectedCityRevisions(creator,[],[rejected],[archive,rejection])).toEqual([]);
  });
  it("retains identity, chat and sponsor while applying allowed edits",()=>{
   const result=editedCity(city,{...city,description:"Changed",aliases:["Rادم","Radom City"],cityId:crypto.randomUUID(),slug:"hijack",chatUrl:"https://other.example"} as Parameters<typeof editedCity>[1]);

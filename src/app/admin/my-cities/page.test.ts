@@ -18,10 +18,18 @@ describe("my cities inventory",()=>{
   expect(page).not.toContain("Search your cities");
  });
  it("places city-profile guidance inside the editable city panel",()=>{
-  const page=source(),panel=page.indexOf("{base && selectedCity?.editable && <section>"),heading=page.indexOf("<h2>City profile</h2>");
+  const page=source(),panel=page.indexOf("{base && (selectedCity?.editable||selectedCity?.correctable) && <section>"),heading=page.indexOf('selectedCity.correctable?"City correction":"City profile"');
   expect(panel).toBeGreaterThan(-1);
   expect(heading).toBeGreaterThan(panel);
   expect(page.indexOf("Edit the city description, hero image and default meeting point.")).toBeGreaterThan(panel);
+ });
+ it("shows reviewer feedback and the exact resubmission action for correctable rejected requests",()=>{
+  const page=source();
+  expect(page).toContain("Correct and resubmit {base.city.cityName}");
+  expect(page).toContain("<strong>Reviewer feedback:</strong>");
+  expect(page).toContain("Submit correction for review");
+  expect(page).toContain("correctableRejectedCityRevisions");
+  expect(page).toContain('tag[3]==="initial-walk"');
  });
  it("does not expose identity or legacy guidance copy",()=>{
   const page=source();
