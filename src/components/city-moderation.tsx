@@ -19,7 +19,7 @@ import {paymentFetch,signPayment,type LogoPackView} from "./city-payment";
 import EventModerationPanel from "./event-moderation";
 import {CityIdentityHealthDetails,CityIdentityHealthOverview,identityHealthLabel} from "./city-identity-health";
 import type {CityIdentityHealth} from "../server/pro-city-identity-health";
-import AdminDataStatus,{type AdminDataHealth} from "./admin-data-status";
+import AdminDataStatus,{resolvedAdminDataState,type AdminDataHealth} from "./admin-data-status";
 
 const authorizationScope="cities";
 
@@ -44,6 +44,7 @@ export default function CityModeration(){
  async function records(){const directory=await queryDirectoryRecords(relayConfig.writeRelays);return {rows:managedCities(directory.revisions,directory.approvals),calendarWalks:approvedCalendarWalks(directory.revisions,directory.approvals),needsChanges:needsChangesCities(directory.revisions,directory.approvals)};}
  async function reload(cityId=selectedId){
   const hadData=rows.length>0;
+  const retainedOperationalData=paymentInventoryReady||logoPacks.length>0||identityHealth.length>0;
   setDashboardAuthorizationScope(authorizationScope,false);
   setDataHealth(current=>({state:"loading",message:"Refreshing cities without clearing the current view or unsaved URL edits…",checkedAt:current.checkedAt}));
   try{
@@ -53,9 +54,9 @@ export default function CityModeration(){
    setRows(snapshot.rows);setCalendarWalks(snapshot.calendarWalks);setNeedsChanges(snapshot.needsChanges);setEvents(nextEvents);
    if(logoResult){setLogoPacks(logoResult.logoPacks??[]);setPaidCityIds(new Set((logoResult.payments??[]).filter(payment=>payment.tier==="paid").map(payment=>payment.cityId)));setIdentityHealth(logoResult.identityHealth??[]);setIdentityHealthError(logoResult.identityHealthError??"");setPaymentInventoryReady(true);}
    else {setPaymentInventoryReady(false);setIdentityHealthError("City identity and payment checks could not be refreshed. Their last-known results remain visible, and changes are paused until Retry succeeds.");}
-   const checkedAt=new Date().toISOString();setDashboardAuthorizationScope(authorizationScope,!!logoResult);
-   setDataHealth(logoResult?{state:snapshot.rows.length?"ready":"empty",message:snapshot.rows.length?`${snapshot.rows.length} cities and the selected city's walks were checked successfully.`:"No cities were returned by the verified directory.",checkedAt}:{state:"partial",message:"The city directory is current, but identity and payment checks are unavailable. Last-known results remain visible; changes are paused.",checkedAt});
-  }catch(error){setDashboardAuthorizationScope(authorizationScope,false);const checkedAt=new Date().toISOString(),detail=error instanceof Error?error.message:"City data could not be loaded.";setDataHealth({state:hadData?"stale":"failed",message:hadData?`${detail} Last-known cities and unsaved URL edits remain visible; changes are paused.`:detail,checkedAt});throw error;}
+   const checkedAt=new Date().toISOString(),state=resolvedAdminDataState({incomplete:!logoResult,retainedData:!logoResult&&retainedOperationalData,hasFreshData:true,visibleCount:snapshot.rows.length});setDashboardAuthorizationScope(authorizationScope,!!logoResult);
+   setDataHealth({state,message:logoResult?(snapshot.rows.length?`${snapshot.rows.length} cities and the selected city's walks were checked successfully.`:"No cities were returned by the verified directory."):retainedOperationalData?"The city directory is current, but identity and payment checks are showing last-known results. Changes are paused until Retry succeeds.":"The city directory is current, but identity and payment checks are unavailable. Changes are paused until Retry succeeds.",checkedAt});
+  }catch(error){setDashboardAuthorizationScope(authorizationScope,false);const checkedAt=new Date().toISOString(),detail=error instanceof Error?error.message:"City data could not be loaded.",state=resolvedAdminDataState({incomplete:true,retainedData:hadData,hasFreshData:false,visibleCount:rows.length});setDataHealth({state,message:hadData?`${detail} Last-known cities and unsaved URL edits remain visible; changes are paused.`:detail,checkedAt});throw error;}
  }
  async function run(action:()=>Promise<void>){if(lock.current)return;lock.current=true;setBusy(true);try{await admin();await action();}catch(e){setMessage(e instanceof Error?e.message:"Operation failed. Reload before retrying.");}finally{lock.current=false;setBusy(false);}}
  async function current(row:ManagedCity){const found=(await records()).rows.find(r=>r.revision.city.cityId===row.revision.city.cityId);if(!found||found.head!==row.head)throw new Error("City decisions changed. Reload before continuing.");return found;}

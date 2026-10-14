@@ -34,7 +34,7 @@ import {createEventModeration,latestEventModerations,moderationKey,organizerPubl
 import {publishingAccessNotice,type OrganizerPublishingAccess} from "../../../domain/publishing-access";
 import {isSuperAdmin} from "../../../nostr/authority";
 import sponsorStyles from "../../admin/sponsors/sponsors.module.css";
-import AdminDataStatus,{type AdminDataHealth} from "../../../components/admin-data-status";
+import AdminDataStatus,{resolvedAdminDataState,type AdminDataHealth} from "../../../components/admin-data-status";
 
 const LocationPicker = dynamic(() => import("../../../components/location-picker"), { ssr: false });
 const authorizationScope="walks";
@@ -171,11 +171,11 @@ export default function OrganizerEventsPage({canModerate=false}:{canModerate?:bo
         } catch { problems.push(walk.revision.city.cityName); }
       }
       if(cityLoaded)setPlans(saved);
-      const incomplete=access==="unverified"||!cityLoaded||!hostingLoaded,checkedAt=new Date().toISOString(),visibleCount=(cityLoaded?available.length:walks.length)+(hostingLoaded?hostingCount:hosted.length),hasFreshVisibleSource=cityLoaded||(dashboard.role!=="super-admin"&&hostingLoaded);
+      const incomplete=access==="unverified"||!cityLoaded||!hostingLoaded,checkedAt=new Date().toISOString(),visibleCount=(cityLoaded?available.length:walks.length)+(hostingLoaded?hostingCount:hosted.length),hasFreshVisibleSource=cityLoaded||(dashboard.role!=="super-admin"&&hostingLoaded),retainedData=(!cityLoaded&&walks.length>0)||(!hostingLoaded&&hosted.length>0),state=resolvedAdminDataState({incomplete,retainedData,hasFreshData:hasFreshVisibleSource,visibleCount});
       setDashboardAuthorizationScope(authorizationScope,!incomplete);
-      setDataHealth(incomplete?{state:hadData?"stale":hasFreshVisibleSource?"partial":"failed",message:hadData?"Some walk data could not be verified. Last-known lists and draft fields remain visible; signing is paused until Retry succeeds.":hasFreshVisibleSource?"Only part of the walk data could be verified. Signing is paused until Retry succeeds.":"Walk data could not be verified. Retry before signing or publishing.",checkedAt}:{state:visibleCount?"ready":"empty",message:visibleCount?"Walk permissions, schedules and hosting assignments were checked successfully.":"No walks or city editing permissions were returned for this identity.",checkedAt});
+      setDataHealth({state,message:incomplete?(retainedData?"Some walk data could not be verified. Last-known lists and draft fields remain visible; signing is paused until Retry succeeds.":hasFreshVisibleSource?"Only part of the walk data could be verified. Signing is paused until Retry succeeds.":"Walk data could not be verified. Retry before signing or publishing."):(visibleCount?"Walk permissions, schedules and hosting assignments were checked successfully.":"No walks or city editing permissions were returned for this identity."),checkedAt});
       setMessage([publishingAccessNotice(access),cityError,problems.length ? `Saved drafts need attention for: ${problems.join(", ")}. They were not overwritten.` : ""].filter(Boolean).join(" ") || (visibleCount ? "" : "No walks or city editing permissions were returned for this identity."));
-    } catch (error) {const detail=error instanceof Error ? error.message : "Could not load walks.";setDashboardAuthorizationScope(authorizationScope,false);setDataHealth({state:hadData?"stale":"failed",message:hadData?`${detail} Last-known walks and draft fields remain visible; signing is paused.`:detail,checkedAt:new Date().toISOString()});setMessage(detail);}
+    } catch (error) {const detail=error instanceof Error ? error.message : "Could not load walks.",state=resolvedAdminDataState({incomplete:true,retainedData:hadData,hasFreshData:false,visibleCount:walks.length+hosted.length});setDashboardAuthorizationScope(authorizationScope,false);setDataHealth({state,message:hadData?`${detail} Last-known walks and draft fields remain visible; signing is paused.`:detail,checkedAt:new Date().toISOString()});setMessage(detail);}
     finally { lock.current = false; setBusy(false); }
   }
 

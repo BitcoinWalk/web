@@ -22,7 +22,9 @@ describe("shared signer session",()=>{
     vi.stubGlobal("window",{nostr:{getPublicKey:async()=>pubkey,signEvent}});
     setDashboardSigningIdentity(pubkey);setDashboardAuthorizationScope("cities",false);setDashboardAuthorizationScope("walks",true);
     await expect(signWithBrowserExtension(template)).rejects.toThrow("Retry the data check before signing");
-    clearDashboardAuthorizationScope("cities");
+    setDashboardAuthorizationScope("cities",true);
+    await expect(signWithBrowserExtension(template)).resolves.toMatchObject({pubkey});
+    setDashboardAuthorizationScope("cities",false);clearDashboardAuthorizationScope("cities");
     await expect(signWithBrowserExtension(template)).resolves.toMatchObject({pubkey});
   });
 

@@ -2,6 +2,11 @@ import styles from "./admin-data-status.module.css";
 
 export type AdminDataState="loading"|"ready"|"empty"|"partial"|"stale"|"failed";
 export type AdminDataHealth={state:AdminDataState;message:string;checkedAt?:string};
+export function resolvedAdminDataState({incomplete,retainedData,hasFreshData,visibleCount}:{incomplete:boolean;retainedData:boolean;hasFreshData:boolean;visibleCount:number}):AdminDataState{
+ if(!incomplete)return visibleCount>0?"ready":"empty";
+ if(retainedData)return "stale";
+ return hasFreshData?"partial":"failed";
+}
 
 const labels:Record<AdminDataState,string>={
  loading:"Refreshing data",

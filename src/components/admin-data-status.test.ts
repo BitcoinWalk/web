@@ -1,9 +1,16 @@
 import {createElement} from "react";
 import {renderToStaticMarkup} from "react-dom/server";
 import {describe,expect,it} from "vitest";
-import AdminDataStatus from "./admin-data-status";
+import AdminDataStatus,{resolvedAdminDataState} from "./admin-data-status";
 
 describe("AdminDataStatus",()=>{
+ it.each([
+  [{incomplete:false,retainedData:false,hasFreshData:true,visibleCount:4},"ready"],
+  [{incomplete:false,retainedData:false,hasFreshData:true,visibleCount:0},"empty"],
+  [{incomplete:true,retainedData:false,hasFreshData:true,visibleCount:2},"partial"],
+  [{incomplete:true,retainedData:true,hasFreshData:false,visibleCount:2},"stale"],
+  [{incomplete:true,retainedData:false,hasFreshData:false,visibleCount:0},"failed"],
+ ] as const)("classifies complete, partial, retained and total-failure reads without conflating empty data",(input,expected)=>expect(resolvedAdminDataState(input)).toBe(expected));
  it("keeps unknown and failed data distinct from an empty result",()=>{
   const empty=renderToStaticMarkup(createElement(AdminDataStatus,{health:{state:"empty",message:"No requests found."},scope:"Requests"}));
   const failed=renderToStaticMarkup(createElement(AdminDataStatus,{health:{state:"failed",message:"Relay unavailable."},scope:"Requests",onRetry:()=>{}}));
