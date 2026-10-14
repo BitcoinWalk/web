@@ -24,6 +24,7 @@ import type {PaymentView} from "../../payments/service";
 import {announcePendingRequestCount} from "../../components/pending-request-count";
 import {createSponsorshipRevision,latestSponsorships,querySponsorships,sponsorshipKey} from "../../nostr/sponsorships";
 import CityFinder from "../../components/city-finder";
+import {provisionWalkieTalkieCity} from "../../lib/walkie-talkie-provision-client";
 
 type Submission = { eventId: string; initialEventIds: string[]; author: string; cityId: string; slug: string; cityName: string; startAt: string; meetingPoint: string; city: CityDocument; previous?: string; previousCity?:CityDocument; paid:boolean };
 type State = { message: string; tone: "info" | "error" | "success"; approvedWalk?: { href: string; name: string } };
@@ -38,7 +39,8 @@ const pendingActivation=(paid:boolean):ActivationState=>({
   nip05:paid?{status:"amber",message:"Checking managed NIP-05 provisioning…"}:{status:"na",message:"Basic city — managed NIP-05 is not included."},
   lnurl:paid?{status:"amber",message:"Checking managed Lightning address provisioning…"}:{status:"na",message:"Basic city — managed Lightning address is not included."},
   relay:paid?{status:"amber",message:"Checking paid-city relay provisioning…"}:{status:"na",message:"Basic city — dedicated relay not required."},
-  community:paid?{status:"amber",message:"Checking the paid-city Armada community…"}:{status:"na",message:"Basic city — the global BitcoinWalk community is used."},
+  walkieTalkie:{status:"amber",message:"Creating the city Walkie Talkie channel…"},
+  community:paid?{status:"amber",message:"Checking the paid-city Armada community…"}:{status:"na",message:"Basic city — Armada is not included."},
 });
 const failedActivation=(message:string,paid:boolean):ActivationState=>({
   logos:{status:"red",message},og:{status:"red",message},meta:{status:"red",message},
@@ -47,9 +49,10 @@ const failedActivation=(message:string,paid:boolean):ActivationState=>({
   nip05:paid?{status:"amber",message:"NIP-05 status was not confirmed."}:{status:"na",message:"Basic city — managed NIP-05 is not included."},
   lnurl:paid?{status:"amber",message:"Lightning address status was not confirmed."}:{status:"na",message:"Basic city — managed Lightning address is not included."},
   relay:paid?{status:"amber",message:"Paid relay status was not confirmed."}:{status:"na",message:"Basic city — dedicated relay not required."},
-  community:paid?{status:"amber",message:"Paid-city community status was not confirmed."}:{status:"na",message:"Basic city — the global BitcoinWalk community is used."},
+  walkieTalkie:{status:"red",message},
+  community:paid?{status:"amber",message:"Paid-city Armada status was not confirmed."}:{status:"na",message:"Basic city — Armada is not included."},
 });
-const activationLabels:Record<keyof ActivationState,string>={logos:"Logo pack",og:"OG image",meta:"Meta title and description",payment:"Pro payment",paymentAuthorization:"Payment authorization",nip05:"NIP-05",lnurl:"Lightning address (LNURL)",relay:"City relay",community:"City community"};
+const activationLabels:Record<keyof ActivationState,string>={logos:"Logo pack",og:"OG image",meta:"Meta title and description",payment:"Pro payment",paymentAuthorization:"Payment authorization",nip05:"NIP-05",lnurl:"Lightning address (LNURL)",relay:"City relay",walkieTalkie:"Walkie Talkie",community:"Armada (Pro)"};
 const initialActivation=(submission:Submission):ActivationState=>{
   const paid=submission.paid,pending=!paid&&submission.city.requestedTier==="paid";
   return {
@@ -61,7 +64,8 @@ const initialActivation=(submission:Submission):ActivationState=>{
     nip05:paid?{status:"amber",message:"Provisioning status is checked after approval."}:pending?{status:"amber",message:"Available after payment is verified."}:{status:"na",message:"Basic city — managed NIP-05 is not included."},
     lnurl:paid?{status:"amber",message:"Provisioning status is checked after approval."}:pending?{status:"amber",message:"Available after payment is verified."}:{status:"na",message:"Basic city — managed Lightning address is not included."},
     relay:paid?{status:"amber",message:"Paid relay provisioning will be checked after approval."}:pending?{status:"amber",message:"Dedicated relay waits for verified payment."}:{status:"na",message:"Basic city — dedicated relay not required."},
-    community:paid?{status:"amber",message:"Armada group verification is completed separately after the city relay is active."}:pending?{status:"amber",message:"City community waits for verified payment."}:{status:"na",message:"Basic city — the global BitcoinWalk community is used."},
+    walkieTalkie:{status:"amber",message:submission.previous?"The existing channel will be checked after approval.":"A city channel will be created automatically after approval."},
+    community:paid?{status:"amber",message:"Armada group verification is completed separately after the city relay is active."}:pending?{status:"amber",message:"Armada waits for verified payment."}:{status:"na",message:"Basic city — Armada is not included."},
   };
 };
 
@@ -212,9 +216,18 @@ export default function SubmissionApprovals() {
       }
       if(status==="approved"){
         setDecided(current=>({...current,[submission.eventId]:true}));
-        setActivationStates(current=>({...current,[submission.eventId]:pendingActivation(submission.paid)}));
-        try{const activation=await completeCityActivation(signed);setActivationStates(current=>({...current,[submission.eventId]:activation.checks}));}
-        catch(error){const message=error instanceof Error?error.message:"Activation status could not be checked.";setActivationStates(current=>({...current,[submission.eventId]:failedActivation(message,submission.paid)}));}
+        let activation=pendingActivation(submission.paid);setActivationStates(current=>({...current,[submission.eventId]:activation}));
+        try{activation=(await completeCityActivation(signed)).checks;setActivationStates(current=>({...current,[submission.eventId]:activation}));}
+        catch(error){const message=error instanceof Error?error.message:"Activation status could not be checked.";activation=failedActivation(message,submission.paid);setActivationStates(current=>({...current,[submission.eventId]:activation}));}
+        if(!submission.previous){
+          setState({message:`Approved. Creating BitcoinWalk ${submission.cityName} Walkie Talkie and verifying its founding members…`,tone:"info"});
+          try{
+            const walkieTalkie=await provisionWalkieTalkieCity(submission.cityId,pubkey);
+            try{activation=(await completeCityActivation(signed)).checks;}
+            catch{activation={...activation,walkieTalkie:{status:"green",message:`City Walkie Talkie is active as ${walkieTalkie.groupId}.`,url:`https://chat.bitcoinwalk.org/${encodeURIComponent(walkieTalkie.slug)}`}};}
+            setActivationStates(current=>({...current,[submission.eventId]:activation}));
+          }catch(error){const message=error instanceof Error?error.message:"Walkie Talkie provisioning stopped.";activation={...activation,walkieTalkie:{status:"red",message:`${message} The approval remains valid; retry under Monitoring → Communities.`}};setActivationStates(current=>({...current,[submission.eventId]:activation}));}
+        }
       }else setSubmissions((items) => {const next=items.filter((item) => item.eventId !== submission.eventId);announcePendingRequestCount(next.length);return next;});
       setState({
         message: `${status === "approved" ? "Approved" : "Rejected"} on ${publication.accepted.length} BitcoinWalk relay(s).${sponsorMessage}${discoveryMessage}`,
