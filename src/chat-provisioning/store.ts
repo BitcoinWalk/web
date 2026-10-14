@@ -15,8 +15,7 @@ export type ChatProvisionRow={cityId:string;entitlementId:string;tier:ChatProvis
 export type ChatProvisionInput={cityId:string;slug:string;groupId:string};
 export type ChatVerification={metadataEventId:string;publiclyReadable:boolean;openJoin:boolean};
 
-export const SHARED_CITY_CHAT_RELAY="wss://chat.bitcoinwalk.org/";
-function destination(){return SHARED_CITY_CHAT_RELAY;}
+function destination(slug:string){return `wss://${slug}.bitcoinwalk.org/`;}
 function digest(row:{cityId:string;entitlementId:string;slug:string;relay:string;groupId:string},verification:ChatVerification){
  const evidence={version:1,cityId:row.cityId,entitlementId:row.entitlementId,slug:row.slug,relay:row.relay,groupId:row.groupId,metadataEventId:verification.metadataEventId,publiclyReadable:verification.publiclyReadable,openJoin:verification.openJoin};
  return createHash("sha256").update(JSON.stringify(evidence)).digest("hex");
@@ -46,7 +45,8 @@ export class ChatProvisionStore{
   if(supplied){
    if((supplied.tier!=="basic"&&supplied.tier!=="pro")||!bindingPattern.test(supplied.bindingId))throw new Error("The current city community authority is invalid.");
    let url:URL;try{url=new URL(supplied.relay);}catch{throw new Error("The city community relay is invalid.");}
-   if(url.href!==SHARED_CITY_CHAT_RELAY)throw new Error("City communities must use the shared BitcoinWalk relay.");
+   if(url.protocol!=="wss:"||url.username||url.password||url.port||url.pathname!=="/"||url.search||url.hash||!(url.hostname==="chat.bitcoinwalk.org"||/^[a-z0-9-]+\.bitcoinwalk\.org$/.test(url.hostname)))throw new Error("The city community relay is invalid.");
+   if(supplied.tier==="basic"&&url.hostname!=="chat.bitcoinwalk.org")throw new Error("Basic city communities must use the shared relay.");
    return supplied;
   }
   const entitlement=this.entitlement(cityId);if(!entitlement)throw new Error("A current approved city community authority is required.");
@@ -61,27 +61,13 @@ export class ChatProvisionStore{
  active(){return this.db.prepare("SELECT * FROM city_chat_provisioning WHERE phase='active' ORDER BY slug,cityId").all() as ChatProvisionRow[];}
  propose(input:ChatProvisionInput,now=Math.floor(Date.now()/1000),supplied?:ChatProvisionAuthority){
   if(!cityIdPattern.test(input.cityId)||!slugPattern.test(input.slug)||!groupPattern.test(input.groupId))throw new Error("Enter a valid approved city, canonical slug and NIP-29 group ID.");
-  const authority=this.authority(input.cityId,supplied),relay=authority.relay||destination(),existing=this.get(input.cityId);
+  const authority=this.authority(input.cityId,supplied),relay=authority.relay||destination(input.slug),existing=this.get(input.cityId);
   if(existing?.phase==="active"&&(existing.entitlementId!==authority.bindingId||existing.tier!==authority.tier||existing.slug!==input.slug||existing.relay!==relay||existing.groupId!==input.groupId))throw new Error("Active chat provisioning cannot be replaced without an explicit revocation workflow.");
   if(existing&&(existing.entitlementId!==authority.bindingId||existing.tier!==authority.tier))throw new Error("Chat provisioning authority changed; operator review is required.");
   this.db.prepare(`INSERT INTO city_chat_provisioning(cityId,entitlementId,tier,slug,relay,groupId,phase,walkieTalkieEnabled,armadaEnabled,createdAt,updatedAt)
    VALUES(?,?,?,?,?,?,'candidate',?,?,?,?) ON CONFLICT(cityId) DO UPDATE SET slug=excluded.slug,relay=excluded.relay,groupId=excluded.groupId,tier=excluded.tier,
    phase='candidate',evidenceDigest=NULL,metadataEventId=NULL,verifiedAt=NULL,activatedAt=NULL,updatedAt=excluded.updatedAt`)
    .run(input.cityId,authority.bindingId,authority.tier,input.slug,relay,input.groupId,authority.tier==="basic"?1:0,authority.tier==="basic"?0:1,now,now);
-  return this.get(input.cityId)!;
- }
- migrateActive(input:ChatProvisionInput,currentEvidenceDigest:string,verification:ChatVerification,now=Math.floor(Date.now()/1000),supplied?:ChatProvisionAuthority){
-  if(!cityIdPattern.test(input.cityId)||!slugPattern.test(input.slug)||input.groupId!==`bitcoinwalk-${input.slug}`)throw new Error("Use the canonical shared city community group.");
-  const row=this.get(input.cityId),authority=this.authority(input.cityId,supplied);
-  if(!row||row.phase!=="active"||row.evidenceDigest!==currentEvidenceDigest||!hexPattern.test(currentEvidenceDigest))throw new Error("The active community changed. Refresh and retry.");
-  if(row.entitlementId!==authority.bindingId||row.tier!==authority.tier||row.slug!==input.slug)throw new Error("The city community authority changed; operator review is required.");
-  if(row.relay===SHARED_CITY_CHAT_RELAY)throw new Error("This city community already uses the shared relay.");
-  if(authority.relay!==SHARED_CITY_CHAT_RELAY)throw new Error("The replacement must use the shared BitcoinWalk relay.");
-  if(!hexPattern.test(verification.metadataEventId)||!verification.publiclyReadable||!verification.openJoin)throw new Error("The NIP-29 group must be publicly readable and open to join.");
-  const replacement={cityId:row.cityId,entitlementId:row.entitlementId,slug:input.slug,relay:SHARED_CITY_CHAT_RELAY,groupId:input.groupId},evidenceDigest=digest(replacement,verification);
-  const result=this.db.prepare("UPDATE city_chat_provisioning SET relay=?,groupId=?,phase='active',evidenceDigest=?,metadataEventId=?,verifiedAt=?,activatedAt=?,updatedAt=? WHERE cityId=? AND phase='active' AND evidenceDigest=?")
-   .run(SHARED_CITY_CHAT_RELAY,input.groupId,evidenceDigest,verification.metadataEventId,now,now,now,input.cityId,currentEvidenceDigest);
-  if(result.changes!==1)throw new Error("The active community changed. Refresh and retry.");
   return this.get(input.cityId)!;
  }
  verify(cityId:string,verification:ChatVerification,now=Math.floor(Date.now()/1000),authority?:ChatProvisionAuthority){

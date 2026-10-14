@@ -1,5 +1,5 @@
 import type {Event} from "nostr-tools";
-import {ChatProvisionStore,SHARED_CITY_CHAT_RELAY,type ChatProvisionAuthority,type ChatProvisionTier} from "../../../../chat-provisioning/store";
+import {ChatProvisionStore,type ChatProvisionAuthority,type ChatProvisionTier} from "../../../../chat-provisioning/store";
 import {inspectArmadaGroup,verifyChatRoster} from "../../../../chat-provisioning/inspect";
 import {authorizeChatProvision,type ChatProvisionAction} from "../../../../nostr/chat-provision-request";
 import {paymentBody} from "../../../../payments/request-body";
@@ -23,7 +23,7 @@ async function eligible():Promise<EligibleCity[]>{
   const entitlement=db.prepare("SELECT invoiceId FROM paid_city_entitlement WHERE cityId=?").get(cityId) as {invoiceId:string}|undefined;
   const tier:ChatProvisionTier=entitlement?"pro":"basic",bindingId=entitlement?.invoiceId??row.decision.event.id,organizerPubkey=grants.get(cityId)?.creatorPubkey??row.revision.event.pubkey;
   if(!/^[0-9a-f]{64}$/.test(organizerPubkey))throw new Error(`The current organizer for ${row.revision.city.cityName} could not be verified.`);
-  return {cityId,cityName:row.revision.city.cityName,slug,tier,organizerPubkey,guidePubkey,authority:{tier,bindingId,relay:SHARED_CITY_CHAT_RELAY}};
+  return {cityId,cityName:row.revision.city.cityName,slug,tier,organizerPubkey,guidePubkey,authority:{tier,bindingId,relay:tier==="pro"?`wss://${slug}.bitcoinwalk.org/`:"wss://chat.bitcoinwalk.org/"}};
  })).then(rows=>rows.sort((a,b)=>a.cityName.localeCompare(b.cityName)));
 }
 const publicCity=(city:EligibleCity)=>({cityId:city.cityId,cityName:city.cityName,slug:city.slug,tier:city.tier,organizerPubkey:city.organizerPubkey,guidePubkey:city.guidePubkey});
@@ -35,7 +35,7 @@ export async function POST(request:Request){
   if(action.action==="list")return response({cities:cities.map(publicCity),rows:store.rows().map(safeRow)});
   const city=cities.find(row=>row.cityId===action.cityId);if(!city)return response({error:"A currently approved city is required."},409);
   if(action.action==="verify"){
-   if(city.slug!==action.slug||action.groupId!==`bitcoinwalk-${city.slug}`)return response({error:"Use the current canonical city group ID."},409);
+   if(city.slug!==action.slug)return response({error:"The submitted slug is not the current approved city slug."},409);
    const expected={name:`BitcoinWalk ${city.cityName}`,picture:managedAvatar(action.picture,origin)},candidate=store.propose(action,Math.floor(Date.now()/1000),city.authority),inspection=await inspectArmadaGroup(candidate.relay,candidate.groupId,{expected});
    verifyChatRoster(action.rosterEvent,candidate.groupId,inspection.relayPubkey,[SUPER_ADMIN_PUBKEY,city.organizerPubkey,city.guidePubkey]);
    const verified=store.verify(city.cityId,inspection,Math.floor(Date.now()/1000),city.authority);
@@ -46,15 +46,6 @@ export async function POST(request:Request){
    const inspection=await inspectArmadaGroup(row.relay,row.groupId,{expected:{name:`BitcoinWalk ${city.cityName}`,picture:managedAvatar(action.picture,origin)}});
    verifyChatRoster(action.rosterEvent,row.groupId,inspection.relayPubkey,[SUPER_ADMIN_PUBKEY,city.organizerPubkey,city.guidePubkey]);
    return response({city:publicCity(city),inspection,row:safeRow(store.refreshActiveMetadata(city.cityId,action.evidenceDigest,inspection,Math.floor(Date.now()/1000),city.authority))});
-  }
-  if(action.action==="migrate"){
-   const row=store.get(city.cityId),groupId=`bitcoinwalk-${city.slug}`;
-   if(city.slug!==action.slug||action.groupId!==groupId)return response({error:"Use the current canonical city group on the shared relay."},409);
-   if(!row||row.phase!=="active"||row.evidenceDigest!==action.currentEvidenceDigest)return response({error:"Refresh the active community before moving it."},409);
-   const inspection=await inspectArmadaGroup(SHARED_CITY_CHAT_RELAY,groupId,{expected:{name:`BitcoinWalk ${city.cityName}`,picture:managedAvatar(action.picture,origin)}});
-   verifyChatRoster(action.rosterEvent,groupId,inspection.relayPubkey,[SUPER_ADMIN_PUBKEY,city.organizerPubkey,city.guidePubkey]);
-   const migrated=store.migrateActive({cityId:city.cityId,slug:city.slug,groupId},action.currentEvidenceDigest,inspection,Math.floor(Date.now()/1000),city.authority);
-   return response({city:publicCity(city),inspection,row:safeRow(migrated)});
   }
   const row=store.get(city.cityId);if(!row||row.phase!=="verified"||row.evidenceDigest!==action.evidenceDigest)return response({error:"Verify the exact group again before activation."},409);
   const inspection=await inspectArmadaGroup(row.relay,row.groupId),refreshed=store.verify(city.cityId,inspection,Math.floor(Date.now()/1000),city.authority);if(inspection.metadataEventId!==row.metadataEventId)return response({error:"Group metadata changed. Review the fresh verification before activation.",row:safeRow(refreshed)},409);
