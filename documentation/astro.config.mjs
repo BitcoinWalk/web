@@ -6,7 +6,7 @@ export default defineConfig({
   integrations: [
     starlight({
       title: "BitcoinWalk Documentation",
-      description: "Plain-language guides for joining, organizing and operating a BitcoinWalk.",
+      description: "Plain-language guides for joining, hosting and operating a BitcoinWalk.",
       favicon: "/bitcoinwalk-favicon.png",
       logo: {src: "./src/assets/bitcoinwalk-horizontal.png", alt: "BitcoinWalk"},
       social: [
@@ -17,7 +17,7 @@ export default defineConfig({
           {label: "BitcoinWalk documentation", slug: "index"},
           {label: "Find or start a walk", slug: "start/find-or-start"}
         ]},
-        {label: "Organizers", items: [
+        {label: "Hosts", items: [
           {label: "Manage your city and walks", slug: "organizers/manage-city-and-walks"},
           {label: "City Transfer", slug: "organizers/transfer-city-ownership"}
         ]},
