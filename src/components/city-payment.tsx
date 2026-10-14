@@ -4,7 +4,7 @@ import {QRCodeSVG} from "qrcode.react";
 import type {Event} from "nostr-tools";
 import {paymentRequest,type PaymentCommand} from "../payments/auth";
 import type {PaymentView} from "../payments/service";
-import {signForOrganizer} from "../nostr/organizer-identity";
+import {signForOrganizer,signReadForOrganizer} from "../nostr/organizer-identity";
 import type {CityIdentityHealth} from "../server/pro-city-identity-health";
 export type LogoPackView={cityId:string;revisionId:string;slug:string;cityName:string;state:"queued"|"rendering"|"failed"|"ready"|"obsolete";attempts:number;updatedAt:number;publiclyListed:boolean;ready:boolean;href?:string};
 
@@ -13,7 +13,7 @@ export async function paymentFetch(event:Event){
  const result=await response.json();if(!response.ok)throw new Error(result.error??"Payment service unavailable.");
  return result as {payment?:PaymentView|null;payments?:PaymentView[];logoPacks?:LogoPackView[];identityHealth?:CityIdentityHealth[];identityHealthError?:string};
 }
-export function signPayment(command:PaymentCommand,owner:string){return signForOrganizer(paymentRequest(command,window.location.origin),owner);}
+export function signPayment(command:PaymentCommand,owner:string){return (command.action==="list"||command.action==="status"?signReadForOrganizer:signForOrganizer)(paymentRequest(command,window.location.origin),owner);}
 
 export default function CityPayment({cityId,revisionId,owner,payoutDestination,autoCreate=false,passive=false,onPaid}:{cityId:string;revisionId:string;owner:string;payoutDestination:string;autoCreate?:boolean;passive?:boolean;onPaid?:()=>void}){
  const [payment,setPayment]=useState<PaymentView|null>(null),[error,setError]=useState(""),[busy,setBusy]=useState(false);

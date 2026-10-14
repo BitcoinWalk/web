@@ -4,7 +4,7 @@ import {useDashboard,useDashboardAutoLoad} from "../../../components/dashboard-c
 import dynamic from "next/dynamic";
 import type { LocationValue } from "../../../components/location-picker";
 import { withEventMeetingPoint, type LocatedOccurrence } from "../../../domain/event-location";
-import { useRef, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { verifyEvent, type Event } from "nostr-tools";
 import { DEFAULT_OCCURRENCES, DEFAULT_WEEKDAY, WEEKDAYS, scheduleOccurrences, type WalkSchedule } from "../../../domain/walk-schedule";
 import { approvedCalendarWalks, calendarNevent, loadCalendarWalks, type CalendarWalk } from "../../../nostr/calendar-records";
@@ -13,7 +13,7 @@ import { queryAuthorizations } from "../../../nostr/city-records";
 import WalkDelegation from "../../../components/walk-delegation";
 import {queryHostedWalks,type HostedWalk} from "../../../nostr/hosted-walks";
 import { canEditCity } from "../../../nostr/organizer-edit";
-import { authenticateWithBrowserExtension, getBrowserExtensionPubkey, signWithBrowserExtension } from "../../../nostr/signer";
+import { authenticateWithBrowserExtension, clearDashboardAuthorizationScope, getBrowserExtensionPubkey, setDashboardAuthorizationScope, signWithBrowserExtension } from "../../../nostr/signer";
 import { createOrganizerCalendarEvent } from "../../../nostr/calendar-event";
 import { publishVerifiedEvent } from "../../../nostr/relay";
 import { relayConfig } from "../../../lib/relay-config";
@@ -34,8 +34,10 @@ import {createEventModeration,latestEventModerations,moderationKey,organizerPubl
 import {publishingAccessNotice,type OrganizerPublishingAccess} from "../../../domain/publishing-access";
 import {isSuperAdmin} from "../../../nostr/authority";
 import sponsorStyles from "../../admin/sponsors/sponsors.module.css";
+import AdminDataStatus,{type AdminDataHealth} from "../../../components/admin-data-status";
 
 const LocationPicker = dynamic(() => import("../../../components/location-picker"), { ssr: false });
+const authorizationScope="walks";
 
 type WalkListRow=
   | {kind:"draft";key:string;at:number;walk:CalendarWalk;draft:LocatedOccurrence;inReview:boolean}
@@ -53,6 +55,7 @@ export default function OrganizerEventsPage({canModerate=false}:{canModerate?:bo
   const [showForm, setShowForm] = useState(false);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
+  const [dataHealth,setDataHealth]=useState<AdminDataHealth>({state:"loading",message:"Loading walk permissions, schedules and hosting assignments…"});
   const [walkFilter,setWalkFilter]=useState<WalkListFilter>("all");
   const [preview, setPreview] = useState<LocatedOccurrence[]>([]);
   const [coverage, setCoverage] = useState<{ planned: number; published: number; missing: number } | null>(null);
@@ -109,10 +112,12 @@ export default function OrganizerEventsPage({canModerate=false}:{canModerate?:bo
 
   const dashboard=useDashboard();
   useDashboardAutoLoad(load);
+  useEffect(()=>()=>clearDashboardAuthorizationScope(authorizationScope),[]);
   async function load() {
     if (lock.current) return;
-    setHosted([]);setHostingError("");
-    lock.current = true; setBusy(true); setWalks([]); setPublishedByCity({}); setCanceledByCity({}); setModerations([]);setModerating(null);setModerationReason("");setCityId(""); setShowForm(false); setPreview([]); setCoverage(null); setMeetingPoint(null); setOwner(""); setPlans({}); setReviewing(false); setSelected(new Set()); setResults({}); setEditingId(""); setDiscoveryByEvent({});setPublishingAccess("checking"); signedRetries.current={};
+    const hadData=walks.length>0||hosted.length>0||!!owner;
+    setDashboardAuthorizationScope(authorizationScope,false);
+    lock.current = true; setBusy(true);setDataHealth(current=>({state:"loading",message:"Refreshing walks without clearing the list or your draft…",checkedAt:current.checkedAt}));
     try {
       const key = await getBrowserExtensionPubkey();
       let access:OrganizerPublishingAccess="checking";
@@ -120,9 +125,10 @@ export default function OrganizerEventsPage({canModerate=false}:{canModerate?:bo
       else try{access=await organizerPublishingStatus(relayConfig.readRelays,key);}catch{access="unverified";}
       setPublishingAccess(access);
       let available:CalendarWalk[]=[];
-      let published:Record<string,Event[]>={};
-      let canceled:Record<string,Event[]>={};
+      const published:Record<string,Event[]>={};
+      const canceled:Record<string,Event[]>={};
       let cityError="";
+      let cityLoaded=false;
       try {
         const [approved, grants] = dashboard.pubkey===key&&dashboard.directory
           ? [approvedCalendarWalks(dashboard.directory.revisions,dashboard.directory.approvals),dashboard.grants]
@@ -136,36 +142,40 @@ export default function OrganizerEventsPage({canModerate=false}:{canModerate?:bo
         const [allPublished,allCanceled,moderationHistory]=await Promise.all([completeCityEvents(relayConfig.readRelays,ids),queryCitiesCalendarCancellations(relayConfig.readRelays,ids),canModerate?queryEventModerationsForCities(relayConfig.readRelays,ids):Promise.resolve([])]);
         setModerations(moderationHistory);
         for(const id of ids){published[id]=allPublished.filter(event=>event.tags.some(tag=>tag[0]==="i"&&tag[1]===id));canceled[id]=allCanceled.filter(event=>event.tags.some(tag=>tag[0]==="i"&&tag[1]===id));}
+        cityLoaded=true;
       } catch (error) {
-        available=[];published={};canceled={};
         cityError=`City walks could not be loaded: ${error instanceof Error?error.message:"Relay data unavailable."} Your hosting assignments are loaded separately.`;
       }
       if (await getBrowserExtensionPubkey() !== key) throw new Error("Signer changed. Connect again.");
-      setWalks(available);
-      setPublishedByCity(published);
-      setCanceledByCity(canceled);
+      if(cityLoaded){setWalks(available);setPublishedByCity(published);setCanceledByCity(canceled);}
       setOwner(key);
       let hostingCount=0;
+      let hostingLoaded=dashboard.role==="super-admin";
+      let nextHostingError="";
       try{
         if(dashboard.role==="super-admin"){setHosted([]);hostingCount=0;}
         else {
         const assigned=(await queryHostedWalks(relayConfig.readRelays,key)).filter(h=>!dashboard.selectedCity||h.walk.revision.city.cityId===dashboard.selectedCity);
         if(await getBrowserExtensionPubkey()!==key)throw new Error("Signer changed. Reconnect to load your hosting list.");
-        setHosted(assigned);hostingCount=assigned.length;
+        setHosted(assigned);hostingCount=assigned.length;hostingLoaded=true;
         }
-      }catch(error){setHostingError(error instanceof Error?error.message:"Could not load delegated walks. Refresh to retry.");}
-      if(await getBrowserExtensionPubkey()!==key){setWalks([]);setPublishedByCity({});setOwner("");setHosted([]);throw new Error("Signer changed. Connect again.");}
+      }catch(error){nextHostingError=error instanceof Error?error.message:"Could not load delegated walks. Refresh to retry.";setHostingError(nextHostingError);}
+      if(hostingLoaded)setHostingError("");
+      if(await getBrowserExtensionPubkey()!==key)throw new Error("Signer changed. Connect again.");
       const saved: Record<string, RecurringPlan> = {};
       const problems: string[] = [];
-      for (const walk of available) {
+      for (const walk of cityLoaded?available:walks) {
         try {
           const plan = readRecurringPlan(window.localStorage, key, walk.revision.city.cityId);
           if (plan) { saved[plan.cityId] = plan; upcomingDrafts(plan); }
         } catch { problems.push(walk.revision.city.cityName); }
       }
-      setPlans(saved);
-      setMessage([publishingAccessNotice(access),cityError,problems.length ? `Saved drafts need attention for: ${problems.join(", ")}. They were not overwritten.` : ""].filter(Boolean).join(" ") || (available.length||hostingCount ? "" : "No walks or city editing permissions were returned for this identity."));
-    } catch (error) { setMessage(error instanceof Error ? error.message : "Could not load cities."); }
+      if(cityLoaded)setPlans(saved);
+      const incomplete=access==="unverified"||!cityLoaded||!hostingLoaded,checkedAt=new Date().toISOString(),visibleCount=(cityLoaded?available.length:walks.length)+(hostingLoaded?hostingCount:hosted.length),hasFreshVisibleSource=cityLoaded||(dashboard.role!=="super-admin"&&hostingLoaded);
+      setDashboardAuthorizationScope(authorizationScope,!incomplete);
+      setDataHealth(incomplete?{state:hadData?"stale":hasFreshVisibleSource?"partial":"failed",message:hadData?"Some walk data could not be verified. Last-known lists and draft fields remain visible; signing is paused until Retry succeeds.":hasFreshVisibleSource?"Only part of the walk data could be verified. Signing is paused until Retry succeeds.":"Walk data could not be verified. Retry before signing or publishing.",checkedAt}:{state:visibleCount?"ready":"empty",message:visibleCount?"Walk permissions, schedules and hosting assignments were checked successfully.":"No walks or city editing permissions were returned for this identity.",checkedAt});
+      setMessage([publishingAccessNotice(access),cityError,problems.length ? `Saved drafts need attention for: ${problems.join(", ")}. They were not overwritten.` : ""].filter(Boolean).join(" ") || (visibleCount ? "" : "No walks or city editing permissions were returned for this identity."));
+    } catch (error) {const detail=error instanceof Error ? error.message : "Could not load walks.";setDashboardAuthorizationScope(authorizationScope,false);setDataHealth({state:hadData?"stale":"failed",message:hadData?`${detail} Last-known walks and draft fields remain visible; signing is paused.`:detail,checkedAt:new Date().toISOString()});setMessage(detail);}
     finally { lock.current = false; setBusy(false); }
   }
 
@@ -477,17 +487,17 @@ export default function OrganizerEventsPage({canModerate=false}:{canModerate?:bo
   function walkModerationButton(cityId:string,event:Event){
     if(!canModerate)return null;
     const {hidden}=walkModerationState(event),open=moderating?.event.id===event.id;
-    return <button type="button" disabled={busy||!!moderating&&!open} onClick={()=>{setModerating({cityId,event,hidden});setModerationReason("");setMessage(`Add a public reason, then sign to ${hidden?"unhide":"hide"} this walk.`);}}>{hidden?"Unhide this walk":"Hide this walk"}</button>;
+    return <button type="button" disabled={busy||publishingBlocked||!!moderating&&!open} onClick={()=>{setModerating({cityId,event,hidden});setModerationReason("");setMessage(`Add a public reason, then sign to ${hidden?"unhide":"hide"} this walk.`);}}>{hidden?"Unhide this walk":"Hide this walk"}</button>;
   }
 
   function walkModerationDetails(cityId:string,event:Event){
     if(!canModerate)return null;
     const {decision,hidden}=walkModerationState(event),open=moderating?.event.id===event.id;
-    return <>{hidden&&<p><strong>Hidden from BitcoinWalk</strong>{decision?.decision.reason?` — ${decision.decision.reason}`:""}</p>}{open&&<div style={{margin:"0.75rem 0 1rem",padding:"1rem",background:"#fff4d6",borderLeft:"4px solid #f7931a"}}><label><strong>Reason</strong><textarea autoFocus value={moderationReason} maxLength={500} disabled={busy} onChange={change=>setModerationReason(change.target.value)} placeholder="Required. This becomes part of the public signed audit history." style={{display:"block",width:"100%",marginTop:"0.5rem"}}/></label><button type="button" disabled={busy||!moderationReason.trim()} onClick={()=>void moderateWalk(cityId,event,hidden)} style={{display:"block",marginTop:"0.75rem",background:"#f7931a",color:"#111",fontWeight:700}}>Sign and {hidden?"unhide":"hide"} this walk</button><button type="button" disabled={busy} onClick={()=>{setModerating(null);setModerationReason("");}} style={{marginTop:"0.5rem"}}>Cancel</button></div>}</>;
+    return <>{hidden&&<p><strong>Hidden from BitcoinWalk</strong>{decision?.decision.reason?` — ${decision.decision.reason}`:""}</p>}{open&&<div style={{margin:"0.75rem 0 1rem",padding:"1rem",background:"#fff4d6",borderLeft:"4px solid #f7931a"}}><label><strong>Reason</strong><textarea autoFocus value={moderationReason} maxLength={500} disabled={busy||publishingBlocked} onChange={change=>setModerationReason(change.target.value)} placeholder="Required. This becomes part of the public signed audit history." style={{display:"block",width:"100%",marginTop:"0.5rem"}}/></label><button type="button" disabled={busy||publishingBlocked||!moderationReason.trim()} onClick={()=>void moderateWalk(cityId,event,hidden)} style={{display:"block",marginTop:"0.75rem",background:"#f7931a",color:"#111",fontWeight:700}}>Sign and {hidden?"unhide":"hide"} this walk</button><button type="button" disabled={busy} onClick={()=>{setModerating(null);setModerationReason("");}} style={{marginTop:"0.5rem"}}>Cancel</button></div>}</>;
   }
 
   function publishedWalkActions(row:PublishedWalkRow){
-    return <div aria-label="Walk actions" style={{display:"flex",alignItems:"center",gap:"0.5rem",flexWrap:"wrap",marginTop:"0.6rem"}}>{row.item.event.pubkey===owner&&<button type="button" disabled={busy} onClick={()=>void retryPublicDiscovery(row.item.event,`${row.walk.revision.city.cityName} walk`)}>Retry public discovery</button>}{row.kind==="upcoming"&&!row.hosted&&<>{row.item.event.pubkey===owner&&<>{row.item.status==="upcoming"&&<button disabled={busy||publishingBlocked} onClick={()=>beginPublishedEdit(row.item.event,row.item)}>Edit walk</button>}<button disabled={busy} onClick={()=>cancelWalk(row.walk,row.item.event)}>Cancel this walk</button></>}<WalkDelegation event={row.item.event} actor={owner} cityName={row.walk.revision.city.cityName} disabled={busy} actionRow/></>}{walkModerationButton(row.walk.revision.city.cityId,row.item.event)}</div>;
+    return <div aria-label="Walk actions" style={{display:"flex",alignItems:"center",gap:"0.5rem",flexWrap:"wrap",marginTop:"0.6rem"}}>{row.item.event.pubkey===owner&&<button type="button" disabled={busy||publishingBlocked} onClick={()=>void retryPublicDiscovery(row.item.event,`${row.walk.revision.city.cityName} walk`)}>Retry public discovery</button>}{row.kind==="upcoming"&&!row.hosted&&<>{row.item.event.pubkey===owner&&<>{row.item.status==="upcoming"&&<button disabled={busy||publishingBlocked} onClick={()=>beginPublishedEdit(row.item.event,row.item)}>Edit walk</button>}<button disabled={busy||publishingBlocked} onClick={()=>cancelWalk(row.walk,row.item.event)}>Cancel this walk</button></>}<WalkDelegation event={row.item.event} actor={owner} cityName={row.walk.revision.city.cityName} disabled={busy||publishingBlocked} actionRow/></>}{walkModerationButton(row.walk.revision.city.cityId,row.item.event)}</div>;
   }
 
   const rows:WalkListRow[]=[];
@@ -516,13 +526,15 @@ export default function OrganizerEventsPage({canModerate=false}:{canModerate?:bo
   }
   const filteredRows=filterWalkRows(rows,walkFilter);
   const cities=groupWalkRows(filteredRows,new Set(["draft","upcoming","past","canceled"]));
-  const publishingBlocked=publishingAccess!=="active",publishingNotice=publishingAccessNotice(publishingAccess);
+  const dataCurrent=dataHealth.state==="ready"||dataHealth.state==="empty";
+  const publishingBlocked=publishingAccess!=="active"||!dataCurrent,publishingNotice=!dataCurrent?"Walk data must be current before signing or publishing. Retry the walk data check.":publishingAccessNotice(publishingAccess);
 
   return <main>
     <div className={sponsorStyles.toolbar}>
       <div className={sponsorStyles.statusToggle} role="group" aria-label="Filter walks">{(["all","next","upcoming","past"] as WalkListFilter[]).map(value=><button key={value} type="button" aria-pressed={walkFilter===value} disabled={busy} onClick={()=>setWalkFilter(value)}>{value==="all"?"All":value==="next"?"Next Walk":value[0].toUpperCase()+value.slice(1)}</button>)}</div>
       <button type="button" disabled={busy} onClick={load}>{busy?"Loading walks…":"Refresh"}</button>
     </div>
+    <AdminDataStatus health={dataHealth} busy={busy} onRetry={()=>void load()} scope="Walks"/>
     {message&&<p role="status">{message}</p>}
     {hostingError&&<p role="alert">Hosting assignments could not be loaded: {hostingError}</p>}
     {!!owner && !!walks.length && <><button disabled={busy||publishingBlocked} onClick={openForm}>+ Add a walk</button>{publishingNotice&&<p role={publishingAccess==="suspended"?"alert":"status"}>{publishingNotice}</p>}</>}

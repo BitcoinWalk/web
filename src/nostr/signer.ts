@@ -23,13 +23,26 @@ export class SignerUnavailableError extends Error {
 let dashboardIdentity:string|null=null;
 let identityGeneration=0;
 let dashboardAuthorizationCurrent=true;
-export function setDashboardSigningIdentity(pubkey:string|null){dashboardIdentity=pubkey;dashboardAuthorizationCurrent=true;identityGeneration++;}
+const dashboardAuthorizationScopes=new Map<string,boolean>();
+export function setDashboardSigningIdentity(pubkey:string|null){dashboardIdentity=pubkey;dashboardAuthorizationScopes.clear();dashboardAuthorizationCurrent=true;identityGeneration++;}
 /** Prevent dashboard writes while the shell is showing retained, stale authorization data. */
-export function setDashboardAuthorizationCurrent(current:boolean){dashboardAuthorizationCurrent=current;identityGeneration++;}
-export async function signWithBrowserExtension(template: EventTemplate): Promise<Event> {
+export function setDashboardAuthorizationCurrent(current:boolean){setDashboardAuthorizationScope("shell",current);}
+export function setDashboardAuthorizationScope(scope:string,current:boolean){
+ const previous=dashboardAuthorizationCurrent;
+ dashboardAuthorizationScopes.set(scope,current);
+ dashboardAuthorizationCurrent=[...dashboardAuthorizationScopes.values()].every(Boolean);
+ if(previous!==dashboardAuthorizationCurrent)identityGeneration++;
+}
+export function clearDashboardAuthorizationScope(scope:string){
+ const previous=dashboardAuthorizationCurrent;
+ dashboardAuthorizationScopes.delete(scope);
+ dashboardAuthorizationCurrent=[...dashboardAuthorizationScopes.values()].every(Boolean);
+ if(previous!==dashboardAuthorizationCurrent)identityGeneration++;
+}
+export async function signWithBrowserExtension(template: EventTemplate,{allowStaleAuthorization=false}:{allowStaleAuthorization?:boolean}={}): Promise<Event> {
   if (typeof window === "undefined" || !window.nostr) throw new SignerUnavailableError();
   const expected=dashboardIdentity,generation=identityGeneration;
-  if(expected&&!dashboardAuthorizationCurrent)throw new Error("Dashboard data is out of date. Retry the data check before signing a change.");
+  if(expected&&!dashboardAuthorizationCurrent&&!allowStaleAuthorization)throw new Error("Dashboard data is out of date. Retry the data check before signing a change.");
   if(expected&&await window.nostr.getPublicKey()!==expected)throw new Error("Signer identity changed. Reconnect the dashboard before signing.");
   const signed=await window.nostr.signEvent(template);
   if(expected&&(identityGeneration!==generation||signed.pubkey!==expected||await window.nostr.getPublicKey()!==expected))throw new Error("Dashboard identity changed while signing. Nothing should be published; reconnect and retry.");

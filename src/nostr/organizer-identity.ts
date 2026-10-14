@@ -8,10 +8,19 @@ export function validOrganizerKey(key: string): string {
 
 /** Bind both proposal and relay-auth signatures to the identity explicitly connected on /start. */
 export async function signForOrganizer(template: EventTemplate, expectedKey: string): Promise<VerifiedEvent> {
+  return signForOrganizerWithOptions(template,expectedKey);
+}
+
+/** Authenticated read only: permits a fresh status check while stale dashboard data blocks mutations. */
+export async function signReadForOrganizer(template: EventTemplate,expectedKey:string):Promise<VerifiedEvent>{
+  return signForOrganizerWithOptions(template,expectedKey,{allowStaleAuthorization:true});
+}
+
+async function signForOrganizerWithOptions(template:EventTemplate,expectedKey:string,options:{allowStaleAuthorization?:boolean}={}):Promise<VerifiedEvent>{
   validOrganizerKey(expectedKey);
   if (await getBrowserExtensionPubkey() !== expectedKey) throw new Error("Your signer account changed. Reconnect your chosen identity before submitting.");
   const expected = JSON.stringify([template.kind, template.created_at, template.tags, template.content]);
-  const signed = await signWithBrowserExtension(structuredClone(template));
+  const signed = await signWithBrowserExtension(structuredClone(template),options);
   if (signed.pubkey !== expectedKey || !verifyEvent(signed) ||
       JSON.stringify([signed.kind, signed.created_at, signed.tags, signed.content]) !== expected) {
     throw new Error("The signer returned a different identity, changed event, or invalid signature. Nothing was published.");

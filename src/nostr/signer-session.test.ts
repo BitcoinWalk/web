@@ -1,7 +1,7 @@
 import {afterEach,describe,expect,it,vi} from "vitest";
 import {finalizeEvent,generateSecretKey,getPublicKey} from "nostr-tools";
 import {activeSignerIdentity,connectBrowserSigner,disconnectSignerSession,installSignerSession} from "./signer-session";
-import {setDashboardAuthorizationCurrent,setDashboardSigningIdentity,signWithBrowserExtension,type NostrBrowserExtension} from "./signer";
+import {clearDashboardAuthorizationScope,setDashboardAuthorizationCurrent,setDashboardAuthorizationScope,setDashboardSigningIdentity,signWithBrowserExtension,type NostrBrowserExtension} from "./signer";
 
 const first="1".repeat(64),second="2".repeat(64);
 const signer=(pubkey:string):NostrBrowserExtension=>({getPublicKey:async()=>pubkey,signEvent:vi.fn() as never});
@@ -15,6 +15,15 @@ describe("shared signer session",()=>{
     setDashboardSigningIdentity(pubkey);setDashboardAuthorizationCurrent(false);
     await expect(signWithBrowserExtension(template)).rejects.toThrow("Retry the data check before signing");
     expect(signEvent).not.toHaveBeenCalled();
+  });
+
+  it("keeps writes blocked until every stale page scope is current or removed",async()=>{
+    const secret=generateSecretKey(),pubkey=getPublicKey(secret),signEvent=vi.fn(async event=>finalizeEvent(event,secret)),template={kind:1,created_at:1,tags:[],content:"test"};
+    vi.stubGlobal("window",{nostr:{getPublicKey:async()=>pubkey,signEvent}});
+    setDashboardSigningIdentity(pubkey);setDashboardAuthorizationScope("cities",false);setDashboardAuthorizationScope("walks",true);
+    await expect(signWithBrowserExtension(template)).rejects.toThrow("Retry the data check before signing");
+    clearDashboardAuthorizationScope("cities");
+    await expect(signWithBrowserExtension(template)).resolves.toMatchObject({pubkey});
   });
 
   it("keeps a selected signer available and restores the browser signer on disconnect",async()=>{

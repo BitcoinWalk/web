@@ -1,11 +1,12 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { finalizeEvent, getPublicKey, type EventTemplate } from "nostr-tools";
-import { signForOrganizer, validOrganizerKey } from "./organizer-identity";
+import { signForOrganizer, signReadForOrganizer, validOrganizerKey } from "./organizer-identity";
+import {setDashboardAuthorizationScope,setDashboardSigningIdentity} from "./signer";
 
 const secret = new Uint8Array(32).fill(7);
 const pubkey = getPublicKey(secret);
 const template: EventTemplate = { kind: 30078, created_at: 100, tags: [["d", "test"]], content: "proposal" };
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => {setDashboardSigningIdentity(null);vi.unstubAllGlobals();});
 describe("explicit organizer identity", () => {
   it("rejects npubs, private-key strings and malformed signer keys", () => {
     for (const value of ["", "npub1example", "nsec1example", "z".repeat(64)]) expect(() => validOrganizerKey(value)).toThrow();
@@ -14,6 +15,12 @@ describe("explicit organizer identity", () => {
   it("signs the exact proposal with the connected identity", async () => {
     vi.stubGlobal("window", { nostr: { getPublicKey: async () => pubkey, signEvent: async (t: EventTemplate) => finalizeEvent(t, secret) } });
     expect((await signForOrganizer(template, pubkey)).pubkey).toBe(pubkey);
+  });
+  it("allows an exact authenticated read to recover while stale data blocks mutations",async()=>{
+    const signEvent=vi.fn(async(t:EventTemplate)=>finalizeEvent(t,secret));
+    vi.stubGlobal("window",{nostr:{getPublicKey:async()=>pubkey,signEvent}});setDashboardSigningIdentity(pubkey);setDashboardAuthorizationScope("cities",false);
+    await expect(signForOrganizer(template,pubkey)).rejects.toThrow("Retry the data check before signing");
+    await expect(signReadForOrganizer(template,pubkey)).resolves.toMatchObject({pubkey});
   });
   it("stops before signing when the account changed", async () => {
     const signEvent = vi.fn();

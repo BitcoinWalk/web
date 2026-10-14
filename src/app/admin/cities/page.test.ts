@@ -1,18 +1,23 @@
 import {createElement} from "react";
+import {readFileSync} from "node:fs";
 import {renderToStaticMarkup} from "react-dom/server";
 import {describe,expect,it} from "vitest";
 import CitiesPage,{movedCityTabHref} from "./page";
 
 describe("focused city administration",()=>{
   it("opens the city list directly without duplicate page tabs",()=>{
-    const html=renderToStaticMarkup(createElement(CitiesPage));
+    const html=renderToStaticMarkup(createElement(CitiesPage)),source=readFileSync(new URL("../../../components/city-moderation.tsx",import.meta.url),"utf8");
     expect(html).toContain("City list");
+    expect(html).toContain('aria-label="Cities data status"');
+    expect(html).toContain("Loading the city directory and operational checks");
     expect(html).toContain("Archived cities (0)");
     expect(html).toContain("<details>");
     expect(html).not.toContain("<h1>Cities</h1>");
     expect(html).not.toContain('role="tablist"');
     expect(html).not.toContain("Edit city");
     expect(html).not.toContain("Review requests");
+    expect(source).not.toContain("setRows([])");
+    expect(source).toContain("setDashboardAuthorizationScope(authorizationScope,false)");
     for(const moved of ["Editors","Walk moderation"])expect(html).not.toContain(moved);
   });
   it("preserves old combined-Cities links by sending moved tools to their modules",()=>{
