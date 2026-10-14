@@ -7,13 +7,18 @@ const creator="a".repeat(64),pending={event:{id:"1".repeat(64),pubkey:creator,cr
 
 describe("organizer city inventory",()=>{
  it("shows a creator-owned pending city without granting edit permission",()=>{
-  expect(organizerCityInventory(creator,[],[pending],[])).toEqual([{revision:pending,editable:false,status:"awaiting-approval"}]);
+  expect(organizerCityInventory(creator,[],[pending],[])).toEqual([{revision:pending,editable:false,correction:false,status:"awaiting-approval"}]);
  });
  it("does not expose another creator's pending city",()=>{
   expect(organizerCityInventory("b".repeat(64),[],[pending],[])).toEqual([]);
  });
  it("keeps an archived creator city in a read-only archived section",()=>{
   const decisions=[{event:{id:"2".repeat(64),created_at:2},approval:{cityId:pending.city.cityId,cityRevisionId:pending.event.id,status:"approved"}},{event:{id:"3".repeat(64),created_at:3},approval:{cityId:pending.city.cityId,cityRevisionId:pending.event.id,status:"revoked",note:ARCHIVE_NOTE}}] as never;
-  expect(organizerCityInventory(creator,[],[pending],decisions)).toEqual([{revision:pending,editable:false,status:"archived"}]);
+  expect(organizerCityInventory(creator,[],[pending],decisions)).toEqual([{revision:pending,editable:false,correction:false,status:"archived"}]);
+ });
+ it("lets only the original submitter correct the newest rejected revision and exposes the review note",()=>{
+  const decisions=[{event:{id:"2".repeat(64),created_at:2},approval:{cityId:pending.city.cityId,cityRevisionId:pending.event.id,status:"rejected",note:"Add a clearer meeting point."}}] as never;
+  expect(organizerCityInventory(creator,[],[pending],decisions)).toEqual([{revision:pending,editable:false,correction:true,status:"needs-changes",reviewNote:"Add a clearer meeting point."}]);
+  expect(organizerCityInventory("b".repeat(64),[],[pending],decisions)).toEqual([]);
  });
 });

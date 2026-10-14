@@ -18,10 +18,17 @@ describe("my cities inventory",()=>{
   expect(page).not.toContain("Search your cities");
  });
  it("places city-profile guidance inside the editable city panel",()=>{
-  const page=source(),panel=page.indexOf("{base && selectedCity?.editable && <section>"),heading=page.indexOf("<h2>City profile</h2>");
+  const page=source(),panel=page.indexOf("{base && selectedCity&&(selectedCity.editable||selectedCity.correction) && <section>"),heading=page.indexOf("<h2>City profile</h2>");
   expect(panel).toBeGreaterThan(-1);
   expect(heading).toBeGreaterThan(panel);
   expect(page.indexOf("Edit the city description, hero image and default meeting point.")).toBeGreaterThan(panel);
+ });
+ it("offers rejected creators an exact correction action while keeping pending cities read-only",()=>{
+  const page=source();
+  expect(page).toContain("Reviewer feedback:");
+  expect(page).toContain("Resubmit corrections for review");
+  expect(page).toContain("cannot be changed while that decision is pending");
+  expect(page).toContain("createInitialCalendarProposal(candidate,timeZone");
  });
  it("does not expose identity or legacy guidance copy",()=>{
   const page=source();
