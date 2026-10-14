@@ -1,5 +1,6 @@
 import type {Event} from "nostr-tools";
 import {ChatProvisionStore,type ChatProvisionAuthority,type ChatProvisionTier} from "../../../../chat-provisioning/store";
+import {WalkieTalkieProvisionStore,WALKIE_TALKIE_RELAY} from "../../../../chat-provisioning/walkie-talkie-store";
 import {inspectArmadaGroup,verifyChatRoster} from "../../../../chat-provisioning/inspect";
 import {authorizeChatProvision,type ChatProvisionAction} from "../../../../nostr/chat-provision-request";
 import {paymentBody} from "../../../../payments/request-body";
@@ -12,7 +13,7 @@ import {SUPER_ADMIN_PUBKEY} from "../../../../nostr/authority";
 
 export const dynamic="force-dynamic",runtime="nodejs";
 const response=(body:unknown,status=200)=>Response.json(body,{status,headers:{"Cache-Control":"no-store"}});
-const safeRow=(row:ReturnType<ChatProvisionStore["rows"]>[number])=>({cityId:row.cityId,tier:row.tier,slug:row.slug,relay:row.relay,groupId:row.groupId,phase:row.phase,evidenceDigest:row.evidenceDigest,metadataEventId:row.metadataEventId,verifiedAt:row.verifiedAt,activatedAt:row.activatedAt,updatedAt:row.updatedAt});
+const safeRow=(row:ReturnType<WalkieTalkieProvisionStore["rows"]>[number])=>({cityId:row.cityId,tier:row.tier,slug:row.slug,relay:row.relay,groupId:row.groupId,phase:row.phase,evidenceDigest:row.evidenceDigest,metadataEventId:row.metadataEventId,verifiedAt:row.verifiedAt,activatedAt:row.activatedAt,updatedAt:row.updatedAt});
 type EligibleCity={cityId:string;cityName:string;slug:string;tier:ChatProvisionTier;organizerPubkey:string;guidePubkey:string;authority:ChatProvisionAuthority};
 function managedAvatar(value:string,origin:string){let url:URL;try{url=new URL(value);}catch{throw new Error("The city group avatar is invalid.");}if(url.origin!==origin||!/^\/api\/og\/files\/[0-9a-f]{64}\.jpg$/.test(url.pathname)||url.search||url.hash)throw new Error("Use the current generated BitcoinWalk city avatar.");return url.href;}
 async function eligible():Promise<EligibleCity[]>{
@@ -23,7 +24,7 @@ async function eligible():Promise<EligibleCity[]>{
   const entitlement=db.prepare("SELECT invoiceId FROM paid_city_entitlement WHERE cityId=?").get(cityId) as {invoiceId:string}|undefined;
   const tier:ChatProvisionTier=entitlement?"pro":"basic",bindingId=entitlement?.invoiceId??row.decision.event.id,organizerPubkey=grants.get(cityId)?.creatorPubkey??row.revision.event.pubkey;
   if(!/^[0-9a-f]{64}$/.test(organizerPubkey))throw new Error(`The current organizer for ${row.revision.city.cityName} could not be verified.`);
-  return {cityId,cityName:row.revision.city.cityName,slug,tier,organizerPubkey,guidePubkey,authority:{tier,bindingId,relay:tier==="pro"?`wss://${slug}.bitcoinwalk.org/`:"wss://chat.bitcoinwalk.org/"}};
+  return {cityId,cityName:row.revision.city.cityName,slug,tier,organizerPubkey,guidePubkey,authority:{tier,bindingId,relay:WALKIE_TALKIE_RELAY}};
  })).then(rows=>rows.sort((a,b)=>a.cityName.localeCompare(b.cityName)));
 }
 const publicCity=(city:EligibleCity)=>({cityId:city.cityId,cityName:city.cityName,slug:city.slug,tier:city.tier,organizerPubkey:city.organizerPubkey,guidePubkey:city.guidePubkey});
@@ -31,11 +32,11 @@ export async function POST(request:Request){
  const origin=process.env.BITCOINWALK_PAYMENT_APP_ORIGIN;if(!origin)return response({error:"Chat provisioning authorization is not configured."},503);if(request.headers.get("origin")!==origin)return response({error:"Origin not allowed."},403);
  let body:{action?:ChatProvisionAction;event?:Event};try{body=await paymentBody(request) as typeof body;}catch{return response({error:"Signed super-admin authorization required."},403);}if(!body.action||!body.event)return response({error:"Signed super-admin authorization required."},403);const action=body.action;try{authorizeChatProvision(body.event,action,origin);}catch{return response({error:"Signed super-admin authorization required."},403);}
  try{
-  const runtime=getPaymentRuntime(),store=new ChatProvisionStore(runtime.store.db),cities=await eligible();
+  const runtime=getPaymentRuntime(),store=new WalkieTalkieProvisionStore(runtime.store.db),cities=await eligible();
   if(action.action==="list")return response({cities:cities.map(publicCity),rows:store.rows().map(safeRow)});
   const city=cities.find(row=>row.cityId===action.cityId);if(!city)return response({error:"A currently approved city is required."},409);
   if(action.action==="verify"){
-   if(city.slug!==action.slug)return response({error:"The submitted slug is not the current approved city slug."},409);
+   if(city.slug!==action.slug||action.groupId!==`bitcoinwalk-${city.slug}`)return response({error:"Use the current canonical Walkie Talkie channel."},409);
    const expected={name:`BitcoinWalk ${city.cityName}`,picture:managedAvatar(action.picture,origin)},candidate=store.propose(action,Math.floor(Date.now()/1000),city.authority),inspection=await inspectArmadaGroup(candidate.relay,candidate.groupId,{expected});
    verifyChatRoster(action.rosterEvent,candidate.groupId,inspection.relayPubkey,[SUPER_ADMIN_PUBKEY,city.organizerPubkey,city.guidePubkey]);
    const verified=store.verify(city.cityId,inspection,Math.floor(Date.now()/1000),city.authority);
@@ -45,10 +46,12 @@ export async function POST(request:Request){
    const row=store.get(city.cityId);if(!row||row.phase!=="active"||row.evidenceDigest!==action.evidenceDigest)return response({error:"Refresh the active community before reconciling its founding setup."},409);
    const inspection=await inspectArmadaGroup(row.relay,row.groupId,{expected:{name:`BitcoinWalk ${city.cityName}`,picture:managedAvatar(action.picture,origin)}});
    verifyChatRoster(action.rosterEvent,row.groupId,inspection.relayPubkey,[SUPER_ADMIN_PUBKEY,city.organizerPubkey,city.guidePubkey]);
-   return response({city:publicCity(city),inspection,row:safeRow(store.refreshActiveMetadata(city.cityId,action.evidenceDigest,inspection,Math.floor(Date.now()/1000),city.authority))});
+   return response({city:publicCity(city),inspection,row:safeRow(store.refresh(city.cityId,action.evidenceDigest,inspection,Math.floor(Date.now()/1000),city.authority))});
   }
   const row=store.get(city.cityId);if(!row||row.phase!=="verified"||row.evidenceDigest!==action.evidenceDigest)return response({error:"Verify the exact group again before activation."},409);
   const inspection=await inspectArmadaGroup(row.relay,row.groupId),refreshed=store.verify(city.cityId,inspection,Math.floor(Date.now()/1000),city.authority);if(inspection.metadataEventId!==row.metadataEventId)return response({error:"Group metadata changed. Review the fresh verification before activation.",row:safeRow(refreshed)},409);
-  return response({city:publicCity(city),inspection,row:safeRow(store.activate(city.cityId,refreshed.evidenceDigest!,Math.floor(Date.now()/1000),city.authority))});
+  const activated=store.activate(city.cityId,refreshed.evidenceDigest!,Math.floor(Date.now()/1000),city.authority),legacyStore=new ChatProvisionStore(runtime.store.db),legacy=legacyStore.get(city.cityId);
+  if(legacy?.phase==="active"&&legacy.tier==="pro"&&legacy.walkieTalkieEnabled!==1)legacyStore.setVisibility(city.cityId,"walkie-talkie",true);
+  return response({city:publicCity(city),inspection,row:safeRow(activated)});
  }catch(error){return response({error:error instanceof Error?error.message:"Chat provisioning could not be completed."},409);}
 }

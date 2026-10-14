@@ -5,7 +5,14 @@ const config: ChatConfig = {
   environment: "staging",
   global: { relay: "wss://chat-staging.bitcoinwalk.org", groupId: "global-test" },
   paidCities: {
-    paid: { slug: "austin", destination: { relay: "wss://austin.bitcoinwalk.org", groupId: "city-test" } },
+    paid: {
+      slug: "austin",
+      destination: { relay: "wss://austin.bitcoinwalk.org", groupId: "city-test" },
+      armadaDestination: { relay: "wss://austin.bitcoinwalk.org", groupId: "city-test" },
+      walkieTalkieDestination: { relay: "wss://chat.bitcoinwalk.org/", groupId: "bitcoinwalk-austin" },
+      walkieTalkieEnabled: true,
+      armadaEnabled: true,
+    },
     pending: { slug: "radom", destination: null },
   },
 };
@@ -23,8 +30,8 @@ describe("operator-controlled chat routing", () => {
     const basic={...config,paidCities:{basic:{slug:"seattle",tier:"basic" as const,destination:{relay:"wss://chat.bitcoinwalk.org/",groupId:"bitcoinwalk-seattle"},walkieTalkieEnabled:true,armadaEnabled:false}}};
     expect(resolveCityChat("basic","seattle",basic,false)).toEqual({scope:"city",environment:"staging",walkieTalkieEnabled:true,armadaEnabled:false,nip29:{relay:"wss://chat.bitcoinwalk.org/",groupId:"bitcoinwalk-seattle"},url:null});
   });
-  it("routes a provisioned paid city to its dedicated relay and group", () => {
-    expect(resolveCityChat("paid", "austin", config)).toEqual({ scope: "city", environment: "staging", walkieTalkieEnabled:true,armadaEnabled:true,nip29:{relay:"wss://austin.bitcoinwalk.org",groupId:"city-test"},url: "https://armada.buzz/s/austin.bitcoinwalk.org/city-test" });
+  it("keeps a paid city's Walkie Talkie channel separate from Armada and Concord", () => {
+    expect(resolveCityChat("paid", "austin", config)).toEqual({ scope: "city", environment: "staging", walkieTalkieEnabled:true,armadaEnabled:true,nip29:{relay:"wss://chat.bitcoinwalk.org/",groupId:"bitcoinwalk-austin"},url: "https://armada.buzz/s/austin.bitcoinwalk.org/city-test" });
     expect(resolveCityChat("paid", "austin", {...config,paidCities:{paid:{slug:"austin",destination:{relay:"wss://austin.bitcoinwalk.org/",groupId:"city-test"}}}}).url).toBe("https://armada.buzz/s/austin.bitcoinwalk.org/city-test");
   });
   it("does not fabricate a link or fall back to global for pending paid cities", () => {
@@ -36,7 +43,7 @@ describe("operator-controlled chat routing", () => {
   });
   it("controls Walkie Talkie and Armada independently",()=>{
     const split={...config,paidCities:{paid:{...config.paidCities.paid,walkieTalkieEnabled:true,armadaEnabled:false}}};
-    expect(resolveCityChat("paid","austin",split)).toMatchObject({walkieTalkieEnabled:true,armadaEnabled:false,nip29:{relay:"wss://austin.bitcoinwalk.org",groupId:"city-test"},url:null});
+    expect(resolveCityChat("paid","austin",split)).toMatchObject({walkieTalkieEnabled:true,armadaEnabled:false,nip29:{relay:"wss://chat.bitcoinwalk.org/",groupId:"bitcoinwalk-austin"},url:null});
     split.paidCities.paid.walkieTalkieEnabled=false;split.paidCities.paid.armadaEnabled=true;
     expect(resolveCityChat("paid","austin",split)).toMatchObject({walkieTalkieEnabled:false,armadaEnabled:true,nip29:null,url:"https://armada.buzz/s/austin.bitcoinwalk.org/city-test"});
   });

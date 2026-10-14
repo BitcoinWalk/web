@@ -11,9 +11,8 @@ name of the Walkie Talkie protocol surface.
 
 - Available to every approved Basic and Pro city.
 - Uses NIP-29 with a shareable `naddr` group link and optional invite code.
-- Basic cities use distinct groups on `wss://chat.bitcoinwalk.org/`.
-- Pro cities use distinct groups on their combined
-  `wss://<slug>.bitcoinwalk.org/` event/community relay.
+- Basic and Pro cities use distinct `bitcoinwalk-<slug>` groups on
+  `wss://chat.bitcoinwalk.org/`.
 - Supports the existing Nostr identity and NIP-46 browser-signing path.
 - Uses NIP-29 for group messaging and retains NIP-17 support for compatible
   direct messages and invitations.
@@ -25,6 +24,9 @@ name of the Walkie Talkie protocol surface.
 ### Armada
 
 - Uses Concord and opens through the reviewed Armada community URL.
+- Pro cities keep their dedicated `wss://<slug>.bitcoinwalk.org/` relay. That
+  relay is not a Walkie Talkie destination and is not changed by provisioning
+  the shared city channel.
 - Is an independently controlled public option. Its signed ON/OFF toggle does
   not enable, disable, rename or delete Walkie Talkie.
 - Hiding Armada removes its public link but preserves the underlying community,

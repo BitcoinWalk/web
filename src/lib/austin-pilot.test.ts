@@ -4,10 +4,10 @@ import { chatConfig } from "./chat-config";
 import { austinPilot, austinPilotChat } from "./austin-pilot";
 
 describe("isolated Austin paid-city pilot", () => {
-  it("uses the verified Austin channel", () => {
+  it("keeps the legacy Austin pilot as an Armada-only destination", () => {
     expect(resolveCityChat(austinPilot.cityId, austinPilot.slug, austinPilotChat)).toEqual({
-      scope: "city", environment: "staging", walkieTalkieEnabled:true,armadaEnabled:true,
-      nip29: {relay:"wss://chat-austin-staging.bitcoinwalk.org",groupId:"d8006bee1ddd5b5f"},
+      scope: "city", environment: "staging", walkieTalkieEnabled:false,armadaEnabled:true,
+      nip29: null,
       url: "https://armada.buzz/s/chat-austin-staging.bitcoinwalk.org/d8006bee1ddd5b5f",
     });
   });

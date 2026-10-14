@@ -16,7 +16,8 @@ type Directory={version:1;cities:Array<{id:string;avatarUrl:string}>};
 type Row={cityId:string;tier:"basic"|"pro";slug:string;relay:string;groupId:string;phase:"candidate"|"verified"|"active"|"needs-attention";evidenceDigest:string|null;metadataEventId:string|null;verifiedAt:number|null;activatedAt:number|null;updatedAt:number};
 type Report={cities:City[];rows:Row[];inspection?:{name:string;picture:string|null};city?:City;row?:Row;error?:string};
 
-function relayFor(city:City){return city.tier==="pro"?`wss://${city.slug}.bitcoinwalk.org/`:"wss://chat.bitcoinwalk.org/";}
+const WALKIE_TALKIE_RELAY="wss://chat.bitcoinwalk.org/";
+function relayFor(city:City){void city;return WALKIE_TALKIE_RELAY;}
 function createGroupTemplate(groupId:string):EventTemplate{return {kind:9007,created_at:Math.floor(Date.now()/1000),tags:[["h",groupId],["client","bitcoinwalk.org"]],content:"Create the public, open-join BitcoinWalk city community."};}
 function metadataTemplate(city:City,groupId:string):EventTemplate{return {kind:9002,created_at:Math.floor(Date.now()/1000),tags:[["h",groupId],["name",`BitcoinWalk ${city.cityName}`],["about",`The open community for BitcoinWalk ${city.cityName}. Anyone can join; only members can read messages.`],["picture",city.avatarUrl],["open"],["client","bitcoinwalk.org"]],content:"Configure the BitcoinWalk city community."};}
 function addMemberTemplate(groupId:string,pubkey:string):EventTemplate{return {kind:9000,created_at:Math.floor(Date.now()/1000),tags:[["h",groupId],["p",pubkey],["client","bitcoinwalk.org"]],content:"Add a founding BitcoinWalk city community member."};}
@@ -35,7 +36,7 @@ export default function CommunityChatsPage(){
  return <main>
   <p>BitcoinWalk / dashboard / monitoring / communities</p>
   <h1>City communities</h1>
-  <p>Create a city-scoped NIP-29 Walkie Talkie group for every approved city. Each group is named BitcoinWalk + city, uses the approved city artwork, and starts with the super-admin, current organizer and BitcoinWalk Guide. Basic cities use the shared community relay; Pro cities use their combined event and community relay.</p>
+  <p>Create a city-scoped NIP-29 Walkie Talkie channel for every approved city. Each channel is named BitcoinWalk + city, uses the approved city artwork, and starts with the super-admin, current organizer and BitcoinWalk Guide. Every Walkie Talkie channel uses the shared chat relay. Pro-city Armada and Concord routing remains on the city relay.</p>
   <button type="button" disabled={busy} onClick={load}>{busy?"Working…":"Refresh"}</button>
   <p role="status" aria-live="polite">{message}</p>
   <section>
@@ -47,10 +48,10 @@ export default function CommunityChatsPage(){
   </section>
   {cities.length>0&&<section>
    <h2>Provision a community</h2>
-   <CityFinder items={cities.map(city=>({id:city.cityId,name:city.cityName,meta:city.tier==="pro"?"Pro · dedicated relay":"Basic · shared relay",keywords:[city.slug,city.cityId,city.tier]}))} value={cityId} disabled={busy} label="City" placeholder="Search all approved cities…" onChange={id=>chooseCity(id)}/>
+   <CityFinder items={cities.map(city=>({id:city.cityId,name:city.cityName,meta:`${city.tier==="pro"?"Pro":"Basic"} · shared Walkie Talkie`,keywords:[city.slug,city.cityId,city.tier]}))} value={cityId} disabled={busy} label="City" placeholder="Search all approved cities…" onChange={id=>chooseCity(id)}/>
    {selected&&<>
-    <p>{selected.tier==="pro"?"Combined event and community relay":"Shared community relay"}: <code>{relayFor(selected)}</code></p>
-    <label>Group ID<input value={groupId} disabled={busy||!!current} onChange={event=>setGroupId(event.target.value)} placeholder={`bitcoinwalk-${selected.slug}`} autoComplete="off" spellCheck={false}/></label>
+    <p>Walkie Talkie relay: <code>{relayFor(selected)}</code></p>
+    <label>Channel ID<input value={groupId} readOnly aria-readonly="true" placeholder={`bitcoinwalk-${selected.slug}`} autoComplete="off" spellCheck={false}/></label>
     <p><Image unoptimized src={selected.avatarUrl} alt={`Group avatar for BitcoinWalk ${selected.cityName}`} width={96} height={96} style={{borderRadius:"50%",objectFit:"cover"}}/><br/><strong>BitcoinWalk {selected.cityName}</strong><br/>Founding members: super-admin, current organizer and BitcoinWalk Guide.</p>
     {(!current||current.phase==="active"||current.phase==="needs-attention")&&<button type="button" disabled={busy||!groupId.trim()} onClick={()=>void configure()}>{current?.phase==="active"?"Sign and reconcile founding setup":"Sign and create complete group"}</button>}
     {mayVerify&&<button type="button" disabled={busy||!groupId.trim()} onClick={()=>void verify()}>Sign and verify group</button>}
@@ -59,7 +60,7 @@ export default function CommunityChatsPage(){
      <p><code>{current.relay}</code><br/><code>{current.groupId}</code></p>
      {current.metadataEventId&&<p>Signed metadata: <code>{current.metadataEventId}</code></p>}
      {current.phase==="verified"&&<><p><strong>Group created and verified.</strong> One final action remains: activate it for public walk pages.</p><button type="button" disabled={busy||activating} onClick={()=>void activate()}>{activating?"Waiting for signature…":"Sign and activate community"}</button>{actionMessage&&<p role="status" aria-live="polite"><strong>{actionMessage}</strong></p>}</>}
-     {current.phase==="active"&&<><p role="status"><strong>Setup complete.</strong> This community is active on public walk pages. Reconcile again whenever the signed city organizer changes.</p>{actionMessage&&<p role="status" aria-live="polite"><strong>{actionMessage}</strong></p>}<p><a href={`https://armada.buzz/s/${new URL(current.relay).hostname}/${encodeURIComponent(current.groupId)}`} target="_blank" rel="noopener noreferrer">Open Armada ↗</a></p></>}
+     {current.phase==="active"&&<><p role="status"><strong>Setup complete.</strong> This Walkie Talkie channel is active on public walk pages. Pro-city Armada and Concord remain on their separate city relay. Reconcile again whenever the signed city organizer changes.</p>{actionMessage&&<p role="status" aria-live="polite"><strong>{actionMessage}</strong></p>}<p><a href={`https://chat.bitcoinwalk.org/${encodeURIComponent(current.slug)}`} target="_blank" rel="noopener noreferrer">Open Walkie Talkie channel ↗</a></p></>}
     </article>}
    </>}
   </section>}

@@ -2,8 +2,9 @@
 
 BW-23 replaces source-code mappings with a city-bound registry in the existing
 application SQLite database. Every city receives a NIP-29 Walkie Talkie group.
-Basic cities use the shared community relay; Pro cities use their canonical
-combined city event/community relay. A future invitation-only Marmot private
+Every Basic and Pro city uses a distinct group on the shared Walkie Talkie
+relay. A Pro city's existing dedicated relay remains the separate Armada and
+Concord destination. A future invitation-only Marmot private
 group is a separate product surface tracked by BW-127; it never replaces or
 mirrors the NIP-29 room.
 
@@ -13,9 +14,8 @@ An eligible city must be approved. The registry binds its immutable city UUID
 and current tier to:
 
 - the current approved canonical slug;
-- the shared `wss://chat.bitcoinwalk.org/` relay for Basic cities, or the exact
-  combined `wss://<slug>.bitcoinwalk.org/` event/community relay for Pro cities;
-- one relay-scoped Armada group ID;
+- the shared `wss://chat.bitcoinwalk.org/` relay for every Walkie Talkie city;
+- one canonical `bitcoinwalk-<slug>` Walkie Talkie group ID;
 - the NIP-29 kind `39000` metadata event signed by the exact NIP-11 `self`
   identity of that relay; and
 - a digest of the complete verification evidence.
@@ -35,7 +35,7 @@ replacement requires a future explicit revocation workflow.
 
 1. As the BitcoinWalk super-admin, open **Monitoring → Communities**.
 2. Select the city and review the generated city-scoped group identifier.
-3. Sign **Create complete group**. The exact tier-appropriate relay creates the
+3. Sign **Create complete group**. The shared Walkie Talkie relay creates the
    group. The super-admin then signs the exact `BitcoinWalk <city>` name,
    generated city-avatar URL and any missing founding memberships for the
    super-admin, current signed organizer and BitcoinWalk Guide. No private key
@@ -50,7 +50,9 @@ replacement requires a future explicit revocation workflow.
    the Concord client option. Neither toggle deletes the underlying community,
    membership or history.
 7. Open current Basic and Pro city walks in separate sessions and confirm that
-   each button resolves to its own exact group and tier-appropriate relay.
+   each Walkie Talkie button resolves to its own group on the shared relay. For
+   Pro cities, also confirm that Armada still resolves to the dedicated city
+   relay and has not been replaced.
 
 Every list, verification and activation request is a fresh NIP-98-style event
 bound to the exact origin, POST route, action and payload. No browser header is
