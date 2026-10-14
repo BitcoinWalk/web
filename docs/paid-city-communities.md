@@ -54,6 +54,13 @@ replacement requires a future explicit revocation workflow.
    Pro cities, also confirm that Armada still resolves to the dedicated city
    relay and has not been replaced.
 
+The super-admin may instead use **Sign and provision all remaining channels**.
+That rollout processes every currently approved city in name order, completes
+creation, founding membership, independent read-back and activation for one
+city before moving to the next, skips already-active records and stops on the
+first failure. Retrying resumes with only the remaining cities; it never
+replaces an active group or the separate Pro-city Armada relay.
+
 Every list, verification and activation request is a fresh NIP-98-style event
 bound to the exact origin, POST route, action and payload. No browser header is
 trusted as authorization.

@@ -14,7 +14,7 @@ function localSigner(secretKey:Uint8Array):NostrBrowserExtension{const pubkey=ge
 function decodeNsec(value:string){const decoded=nip19.decode(value.trim());if(decoded.type!=="nsec"||!(decoded.data instanceof Uint8Array))throw new Error("Enter a valid private key beginning with nsec1.");return decoded.data;}
 function remoteSigner(signer:BunkerSigner):NostrBrowserExtension{return{getPublicKey:()=>signer.getPublicKey(),signEvent:template=>signer.signEvent(template),nip44:{encrypt:(pubkey,plaintext)=>signer.nip44Encrypt(pubkey,plaintext)}};}
 const qrRelays=["wss://relay.damus.io/","wss://relay.primal.net/"];
-const signerPermissions=["sign_event:5","sign_event:13","sign_event:14","sign_event:27235","sign_event:30303","sign_event:30305","sign_event:30306","sign_event:30309","sign_event:31923","sign_event:22242"];
+const signerPermissions=["sign_event:5","sign_event:13","sign_event:14","sign_event:27235","sign_event:30303","sign_event:30305","sign_event:30306","sign_event:30309","sign_event:31923","sign_event:9000","sign_event:9002","sign_event:9007","sign_event:22242"];
 export function validSignerInput(value:string){const input=value.trim();if(input.startsWith("nsec1")){try{decodeNsec(input);return true;}catch{return false;}}if(!BUNKER_REGEX.test(input))return false;const query=input.slice(input.indexOf("?")+1),relays=new URLSearchParams(query).getAll("relay");return relays.some(value=>{try{return new URL(value).protocol==="wss:";}catch{return false;}});}
 export function remoteSignerConnectionURI(secretKey:Uint8Array,origin:string){return createNostrConnectURI({clientPubkey:getPublicKey(secretKey),relays:qrRelays,secret:crypto.randomUUID(),perms:signerPermissions,name:"BitcoinWalk",url:origin});}
 
