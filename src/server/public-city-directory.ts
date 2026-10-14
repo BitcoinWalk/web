@@ -3,7 +3,12 @@ import { configuredPaidCity } from "../lib/directory-config";
 import { loadCalendarWalks } from "../nostr/calendar-records";
 import { serverReadRelays } from "../lib/server-relay-config";
 import { serverChatConfig } from "./chat-config";
-import { shareOrigin } from "./share-preview";
+import { renderedShareImage, shareOrigin } from "./share-preview";
+
+type PublicCommunityDestination = {
+  relay: string;
+  groupId: string;
+};
 
 export type PublicCityDirectoryItem = {
   id: string;
@@ -11,13 +16,15 @@ export type PublicCityDirectoryItem = {
   slug: string;
   aliases: string[];
   canonicalUrl: string;
+  avatarUrl: string;
   chat: {
     scope: "global" | "city";
     url: string | null;
-    nip29: {
-      relay: string;
-      groupId: string;
-    } | null;
+    nip29: PublicCommunityDestination | null;
+    communities: {
+      global: PublicCommunityDestination | null;
+      city: PublicCommunityDestination | null;
+    };
   };
 };
 
@@ -42,13 +49,33 @@ export async function loadPublicCityDirectory(now = Date.now()): Promise<PublicC
     const aliases = [...new Set((city.aliases ?? []).filter((alias) => alias && alias.length <= 120))];
     const paid = !!configuredPaidCity(city.cityId, [city.slug, ...aliases]);
     const chat = resolveCityChat(city.cityId, city.slug, chatConfig, paid);
+    let avatarUrl = `${origin}/brand/bitcoinwalk-share-fallback.jpg`;
+    try {
+      avatarUrl = await renderedShareImage(
+        city.cityId,
+        city.slug,
+        [walk.approval?.approval?.heroImageUrl, city.heroImageUrl],
+        null,
+      );
+    } catch {
+      // A valid city directory remains available while optional artwork is busy.
+    }
     cities.set(city.cityId, {
       id: city.cityId,
       name: city.cityName,
       slug: city.slug,
       aliases,
       canonicalUrl: `${origin}/${encodeURIComponent(city.slug)}`,
-      chat: { scope: chat.scope, url: chat.url, nip29: chat.nip29 },
+      avatarUrl,
+      chat: {
+        scope: chat.scope,
+        url: chat.url,
+        nip29: chat.nip29,
+        communities: {
+          global: chatConfig.global,
+          city: chat.scope === "city" ? chat.nip29 : null,
+        },
+      },
     });
   }
   return {

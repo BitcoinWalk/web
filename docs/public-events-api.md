@@ -55,12 +55,20 @@ history.
       "slug": "madeira",
       "aliases": [],
       "canonicalUrl": "https://bitcoinwalk.org/madeira",
+      "avatarUrl": "https://bitcoinwalk.org/api/og/files/0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef.jpg",
       "chat": {
         "scope": "global",
         "url": "https://bitcoinwalk.org/join",
         "nip29": {
           "relay": "wss://chat.bitcoinwalk.org",
           "groupId": "13bc3a423b4f2954"
+        },
+        "communities": {
+          "global": {
+            "relay": "wss://chat.bitcoinwalk.org",
+            "groupId": "13bc3a423b4f2954"
+          },
+          "city": null
         }
       }
     }
@@ -68,11 +76,14 @@ history.
 }
 ```
 
-The chat URL and NIP-29 destination are operator-controlled verified routing
-data. The public destination contains only the exact relay and group ID needed
-by a compatible client; it contains no owner, payment or private-relay data.
-Free cities may use the verified global community during migration. A paid city
-whose dedicated NIP-29 group has not passed provisioning and read-back returns
-`{"scope":"city","url":null,"nip29":null}`; it never falls back to the global
-room. Like `/api/events`, a failed authoritative read returns HTTP 503 rather
-than a partial directory.
+`avatarUrl` is the approved city OG artwork. Clients may centre-crop it for a
+circular city-community avatar.
+
+The chat URL and NIP-29 destinations are operator-controlled verified routing
+data. `chat.communities.global` and `chat.communities.city` are independent.
+The city destination is present only after its community has completed
+independent read-back verification. The global destination is not a fallback
+city room. Clients must not derive or guess a relay or group identifier when
+either value is absent. The legacy `chat.nip29` field remains for older clients.
+Like `/api/events`, a failed authoritative read returns HTTP 503 rather than a
+partial directory.

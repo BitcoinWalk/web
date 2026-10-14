@@ -8,7 +8,11 @@ vi.mock("./chat-config", () => ({ serverChatConfig: () => ({
   global: { relay: "wss://chat.bitcoinwalk.org", groupId: "13bc3a423b4f2954" },
   paidCities: {},
 }) }));
-vi.mock("./share-preview", () => ({ shareOrigin: () => "https://bitcoinwalk.org" }));
+vi.mock("./share-preview", () => ({
+  shareOrigin: () => "https://bitcoinwalk.org",
+  renderedShareImage: vi.fn(async () =>
+    `https://bitcoinwalk.org/api/og/files/${"a".repeat(64)}.jpg`),
+}));
 
 import { loadPublicCityDirectory } from "./public-city-directory";
 
@@ -32,10 +36,15 @@ describe("public city directory", () => {
       id: "a",
       slug: "madeira",
       canonicalUrl: "https://bitcoinwalk.org/madeira",
+      avatarUrl: `https://bitcoinwalk.org/api/og/files/${"a".repeat(64)}.jpg`,
       chat: {
         scope: "global",
         url: "https://bitcoinwalk.org/join",
         nip29: { relay: "wss://chat.bitcoinwalk.org", groupId: "13bc3a423b4f2954" },
+        communities: {
+          global: { relay: "wss://chat.bitcoinwalk.org", groupId: "13bc3a423b4f2954" },
+          city: null,
+        },
       },
     });
     expect(directory.cities[1].aliases).toEqual(["Zuerich"]);
@@ -45,6 +54,14 @@ describe("public city directory", () => {
     mocks.loadCalendarWalks.mockResolvedValue([
       row("8e136ccb-923b-41aa-a6d1-1290b0b3a014", "Würzburg", "wuerzburg", ["Wurzburg"]),
     ]);
-    expect((await loadPublicCityDirectory(0)).cities[0].chat).toEqual({ scope: "city", url: null, nip29: null });
+    expect((await loadPublicCityDirectory(0)).cities[0].chat).toEqual({
+      scope: "city",
+      url: null,
+      nip29: null,
+      communities: {
+        global: { relay: "wss://chat.bitcoinwalk.org", groupId: "13bc3a423b4f2954" },
+        city: null,
+      },
+    });
   });
 });
