@@ -90,10 +90,10 @@ export class ProSetupTaskStore {
     return this.view(this.row(cityId)!);
   }
 
-  confirmSigner(cityId: string, entitlementId: string, currentOwnerPubkey: string, brandPubkey: string, now = Math.floor(Date.now() / 1000)): ProSetupTask {
+  confirmSigner(cityId: string, entitlementId: string, currentOwnerPubkey: string, brandPubkey: string, now = Math.floor(Date.now() / 1000), allowOwnerBrand = false): ProSetupTask {
     const row = this.row(cityId);
     if (!row || row.entitlementId !== entitlementId || row.currentOwnerPubkey !== currentOwnerPubkey) throw new Error("Pro setup authority changed. Reload and try again.");
-    if (!/^[0-9a-f]{64}$/.test(brandPubkey) || brandPubkey === currentOwnerPubkey || brandPubkey === row.originalOwnerPubkey) throw new Error("Use a separate valid city signer identity.");
+    if (!/^[0-9a-f]{64}$/.test(brandPubkey) || brandPubkey === currentOwnerPubkey && !allowOwnerBrand || brandPubkey === row.originalOwnerPubkey && brandPubkey !== currentOwnerPubkey) throw new Error("Use a separate valid city signer identity.");
     if (row.brandPubkey !== null && row.brandPubkey !== brandPubkey) throw new Error("Clear the saved city signer before replacing it.");
     if (row.brandPubkey === brandPubkey && row.backupAcknowledgedAt !== null) return this.view(row);
     this.db.prepare(`UPDATE pro_setup_task SET brandPubkey=?,brandVersion=brandVersion+1,backupAcknowledgedAt=?,

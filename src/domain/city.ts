@@ -70,14 +70,27 @@ export const cityDocumentSchema = z.object({
 export type CityDocument = z.infer<typeof cityDocumentSchema>;
 
 export const cityAuthorizationSchema = z.object({
+  version: z.literal(2).optional(),
   cityId: z.string().uuid(),
   creatorPubkey: z.string().regex(/^[0-9a-f]{64}$/),
   creatorRevisionId: z.string().regex(/^[0-9a-f]{64}$/),
+  /** Immutable provenance remains in creatorPubkey. A v2 transfer changes the
+   * effective owner without rewriting who submitted the original city. */
+  ownerPubkey: z.string().regex(/^[0-9a-f]{64}$/).optional(),
+  ownershipEventId: z.string().regex(/^[0-9a-f]{64}$/).optional(),
   editorPubkeys: z.array(z.string().regex(/^[0-9a-f]{64}$/)).min(1).max(100),
   superAdminPubkey: z.string().regex(/^[0-9a-f]{64}$/),
-}).refine(value => value.editorPubkeys.includes(value.creatorPubkey), "Creator must remain an editor");
+}).superRefine((value,ctx)=>{
+  const transferred=value.version===2||value.ownerPubkey!==undefined||value.ownershipEventId!==undefined;
+  if(transferred&&(value.version!==2||!value.ownerPubkey||!value.ownershipEventId))ctx.addIssue({code:"custom",message:"Transferred ownership requires the complete v2 ownership evidence"});
+  const owner=value.ownerPubkey??value.creatorPubkey;
+  if(!value.editorPubkeys.includes(owner))ctx.addIssue({code:"custom",message:"Current owner must remain an editor"});
+  if(!transferred&&!value.editorPubkeys.includes(value.creatorPubkey))ctx.addIssue({code:"custom",message:"Creator must remain an editor"});
+});
 
 export type CityAuthorization = z.infer<typeof cityAuthorizationSchema>;
+
+export function cityOwnerPubkey(grant:CityAuthorization):string{return grant.ownerPubkey??grant.creatorPubkey;}
 
 export const cityApprovalSchema = z.object({
   cityId: z.string().uuid(),

@@ -20,6 +20,7 @@ import DashboardAccountMenu from "./dashboard-account-menu";
 import {dashboardMenuRefreshEvent,pendingRequestCountEvent,pendingRequestCountFromEvent} from "./pending-request-count";
 import {loadDashboardMenuCounts,resolveDashboardMenuCounts,type DashboardMenuCounts} from "../nostr/dashboard-menu";
 import {creatorSubmissions} from "../domain/creator-submissions";
+import {cityOwnerPubkey} from "../domain/city";
 
 const dashboardLogo="/brand/bitcoinwalk-horizontal-white.png";
 
@@ -42,7 +43,7 @@ export default function DashboardShell({children}:{children:ReactNode}){
  const records=latestDashboardGrants(await queryAuthorizations(relayConfig.readRelays));
  const [directory,hosting]=await Promise.allSettled([queryDirectoryRecords(relayConfig.readRelays),queryHostedWalks(relayConfig.readRelays,pubkey)]);
  if(request!==generation.current)return;if(await getBrowserExtensionPubkey()!==pubkey)throw new Error("Signer changed. Connect again.");
- const cityCount=records.filter(r=>r.grant.creatorPubkey===pubkey||r.grant.editorPubkeys.includes(pubkey)).length;
+ const cityCount=records.filter(r=>cityOwnerPubkey(r.grant)===pubkey||r.grant.editorPubkeys.includes(pubkey)).length;
  const cities=dashboardCities(pubkey,records,directory.status==="fulfilled"?directory.value.revisions:[],hosting.status==="fulfilled"?hosting.value:[]);
  const ownsCitySubmission=directory.status==="fulfilled"&&creatorSubmissions(pubkey,directory.value.revisions,directory.value.approvals).length>0;
  const role=isSuperAdmin(pubkey)?"super-admin":cityCount||ownsCitySubmission?"organizer":"member";

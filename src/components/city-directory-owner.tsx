@@ -11,6 +11,7 @@ import {authenticateWithBrowserExtension,getBrowserExtensionPubkey,signWithBrows
 import {directoryRootResultHeading,planDirectoryRootSubmission,type DirectoryRootResult} from "./city-directory-owner-state";
 import CityDirectorySuccessor from "./city-directory-successor";
 import {useDashboard,useDashboardAutoLoad} from "./dashboard-context";
+import {cityOwnerPubkey} from "../domain/city";
 
 type OwnedCity={id:string;name:string};
 function pubkey(value:string,label:string){
@@ -31,7 +32,7 @@ export default function CityDirectoryOwner(){
       const identity=await getBrowserExtensionPubkey(),grants=latestDashboardGrants(await queryAuthorizations(relayConfig.readRelays));
       if(await getBrowserExtensionPubkey()!==identity)throw new Error("Signer identity changed. Reconnect and try again.");
       const labels=new Map(dashboard.cities.map(city=>[city.id,city.name]));
-      const owned=grants.filter(record=>record.grant.creatorPubkey===identity).map(record=>({id:record.grant.cityId,name:labels.get(record.grant.cityId)??record.grant.cityId})).sort((a,b)=>a.name.localeCompare(b.name));
+      const owned=grants.filter(record=>cityOwnerPubkey(record.grant)===identity).map(record=>({id:record.grant.cityId,name:labels.get(record.grant.cityId)??record.grant.cityId})).sort((a,b)=>a.name.localeCompare(b.name));
       setCities(owned);setCityId(current=>owned.some(city=>city.id===current)?current:owned[0]?.id??"");
       setMessage(owned.length?"Choose an owned city and review the root carefully before asking your connected Nostr signer to sign.":"The connected signer is not the original owner of any returned city. Editors cannot establish a directory root.");
     }catch(error){setCities([]);setCityId("");setMessage(error instanceof Error?error.message:"Could not load owned cities.");}
@@ -46,7 +47,7 @@ export default function CityDirectoryOwner(){
       const identity=await getBrowserExtensionPubkey();
       const grants=latestDashboardGrants(await queryAuthorizations(relayConfig.readRelays));
       const current=grants.find(record=>record.grant.cityId===cityId);
-      if(!current||current.grant.creatorPubkey!==identity)throw new Error("Current relay records do not confirm this signer as the original city owner. Nothing was signed.");
+      if(!current||cityOwnerPubkey(current.grant)!==identity)throw new Error("Current relay records do not confirm this signer as the city owner. Nothing was signed.");
       setMessage("Checking each discovery relay for an existing root…");
       const existing=await discoverExistingCityDirectoryRoot(discovery,cityId,identity);
       const plan=planDirectoryRootSubmission(existing);

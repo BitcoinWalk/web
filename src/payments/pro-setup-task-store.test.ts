@@ -58,6 +58,8 @@ describe("durable Pro setup tasks", () => {
     expect(() => store.confirmPayout(cityId, entitlementId, owner, 5)).toThrow("authority changed");
   });
 
+  it("allows owner equals brand only for the explicit MEP transfer path",()=>{const {store}=setup();store.ensure({cityId,entitlementId,originalOwnerPubkey:owner,currentOwnerPubkey:nextOwner},100);expect(()=>store.confirmSigner(cityId,entitlementId,nextOwner,nextOwner,101)).toThrow("separate");expect(store.confirmSigner(cityId,entitlementId,nextOwner,nextOwner,102,true)).toMatchObject({signer:{pubkey:nextOwner},state:"signer-confirmed"});});
+
   it("fails closed on entitlement or checkout binding conflicts", () => {
     const {store} = setup();
     store.ensure({cityId, entitlementId, originalOwnerPubkey: owner, currentOwnerPubkey: owner, registrationVersion: 1});

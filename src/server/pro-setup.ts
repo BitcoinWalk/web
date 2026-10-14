@@ -24,6 +24,7 @@ import {cityProvisioningCapabilities, type CityProvisioningCapabilities} from ".
 import {verifyNip05} from "../nostr/profiles";
 import {ChatProvisionStore,type ChatVisibilitySurface} from "../chat-provisioning/store";
 import {armadaChatUrl} from "../domain/chat";
+import {cityOwnerPubkey} from "../domain/city";
 
 /** This preflight cannot publish, create invoices, assign identities or activate payments. */
 export type ProSetupPreview = {
@@ -52,14 +53,21 @@ async function resolveProSetupEvidence(cityId: string, deps = proSetupDependenci
   const grant = grants.find(item => item.grant.cityId === cityId);
   if (!row || !grant) throw new Error("An approved city and verified creator authorization are required.");
   // Never use the editor who authored the latest revision as owner; directory failures cannot fall back.
-  const directory = await deps.discover(cityId, grant.grant.creatorPubkey);
-  const ownerPubkey = directory?.ownerPubkey ?? grant.grant.creatorPubkey;
+  const grantOwner=cityOwnerPubkey(grant.grant),directory = await deps.discover(cityId, grant.grant.creatorPubkey);
+  const ownerPubkey = directory?.ownerPubkey ?? grantOwner;
+  if(directory&&directory.ownerPubkey!==grantOwner)throw new Error("City directory ownership and CMS permissions differ. Complete or roll back the ownership transfer before continuing.");
   const entitlement = deps.entitlement(cityId);
   if (!entitlement) throw new Error("A settled Pro entitlement is required. This screen never asks you to pay again.");
   if (await deps.restrictions(cityId, ownerPubkey)) throw new Error("City or organizer publishing is suspended. Contact the administrator.");
   const authority: CityBrandAuthority = {cityId, ownerPubkey, authorityEventId: directory?.eventId ?? grant.event.id,
     approvalEventId: row.decision.event.id, entitlementId: entitlement.invoiceId, eligible: true};
-  return {authority, row, entitlement};
+  return {authority, row, entitlement, grant};
+}
+
+function mepOwnerBrandEligible(resolved:Awaited<ReturnType<typeof resolveProSetupEvidence>>,brandPubkey:string){
+ if(resolved.grant.grant.version!==2||resolved.grant.grant.ownerPubkey!==brandPubkey||resolved.grant.grant.ownershipEventId!==resolved.authority.authorityEventId)return false;
+ const rows=getPaymentRuntime().store.db.prepare("SELECT challenge FROM city_brand_request WHERE city_id=? AND status='active' ORDER BY rowid DESC").all(resolved.authority.cityId) as Array<{challenge:string}>;
+ return rows.some(row=>{try{return (JSON.parse(row.challenge) as import("../nostr/city-brand").CityBrandChallenge).binding.brandPubkey===brandPubkey;}catch{return false;}});
 }
 
 export type ProSetupNotification = {cityId:string;cityName:string;ownerPubkey:string;kind:"setup";state:ProSetupPreview["setup"]["state"];updatedAt:number}|
@@ -276,15 +284,17 @@ async function queueProvisioningIfEnabled(requestId: string) {
 }
 
 export async function saveProSetupSigner(cityId: string, actor: string, command: Extract<ProSetupCommand, {action: "confirm-city-signer"}>, brandProof: Event, origin: string) {
-  if (command.cityId !== cityId || command.brandPubkey === actor || command.brandPubkey === SUPER_ADMIN_PUBKEY) throw new Error("Use a separate city signer identity.");
+  if (command.cityId !== cityId || command.brandPubkey === SUPER_ADMIN_PUBKEY) throw new Error("Use a separate city signer identity.");
   const before = await resolveProSetupAuthority(cityId, actor);
+  const mep=command.brandPubkey===actor&&mepOwnerBrandEligible(before,command.brandPubkey);
+  if(command.brandPubkey===actor&&!mep)throw new Error("Use a separate city signer identity.");
   authorizeCitySignerProof(brandProof, command, origin);
   const after = await resolveProSetupAuthority(cityId, actor);
   if (JSON.stringify(before.authority) !== JSON.stringify(after.authority)) throw new Error("City authority changed during signer verification. Reload and try again.");
   const {store} = ensureSetupTask(after);
-  const task = store.confirmSigner(cityId, after.authority.entitlementId, after.authority.ownerPubkey, command.brandPubkey);
+  const task = store.confirmSigner(cityId, after.authority.entitlementId, after.authority.ownerPubkey, command.brandPubkey,Math.floor(Date.now()/1000),mep&&mepOwnerBrandEligible(after,command.brandPubkey));
   return {cityId, pubkey: task.signer!.pubkey, version: task.signer!.version, state: "confirmed-not-active" as const,
-    message: "Separate city signer confirmed. This check did not publish, replace or deactivate the city identity; keep its recovery method safe."};
+    message: mep?"Transferred city owner and existing public city identity confirmed. No new key or purchase was created; keep its recovery method safe.":"Separate city signer confirmed. This check did not publish, replace or deactivate the city identity; keep its recovery method safe."};
 }
 
 export async function clearProSetupSigner(cityId: string, actor: string) {

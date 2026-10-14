@@ -2,6 +2,7 @@ import {compareEvents} from "nostr-tools";
 import type {AuthorizationRecord,CityRevision} from "../nostr/city-records";
 import {isSuperAdmin} from "../nostr/authority";
 import {latestCityGrants} from "../nostr/editor-management";
+import {cityOwnerPubkey} from "./city";
 
 export type OrganizerDirectoryEntry={pubkey:string;createdCities:string[];editorCities:string[]};
 
@@ -14,7 +15,8 @@ export function organizerDirectory(records:AuthorizationRecord[],revisions:CityR
   if(selectedCity&&grant.cityId!==selectedCity)continue;
   const city=names.get(grant.cityId)??grant.cityId;
   add(grant.creatorPubkey,"created",city);
-  for(const pubkey of grant.editorPubkeys)if(pubkey!==grant.creatorPubkey&&!isSuperAdmin(pubkey))add(pubkey,"edited",city);
+  const owner=cityOwnerPubkey(grant);if(owner!==grant.creatorPubkey)add(owner,"edited",city);
+  for(const pubkey of grant.editorPubkeys)if(pubkey!==grant.creatorPubkey&&pubkey!==owner&&!isSuperAdmin(pubkey))add(pubkey,"edited",city);
  }
  return [...entries].map(([pubkey,value])=>({pubkey,createdCities:[...value.created].sort(),editorCities:[...value.edited].sort()})).sort((a,b)=>(a.createdCities[0]??a.editorCities[0]??a.pubkey).localeCompare(b.createdCities[0]??b.editorCities[0]??b.pubkey));
 }

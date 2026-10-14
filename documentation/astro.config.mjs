@@ -18,7 +18,8 @@ export default defineConfig({
           {label: "Find or start a walk", slug: "start/find-or-start"}
         ]},
         {label: "Organizers", items: [
-          {label: "Manage your city and walks", slug: "organizers/manage-city-and-walks"}
+          {label: "Manage your city and walks", slug: "organizers/manage-city-and-walks"},
+          {label: "Transfer a Pro city", slug: "organizers/transfer-city-ownership"}
         ]},
         {label: "Sponsors", items: [
           {label: "Sponsor a BitcoinWalk", slug: "sponsors/how-sponsorship-works"}

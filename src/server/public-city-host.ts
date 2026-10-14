@@ -3,6 +3,7 @@ import {CITY_BRAND_KIND, resolveCityBrand} from "../nostr/city-brand";
 import {queryCityAuthorization, queryRelayEvents} from "../nostr/city-records";
 import {SUPER_ADMIN_PUBKEY} from "../nostr/authority";
 import {serverReadRelays} from "../lib/server-relay-config";
+import {cityOwnerPubkey} from "../domain/city";
 
 export type PublicCityHost =
   | {state: "brand"; pubkey: string; name: string}
@@ -18,7 +19,7 @@ export const publicCityHostDependencies: HostDependencies = {
   relays: serverReadRelays,
   read: (relay: string, cityId: string) => queryRelayEvents([relay], [CITY_BRAND_KIND], undefined,
     {authors: [SUPER_ADMIN_PUBKEY], "#i": [cityId], limit: 500}),
-  creator: async (relays, cityId) => (await queryCityAuthorization(relays, cityId))?.grant.creatorPubkey,
+  creator: async (relays, cityId) => {const row=await queryCityAuthorization(relays,cityId);return row?cityOwnerPubkey(row.grant):undefined;},
 };
 
 /** Called only for a publicly approved city. Never reads private owner proofs or

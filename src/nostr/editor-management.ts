@@ -1,5 +1,5 @@
 import { nip19, compareEvents, type Event, type EventTemplate } from "nostr-tools";
-import { cityAuthorizationSchema } from "../domain/city";
+import { cityAuthorizationSchema,cityOwnerPubkey } from "../domain/city";
 import { isSuperAdmin } from "./authority";
 import { createAuthorizationEvent } from "./city-event";
 import type { AuthorizationRecord } from "./city-records";
@@ -25,7 +25,7 @@ export function editorChange(record: AuthorizationRecord, actor: string, action:
   if(!/^[0-9a-f]{64}$/.test(pubkey)) throw new Error("Invalid editor public key.");
   const grant=cityAuthorizationSchema.parse(record.grant);
   if(isSuperAdmin(pubkey)) throw new Error("The super-admin already has access to every city; that access cannot be removed here.");
-  if(action==="remove" && pubkey===grant.creatorPubkey) throw new Error("The creator must remain an editor.");
+  if(action==="remove" && pubkey===cityOwnerPubkey(grant)) throw new Error("The current owner must remain an editor.");
   const existing=grant.editorPubkeys.includes(pubkey);
   if(action==="add" && existing) throw new Error("This identity is already an editor.");
   if(action==="remove" && !existing) throw new Error("This identity is not on this city's editor list.");

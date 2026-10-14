@@ -84,6 +84,7 @@ describe("Pro setup fresh authority", () => {
   });
   it("follows anchored ownership rotation without transferring the entitlement to the payer", async () => {
     vi.mocked(deps.discover).mockResolvedValue({ownerPubkey: nextOwner, eventId: "9".repeat(64)});
+    vi.mocked(deps.grants).mockResolvedValue([{...grant,grant:{...grant.grant,version:2,ownerPubkey:nextOwner,ownershipEventId:"9".repeat(64),editorPubkeys:[nextOwner]}}]);
     expect((await resolveProSetupAuthority(cityId, nextOwner, deps)).authority.ownerPubkey).toBe(nextOwner);
     await expect(resolveProSetupAuthority(cityId, owner, deps)).rejects.toThrow("current city owner");
   });

@@ -13,6 +13,7 @@ import { publishVerifiedEvent } from "../../../nostr/relay";
 import EditorIdentity from "../../../components/editor-identity";
 import { watchPublicProfiles, type PublicProfile } from "../../../nostr/profiles";
 import CityFinder from "../../../components/city-finder";
+import {cityOwnerPubkey} from "../../../domain/city";
 
 export default function EditorsScreen() {
   const lock=useRef(false);
@@ -119,9 +120,9 @@ export default function EditorsScreen() {
     </div>}
     {record && <section>
       <h2>{names[selected] ?? "City editors"}</h2><p>City UUID: {selected}</p>
-      <p>The creator cannot be removed or reassigned. The super-admin always retains access to every city.</p>
+      <p>The current owner cannot be removed. After an ownership transfer, the original creator remains immutable historical provenance but no longer has to retain access. The super-admin always retains access to every city.</p>
       <p>Names and photos come from public Nostr profiles and are not identity verification. Always check the npub. Profile relays receive these public-key lookups; external image hosts receive avatar requests.</p>
-      <ul className={styles.editors}>{[...new Set(record.grant.editorPubkeys)].map(key=><li key={key} className={feedback?.addedKey===key ? styles.added : undefined}><EditorIdentity pubkey={key} profile={profiles[key]} />{feedback?.addedKey===key && <strong className={styles.badge}>✓ Just added</strong>}{key===record.grant.creatorPubkey ? " — Creator (protected)" : isSuperAdmin(key) ? " — Super-admin (protected)" : <>{" "}<button disabled={busy} onClick={()=>change("remove",key)}>Remove editor</button></>}</li>)}</ul>
+      <ul className={styles.editors}>{[...new Set(record.grant.editorPubkeys)].map(key=>{const owner=cityOwnerPubkey(record.grant);return <li key={key} className={feedback?.addedKey===key ? styles.added : undefined}><EditorIdentity pubkey={key} profile={profiles[key]} />{feedback?.addedKey===key && <strong className={styles.badge}>✓ Just added</strong>}{key===owner ? " — Owner (protected)" : isSuperAdmin(key) ? " — Super-admin (protected)" : <>{key===record.grant.creatorPubkey?" — Original creator ":" "}<button disabled={busy} onClick={()=>change("remove",key)}>Remove editor</button></>}</li>;})}</ul>
       <form onSubmit={event=>{event.preventDefault();void change("add");}}>
         <label>New editor npub <input value={npub} onChange={e=>setNpub(e.target.value)} placeholder="npub1…" autoComplete="off" spellCheck={false} disabled={busy} required /></label>
         <button disabled={busy} type="submit">{busy ? "Updating editor access…" : "Add editor"}</button>

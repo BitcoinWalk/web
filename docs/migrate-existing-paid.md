@@ -1,6 +1,6 @@
 # BW-108 — migrate existing paid (MEP)
 
-Planned, 8 October 2026. No live identity, ownership or payment changes authorized by this planning document.
+Implementation in progress, 14 October 2026. No live identity, ownership or payment changes are authorized merely by this document.
 
 ## London outcome
 
@@ -34,7 +34,7 @@ Checkpoint 2 is the immediate public-display goal. Checkpoints 3–4 are a separ
 
 Before migration: keep both the current owner identity and the dedicated London identity available in your signer, with private recovery backups. Do not send private keys or bunker secrets. Do not create another city/account or pay another invoice.
 
-When we send the prepared request: use the existing owner to authorize London's identity binding and, separately, the reviewed ownership transfer. Use the dedicated London identity to prove control/accept the migration. The current normal upgrade screen is not yet the MEP transfer flow; wait for the prepared instructions rather than generating another identity.
+When we send the prepared request: use the existing owner to authorize London's identity binding and, separately, the reviewed ownership transfer. Use the dedicated London identity to prove control and accept the migration. The versioned transfer keeps immutable creator provenance while moving protected CMS ownership to the anchored directory owner. After activation, use the normal upgrade screen to reconfirm the existing city identity and new owner's private payout destination; do not generate another identity or purchase.
 
 Privately confirm the personal Lightning address that should receive your 79% share. This must not be `london@bitcoinwalk.org`.
 

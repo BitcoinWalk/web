@@ -1,11 +1,11 @@
 import { compareEvents } from "nostr-tools";
-import { cityDocumentSchema, type CityAuthorization, type CityDocument } from "../domain/city";
+import { cityDocumentSchema, cityOwnerPubkey, type CityAuthorization, type CityDocument } from "../domain/city";
 import { isSuperAdmin } from "./authority";
 import type { ApprovalRecord, AuthorizationRecord, CityRevision } from "./city-records";
 import { archivedCityIds } from "./moderation";
 
 export function canEditCity(pubkey: string, grant: CityAuthorization): boolean {
-  return isSuperAdmin(pubkey) || grant.creatorPubkey === pubkey || grant.editorPubkeys.includes(pubkey);
+  return isSuperAdmin(pubkey) || cityOwnerPubkey(grant) === pubkey || grant.editorPubkeys.includes(pubkey);
 }
 
 /** Only registered cities and the newest grant per city are used. */

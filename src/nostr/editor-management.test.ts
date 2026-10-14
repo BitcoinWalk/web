@@ -20,7 +20,7 @@ describe("city editor management",()=>{
  });
  it("removes an editor without removing the creator",()=>{
   expect(JSON.parse(editorChange(record,SUPER_ADMIN_PUBKEY,"remove",editor,11).content).editorPubkeys).toEqual([creator]);
-  expect(()=>editorChange(record,SUPER_ADMIN_PUBKEY,"remove",creator,11)).toThrow(/creator/);
+  expect(()=>editorChange(record,SUPER_ADMIN_PUBKEY,"remove",creator,11)).toThrow(/owner/);
   expect(()=>editorChange(record,SUPER_ADMIN_PUBKEY,"remove",SUPER_ADMIN_PUBKEY,11)).toThrow(/super-admin/);
  });
  it("refuses non-admin actors, duplicate additions, missing removals and old timestamps",()=>{
