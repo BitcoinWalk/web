@@ -8,6 +8,7 @@
   "scripts": {
     "docs:check": "npm --workspace documentation run check",
     "docs:build": "npm --workspace documentation run build",
+    "docs:package": "npm run docs:build && node scripts/package-documentation.mjs",
     "journal:package": "node scripts/package-remote-journal.mjs",
     "journal:smoke": "node scripts/smoke-remote-journal.mjs",
     "payout:acceptance:build": "esbuild scripts/run-payout-acceptance.ts --bundle --platform=node --target=node24 --format=cjs --outfile=release-build/payout-acceptance.cjs",

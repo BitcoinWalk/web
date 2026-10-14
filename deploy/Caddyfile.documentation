@@ -1,0 +1,23 @@
+# Static public BitcoinWalk documentation. Public TLS terminates at the
+# established reverse proxy on .240; this origin route is intentionally HTTP.
+http://docs.bitcoinwalk.org {
+	root * /opt/bitcoinwalk-documentation/current
+	encode zstd gzip
+
+	header {
+		Cache-Control "public, max-age=300"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Permissions-Policy "camera=(), microphone=(), geolocation=()"
+	}
+
+	@immutable path /_astro/*
+	header @immutable Cache-Control "public, max-age=31536000, immutable"
+
+	file_server
+}
+
+http://help.bitcoinwalk.org {
+	redir https://docs.bitcoinwalk.org{uri} 308
+}
