@@ -7,11 +7,10 @@ import { useRef, useState, type FormEvent } from "react";
 import type { LocationValue } from "../../components/location-picker";
 import { relayConfig } from "../../lib/relay-config";
 import { createCityUpdateEvent } from "../../nostr/city-event";
-import {createInitialCalendarProposal} from "../../nostr/calendar-event";
-import { queryDirectoryRecords, type ApprovalRecord, type AuthorizationRecord, type CityRevision } from "../../nostr/city-records";
+import { queryCalendarEvents, queryDirectoryRecords, type ApprovalRecord, type AuthorizationRecord, type CityRevision } from "../../nostr/city-records";
 import { queryAuthorizations } from "../../nostr/city-records";
 import { archivedCityIds } from "../../nostr/moderation";
-import { editableCityRevisions, editedCity } from "../../nostr/organizer-edit";
+import { correctableRejectedCityRevisions, editableCityRevisions, editedCity } from "../../nostr/organizer-edit";
 import { authenticateWithBrowserExtension, getBrowserExtensionPubkey, signWithBrowserExtension } from "../../nostr/signer";
 import { publishVerifiedEvent } from "../../nostr/relay";
 import {importCityImageURL} from "../../lib/media-client";
@@ -19,8 +18,11 @@ import {cityAliases} from "../../domain/city";
 import {organizerDirectorySnapshot} from "../../nostr/dashboard-snapshot";
 import {organizerCityInventory,type OrganizerCityInventoryItem} from "../../domain/organizer-city-inventory";
 import {paymentFetch,signPayment,type LogoPackView} from "../../components/city-payment";
+import {createInitialCalendarProposal} from "../../nostr/calendar-event";
+import {calendarRoute} from "../../nostr/calendar-records";
 
 const LocationPicker = dynamic(() => import("../../components/location-picker"), {ssr:false});
+function exactTag(event:Event,name:string){const tags=event.tags.filter(tag=>tag[0]===name&&tag.length===2);return tags.length===1?tags[0][1]:"";}
 
 export default function OrganizerPage() {
   const lock = useRef(false);
@@ -71,7 +73,7 @@ export default function OrganizerPage() {
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if(lock.current || !base || !pin || submitted) return;
-    const form = new FormData(event.currentTarget);
+    const form = new FormData(event.currentTarget),correcting=selectedCity?.correctable===true;
     lock.current=true;setBusy(true);
     setMessage("Preparing your city changes…");
     try {
@@ -88,34 +90,35 @@ export default function OrganizerPage() {
       setMessage("Checking current permission and revision…");
       const [grants,{revisions,approvals}]=await Promise.all([queryAuthorizations(relayConfig.writeRelays),queryDirectoryRecords(relayConfig.writeRelays)]);
       if(archivedCityIds(approvals).has(base.city.cityId)) {setCities(items=>items.filter(item=>item.revision.city.cityId!==base.city.cityId));select(null);throw new Error("This city has been archived and removed from your editable walks. An admin must restore it first. Nothing was signed.");}
-      const correction=organizerCityInventory(key,grants,revisions,approvals).find(item=>item.revision.city.cityId===base.city.cityId&&item.correction);
-      const current=correction?.revision??editableCityRevisions(key,grants,revisions,approvals).find(r=>r.city.cityId===base.city.cityId);
-      if(!current) throw new Error("Could not confirm permission for this exact city revision. Reload your cities; nothing was signed.");
+      const current=(correcting?correctableRejectedCityRevisions(key,grants,revisions,approvals):editableCityRevisions(key,grants,revisions,approvals)).find(r=>r.city.cityId===base.city.cityId);
+      if(!current) throw new Error(correcting?"This correction is no longer available. Reload Cities to see who must act next; nothing was signed.":"Could not confirm your current editor permission. Reload your walks; nothing was signed.");
       if(current.event.id!==base.event.id) throw new Error("A newer revision is available. Copy your unsent changes, then reload before submitting.");
-      const walks:Event[]=[];
-      if(correction){
-        const starts=candidate.initialWalkStarts??[candidate.startAt],timeZone=Intl.DateTimeFormat().resolvedOptions().timeZone;
-        for(const [index,startAt] of starts.entries()){
-          setMessage(`Approve corrected walk ${index+1} of ${starts.length}…`);
-          const walk=await signWithBrowserExtension(createInitialCalendarProposal(candidate,timeZone,"",startAt));
-          if(walk.pubkey!==key)throw new Error("Signer identity changed; corrected walks were not published.");
-          walks.push(walk);
+      const priorInitialIds=correcting?base.event.tags.filter(tag=>tag[0]==="e"&&tag[3]==="initial-walk").map(tag=>tag[1]):[];
+      const replacementWalks:Event[]=[];
+      if(correcting&&priorInitialIds.length){
+        setMessage("Loading the original signed walks so corrected replacements can match this city…");
+        const originals=await queryCalendarEvents(relayConfig.writeRelays,{ids:priorInitialIds});
+        for(const id of priorInitialIds){
+          const original=originals.find(event=>event.id===id&&event.pubkey===key),zone=original?exactTag(original,"start_tzid"):"",start=original?Number(exactTag(original,"start")):NaN;
+          if(!original||!zone||!Number.isSafeInteger(start))throw new Error("The original signed walk could not be verified. Nothing new was signed; ask the super-admin to review the retained request.");
+          setMessage(`Approve corrected walk ${replacementWalks.length+1} of ${priorInitialIds.length}…`);
+          const replacement=await signWithBrowserExtension(createInitialCalendarProposal(candidate,zone,calendarRoute(original)??"",new Date(start*1000).toISOString()));
+          if(replacement.pubkey!==key)throw new Error("Signer identity changed; corrected walks were not published.");
+          replacementWalks.push(replacement);
         }
       }
-      setMessage("Approve the corrected city revision and relay authentication in your extension…");
-      const signed=await signWithBrowserExtension(createCityUpdateEvent(candidate,base.event.id,walks.map(walk=>walk.id)));
+      setMessage("Approve the corrected city signature and relay authentication in your extension…");
+      const initialEventIds=replacementWalks.length?replacementWalks.map(walk=>walk.id):priorInitialIds;
+      const signed=await signWithBrowserExtension(createCityUpdateEvent(candidate,base.event.id,initialEventIds.length?initialEventIds:undefined));
       if(signed.pubkey!==key || await getBrowserExtensionPubkey()!==key) throw new Error("Signer identity changed; revision was not published.");
       const afterSigning=await queryDirectoryRecords(relayConfig.writeRelays);
       if(archivedCityIds(afterSigning.approvals).has(base.city.cityId)) {setCities(items=>items.filter(item=>item.revision.city.cityId!==base.city.cityId));select(null);throw new Error("This city was archived while signing. The edit was not published.");}
-      if(correction){
-        const stillCorrectable=organizerCityInventory(key,grants,afterSigning.revisions,afterSigning.approvals).find(item=>item.revision.event.id===base.event.id&&item.correction);
-        if(!stillCorrectable)throw new Error("This request changed while you were signing. Nothing was published; reload before trying again.");
-      }
-      for(const walk of walks)await publishVerifiedEvent(walk,relayConfig.writeRelays,1,authenticateWithBrowserExtension);
+      if(correcting&&!correctableRejectedCityRevisions(key,grants,afterSigning.revisions,afterSigning.approvals).some(revision=>revision.event.id===base.event.id))throw new Error("The review state changed while you were signing. Nothing was published; reload Cities.");
+      for(const walk of replacementWalks)await publishVerifiedEvent(walk,relayConfig.writeRelays,1,authenticateWithBrowserExtension);
       const publication=await publishVerifiedEvent(signed,relayConfig.writeRelays,1,authenticateWithBrowserExtension);
       setSubmittedImageUrl(heroImageUrl??"");
       setSubmitted(true);
-      setMessage(`${correction?"Corrected submission":"Revision"} ${signed.id} sent to ${publication.accepted.length} relay(s), awaiting super-admin review. This does not change any public city or walk. Reload to edit again.`);
+      setMessage(`${correcting?"Correction":"Revision"} ${signed.id} submitted to ${publication.accepted.length} relay(s), awaiting super-admin review. ${correcting?"The rejected revision remains in signed history, and this replacement is now pending.":"This does not change the public walk."} Reload to edit again.`);
     } catch(error) {setMessage(error instanceof Error ? error.message : "Could not submit the revision.");}
     finally {lock.current=false;setBusy(false);}
   }
@@ -131,7 +134,7 @@ export default function OrganizerPage() {
   const selectedLogo=base?logoPacks.find(pack=>pack.cityId===base.city.cityId&&pack.revisionId===base.event.id&&pack.ready&&pack.publiclyListed):undefined;
   function chooseCity(cityId:string){
     const next=cities.find(item=>item.revision.city.cityId===cityId)?.revision??null;
-    if(base&&!submitted&&selectedCity?.editable&&base.city.cityId!==next?.city.cityId&&!window.confirm("Switching cities discards unsent changes. Continue?"))return false;
+    if(base&&!submitted&&(selectedCity?.editable||selectedCity?.correctable)&&base.city.cityId!==next?.city.cityId&&!window.confirm("Switching cities discards unsent changes. Continue?"))return false;
     select(next);return true;
   }
   return <section>
@@ -143,12 +146,13 @@ export default function OrganizerPage() {
       <div className="organizer-city-list">{group.items.map(item=><button key={item.revision.city.cityId} type="button" disabled={busy} aria-pressed={base?.city.cityId===item.revision.city.cityId} onClick={()=>chooseCity(item.revision.city.cityId)}><strong>{item.revision.city.cityName}</strong><span>/{item.revision.city.slug}</span></button>)}</div>
     </section>)}</div>}
     {!!archivedCities.length&&<details className="organizer-city-archive"><summary><strong>Archived ({archivedCities.length})</strong></summary><div className="organizer-city-list">{archivedCities.map(item=><button key={item.revision.city.cityId} type="button" disabled={busy} aria-pressed={base?.city.cityId===item.revision.city.cityId} onClick={()=>chooseCity(item.revision.city.cityId)}><strong>{item.revision.city.cityName}</strong><span>/{item.revision.city.slug}</span></button>)}</div></details>}
-    {base && selectedCity&&!selectedCity.editable&&!selectedCity.correction&&<section><h3>{base.city.cityName} — {selectedCity.status==="archived"?"Archived":"Pending approval"}</h3><p>{selectedCity.status==="archived"?"This city is read-only and hidden from public and active host views. Contact BitcoinWalk to request restoration.":"This submission is awaiting super-admin review. It cannot be changed while that decision is pending."}</p></section>}
-    {base && selectedCity&&(selectedCity.editable||selectedCity.correction) && <section>
-      <h2>City profile</h2>
-      {selectedCity.correction?<><p><strong>Reviewer feedback:</strong> {selectedCity.reviewNote??"No reviewer note was provided. Update the submission below or contact BitcoinWalk if the required change is unclear."}</p><p>Correct the city description, image or meeting point, then resubmit it. You will also re-sign the unpublished first walk series so it matches these changes. Nothing becomes public until a super-admin approves the replacement.</p></>:<p>Edit the city description, hero image and default meeting point. Scheduled walks are managed separately in Walks. Pending edits are publicly readable; do not include private details.</p>}
+    {base && selectedCity&&!selectedCity.editable&&!selectedCity.correctable&&<section><h3>{base.city.cityName} — {selectedCity.status==="archived"?"Archived":selectedCity.status==="needs-changes"?"Needs changes":"Pending approval"}</h3><p>{selectedCity.status==="archived"?"This city is read-only and hidden from public and active host views. Contact BitcoinWalk to request restoration.":selectedCity.status==="needs-changes"?"This request cannot be corrected by the connected account. The original host or a super-admin must act.":"This request is awaiting super-admin review. It cannot be changed while that review is pending."}</p></section>}
+    {base && selectedCity?.correctable&&<section aria-labelledby="correction-heading"><h2 id="correction-heading">Correct and resubmit {base.city.cityName}</h2><p><strong>Reviewer feedback:</strong> {selectedCity.reviewNote?.trim()||"No specific reason was provided. Review the submitted details carefully before resubmitting."}</p><p>Update the fields below, then submit a replacement for review. Your original signed walk references are preserved automatically.</p></section>}
+    {base && (selectedCity?.editable||selectedCity?.correctable) && <section>
+      <h2>{selectedCity.correctable?"City correction":"City profile"}</h2>
+      <p>{selectedCity.correctable?"Only this rejected request can be replaced. It remains inactive until the super-admin approves the corrected revision.":"Edit the city description, hero image and default meeting point. Scheduled walks are managed separately in Walks. Pending edits are publicly readable; do not include private details."}</p>
       <p>City ID: {base.city.cityId}<br/>Editing revision: {base.event.id}<br/>Revision status: {submitted ? "New edit submitted" : status}</p>
-      <p><a href={`/${encodeURIComponent(base.city.slug)}`} target="_blank" rel="noreferrer">Open approved public page</a> (only available if an approved revision is published).</p>
+      {selectedCity.editable&&<p><a href={`/${encodeURIComponent(base.city.slug)}`} target="_blank" rel="noreferrer">Open approved public page</a> (only available if an approved revision is published).</p>}
       {proCityIds.has(base.city.cityId)&&<section aria-label="Pro city setup"><h3>Pro city setup</h3><p>Your payment is recorded. Complete or resume the city identity, payout and public profile setup without paying again.</p><p><a className="chat-button" href={`/admin/upgrade?city=${encodeURIComponent(base.city.cityId)}`}>Complete Pro setup</a></p></section>}
       {selectedLogo?.href&&<p><a href={selectedLogo.href} target="_blank" rel="noreferrer">Download your Pro city logo pack</a></p>}
       <form key={base.event.id} onSubmit={submit}>
@@ -162,7 +166,7 @@ export default function OrganizerPage() {
           <label>Default city landscape image URL <input name="heroImageUrl" type="url" defaultValue={base.city.heroImageUrl??""} /></label>
           <p>Future walks inherit this image unless their organizer chooses a walk-specific override. A replacement is imported into BitcoinWalk storage and becomes public only after super-admin approval.</p>
           <p>The city URL, chat configuration and sponsor are preserved. This form does not change editor permissions.</p>
-          <button type="submit">{submitted?"Submitted":busy?"Submitting…":selectedCity.correction?"Resubmit corrections for review":"Submit edit for approval"}</button>
+          <button type="submit">{submitted?"Submitted":busy?"Submitting…":selectedCity.correctable?"Submit correction for review":"Submit edit for approval"}</button>
         </fieldset>
       </form>
       {submitted&&<section aria-live="polite"><h3>Submitted city image</h3>{submittedImageUrl?<img className="hero-image" src={submittedImageUrl} alt={`Pending landscape for BitcoinWalk ${base.city.cityName}`} referrerPolicy="no-referrer"/>:<p>The submitted revision removes the city template image.</p>}<p>This is the safely stored image in the pending revision. The public city template and inherited walk images will change only after super-admin approval.</p></section>}

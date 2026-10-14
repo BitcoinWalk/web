@@ -18,17 +18,20 @@ describe("my cities inventory",()=>{
   expect(page).not.toContain("Search your cities");
  });
  it("places city-profile guidance inside the editable city panel",()=>{
-  const page=source(),panel=page.indexOf("{base && selectedCity&&(selectedCity.editable||selectedCity.correction) && <section>"),heading=page.indexOf("<h2>City profile</h2>");
+  const page=source(),panel=page.indexOf("{base && (selectedCity?.editable||selectedCity?.correctable) && <section>"),heading=page.indexOf('selectedCity.correctable?"City correction":"City profile"');
   expect(panel).toBeGreaterThan(-1);
   expect(heading).toBeGreaterThan(panel);
   expect(page.indexOf("Edit the city description, hero image and default meeting point.")).toBeGreaterThan(panel);
  });
- it("offers rejected creators an exact correction action while keeping pending cities read-only",()=>{
+ it("shows reviewer feedback and the exact resubmission action for correctable rejected requests",()=>{
   const page=source();
-  expect(page).toContain("Reviewer feedback:");
-  expect(page).toContain("Resubmit corrections for review");
-  expect(page).toContain("cannot be changed while that decision is pending");
-  expect(page).toContain("createInitialCalendarProposal(candidate,timeZone");
+  expect(page).toContain("Correct and resubmit {base.city.cityName}");
+  expect(page).toContain("<strong>Reviewer feedback:</strong>");
+  expect(page).toContain("Submit correction for review");
+  expect(page).toContain("correctableRejectedCityRevisions");
+  expect(page).toContain('tag[3]==="initial-walk"');
+  expect(page).toContain("createInitialCalendarProposal(candidate,zone,calendarRoute(original)");
+  expect(page.indexOf("for(const walk of replacementWalks)await publishVerifiedEvent")).toBeLessThan(page.indexOf("const publication=await publishVerifiedEvent(signed"));
  });
  it("does not expose identity or legacy guidance copy",()=>{
   const page=source();
