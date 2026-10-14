@@ -29,7 +29,8 @@ export default defineConfig({
           {label: "Configure Armada", slug: "chat/configure-armada"}
         ]},
         {label: "Relay operators", items: [
-          {label: "Relay compatibility", slug: "relays/compatibility"}
+          {label: "Relay compatibility", slug: "relays/compatibility"},
+          {label: "Run on your own relay", slug: "relays/run-on-your-own-relay"}
         ]},
         {label: "Resources", items: [
           {label: "Repositories, APIs, brand and roadmap", slug: "resources"}
