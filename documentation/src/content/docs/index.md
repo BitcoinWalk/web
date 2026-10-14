@@ -18,6 +18,7 @@ hero:
 
 - **Participants:** find a city, open the next walk and join the local conversation.
 - **Organizers:** manage a city profile, prepare recurring walks and sign changes with your own Nostr identity.
+- **Sponsors:** [support one or more upcoming walks](/sponsors/how-sponsorship-works/) and add approved branding to the walks you fund.
 - **Relay operators:** understand what BitcoinWalk requires before proposing an external city relay.
 - **Resources:** use the canonical [repositories, developer APIs, Brand Guide and roadmap](/resources/).
 

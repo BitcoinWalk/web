@@ -20,6 +20,9 @@ export default defineConfig({
         {label: "Organizers", items: [
           {label: "Manage your city and walks", slug: "organizers/manage-city-and-walks"}
         ]},
+        {label: "Sponsors", items: [
+          {label: "Sponsor a BitcoinWalk", slug: "sponsors/how-sponsorship-works"}
+        ]},
         {label: "Chat", items: [
           {label: "Walkie Talkie and Guide", slug: "chat/walkie-talkie-and-guide"},
           {label: "Configure Armada", slug: "chat/configure-armada"}
