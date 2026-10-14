@@ -29,7 +29,7 @@ export default function DashboardOverview(){
  function metric(label:string,value:DashboardMetric,href:string){return <article className={styles.metric} key={label}><p>{label}</p><strong>{value.value??"Unavailable"}</strong><p><Link href={href}>Open details →</Link></p>{value.error&&<p role="status">{value.error}</p>}</article>;}
  useEffect(()=>{if(/^#submission-[0-9a-f]{64}$/.test(window.location.hash)){window.location.replace("/admin/requests"+window.location.hash);return;}queueMicrotask(()=>{setHandoff(takeRegistrationHandoff());setSubmittedCity(new URLSearchParams(window.location.search).get("submitted")??"");});},[]);
  const submissions=session.directory?creatorSubmissions(session.pubkey,session.directory.revisions,session.directory.approvals):[],activeSubmissions=submissions.filter(item=>item.status!=="archived"),archivedSubmissions=submissions.filter(item=>item.status==="archived");
- const statusLabel={"awaiting-approval":"Awaiting approval",approved:"Approved","needs-changes":"Needs changes",archived:"Archived"} as const;
+ const statusLabel={"awaiting-approval":"Awaiting approval",approved:"Approved","needs-changes":"Needs changes",rejected:"Rejected",archived:"Archived"} as const;
  const capabilities={hostedWalks:session.role==="member"&&session.cities.length>0},copy=dashboardHomeCopy(session.role),actions=dashboardHomeActions(session.role,capabilities),showSubmissions=activeSubmissions.length>0||archivedSubmissions.length>0;
  return <main className={styles.overview}>
   <p className={styles.eyebrow}>BitcoinWalk dashboard</p><h1>{copy.title}</h1><p className={styles.intro}>{copy.intro}</p>

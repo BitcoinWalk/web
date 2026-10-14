@@ -1,12 +1,13 @@
 "use client";
 import {useDashboard,useDashboardAutoLoad} from "../../components/dashboard-context";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import {cityAliases,type CityDocument} from "../../domain/city";
 import { relayConfig } from "../../lib/relay-config";
 import { createApprovalEvent, createAuthorizationEvent } from "../../nostr/city-event";
-import { pendingCityRevisions, queryDirectoryRecords } from "../../nostr/city-records";
+import { queryDirectoryRecords } from "../../nostr/city-records";
 import { queryAuthorizations } from "../../nostr/city-records";
 import { isSuperAdmin } from "../../nostr/authority";
 import { publishVerifiedEvent } from "../../nostr/relay";
@@ -25,8 +26,9 @@ import {announcePendingRequestCount} from "../../components/pending-request-coun
 import {createSponsorshipRevision,latestSponsorships,querySponsorships,sponsorshipKey} from "../../nostr/sponsorships";
 import CityFinder from "../../components/city-finder";
 import {provisionWalkieTalkieCity} from "../../lib/walkie-talkie-provision-client";
+import {adminCityRequests,FINAL_REJECTION_PREFIX,visibleDecisionNote,type AdminCityRequestStatus} from "../../domain/admin-city-requests";
 
-type Submission = { eventId: string; initialEventIds: string[]; author: string; cityId: string; slug: string; cityName: string; startAt: string; meetingPoint: string; city: CityDocument; previous?: string; previousCity?:CityDocument; paid:boolean; registered:boolean; established:boolean };
+type Submission = { eventId: string; initialEventIds: string[]; author: string; cityId: string; slug: string; cityName: string; startAt: string; meetingPoint: string; city: CityDocument; previous?: string; previousCity?:CityDocument; paid:boolean; registered:boolean; established:boolean; status:AdminCityRequestStatus; decisionNote?:string; decidedAt?:number };
 type State = { message: string; tone: "info" | "error" | "success"; approvedWalk?: { href: string; name: string } };
 type ImageState={status:"idle"|"waiting"|"working"|"ready"|"error";message:string};
 type ActivationState=CityActivationResult["checks"];
@@ -93,18 +95,20 @@ export default function SubmissionApprovals() {
   const [heroImages,setHeroImages]=useState<Record<string,string>>({});
   const [imageStates,setImageStates]=useState<Record<string,ImageState>>({});
   const [activationStates,setActivationStates]=useState<Record<string,ActivationState>>({});
-  const [decided,setDecided]=useState<Record<string,boolean>>({});
   const [inviteSponsors,setInviteSponsors]=useState<Record<string,boolean>>({});
   const [slugs,setSlugs]=useState<Record<string,string>>({});
   const [aliases,setAliases]=useState<Record<string,string>>({});
   const [rejectionNotes,setRejectionNotes]=useState<Record<string,string>>({});
   const [selectedCity,setSelectedCity]=useState("");
+  const [statusFilter,setStatusFilter]=useState<"all"|AdminCityRequestStatus>("all");
+  const [reviewing,setReviewing]=useState("");
   const [busy, setBusy] = useState(false);
   const [state, setState] = useState<State>({ message: "Connect the BitcoinWalk super-admin signer to load submissions.", tone: "info" });
   useEffect(() => {
     const target = window.location.hash.slice(1);
-    if (/^submission-[0-9a-f]{64}$/.test(target)) document.getElementById(target)?.scrollIntoView({ block: "center" });
+    if (/^submission-[0-9a-f]{64}$/.test(target)){const id=target.slice("submission-".length);if(submissions.some(row=>row.eventId===id))setReviewing(id);}
   }, [submissions]);
+  useEffect(()=>{if(!reviewing)return;const previous=document.body.style.overflow;document.body.style.overflow="hidden";const close=(event:KeyboardEvent)=>{if(event.key==="Escape"&&!busy)setReviewing("");};window.addEventListener("keydown",close);return()=>{document.body.style.overflow=previous;window.removeEventListener("keydown",close);};},[reviewing,busy]);
 
   const dashboard=useDashboard();
   useDashboardAutoLoad(loadSubmissions);
@@ -126,7 +130,7 @@ export default function SubmissionApprovals() {
       ]);
       const payments:PaymentView[]|null=paymentsResult?.payments??null;
       if(await getBrowserExtensionPubkey()!==pubkey)throw new Error("Signer changed. Reconnect.");
-      const pending = pendingCityRevisions(revisions, approvals).filter(r=>!dashboard.selectedCity||r.city.cityId===dashboard.selectedCity).map(({ event, city }) => {
+      const rows = adminCityRequests(revisions, approvals).filter(row=>!dashboard.selectedCity||row.revision.city.cityId===dashboard.selectedCity).map(({revision:{event,city},status,decision,established}) => {
         const previous=event.tags.find(tag=>tag[0]==="e" && tag[3]==="previous")?.[1];
         return ({
         eventId: event.id,
@@ -142,20 +146,24 @@ export default function SubmissionApprovals() {
         previousCity:previous?revisions.find(revision=>revision.event.id===previous)?.city:undefined,
         paid:!!payments&&!!paidPaymentForCity(payments,city.cityId),
         registered:grants.some(record=>record.grant.cityId===city.cityId),
-        established:approvals.some(record=>record.approval.cityId===city.cityId&&record.approval.status==="approved"),
+        established,
+        status,
+        decisionNote:visibleDecisionNote(decision?.approval.note),
+        decidedAt:decision?.event.created_at,
       });});
-      setSubmissions(pending);
-      setInviteSponsors(current=>Object.fromEntries(pending.filter(item=>!item.registered).map(item=>[item.eventId,current[item.eventId]??true])));
-      setHeroImages(current=>Object.fromEntries(pending.map(item=>[item.eventId,current[item.eventId]??item.city.heroImageUrl??""])));
-      setAliases(current=>Object.fromEntries(pending.map(item=>[item.eventId,current[item.eventId]??(item.city.aliases??[]).join(", ")])));
-      announcePendingRequestCount(pending.length);
-      setState({ message: `${pending.length} pending request(s).${payments===null?" Payment status could not be verified, so paid markers are hidden.":""}`, tone: "info" });
+      setSubmissions(rows);
+      setInviteSponsors(current=>Object.fromEntries(rows.filter(item=>!item.registered).map(item=>[item.eventId,current[item.eventId]??true])));
+      setHeroImages(current=>Object.fromEntries(rows.map(item=>[item.eventId,current[item.eventId]??item.city.heroImageUrl??""])));
+      setAliases(current=>Object.fromEntries(rows.map(item=>[item.eventId,current[item.eventId]??(item.city.aliases??[]).join(", ")])));
+      const pendingCount=rows.filter(row=>row.status==="pending").length;
+      announcePendingRequestCount(pendingCount);
+      setState({ message: `${rows.length} cities loaded · ${pendingCount} awaiting a decision.${payments===null?" Payment status could not be verified, so paid markers are hidden.":""}`, tone: "info" });
     } catch (error) {
       setState({ message: error instanceof Error ? error.message : "Could not load submissions.", tone: "error" });
     } finally {setBusy(false);}
   }
 
-  async function decide(submission: Submission, status: "approved" | "rejected") {
+  async function decide(submission: Submission, action: "accept" | "changes" | "reject") {
     if (busy) return;
     if (relayConfig.writeRelays.length === 0) {
       setState({ message: "Configure the BitcoinWalk relay before publishing a decision.", tone: "error" });
@@ -167,16 +175,19 @@ export default function SubmissionApprovals() {
       if (!isSuperAdmin(pubkey)) throw new Error("This Nostr identity is not the BitcoinWalk super-admin.");
       // A retained grant can exist after an interrupted approval. Until a city
       // has an approved revision it must still finish all new-city steps.
+      if(submission.status!=="pending")throw new Error("This request already has a signed decision. Refresh before taking another action.");
+      const status=action==="accept"?"approved" as const:"rejected" as const;
       const initialRequest=!submission.established;
       const rejectionNote=rejectionNotes[submission.eventId]?.trim()??"";
       if(status==="rejected"&&!rejectionNote)throw new Error("Add a clear reason so the host knows what to correct.");
+      if(action==="reject"&&!window.confirm(`Reject the ${submission.registered?"revision":"application"} for ${submission.cityName}?\n\nThis is a final rejection, not a request for corrections. Signed history is retained.`))throw new Error("Rejection cancelled. No decision was signed.");
       let initialHero=heroImages[submission.eventId]?.trim();
       const approvedSlug=(slugs[submission.eventId]??(initialRequest?registrationSlug(submission.cityName):submission.slug)).trim();
       const approvedAliases=cityAliases(aliases[submission.eventId]??submission.city.aliases??[],submission.cityName);
-      if(approvedAliases.length>20)throw new Error("Use no more than 20 alternative city names.");
-      if(approvedAliases.some(alias=>alias.length>100))throw new Error("Each alternative city name must be 100 characters or fewer.");
+      if(status==="approved"&&approvedAliases.length>20)throw new Error("Use no more than 20 alternative city names.");
+      if(status==="approved"&&approvedAliases.some(alias=>alias.length>100))throw new Error("Each alternative city name must be 100 characters or fewer.");
       if(status==="approved"&&initialRequest&&!initialHero)throw new Error("Choose the initial landscape image before approving this city.");
-      if(initialHero){try{new URL(initialHero);}catch{throw new Error("Enter a valid HTTPS image URL before approving.");}if(!initialHero.startsWith("https://"))throw new Error("The initial image must use HTTPS.");}
+      if(status==="approved"&&initialHero){try{new URL(initialHero);}catch{throw new Error("Enter a valid HTTPS image URL before approving.");}if(!initialHero.startsWith("https://"))throw new Error("The initial image must use HTTPS.");}
       if(status==="approved"&&initialHero&&!initialHero.includes("/api/media/files/")){setState({message:"Approve importing the landscape into protected BitcoinWalk storage…",tone:"info"});initialHero=(await importCityImageURL(submission.cityId,initialHero)).url;}
       if (status === "approved") {
         const existing = (await queryAuthorizations(relayConfig.readRelays)).find(r => r.grant.cityId === submission.cityId);
@@ -209,7 +220,7 @@ export default function SubmissionApprovals() {
         ...(submission.initialEventIds.length===1?{initialEventId:submission.initialEventIds[0]}:submission.initialEventIds.length?{initialEventIds:submission.initialEventIds}:{}),
         ...(initialHero?{heroImageUrl:initialHero}:{}),
         ...(status==="approved"?{slug:approvedSlug,aliases:approvedAliases}:{}),
-        ...(status==="rejected"?{note:rejectionNote}:{}),
+        ...(status==="rejected"?{note:action==="reject"?FINAL_REJECTION_PREFIX+rejectionNote:rejectionNote}:{}),
         status,
       }));
       if (signed.pubkey !== pubkey) throw new Error("Signer identity changed; decision cancelled.");
@@ -225,7 +236,6 @@ export default function SubmissionApprovals() {
         discoveryMessage=` ${released.length} walk${released.length===1?"":"s"} released. ${calendarDiscoverySummary(results[0],relayConfig.calendarDiscoveryRelays.length)}`;
       }
       if(status==="approved"){
-        setDecided(current=>({...current,[submission.eventId]:true}));
         let activation=pendingActivation(submission.paid);setActivationStates(current=>({...current,[submission.eventId]:activation}));
         try{activation=(await completeCityActivation(signed)).checks;setActivationStates(current=>({...current,[submission.eventId]:activation}));}
         catch(error){const message=error instanceof Error?error.message:"Activation status could not be checked.";activation=failedActivation(message,submission.paid);setActivationStates(current=>({...current,[submission.eventId]:activation}));}
@@ -238,9 +248,11 @@ export default function SubmissionApprovals() {
             setActivationStates(current=>({...current,[submission.eventId]:activation}));
           }catch(error){const message=error instanceof Error?error.message:"Walkie Talkie provisioning stopped.";activation={...activation,walkieTalkie:{status:"red",message:`${message} The approval remains valid; retry under Monitoring → Communities.`}};setActivationStates(current=>({...current,[submission.eventId]:activation}));}
         }
-      }else setSubmissions((items) => {const next=items.filter((item) => item.eventId !== submission.eventId);announcePendingRequestCount(next.length);return next;});
+      }
+      const nextStatus:AdminCityRequestStatus=status==="approved"?"accepted":action==="reject"?"rejected":"needs-changes";
+      setSubmissions(items=>{const next=items.map(item=>item.eventId===submission.eventId?{...item,status:nextStatus,decisionNote:rejectionNote,decidedAt:signed.created_at}:item);announcePendingRequestCount(next.filter(item=>item.status==="pending").length);return next;});
       setState({
-        message: `${status === "approved" ? "Approved" : "Rejected"} on ${publication.accepted.length} BitcoinWalk relay(s).${sponsorMessage}${discoveryMessage}`,
+        message: `${action === "accept" ? "Accepted" : action==="changes"?"Changes requested":"Rejected"} on ${publication.accepted.length} BitcoinWalk relay(s).${sponsorMessage}${discoveryMessage}`,
         tone: "success",
         ...(status === "approved" ? { approvedWalk: { href: `/${encodeURIComponent(approvedSlug)}`, name: submission.cityName } } : {}),
       });
@@ -259,40 +271,42 @@ export default function SubmissionApprovals() {
 
   async function importLandscape(submission:Submission){const source=heroImages[submission.eventId]?.trim();if(!source||source.includes("/api/media/files/"))return;if(busy)return;setBusy(true);setImageStates(current=>({...current,[submission.eventId]:{status:"waiting",message:"Waiting for your signer. Approve importing this image…"}}));try{const result=await importCityImageURL(submission.cityId,source);setHeroImages(images=>({...images,[submission.eventId]:result.url}));setImageStates(current=>({...current,[submission.eventId]:{status:"ready",message:"The image is secured in BitcoinWalk storage and selected for this city."}}));}catch(error){setImageStates(current=>({...current,[submission.eventId]:{status:"error",message:error instanceof Error?error.message:"Could not import the landscape."}}));}finally{setBusy(false);}}
 
-      const requestCities=[...new Map(submissions.map(submission=>[submission.cityId,{id:submission.cityId,name:submission.cityName,meta:submission.paid?"Pro — paid":submission.city.requestedTier==="paid"?"Pro — payment pending":"Basic",keywords:[submission.slug,submission.cityId,submission.author,...(submission.city.aliases??[])]}])).values()];
-  const visibleSubmissions=selectedCity?submissions.filter(submission=>submission.cityId===selectedCity):submissions;
+  const requestCities=[...new Map(submissions.map(submission=>[submission.cityId,{id:submission.cityId,name:submission.cityName,meta:submission.paid?"Pro — paid":submission.city.requestedTier==="paid"?"Pro — payment pending":"Basic",keywords:[submission.slug,submission.cityId,submission.author,...(submission.city.aliases??[])]}])).values()];
+  const filteredSubmissions=useMemo(()=>submissions.filter(submission=>(!selectedCity||submission.cityId===selectedCity)&&(statusFilter==="all"||submission.status===statusFilter)),[submissions,selectedCity,statusFilter]);
+  const visibleSubmissions=filteredSubmissions.filter(submission=>submission.status!=="archived"),archivedSubmissions=filteredSubmissions.filter(submission=>submission.status==="archived"),selectedSubmission=submissions.find(submission=>submission.eventId===reviewing);
+  const statusLabels:Record<AdminCityRequestStatus,string>={pending:"Pending",accepted:"Accepted","needs-changes":"Needs changes",rejected:"Rejected",archived:"Archived"};
+  const filters:Array<{key:"all"|AdminCityRequestStatus;label:string}>=[{key:"all",label:"All"},{key:"pending",label:"Pending"},{key:"accepted",label:"Accepted"},{key:"needs-changes",label:"Needs changes"},{key:"rejected",label:"Rejected"},{key:"archived",label:"Archived"}];
 
-  return (
-    <section>
-      <h2>Requests</h2>
-      <p role="status">
-        {state.message}
-        {state.approvedWalk && <>{" "}<Link prefetch={false} href={state.approvedWalk.href}>View BitcoinWalk {state.approvedWalk.name} →</Link></>}
-      </p>
-      <button disabled={busy} type="button" onClick={loadSubmissions}>Refresh</button>
-      <CityFinder disabled={busy||!submissions.length} label="Find request by city" placeholder="Search pending city requests…" value={selectedCity} onChange={setSelectedCity} items={requestCities}/>
-      {!!submissions.length&&<p>{visibleSubmissions.length} of {submissions.length} pending request(s) shown.</p>}
-      {visibleSubmissions.map((submission) => (
-        <article key={submission.eventId} id={`submission-${submission.eventId}`}>
-          <h2>{submission.paid&&<span role="img" aria-label="Verified Pro city" title="Verified Pro city">⚡</span>} {submission.cityName}</h2>
-          <p><strong>{submission.registered?"City change":submission.previous?"Corrected new city":"New city"}</strong> · {submission.paid?"Pro — paid":submission.city.requestedTier==="paid"?"Pro — payment pending":"Basic"} · {new Date(submission.startAt).toLocaleString()}</p>
-          <details>
-            <summary>Review request and approval settings</summary>
-            <p>{submission.meetingPoint}<br/>{submission.city.description}</p>
-            <p>City host: {submission.author}<br/>City ID: {submission.cityId}<br/>Revision: {submission.eventId}{submission.previous&&<><br/>Based on: {submission.previous}</>}<br/>Signed walks: {submission.initialEventIds.length||"Missing"}</p>
-            <SubmittedCityFields submission={submission}/>
-            <label>Public URL <span>bitcoinwalk.org/</span><input required minLength={2} maxLength={63} pattern="[a-z0-9]+(?:-[a-z0-9]+)*" value={slugs[submission.eventId]??(submission.registered?submission.slug:registrationSlug(submission.cityName))} onChange={event=>setSlugs(current=>({...current,[submission.eventId]:event.target.value.toLowerCase()}))}/></label>
-            <label>Alternative city names <input maxLength={2020} value={aliases[submission.eventId]??(submission.city.aliases??[]).join(", ")} onChange={event=>setAliases(current=>({...current,[submission.eventId]:event.target.value}))} placeholder="One or more names, separated by commas"/></label>
-          </details>
-          {!submission.registered&&<section><h3>City image</h3><label>Landscape image URL <input type="url" placeholder="https://…" value={heroImages[submission.eventId]??""} onChange={event=>{setHeroImages(images=>({...images,[submission.eventId]:event.target.value}));setImageStates(current=>({...current,[submission.eventId]:{status:"idle",message:"The image will be validated and stored during approval."}}));}}/></label><p><button disabled={busy} type="button" onClick={()=>generateLandscape(submission)}>{imageStates[submission.eventId]?.status==="waiting"||imageStates[submission.eventId]?.status==="working"?"Generating…":"Generate image"}</button>{" "}<button disabled={busy||!heroImages[submission.eventId]?.trim()||heroImages[submission.eventId]?.includes("/api/media/files/")} type="button" onClick={()=>importLandscape(submission)}>Store image now</button></p>{imageStates[submission.eventId]?.message&&<p role={imageStates[submission.eventId]?.status==="error"?"alert":"status"}>{imageStates[submission.eventId].message}</p>}{heroImages[submission.eventId]?.includes("/api/media/files/")&&<img src={heroImages[submission.eventId]} alt={`Selected landscape for ${submission.cityName}`} style={{maxWidth:"24rem",width:"100%",height:"auto"}}/>}<label className="inline-checkbox"><input type="checkbox" checked={inviteSponsors[submission.eventId]??true} disabled={busy} onChange={event=>setInviteSponsors(current=>({...current,[submission.eventId]:event.target.checked}))}/> Show sponsor invitation</label></section>}
-          <label>Reason if changes are needed <textarea maxLength={500} value={rejectionNotes[submission.eventId]??""} onChange={event=>setRejectionNotes(current=>({...current,[submission.eventId]:event.target.value}))} placeholder="Tell the host exactly what to correct before resubmitting."/></label>
-          <p>This reason is required when rejecting and will be shown to the host.</p>
-          <p><button disabled={busy||decided[submission.eventId]||!!submission.previous&&!submission.previousCity||!submission.registered&&(!submission.initialEventIds.length||!heroImages[submission.eventId]?.trim())} type="button" onClick={()=>decide(submission,"approved")}>{decided[submission.eventId]?"Approved":"Approve"}</button>{" "}<button disabled={busy||decided[submission.eventId]} type="button" onClick={()=>decide(submission,"rejected")}>Request changes</button></p>
-          <ul aria-label={`Activation checklist for ${submission.cityName}`}>
-            {(Object.entries(activationStates[submission.eventId]??initialActivation(submission)) as Array<[keyof ActivationState,ActivationState[keyof ActivationState]]>).map(([key,check])=><li key={key}><span aria-hidden="true">{check.status==="green"?"🟢":check.status==="red"?"🔴":check.status==="na"?"⚪":"🟠"}</span> <strong>{activationLabels[key]}</strong> — {check.message}{check.url&&<> <a href={check.url} target="_blank" rel="noreferrer">Preview</a></>}</li>)}
-          </ul>
-        </article>
-      ))}
-    </section>
-  );
+  const requestRow=(submission:Submission)=><button className="request-review-row" type="button" key={submission.eventId} id={`submission-${submission.eventId}`} onClick={()=>setReviewing(submission.eventId)}>
+    <span className="request-review-row__identity"><strong>{submission.paid&&<span aria-label="Verified Pro city" title="Verified Pro city">⚡ </span>}{submission.cityName}</strong><small>{submission.registered?"City revision":submission.previous?"Corrected application":"New city"} · /{submission.slug}</small></span>
+    <span className={`request-status request-status--${submission.status}`}>{statusLabels[submission.status]}</span>
+    <span className="request-review-row__date">{submission.decidedAt?`Decided ${new Date(submission.decidedAt*1000).toLocaleDateString()}`:`Submitted ${new Date(submission.startAt).toLocaleDateString()}`}</span>
+    <span className="request-review-row__open">{submission.status==="pending"?"Review":"View"}<span aria-hidden="true"> →</span></span>
+  </button>;
+
+  return <section className="request-review">
+    <div className="request-review__heading"><div><h2>City applications</h2><p>Review new cities and revisions without expanding the page. Every pending request can be accepted, returned for changes or rejected.</p></div><button disabled={busy} type="button" onClick={loadSubmissions}>{busy?"Refreshing…":"Refresh"}</button></div>
+    <p className={`request-review__notice request-review__notice--${state.tone}`} role={state.tone==="error"?"alert":"status"} aria-live="polite">{state.message}{state.approvedWalk&&<> <Link prefetch={false} href={state.approvedWalk.href}>View BitcoinWalk {state.approvedWalk.name} →</Link></>}</p>
+    <div className="request-review__filters">
+      <CityFinder disabled={busy||!submissions.length} label="Find a city" placeholder="Search all city applications…" value={selectedCity} onChange={setSelectedCity} items={requestCities}/>
+      <div className="request-status-filters" aria-label="Filter requests by status">{filters.map(filter=><button key={filter.key} type="button" aria-pressed={statusFilter===filter.key} onClick={()=>setStatusFilter(filter.key)}>{filter.label}<span>{filter.key==="all"?submissions.length:submissions.filter(row=>row.status===filter.key).length}</span></button>)}</div>
+    </div>
+    <p className="request-review__count">Showing {filteredSubmissions.length} of {submissions.length} cities</p>
+    <div className="request-review-list" aria-label="City applications">{visibleSubmissions.map(requestRow)}{!visibleSubmissions.length&&!archivedSubmissions.length&&<p className="request-review__empty">No cities match these filters.</p>}</div>
+    {!!archivedSubmissions.length&&<details className="request-review-archive" open={statusFilter==="archived"}><summary>Archived cities <span>{archivedSubmissions.length}</span></summary><div className="request-review-list">{archivedSubmissions.map(requestRow)}</div></details>}
+    {selectedSubmission&&<div className="request-modal-backdrop" role="presentation" onMouseDown={event=>{if(event.target===event.currentTarget&&!busy)setReviewing("");}}>
+      <section className="request-modal" role="dialog" aria-modal="true" aria-labelledby="request-modal-title">
+        <header className="request-modal__header"><div><span className={`request-status request-status--${selectedSubmission.status}`}>{statusLabels[selectedSubmission.status]}</span><h2 id="request-modal-title">{selectedSubmission.cityName}</h2><p>{selectedSubmission.registered?"City revision":selectedSubmission.previous?"Corrected city application":"New city application"} · {selectedSubmission.paid?"Pro — paid":selectedSubmission.city.requestedTier==="paid"?"Pro — payment pending":"Basic"}</p></div><button className="request-modal__close" type="button" disabled={busy} onClick={()=>setReviewing("")} aria-label="Close city review">×</button></header>
+        <div className="request-modal__body">
+          <section className="request-modal__summary"><div><span>First walk</span><strong>{new Date(selectedSubmission.startAt).toLocaleString()}</strong></div><div><span>Meeting point</span><strong>{selectedSubmission.meetingPoint}</strong></div><div><span>Signed walks</span><strong>{selectedSubmission.initialEventIds.length||"Missing"}</strong></div><div><span>Host</span><code title={selectedSubmission.author}>{selectedSubmission.author.slice(0,12)}…{selectedSubmission.author.slice(-8)}</code></div></section>
+          <section className="request-modal__panel"><h3>Submitted city profile</h3><p>{selectedSubmission.city.description}</p><SubmittedCityFields submission={selectedSubmission}/><dl className="request-modal__metadata"><div><dt>City ID</dt><dd><code>{selectedSubmission.cityId}</code></dd></div><div><dt>Revision</dt><dd><code>{selectedSubmission.eventId}</code></dd></div>{selectedSubmission.previous&&<div><dt>Based on</dt><dd><code>{selectedSubmission.previous}</code></dd></div>}</dl></section>
+          <section className="request-modal__panel request-modal__settings"><h3>Public settings</h3><label>Public URL <span className="request-url-field"><span>bitcoinwalk.org/</span><input required minLength={2} maxLength={63} pattern="[a-z0-9]+(?:-[a-z0-9]+)*" disabled={selectedSubmission.status!=="pending"} value={slugs[selectedSubmission.eventId]??(selectedSubmission.registered?selectedSubmission.slug:registrationSlug(selectedSubmission.cityName))} onChange={event=>setSlugs(current=>({...current,[selectedSubmission.eventId]:event.target.value.toLowerCase()}))}/></span></label><label>Alternative city names <input maxLength={2020} disabled={selectedSubmission.status!=="pending"} value={aliases[selectedSubmission.eventId]??(selectedSubmission.city.aliases??[]).join(", ")} onChange={event=>setAliases(current=>({...current,[selectedSubmission.eventId]:event.target.value}))} placeholder="One or more names, separated by commas"/></label></section>
+          {!selectedSubmission.registered&&<section className="request-modal__panel"><h3>City image</h3><label>Landscape image URL <input type="url" disabled={selectedSubmission.status!=="pending"} placeholder="https://…" value={heroImages[selectedSubmission.eventId]??""} onChange={event=>{setHeroImages(images=>({...images,[selectedSubmission.eventId]:event.target.value}));setImageStates(current=>({...current,[selectedSubmission.eventId]:{status:"idle",message:"The image will be validated and stored during approval."}}));}}/></label>{selectedSubmission.status==="pending"&&<div className="request-modal__image-actions"><button disabled={busy} type="button" onClick={()=>generateLandscape(selectedSubmission)}>{imageStates[selectedSubmission.eventId]?.status==="waiting"||imageStates[selectedSubmission.eventId]?.status==="working"?"Generating…":"Generate image"}</button><button disabled={busy||!heroImages[selectedSubmission.eventId]?.trim()||heroImages[selectedSubmission.eventId]?.includes("/api/media/files/")} type="button" onClick={()=>importLandscape(selectedSubmission)}>Store image now</button></div>}{imageStates[selectedSubmission.eventId]?.message&&<p role={imageStates[selectedSubmission.eventId]?.status==="error"?"alert":"status"}>{imageStates[selectedSubmission.eventId].message}</p>}{heroImages[selectedSubmission.eventId]&&<Image unoptimized className="request-modal__hero" src={heroImages[selectedSubmission.eventId]} width={1200} height={630} alt={`Selected landscape for ${selectedSubmission.cityName}`}/>}<label className="inline-checkbox"><input type="checkbox" checked={inviteSponsors[selectedSubmission.eventId]??true} disabled={busy||selectedSubmission.status!=="pending"} onChange={event=>setInviteSponsors(current=>({...current,[selectedSubmission.eventId]:event.target.checked}))}/> Show sponsor invitation</label></section>}
+          {selectedSubmission.status!=="pending"&&<section className="request-modal__decision"><h3>{statusLabels[selectedSubmission.status]}</h3><p>{selectedSubmission.decisionNote||(selectedSubmission.status==="accepted"?"This city request was accepted.":"No reviewer note was provided.")}</p>{selectedSubmission.decidedAt&&<small>Signed {new Date(selectedSubmission.decidedAt*1000).toLocaleString()}</small>}</section>}
+          {(selectedSubmission.status==="accepted"||activationStates[selectedSubmission.eventId])&&<section className="request-modal__panel"><h3>Activation checklist</h3><ul className="request-activation-list" aria-label={`Activation checklist for ${selectedSubmission.cityName}`}>{(Object.entries(activationStates[selectedSubmission.eventId]??initialActivation(selectedSubmission)) as Array<[keyof ActivationState,ActivationState[keyof ActivationState]]>).map(([key,check])=><li key={key}><span aria-hidden="true">{check.status==="green"?"🟢":check.status==="red"?"🔴":check.status==="na"?"⚪":"🟠"}</span><span><strong>{activationLabels[key]}</strong><small>{check.message}{check.url&&<> <a href={check.url} target="_blank" rel="noreferrer">Preview</a></>}</small></span></li>)}</ul></section>}
+        </div>
+        {selectedSubmission.status==="pending"&&<footer className="request-modal__footer"><label>Reviewer note <textarea maxLength={500} value={rejectionNotes[selectedSubmission.eventId]??""} onChange={event=>setRejectionNotes(current=>({...current,[selectedSubmission.eventId]:event.target.value}))} placeholder="Required when asking for changes or rejecting."/></label><div className="request-decision-actions"><button className="request-action request-action--reject" disabled={busy} type="button" onClick={()=>decide(selectedSubmission,"reject")}>Reject</button><button className="request-action request-action--changes" disabled={busy} type="button" onClick={()=>decide(selectedSubmission,"changes")}>Need changes</button><button className="request-action request-action--accept" disabled={busy||!!selectedSubmission.previous&&!selectedSubmission.previousCity||!selectedSubmission.registered&&(!selectedSubmission.initialEventIds.length||!heroImages[selectedSubmission.eventId]?.trim())} type="button" onClick={()=>decide(selectedSubmission,"accept")}>{busy?"Working…":"Accept"}</button></div><small>Need changes lets the host correct and resubmit. Reject is a final decision for this application.</small></footer>}
+      </section>
+    </div>}
+  </section>;
 }
