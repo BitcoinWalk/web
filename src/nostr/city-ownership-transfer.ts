@@ -1,10 +1,21 @@
 import {verifyEvent,type Event,type EventTemplate} from "nostr-tools";
 import {cityAuthorizationSchema,cityOwnerPubkey,type CityAuthorization} from "../domain/city";
 import {createAuthorizationEvent} from "./city-event";
-import {parseCityDirectoryEvent} from "./city-directory";
+import {parseCityDirectoryEvent,type CityDirectoryAnchor} from "./city-directory";
 import type {AuthorizationRecord} from "./city-records";
 
 export type OwnershipTransferAcceptance={version:1;requestId:string;origin:string;cityId:string;currentOwnerPubkey:string;nextOwnerPubkey:string;rotationEventId:string;issuedAt:number;expiresAt:number};
+
+/** Recover the immutable directory anchor from the exact root event retained by
+ * the activation store. Database column names are deliberately not part of the
+ * public directory protocol. */
+export function ownershipTransferAnchor(signedEvent:string,cityId:string):CityDirectoryAnchor{
+ let event:Event;
+ try{event=JSON.parse(signedEvent) as Event;}catch{throw new Error("Active city directory root is invalid.");}
+ const content=parseCityDirectoryEvent(event);
+ if(content.cityId!==cityId||content.sequence!==0||content.action!=="establish"||content.previousEventId!==""||event.pubkey!==content.ownerPubkey)throw new Error("Active city directory root does not match this city.");
+ return {cityId,rootEventId:event.id,initialOwnerPubkey:event.pubkey};
+}
 
 export function ownershipTransferAcceptanceTemplate(input:OwnershipTransferAcceptance):EventTemplate{
  if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(input.requestId)||new URL(input.origin).origin!==input.origin||!input.origin.startsWith("https://")||

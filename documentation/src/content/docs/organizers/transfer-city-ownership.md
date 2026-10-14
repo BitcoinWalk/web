@@ -1,11 +1,24 @@
 ---
-title: Transfer a Pro city to a new owner
-description: A safe handover procedure for an already-paid BitcoinWalk city.
+title: City Transfer
+description: Upgrade a city to Pro, then safely hand it over to a new owner.
 ---
 
-A Pro payment belongs to the **city**, not to the person who paid it. Transferring the city therefore does not create another purchase or erase its walks, sponsors, relay history or public URLs.
+City transfers are only available to Pro cities. A Pro payment belongs to the **city**, not to the person who paid it. Transferring the city therefore does not create another purchase or erase its walks, sponsors, relay history or public URLs.
 
 Ownership transfer is a signed handover. BitcoinWalk never asks either host for secret signing material.
+
+## Upgrade a Basic city to Pro first
+
+If the city is currently Basic:
+
+1. Open the city's public page on `bitcoinwalk.org`.
+2. In the support section, select **Gift Pro to the host — 21,000 sats**. The current host or any supporter may pay the one-time upgrade; paying does not take ownership away from the host.
+3. Pay the Lightning invoice and wait for BitcoinWalk to confirm it.
+4. The current host signs in to the dashboard and opens **City upgrade** for that city.
+5. Complete the requested city identity, recovery acknowledgement, Lightning payout and public-profile checks.
+6. Wait until the dashboard shows the Pro entitlement and setup as verified.
+
+Do not begin a transfer while the payment is pending or Pro setup is incomplete. The upgrade is attached to the existing City ID, so the city must not be registered again.
 
 ## Before you start
 
@@ -15,6 +28,8 @@ Prepare:
 - the current owner's Nostr account;
 - the new owner's exact `npub`;
 - access to the city's offline recovery identity;
+- a separate host-controlled recovery `npub` if the intended new owner is
+  currently listed as the recovery identity;
 - the new owner's private Lightning payout destination.
 
 Both owners should keep recovery backups. Do not send an `nsec`, bunker secret or wallet credential to BitcoinWalk.
@@ -23,15 +38,15 @@ The super-admin first verifies that the city is approved, its Pro entitlement is
 
 ## 1. Prepare the transfer
 
-The super-admin opens **City relay setup**, selects the city and enters the new owner's `npub`. BitcoinWalk prepares one immutable transfer request bound to the current directory event.
+The super-admin opens **City relay setup**, selects the city and enters the new owner's `npub`. If that identity is currently the city's recovery identity, the super-admin also enters the separate replacement recovery `npub`. BitcoinWalk prepares one immutable transfer request bound to the current directory event.
 
 The request does not publish anything and the new `npub` does not gain access merely because it was entered.
 
 ## 2. Current owner authorizes the handover
 
-The current owner opens the supplied request link, connects the account shown in the request and signs the exact directory rotation.
+The current owner opens the supplied request link and connects the account shown in the request. When the intended new owner is the current recovery identity, the owner first signs the reviewed recovery update and then signs the exact ownership rotation. Otherwise only the ownership rotation is required.
 
-The signature preserves the City ID, relay endpoints, operators and recovery authority. It changes only the owner. A stale predecessor, different signer or altered destination is rejected.
+The signatures preserve the City ID, relay endpoints and operators. The recovery update changes only the recovery identity; the rotation then changes only the owner. A stale predecessor, duplicate authority, different signer or altered destination is rejected.
 
 ## 3. New owner accepts
 
@@ -43,7 +58,7 @@ Signing either step alone does not activate the transfer.
 
 The super-admin reviews both signatures and activates the exact transfer. BitcoinWalk then:
 
-1. publishes and reads back the owner rotation from every configured directory transport;
+1. publishes and reads back any required recovery update and the owner rotation, in order, from every configured directory transport;
 2. publishes a versioned city-permission successor;
 3. makes the new owner the protected city editor;
 4. removes the previous owner's editor access unless retaining it was explicitly approved;

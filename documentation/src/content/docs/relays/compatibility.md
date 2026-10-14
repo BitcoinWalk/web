@@ -40,3 +40,5 @@ When external-relay onboarding is available, the operator will receive a short-l
 ## Docker images
 
 BitcoinWalk does not currently publish a supported public Docker image that turns an arbitrary relay into an official city replica. Do not treat a generic Khatru or Nostr relay image as a drop-in replacement. A future packaged relay will document supported versions, storage, backups, upgrades and compatibility tests before it is offered for production use.
+
+See [Run BitcoinWalk on your own relay](/relays/run-on-your-own-relay/) for the planned onboarding sequence and a preparation checklist.

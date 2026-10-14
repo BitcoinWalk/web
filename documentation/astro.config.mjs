@@ -19,7 +19,7 @@ export default defineConfig({
         ]},
         {label: "Organizers", items: [
           {label: "Manage your city and walks", slug: "organizers/manage-city-and-walks"},
-          {label: "Transfer a Pro city", slug: "organizers/transfer-city-ownership"}
+          {label: "City Transfer", slug: "organizers/transfer-city-ownership"}
         ]},
         {label: "Sponsors", items: [
           {label: "Sponsor a BitcoinWalk", slug: "sponsors/how-sponsorship-works"}
@@ -29,7 +29,8 @@ export default defineConfig({
           {label: "Configure Armada", slug: "chat/configure-armada"}
         ]},
         {label: "Relay operators", items: [
-          {label: "Relay compatibility", slug: "relays/compatibility"}
+          {label: "Relay compatibility", slug: "relays/compatibility"},
+          {label: "Run on your own relay", slug: "relays/run-on-your-own-relay"}
         ]},
         {label: "Resources", items: [
           {label: "Repositories, APIs, brand and roadmap", slug: "resources"}

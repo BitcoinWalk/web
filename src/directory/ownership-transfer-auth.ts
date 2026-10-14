@@ -3,7 +3,8 @@ import {z} from "zod";
 const event=z.custom<Event>(value=>!!value&&typeof value==="object");
 export const ownershipTransferCommand=z.discriminatedUnion("action",[
  z.object({action:z.literal("list")}).strict(),
- z.object({action:z.literal("prepare"),cityId:z.uuid(),nextOwnerPubkey:z.string().regex(/^[0-9a-f]{64}$/),retainEditors:z.boolean()}).strict(),
+ z.object({action:z.literal("prepare"),cityId:z.uuid(),nextOwnerPubkey:z.string().regex(/^[0-9a-f]{64}$/),nextRecoveryPubkey:z.string().regex(/^[0-9a-f]{64}$/).optional(),retainEditors:z.boolean()}).strict(),
+ z.object({action:z.literal("sign-recovery"),requestId:z.uuid(),event}).strict(),
  z.object({action:z.literal("sign-owner"),requestId:z.uuid(),event}).strict(),
  z.object({action:z.literal("prepare-activation"),requestId:z.uuid()}).strict(),
  z.object({action:z.literal("confirm-activation"),requestId:z.uuid(),cmsEvent:event}).strict(),
