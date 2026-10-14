@@ -1,11 +1,24 @@
 ---
-title: Transfer a Pro city to a new owner
-description: A safe handover procedure for an already-paid BitcoinWalk city.
+title: City Transfer
+description: Upgrade a city to Pro, then safely hand it over to a new owner.
 ---
 
-A Pro payment belongs to the **city**, not to the person who paid it. Transferring the city therefore does not create another purchase or erase its walks, sponsors, relay history or public URLs.
+City transfers are only available to Pro cities. A Pro payment belongs to the **city**, not to the person who paid it. Transferring the city therefore does not create another purchase or erase its walks, sponsors, relay history or public URLs.
 
 Ownership transfer is a signed handover. BitcoinWalk never asks either organizer for secret signing material.
+
+## Upgrade a Basic city to Pro first
+
+If the city is currently Basic:
+
+1. Open the city's public page on `bitcoinwalk.org`.
+2. In the support section, select **Gift Pro to the host — 21,000 sats**. The current organizer or any supporter may pay the one-time upgrade; paying does not take ownership away from the organizer.
+3. Pay the Lightning invoice and wait for BitcoinWalk to confirm it.
+4. The current organizer signs in to the dashboard and opens **City upgrade** for that city.
+5. Complete the requested city identity, recovery acknowledgement, Lightning payout and public-profile checks.
+6. Wait until the dashboard shows the Pro entitlement and setup as verified.
+
+Do not begin a transfer while the payment is pending or Pro setup is incomplete. The upgrade is attached to the existing City ID, so the city must not be registered again.
 
 ## Before you start
 

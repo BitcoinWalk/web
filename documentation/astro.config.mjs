@@ -19,7 +19,7 @@ export default defineConfig({
         ]},
         {label: "Organizers", items: [
           {label: "Manage your city and walks", slug: "organizers/manage-city-and-walks"},
-          {label: "Transfer a Pro city", slug: "organizers/transfer-city-ownership"}
+          {label: "City Transfer", slug: "organizers/transfer-city-ownership"}
         ]},
         {label: "Sponsors", items: [
           {label: "Sponsor a BitcoinWalk", slug: "sponsors/how-sponsorship-works"}
