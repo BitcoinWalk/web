@@ -24,3 +24,16 @@ await sharp({create:{width:720,height:560,channels:4,background:{r:0,g:0,b:0,alp
   {input:bitfest.data,left:Math.floor((720-bitfest.info.width)/2),top:330},
 ]).png().toFile(`${campaignOutput}/manchester-bitfest-lockup.png`);
 await sharp(`${campaign}/manchester.png`).resize(1600,900,{fit:"cover",position:"centre"}).webp({quality:88}).toFile(`${campaignOutput}/manchester-bitfest-background.webp`);
+
+// Lugano's 25 October walk follows Plan B Forum 2026. Use the conference's
+// published media-kit artwork and the exact approved Lugano background. Both
+// are packaged so production never fetches third-party artwork while rendering.
+const luganoCampaign="design/share-campaigns/lugano-planb";
+const at=await sharp({text:{text:'<span foreground="white">at</span>',font:"Ubuntu Bold Italic 58",fontfile:"design/city-logo-templates/v1/fonts/Ubuntu-BoldItalic.ttf",rgba:true,dpi:72}}).trim().png().toBuffer({resolveWithObject:true});
+const planb=await sharp(`${luganoCampaign}/planb-forum-2026-white.png`).trim().resize(620,180,{fit:"contain",background:{r:0,g:0,b:0,alpha:0}}).png().toBuffer({resolveWithObject:true});
+await sharp({create:{width:720,height:560,channels:4,background:{r:0,g:0,b:0,alpha:0}}}).composite([
+  {input:campaignIcon,left:238,top:0},
+  {input:at.data,left:Math.floor((720-at.info.width)/2),top:226},
+  {input:planb.data,left:Math.floor((720-planb.info.width)/2),top:342},
+]).png().toFile(`${campaignOutput}/lugano-planb-lockup.png`);
+await sharp(`${luganoCampaign}/lugano.webp`).resize(1600,900,{fit:"cover",position:"centre"}).webp({quality:88}).toFile(`${campaignOutput}/lugano-planb-background.webp`);
