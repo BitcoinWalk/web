@@ -4,6 +4,7 @@ import type {ApprovalRecord,CityRevision} from "./city-records";
 import {createApprovalEvent} from "./city-event";
 export const ARCHIVE_NOTE="ARCHIVE_FREE_CITY: Hide this free-tier city and its calendar; retain ownership, editors and history. No relay infrastructure is deleted.";
 export const TEST_CITY_ARCHIVE_NOTE="RETIRE_STAGING_TEST_CITY: Hide this staging-only test city and its calendar; retain signed history and isolated test payment/provisioning evidence. No production entitlement or infrastructure is changed.";
+export const DELETE_CITY_NOTE="DELETE_BASIC_CITY: Permanently remove this offline Basic city from BitcoinWalk active inventory, host editing and public discovery. Signed Nostr history and third-party copies may remain.";
 /** Archive is city-wide, independent of which revision an editor can load. */
 export function archivedCityIds(approvals:ApprovalRecord[]):Set<string>{
  const seen=new Set<string>(),archived=new Set<string>();
@@ -14,13 +15,22 @@ export function archivedCityIds(approvals:ApprovalRecord[]):Set<string>{
  }
  return archived;
 }
+export function deletedCityIds(approvals:ApprovalRecord[]):Set<string>{
+ const seen=new Set<string>(),deleted=new Set<string>();
+ for(const {approval} of [...approvals].sort((a,b)=>compareEvents(a.event,b.event))){
+  if(approval.status==="rejected"||seen.has(approval.cityId))continue;
+  seen.add(approval.cityId);
+  if(approval.status==="revoked"&&approval.note===DELETE_CITY_NOTE)deleted.add(approval.cityId);
+ }
+ return deleted;
+}
 export type ManagedCity={revision:CityRevision;decision:ApprovalRecord;previousApproval?:ApprovalRecord;head:string;state:"approved"|"disapproved"|"archived"};
 export type NeedsChangesCity={revision:CityRevision;rejection:ApprovalRecord};
 export function needsChangesCities(revisions:CityRevision[],approvals:ApprovalRecord[]):NeedsChangesCity[]{
- const archived=archivedCityIds(approvals),managed=new Set(managedCities(revisions,approvals).map(row=>row.revision.city.cityId)),latest=new Map<string,CityRevision>(),result:NeedsChangesCity[]=[];
+ const archived=archivedCityIds(approvals),deleted=deletedCityIds(approvals),managed=new Set(managedCities(revisions,approvals).map(row=>row.revision.city.cityId)),latest=new Map<string,CityRevision>(),result:NeedsChangesCity[]=[];
  for(const revision of [...revisions].sort((a,b)=>compareEvents(a.event,b.event))){const key=`${revision.event.pubkey}:${revision.city.cityId}`;if(!latest.has(key))latest.set(key,revision);}
  for(const revision of latest.values()){
-  if(archived.has(revision.city.cityId)||managed.has(revision.city.cityId))continue;
+  if(archived.has(revision.city.cityId)||deleted.has(revision.city.cityId)||managed.has(revision.city.cityId))continue;
   const decision=[...approvals].sort((a,b)=>compareEvents(a.event,b.event)).find(item=>item.approval.cityId===revision.city.cityId&&item.approval.cityRevisionId===revision.event.id);
   if(decision&&(decision.approval.status==="rejected"||decision.approval.status==="revoked"))result.push({revision,rejection:decision});
  }
@@ -34,8 +44,9 @@ export function visibleManagedCities(rows:ManagedCity[],showArchived=false):Mana
 }
 export function managedCities(revisions:CityRevision[],approvals:ApprovalRecord[]):ManagedCity[]{
  const ordered=[...approvals].sort((a,b)=>compareEvents(a.event,b.event));
- const seen=new Set<string>();const result:ManagedCity[]=[];
+ const deleted=deletedCityIds(approvals),seen=new Set<string>();const result:ManagedCity[]=[];
  for(const decision of ordered){const a=decision.approval;if(a.status==="rejected"||seen.has(a.cityId))continue;seen.add(a.cityId);
+  if(deleted.has(a.cityId))continue;
   const revision=revisions.find(r=>r.city.cityId===a.cityId&&r.event.id===a.cityRevisionId);if(!revision)continue;
   // A later rejection of this same revision hides it under the existing resolver.
   const rejected=ordered.some(d=>d.approval.cityId===a.cityId&&d.approval.cityRevisionId===a.cityRevisionId&&d.approval.status==="rejected"&&compareEvents(d.event,decision.event)<0);
@@ -54,6 +65,11 @@ export function createCityModerationDecision(row:ManagedCity,action:"approve"|"d
   ...(action==="approve"?{...(initial.length===1?{initialEventId:initial[0][1]}:initial.length?{initialEventIds:initial.map(tag=>tag[1])}:{}),...(previous?.heroImageUrl?{heroImageUrl:previous.heroImageUrl}:{}),...(previous?.aliases?{aliases:previous.aliases}:{}),slug:previous?.slug??city.slug}:{}),
   note:action==="archive"?ARCHIVE_NOTE:action==="retire-test"?TEST_CITY_ARCHIVE_NOTE:action==="approve"?"Restore city approval.":"DISAPPROVE: Hide the city and its calendar from public views; preserve ownership, editors and history."
  });
+}
+export function createCityDeletionDecision(row:ManagedCity):EventTemplate{
+ if(row.state==="approved")throw new Error("Set the city offline before deleting it.");
+ const city=row.revision.city;
+ return createApprovalEvent({cityId:city.cityId,cityRevisionId:row.revision.event.id,status:"revoked",note:DELETE_CITY_NOTE});
 }
 /** Change only the super-admin-controlled public presentation of an approved city.
  * Organizer ownership, the signed city revision and all initial walks stay exact. */

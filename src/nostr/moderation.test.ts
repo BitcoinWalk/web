@@ -1,6 +1,6 @@
 import {describe,it,expect} from "vitest";
 import {finalizeEvent,type Event} from "nostr-tools";
-import {managedCities,visibleManagedCities,needsChangesCities,ARCHIVE_NOTE,TEST_CITY_ARCHIVE_NOTE,createCalendarDeletion,createOrganizerCancellation,createCityModerationDecision,createCityPresentationDecision,createNeedsChangesArchiveDecision,type ManagedCity} from "./moderation";
+import {managedCities,visibleManagedCities,needsChangesCities,archivedCityIds,deletedCityIds,ARCHIVE_NOTE,TEST_CITY_ARCHIVE_NOTE,DELETE_CITY_NOTE,createCalendarDeletion,createOrganizerCancellation,createCityDeletionDecision,createCityModerationDecision,createCityPresentationDecision,createNeedsChangesArchiveDecision,type ManagedCity} from "./moderation";
 import type {ApprovalRecord} from "./city-records";
 const city={cityId:"66f137cb-2ac1-4eef-8358-7dd66b45922f",slug:"radom",cityName:"Radom",description:"Walk",startAt:"2026-10-02T15:00:00Z",meetingPoint:{description:"Square",latitude:1,longitude:2},heroImageUrl:"https://example.com/i"};
 const event=(id:string,created_at:number):Event=>({id:id.repeat(64),created_at,kind:30304,pubkey:"a".repeat(64),sig:"",content:"",tags:[]});
@@ -63,6 +63,17 @@ describe("city lifecycle",()=>{
   expect(content).toMatchObject({cityId:city.cityId,cityRevisionId:revision.event.id,status:"revoked",note:TEST_CITY_ARCHIVE_NOTE});
   const retired:ApprovalRecord={event:event("c",3),approval:content};
   expect(managedCities([revision],[approval,retired])[0].state).toBe("archived");
+ });
+ it("permanently removes only an offline city from active projections",()=>{
+  const active=managedCities([revision],[approval])[0];
+  expect(()=>createCityDeletionDecision(active)).toThrow("Set the city offline");
+  const offline:ManagedCity={...active,state:"disapproved"},template=createCityDeletionDecision(offline),content=JSON.parse(template.content);
+  expect(content).toEqual({...approval.approval,status:"revoked",note:DELETE_CITY_NOTE});
+  const deletion:ApprovalRecord={event:event("d",3),approval:content};
+  expect(deletedCityIds([approval,deletion])).toEqual(new Set([city.cityId]));
+  expect(archivedCityIds([approval,deletion])).toEqual(new Set());
+  expect(managedCities([revision],[approval,deletion])).toEqual([]);
+  expect(needsChangesCities([revision],[approval,deletion])).toEqual([]);
  });
  it("finds rejected creator submissions and archives their exact revision",()=>{
   const rejected:ApprovalRecord={event:event("c",3),approval:{...approval.approval,status:"rejected",note:"Please revise"}};

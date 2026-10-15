@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { canEditCity, correctableRejectedCityRevisions, editableCityRevisions, editedCity, localDateTime } from "./organizer-edit";
 import { SUPER_ADMIN_PUBKEY } from "./authority";
 import type { ApprovalRecord, AuthorizationRecord, CityRevision } from "./city-records";
-import { ARCHIVE_NOTE } from "./moderation";
+import { ARCHIVE_NOTE, DELETE_CITY_NOTE } from "./moderation";
 import type { CityDocument } from "../domain/city";
 
 const creator="a".repeat(64),editor="b".repeat(64),outsider="c".repeat(64);
@@ -58,6 +58,11 @@ describe("organizer editor",()=>{
   const archive:ApprovalRecord={event:{created_at:40,id:"archive"} as ApprovalRecord["event"],approval:{cityId:city.cityId,cityRevisionId:rejected.event.id,status:"revoked",note:ARCHIVE_NOTE}};
   expect(correctableRejectedCityRevisions(creator,[],[rejected,newer],[rejection])).toEqual([]);
   expect(correctableRejectedCityRevisions(creator,[],[rejected],[archive,rejection])).toEqual([]);
+ });
+ it("removes a deleted city from editing and correction flows",()=>{
+  const revision=rev(creator,10),authorization=record(1),deletion:ApprovalRecord={event:{created_at:30,id:"delete"} as ApprovalRecord["event"],approval:{cityId:city.cityId,cityRevisionId:revision.event.id,status:"revoked",note:DELETE_CITY_NOTE}};
+  expect(editableCityRevisions(creator,[authorization],[revision],[deletion])).toEqual([]);
+  expect(correctableRejectedCityRevisions(creator,[],[revision],[deletion])).toEqual([]);
  });
  it("retains identity, chat and sponsor while applying allowed edits",()=>{
   const result=editedCity(city,{...city,description:"Changed",aliases:["Rادم","Radom City"],cityId:crypto.randomUUID(),slug:"hijack",chatUrl:"https://other.example"} as Parameters<typeof editedCity>[1]);

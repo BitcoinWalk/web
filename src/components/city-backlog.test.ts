@@ -37,12 +37,15 @@ describe("cityWorkflowRows",()=>{
   const offline=cityWorkflowRows({managed:[managed("f","Offline","disapproved")],pending:[],needsChanges:[],health:[],paidCityIds:new Set(),paidCities:{}})[0];
   const archived=cityWorkflowRows({managed:[managed("a","Archived","archived")],pending:[],needsChanges:[],health:[],paidCityIds:new Set(),paidCities:{}})[0];
   const paid=cityWorkflowRows({managed:[managed("x","Paid","approved")],pending:[],needsChanges:[],health:[],paidCityIds:new Set(["x"]),paidCities:{}})[0];
+  const test=cityWorkflowRows({managed:[managed("t","Test","disapproved")],pending:[],needsChanges:[],health:[{cityId:"t",cityName:"Test",slug:"test",availableInEnvironment:true,tier:"pilot",status:"action-required",checks:[],checkedAt:1}],paidCityIds:new Set(),paidCities:{}})[0];
   expect(cityWorkflowActions(pending)).toEqual(["review-request"]);
   expect(cityWorkflowActions(waiting)).toEqual(["review-request","archive"]);
   expect(cityWorkflowActions(online)).toEqual(["open-record","open-public","set-offline","archive"]);
-  expect(cityWorkflowActions(offline)).toEqual(["open-record","set-online","archive"]);
-  expect(cityWorkflowActions(archived)).toEqual(["open-record","set-online"]);
+  expect(cityWorkflowActions(offline)).toEqual(["open-record","set-online","archive","delete"]);
+  expect(cityWorkflowActions(archived)).toEqual(["open-record","set-online","delete"]);
   expect(cityWorkflowActions(paid)).toEqual(["open-record","open-public","set-offline"]);
+  expect(cityWorkflowActions({...paid,online:false,status:"offline",managed:{...paid.managed!,state:"disapproved"}})).toEqual(["open-record","set-online"]);
+  expect(cityWorkflowActions(test)).toEqual(["open-record","manage-pro","set-online","retire-test","delete"]);
  });
  it("names the responsible person and exact next action for waiting rows",()=>{
   const pending=cityWorkflowRows({managed:[],pending:[revision("p","Pending")],needsChanges:[],health:[],paidCityIds:new Set(),paidCities:{}})[0];

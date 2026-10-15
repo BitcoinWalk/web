@@ -1,6 +1,6 @@
 import {describe,expect,it} from "vitest";
 import type {ApprovalRecord,CityRevision} from "../nostr/city-records";
-import {ARCHIVE_NOTE} from "../nostr/moderation";
+import {ARCHIVE_NOTE,DELETE_CITY_NOTE} from "../nostr/moderation";
 import {adminCityRequests,FINAL_REJECTION_PREFIX,visibleDecisionNote} from "./admin-city-requests";
 
 const revision=(cityId:string,name:string,time:number):CityRevision=>({event:{id:String(time).padStart(64,"0"),pubkey:"a".repeat(64),created_at:time} as CityRevision["event"],city:{cityId,cityName:name,slug:name.toLowerCase(),startAt:"2027-01-01T12:00:00.000Z",description:"Walk",meetingPoint:{description:"Square",latitude:1,longitude:2}}});
@@ -13,5 +13,6 @@ describe("admin city request inventory",()=>{
   expect(rows.map(row=>[row.revision.city.cityName,row.status])).toEqual([["Accepted","accepted"],["Changes","needs-changes"],["Pending","pending"],["Rejected","rejected"],["Archived","archived"]]);
  });
  it("keeps an established city marked as a pending revision",()=>{const old=revision("66666666-6666-4666-8666-666666666666","London",1),edit={...revision(old.city.cityId,"London",2),event:{...revision(old.city.cityId,"London",2).event,tags:[["e",old.event.id,"","previous"]]}};expect(adminCityRequests([old,edit],[decision(old,"approved",3)])[0]).toMatchObject({status:"pending",established:true,revision:{event:{id:edit.event.id}}});});
+ it("omits a city after the latest signed decision permanently deletes it",()=>{const removed=revision("77777777-7777-4777-8777-777777777777","Removed",1);expect(adminCityRequests([removed],[decision(removed,"approved",2),decision(removed,"revoked",3,DELETE_CITY_NOTE)])).toEqual([]);});
  it("removes the protocol marker from reviewer-facing copy",()=>expect(visibleDecisionNote(FINAL_REJECTION_PREFIX+"Not a real city request")).toBe("Not a real city request"));
 });

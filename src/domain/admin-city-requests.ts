@@ -1,6 +1,6 @@
 import {compareEvents} from "nostr-tools";
 import type {ApprovalRecord,CityRevision} from "../nostr/city-records";
-import {archivedCityIds} from "../nostr/moderation";
+import {archivedCityIds,deletedCityIds} from "../nostr/moderation";
 
 export const FINAL_REJECTION_PREFIX="REJECT_APPLICATION: ";
 
@@ -18,9 +18,9 @@ export function visibleDecisionNote(note?:string):string{
 /** One current application row per city. Exact revision decisions determine the
  * request state; city-wide archival always wins and is rendered separately. */
 export function adminCityRequests(revisions:CityRevision[],approvals:ApprovalRecord[]):AdminCityRequest[]{
- const archived=archivedCityIds(approvals),latest=new Map<string,CityRevision>(),orderedApprovals=[...approvals].sort((a,b)=>compareEvents(a.event,b.event));
+ const archived=archivedCityIds(approvals),deleted=deletedCityIds(approvals),latest=new Map<string,CityRevision>(),orderedApprovals=[...approvals].sort((a,b)=>compareEvents(a.event,b.event));
  for(const revision of [...revisions].sort((a,b)=>compareEvents(a.event,b.event)))if(!latest.has(revision.city.cityId))latest.set(revision.city.cityId,revision);
- return [...latest.values()].map(revision=>{
+ return [...latest.values()].filter(revision=>!deleted.has(revision.city.cityId)).map(revision=>{
   const cityId=revision.city.cityId,decision=orderedApprovals.find(row=>row.approval.cityId===cityId&&row.approval.cityRevisionId===revision.event.id),established=orderedApprovals.some(row=>row.approval.cityId===cityId&&row.approval.status==="approved");
   let status:AdminCityRequestStatus="pending";
   if(archived.has(cityId))status="archived";

@@ -7,7 +7,7 @@ import AdminCityLink from "./admin-city-link";
 import {relayConfig} from "../lib/relay-config";
 import {directoryConfig,stagingTestCityIds} from "../lib/directory-config";
 import {queryDirectoryRecords,queryCalendarEvents,queryCalendarDeletion,type CityRevision} from "../nostr/city-records";
-import {managedCities,needsChangesCities,archivedCityIds,ARCHIVE_NOTE,TEST_CITY_ARCHIVE_NOTE,assertExactSigned,createCalendarDeletion,createCityModerationDecision,createCityPresentationDecision,createNeedsChangesArchiveDecision,type ManagedCity,type NeedsChangesCity} from "../nostr/moderation";
+import {managedCities,needsChangesCities,archivedCityIds,deletedCityIds,ARCHIVE_NOTE,TEST_CITY_ARCHIVE_NOTE,DELETE_CITY_NOTE,assertExactSigned,createCalendarDeletion,createCityDeletionDecision,createCityModerationDecision,createCityPresentationDecision,createNeedsChangesArchiveDecision,type ManagedCity,type NeedsChangesCity} from "../nostr/moderation";
 import {clearDashboardAuthorizationScope,getBrowserExtensionPubkey,setDashboardAuthorizationScope,signWithBrowserExtension,authenticateWithBrowserExtension} from "../nostr/signer";
 import {isSuperAdmin} from "../nostr/authority";
 import {calendarNevent,approvedCalendarWalks,type CalendarWalk} from "../nostr/calendar-records";
@@ -114,6 +114,20 @@ export default function CityModeration(){
   const readback=await queryDirectoryRecords(relayConfig.writeRelays);if(!archivedCityIds(readback.approvals).has(city.cityId))throw new Error("Archive acknowledged but relay read-back failed. Reload before retrying.");
   await reload();setMessage(`${city.cityName} archived. Signed history remains and no infrastructure was deleted.`);
  });}
+ async function deleteOfflineCity(row:ManagedCity){await run(async()=>{
+  if(!paymentInventoryReady)throw new Error("Payment inventory is unavailable. Refresh cities before deleting anything.");
+  const city=row.revision.city,latest=await current(row);
+  if(latest.state==="approved")throw new Error("Set this city offline before deleting it.");
+  if(paidCityIds.has(city.cityId)||!!directoryConfig.paidCities[city.cityId])throw new Error("Paid-city deletion requires the separate verified infrastructure and recovery workflow in BW-28.");
+  const confirmation=`DELETE ${city.slug}`;
+  const warning=`${DELETE_CITY_NOTE}\n\nCity: ${city.cityName} (${city.cityId})\n\nThis removes the city from BitcoinWalk Cities, Requests, host editing, public pages and walk discovery. It does not erase signed events already copied to third-party Nostr relays.\n\nType '${confirmation}' to continue:`;
+  if(window.prompt(warning)!==confirmation){setMessage("Cancelled. Nothing deleted.");return;}
+  const template=createCityDeletionDecision(latest);
+  setMessage("Review the permanent city deletion in your extension and sign…");const signed=await signWithBrowserExtension(template);assertExactSigned(signed,template);await admin();await current(row);
+  await publishVerifiedEvent(signed,relayConfig.writeRelays,1,authenticateWithBrowserExtension);
+  const readback=await queryDirectoryRecords(relayConfig.writeRelays);if(!deletedCityIds(readback.approvals).has(city.cityId))throw new Error("Deletion was acknowledged but exact relay read-back failed. Reload before retrying.");
+  setSelectedId("");await reload("");setMessage(`${city.cityName} deleted from BitcoinWalk active inventory. Signed events copied elsewhere may remain.`);
+ });}
  async function removeEvent(row:ManagedCity,item:ManagedCalendarEvent){await run(async()=>{
   await requireOccurrenceCancellationRelay(relayConfig.writeRelays);
   await current(row);const live=await queryCalendarEvents(relayConfig.writeRelays,{ids:[item.event.id]});if(!live.some(e=>e.id===item.event.id&&e.pubkey===item.event.pubkey))throw new Error("This exact occurrence is no longer public. Reload before deleting.");
@@ -155,6 +169,7 @@ export default function CityModeration(){
   if(action==="set-online")return <button {...menuItem} disabled={busy||!dataCurrent} onClick={()=>decide(item.managed!,"approve")}>Set online</button>;
   if(action==="set-offline")return <button {...menuItem} disabled={busy||!dataCurrent} onClick={()=>decide(item.managed!,"disapprove")}>Set offline</button>;
   if(action==="retire-test")return <button {...menuItem} disabled={busy||!dataCurrent} onClick={()=>decide(item.managed!,"retire-test")}>Retire test city</button>;
+  if(action==="delete")return <button {...menuItem} className={styles.destructiveMenuItem} disabled={busy||!dataCurrent||!paymentInventoryReady} onClick={()=>deleteOfflineCity(item.managed!)}>Delete city permanently</button>;
   return <button {...menuItem} className={styles.destructiveMenuItem} disabled={busy||!dataCurrent||!paymentInventoryReady} onClick={()=>item.managed?decide(item.managed,"archive"):archiveAwaitingCity(item.needsChanges!)}>Archive city</button>;
  }
  useEffect(()=>()=>clearDashboardAuthorizationScope(authorizationScope),[]);

@@ -9,7 +9,7 @@ import { relayConfig } from "../../lib/relay-config";
 import { createCityUpdateEvent } from "../../nostr/city-event";
 import { queryCalendarEvents, queryDirectoryRecords, type ApprovalRecord, type AuthorizationRecord, type CityRevision } from "../../nostr/city-records";
 import { queryAuthorizations } from "../../nostr/city-records";
-import { archivedCityIds } from "../../nostr/moderation";
+import { archivedCityIds, deletedCityIds } from "../../nostr/moderation";
 import { correctableRejectedCityRevisions, editableCityRevisions, editedCity } from "../../nostr/organizer-edit";
 import { authenticateWithBrowserExtension, getBrowserExtensionPubkey, signWithBrowserExtension } from "../../nostr/signer";
 import { publishVerifiedEvent } from "../../nostr/relay";
@@ -89,6 +89,7 @@ export default function OrganizerPage() {
       if(key!==identity) throw new Error("Signer account changed. Connect and load your walks again before editing.");
       setMessage("Checking current permission and revision…");
       const [grants,{revisions,approvals}]=await Promise.all([queryAuthorizations(relayConfig.writeRelays),queryDirectoryRecords(relayConfig.writeRelays)]);
+      if(deletedCityIds(approvals).has(base.city.cityId)) {setCities(items=>items.filter(item=>item.revision.city.cityId!==base.city.cityId));select(null);throw new Error("This city has been deleted from BitcoinWalk. Nothing was signed.");}
       if(archivedCityIds(approvals).has(base.city.cityId)) {setCities(items=>items.filter(item=>item.revision.city.cityId!==base.city.cityId));select(null);throw new Error("This city has been archived and removed from your editable walks. An admin must restore it first. Nothing was signed.");}
       const current=(correcting?correctableRejectedCityRevisions(key,grants,revisions,approvals):editableCityRevisions(key,grants,revisions,approvals)).find(r=>r.city.cityId===base.city.cityId);
       if(!current) throw new Error(correcting?"This correction is no longer available. Reload Cities to see who must act next; nothing was signed.":"Could not confirm your current editor permission. Reload your walks; nothing was signed.");
@@ -112,6 +113,7 @@ export default function OrganizerPage() {
       const signed=await signWithBrowserExtension(createCityUpdateEvent(candidate,base.event.id,initialEventIds.length?initialEventIds:undefined));
       if(signed.pubkey!==key || await getBrowserExtensionPubkey()!==key) throw new Error("Signer identity changed; revision was not published.");
       const afterSigning=await queryDirectoryRecords(relayConfig.writeRelays);
+      if(deletedCityIds(afterSigning.approvals).has(base.city.cityId)) {setCities(items=>items.filter(item=>item.revision.city.cityId!==base.city.cityId));select(null);throw new Error("This city was deleted while signing. The edit was not published.");}
       if(archivedCityIds(afterSigning.approvals).has(base.city.cityId)) {setCities(items=>items.filter(item=>item.revision.city.cityId!==base.city.cityId));select(null);throw new Error("This city was archived while signing. The edit was not published.");}
       if(correcting&&!correctableRejectedCityRevisions(key,grants,afterSigning.revisions,afterSigning.approvals).some(revision=>revision.event.id===base.event.id))throw new Error("The review state changed while you were signing. Nothing was published; reload Cities.");
       for(const walk of replacementWalks)await publishVerifiedEvent(walk,relayConfig.writeRelays,1,authenticateWithBrowserExtension);

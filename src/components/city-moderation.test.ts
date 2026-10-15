@@ -26,4 +26,12 @@ describe("city backlog controls",()=>{
   expect(page).toContain("<CopyValue");
   expect(page).toContain("city ID`}");
  });
+ it("gates permanent deletion behind offline state, payment inventory and typed confirmation",()=>{
+  const page=source();
+  expect(page).toContain("Delete city permanently");
+  expect(page).toContain("if(latest.state===\"approved\")");
+  expect(page).toContain("Paid-city deletion requires the separate verified infrastructure and recovery workflow in BW-28.");
+  expect(page).toContain("const confirmation=`DELETE ${city.slug}`");
+  expect(page).toContain("deletedCityIds(readback.approvals).has(city.cityId)");
+ });
 });
