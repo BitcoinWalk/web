@@ -21,7 +21,7 @@ import EventModerationPanel from "./event-moderation";
 import {CityIdentityHealthDetails,identityHealthLabel} from "./city-identity-health";
 import type {CityIdentityHealth} from "../server/pro-city-identity-health";
 import AdminDataStatus,{resolvedAdminDataState,type AdminDataHealth} from "./admin-data-status";
-import {cityRelayLabel,cityWorkflowActions,cityWorkflowLabel,cityWorkflowRows,type CityWorkflowAction,type CityWorkflowRow,type CityWorkflowStatus} from "./city-backlog";
+import {cityRelayLabel,cityWorkflowActions,cityWorkflowLabel,cityWorkflowNextStep,cityWorkflowRows,type CityWorkflowAction,type CityWorkflowRow,type CityWorkflowStatus} from "./city-backlog";
 import CityActionsMenu from "./city-actions-menu";
 import styles from "./city-moderation.module.css";
 import {adminCityRequests} from "../domain/admin-city-requests";
@@ -165,12 +165,12 @@ export default function CityModeration(){
   <div className={styles.summary} aria-label="City status totals"><span className={styles.count}>Action required {statusCounts["action-required"]}</span><span className={styles.count}>Awaits change {statusCounts["awaits-change"]}</span><span className={styles.count}>Online {statusCounts.online}</span><span className={styles.count}>Offline {statusCounts.offline}</span></div>
   <CityFinder disabled={busy} label="Jump to city" placeholder="Find a city…" value="" onChange={reviewCity} items={available.map(row=>({id:row.revision.city.cityId,name:row.revision.city.cityName,meta:`${row.state} · ${identityHealthLabel(identityHealth.find(item=>item.cityId===row.revision.city.cityId))}`,keywords:[row.revision.city.slug,row.revision.city.cityId]}))}/>
   <div className={styles.toolbar}><label>Filter cities<input type="search" value={query} onChange={event=>setQuery(event.target.value)} placeholder="Name, slug or city ID"/></label><label>Status<select value={statusFilter} onChange={event=>setStatusFilter(event.target.value as typeof statusFilter)}><option value="all">All statuses</option><option value="action-required">Action required</option><option value="awaits-change">Awaits change</option><option value="online">Online</option><option value="offline">Offline</option></select></label></div>
-  <ol className={styles.list} aria-label="City operational backlog">{visibleWorkflow.length?visibleWorkflow.map(item=><li className={styles.item} key={item.cityId}>
+  <ol className={styles.list} aria-label="City operational backlog">{visibleWorkflow.length?visibleWorkflow.map(item=>{const nextStep=cityWorkflowNextStep(item);return <li className={styles.item} key={item.cityId}>
    <div className={styles.row}><div className={styles.identity}><span className={styles.dot} data-online={item.online} role="img" aria-label={item.online?"Online":"Offline"}/><div><strong>{item.cityName}</strong><small>/{item.slug} · {item.cityId}</small></div></div>
    <div className={styles.badges}><span className={styles.badge} data-status={item.status}>{cityWorkflowLabel(item.status)}</span><span className={styles.badge}>{item.tier==="paid"?"Paid":item.tier==="test"?"Test":"Basic"}</span><span className={styles.badge}>{cityRelayLabel(item.relay)}</span></div>
    <CityActionsMenu cityName={item.cityName}>{cityWorkflowActions(item).map(action=><span className={styles.actionMenuItem} key={action}>{cityAction(item,action)}</span>)}</CityActionsMenu></div>
-   {item.status==="awaits-change"&&<p className={styles.help}>Waiting for the city host or an external provider. The super-admin should not manufacture the missing proof.</p>}
-  </li>):<li className={styles.empty}>No cities match these filters.</li>}</ol>
+   {nextStep&&<p className={styles.help}><strong>Next: {nextStep.owner}</strong> — {nextStep.action}</p>}
+  </li>}):<li className={styles.empty}>No cities match these filters.</li>}</ol>
   {!!identityHealthError&&<p role="alert">{identityHealthError}</p>}
   {!!needsChanges.length&&<details className={styles.bulk}><summary><strong>Archive eligible Awaits change test cities ({needsChanges.length})</strong></summary><p>This cleanup retains signed history and never deletes infrastructure. Paid or relay-backed cities are blocked.</p><button disabled={busy||!dataCurrent||!paymentInventoryReady} onClick={archiveRejectedTests}>Archive eligible cities</button>{!paymentInventoryReady&&<p>Payment inventory must load before this action is enabled.</p>}</details>}
   <p role="status">{message}</p>

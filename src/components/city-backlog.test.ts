@@ -1,5 +1,5 @@
 import {describe,expect,it} from "vitest";
-import {cityWorkflowActions,cityWorkflowRows} from "./city-backlog";
+import {cityWorkflowActions,cityWorkflowNextStep,cityWorkflowRows} from "./city-backlog";
 import type {ManagedCity,NeedsChangesCity} from "../nostr/moderation";
 import type {CityRevision} from "../nostr/city-records";
 
@@ -35,5 +35,22 @@ describe("cityWorkflowRows",()=>{
   expect(cityWorkflowActions(offline)).toEqual(["open-record","set-online","archive"]);
   expect(cityWorkflowActions(archived)).toEqual(["open-record","set-online"]);
   expect(cityWorkflowActions(paid)).toEqual(["open-record","open-public","set-offline"]);
+ });
+ it("names the responsible person and exact next action for waiting rows",()=>{
+  const pending=cityWorkflowRows({managed:[],pending:[revision("p","Pending")],needsChanges:[],health:[],paidCityIds:new Set(),paidCities:{}})[0];
+  const awaiting={revision:revision("w","Waiting"),rejection:{event:{id:"d".repeat(64)},approval:{cityId:"w",cityRevisionId:"a".repeat(64),status:"rejected",note:"  Add a clearer meeting point.\nThen resubmit.  "}} as NeedsChangesCity["rejection"]};
+  const waiting=cityWorkflowRows({managed:[],pending:[],needsChanges:[awaiting],health:[],paidCityIds:new Set(),paidCities:{}})[0];
+  expect(cityWorkflowNextStep(pending)).toEqual({owner:"Super-admin",action:"review the city application and accept it, request changes or reject it."});
+  expect(cityWorkflowNextStep(waiting)).toEqual({owner:"City host",action:"Add a clearer meeting point. Then resubmit."});
+ });
+ it("turns identity health failures into role-specific one-line actions",()=>{
+  const health={cityId:"g",cityName:"Graz",slug:"graz",availableInEnvironment:true,tier:"pro" as const,status:"action-required" as const,checkedAt:1,checks:[
+   {key:"identity" as const,label:"Dedicated city npub",state:"fail" as const,detail:"Missing."},
+   {key:"recovery" as const,label:"Recovery acknowledgement",state:"fail" as const,detail:"Missing."},
+  ]};
+  const waiting=cityWorkflowRows({managed:[managed("g","Graz","approved")],pending:[],needsChanges:[],health:[health],paidCityIds:new Set(["g"]),paidCities:{}})[0];
+  expect(waiting.status).toBe("awaits-change");
+  expect(cityWorkflowNextStep(waiting)).toEqual({owner:"City host",action:"connect the dedicated city signer and confirm its recovery method."});
+  expect(cityWorkflowNextStep({...waiting,status:"online"})).toBeNull();
  });
 });
