@@ -38,9 +38,9 @@ describe("public city directory", () => {
       canonicalUrl: "https://bitcoinwalk.org/madeira",
       avatarUrl: `https://bitcoinwalk.org/api/og/files/${"a".repeat(64)}.jpg`,
       chat: {
-        scope: "global",
-        url: "https://bitcoinwalk.org/join",
-        nip29: { relay: "wss://chat.bitcoinwalk.org", groupId: "13bc3a423b4f2954" },
+        scope: "city",
+        url: null,
+        nip29: null,
         communities: {
           global: { relay: "wss://chat.bitcoinwalk.org", groupId: "13bc3a423b4f2954" },
           city: null,

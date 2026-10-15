@@ -4,6 +4,7 @@ import type { PaidDirectoryCity } from "../domain/directory";
 // nor an organizer's chat URL is proof of payment. New settled app purchases
 // remain in the payment ledger; staging pilots are never promoted by this list.
 export const directoryConfig:{paidCities:Record<string,PaidDirectoryCity>}={paidCities:{
+  "ca20993a-5b7f-443e-931e-8dbaa61d05fe":{slug:"madeira",cityName:"Madeira",featured:false,subdomainReady:false,relayMode:"dedicated"},
   "ca2f9905-fb4d-4948-a12c-c792b28ec7c8":{slug:"london",cityName:"London",featured:false,subdomainReady:true,relayMode:"migrated"},
   "8e136ccb-923b-41aa-a6d1-1290b0b3a014":{slug:"wuerzburg",cityName:"Würzburg",aliases:["wurzburg"],featured:false,subdomainReady:false,relayMode:"dedicated"},
   "e62592ac-a5fc-42df-8f31-94416f6ee8d5":{slug:"graz",cityName:"Graz",featured:false,subdomainReady:false,relayMode:"dedicated"},
