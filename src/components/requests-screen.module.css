@@ -1,4 +1,5 @@
 .page>h1{margin-bottom:1rem}
+.intro{max-width:52rem;margin:-.35rem 0 1.25rem;color:#626b74;line-height:1.5}
 .queueGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1rem;align-items:start}
 .module{display:grid;gap:1rem;align-content:start;min-width:0;margin:0!important}
 .moduleHeader{display:flex;align-items:flex-start;justify-content:space-between;gap:1rem}
@@ -21,7 +22,20 @@
 .activationState{margin:0;padding:.65rem .75rem;border-radius:.5rem;background:#f6f7f8;font-size:.9rem}
 .primaryAction{justify-self:start;min-height:2.75rem;padding:.6rem .9rem;border-color:#b85c00!important;background:#f7931a!important;color:#17120d;font-weight:750;transition:transform 150ms ease-out,background-color 150ms ease-out}
 .primaryAction:not(:disabled):active{transform:scale(.96)}
-@media(hover:hover) and (pointer:fine){.refresh:hover{background:#f7f8f9}.primaryAction:hover{background:#ed870e!important}}
+.followUpModule{margin-bottom:1rem!important}
+.followUpList{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.75rem}
+.followUpCard{display:grid;gap:.8rem;margin:0!important;padding:1rem!important;border-radius:.75rem!important}
+.followUpHeading{display:flex;align-items:flex-start;justify-content:space-between;gap:.75rem}
+.followUpHeading h3{margin:0;font-size:1.08rem}.followUpHeading p{margin:.2rem 0 0;color:#626b74;font-size:.86rem}
+.ownerAdmin,.ownerHost{flex:none;padding:.22rem .55rem;border-radius:999px;font-size:.76rem;font-weight:750}
+.ownerAdmin{background:#fff0dc;color:#743c00}.ownerHost{background:#edf0f2;color:#4f5861}
+.followUpSummary{padding:.75rem;border-left:.25rem solid #f7931a;background:#fff8ef;border-radius:0 .5rem .5rem 0}
+.followUpSummary p{margin:.25rem 0 0;color:#4f5861;font-size:.9rem;line-height:1.45}
+.followUpDetails summary{cursor:pointer;font-weight:700}.followUpDetails ul{display:grid;gap:.65rem;margin:.75rem 0 0;padding:0;list-style:none}
+.followUpDetails li{display:grid;grid-template-columns:1.5rem 1fr;gap:.25rem;align-items:start}.followUpDetails li>span:first-child{font-weight:800;color:#8a5a00}.followUpDetails small{display:block;margin-top:.15rem;color:#626b74;line-height:1.4}
+.followUpActions{display:flex;flex-wrap:wrap;align-items:center;gap:.6rem}.followUpActions button,.actionLink{min-height:2.5rem;padding:.5rem .75rem}.actionLink{display:inline-flex;align-items:center;border:1px solid #b85c00;border-radius:.35rem;background:#f7931a;color:#17120d!important;font-weight:750;text-decoration:none}
+@media(hover:hover) and (pointer:fine){.refresh:hover{background:#f7f8f9}.primaryAction:hover,.actionLink:hover{background:#ed870e!important}}
 @media(max-width:62rem){.queueGrid{grid-template-columns:1fr}}
+@media(max-width:50rem){.followUpList{grid-template-columns:1fr}}
 @media(max-width:38rem){.moduleHeader{display:grid}.refresh{width:100%}}
 @media(prefers-reduced-motion:reduce){.refresh,.primaryAction{transition:background-color 150ms ease-out}.refresh:not(:disabled):active,.primaryAction:not(:disabled):active{transform:none}}
