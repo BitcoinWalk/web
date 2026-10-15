@@ -28,11 +28,27 @@ describe("city backlog controls",()=>{
  });
  it("gates permanent deletion behind offline state and typed confirmation without a provider dependency",()=>{
   const page=source();
-  expect(page).toContain("Delete city permanently");
+  expect(page).toContain("Delete permanently");
   expect(page).toContain("if(latest.state===\"approved\")");
   expect(page).not.toContain('if(!paymentInventoryReady)throw new Error("Payment inventory is unavailable. Refresh cities before deleting anything.")');
-  expect(page).toContain("This does not refund its payment or decommission any dedicated/own relay");
+  expect(page).toContain("Payment records and any provisioned relay, NIP-05, Lightning, chat or other services remain");
   expect(page).toContain("const confirmation=`DELETE ${city.slug}`");
   expect(page).toContain("deletedCityIds(readback.approvals).has(city.cityId)");
+ });
+ it("uses one reversible lifecycle hierarchy for every managed city",()=>{
+  const page=source();
+  expect(page).toContain("Set offline");
+  expect(page).toContain("Restore online");
+  expect(page).toContain("Archive request");
+  expect(page).not.toContain("Delete — archive free city");
+  expect(page).not.toContain("Delete paid relay — unavailable");
+  expect(page).not.toContain("Retire staging test city");
+  expect(page).not.toContain("Approve / Restore");
+ });
+ it("keeps directory lifecycle actions available when optional service checks fail",()=>{
+  const page=source();
+  expect(page).toContain("setDirectoryCurrent(true);setDashboardAuthorizationScope(authorizationScope,true)");
+  expect(page).toContain("disabled={busy||!directoryCurrent}");
+  expect(page).toContain("city status and deletion actions remain available");
  });
 });
