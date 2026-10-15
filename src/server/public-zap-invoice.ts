@@ -48,13 +48,13 @@ export async function createPublicZapInvoice(input:PublicZapInvoiceInput,fetcher
  // reconnects. Rustress keeps this exact request idempotent, so retrying the
  // same signed callback bridges that short window without duplicating an
  // invoice, changing its commitment or weakening any payout safety gate.
- const deadline=Date.now()+38_000,retryDelay=2_500;let invoiceResponse:Response|undefined,lastTransportError=false;
- for(let attempt=0;attempt<4;attempt++){
+ const deadline=Date.now()+38_000,retryDelay=2_500,maxAttempts=12;let invoiceResponse:Response|undefined,lastTransportError=false;
+ for(let attempt=0;attempt<maxAttempts;attempt++){
   const remaining=deadline-Date.now();if(remaining<1_000)break;
   try{invoiceResponse=await fetcher(callback,{headers:{accept:"application/json"},redirect:"error",cache:"no-store",signal:AbortSignal.timeout(Math.min(15_000,remaining))});lastTransportError=false;}
   catch{invoiceResponse=undefined;lastTransportError=true;}
   if(invoiceResponse&&invoiceResponse.status!==503)break;
-  if(attempt===3||deadline-Date.now()<=retryDelay)break;
+  if(attempt===maxAttempts-1||deadline-Date.now()<=retryDelay)break;
   await invoiceResponse?.body?.cancel();await wait(retryDelay);
  }
  if(!invoiceResponse)throw new PublicZapInvoiceError(lastTransportError?"The zap invoice service could not be reached.":"The zap invoice could not be created.",502);

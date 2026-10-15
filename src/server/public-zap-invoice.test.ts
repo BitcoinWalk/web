@@ -22,12 +22,11 @@ describe("public zap invoice boundary",()=>{
   const callback=new URL(String(fetcher.mock.calls[1][0]));expect(callback.origin+callback.pathname).toBe("https://bitcoinwalk.org/lnurlp/madeira/callback");expect(callback.searchParams.get("amount")).toBe("100000");expect(callback.searchParams.get("nostr")).toBe(signed.zapRequest);
  });
  it("retries the same signed callback across a short payout reconnect without changing the request",async()=>{
-  const signed=input(),wait=vi.fn(async()=>{}),fetcher=vi.fn<typeof fetch>().mockResolvedValueOnce(Response.json(metadata()))
-   .mockResolvedValueOnce(Response.json({status:"ERROR",reason:"Payment service unavailable"},{status:503}))
-   .mockResolvedValueOnce(Response.json({status:"ERROR",reason:"Payment service unavailable"},{status:503}))
-   .mockResolvedValueOnce(Response.json({pr:"lnbc1recovered"}));
+  const signed=input(),wait=vi.fn(async()=>{}),fetcher=vi.fn<typeof fetch>().mockResolvedValueOnce(Response.json(metadata()));
+  for(let attempt=0;attempt<5;attempt++)fetcher.mockResolvedValueOnce(Response.json({status:"ERROR",reason:"Payment service unavailable"},{status:503}));
+  fetcher.mockResolvedValueOnce(Response.json({pr:"lnbc1recovered"}));
   await expect(createPublicZapInvoice(signed,fetcher,wait)).resolves.toEqual({invoice:"lnbc1recovered",provider});
-  expect(wait).toHaveBeenCalledTimes(2);expect(fetcher).toHaveBeenCalledTimes(4);
+  expect(wait).toHaveBeenCalledTimes(5);expect(fetcher).toHaveBeenCalledTimes(7);
   const callbacks=fetcher.mock.calls.slice(1).map(call=>String(call[0]));expect(new Set(callbacks).size).toBe(1);
   expect(new URL(callbacks[0]).searchParams.get("nostr")).toBe(signed.zapRequest);
  });
