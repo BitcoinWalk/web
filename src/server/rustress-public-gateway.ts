@@ -20,7 +20,7 @@ function dependencies():Dependencies{return {db:getPaymentRuntime().store.db,ori
 function activeConfig(localPart:string,capability:"nip05"|"lnurl",db:DatabaseSync):ProvisionConfig|null{
   if(!label.test(localPart)||localPart.length>63)return null;
   const table=db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='rustress_activation_task'").get();if(!table)return null;
-  let rows:{activation_config:string}[];try{rows=db.prepare(`SELECT activation_config FROM rustress_activation_task WHERE ${capability}='active' AND json_extract(activation_config,'$.localPart')=? LIMIT 2`).all(localPart) as {activation_config:string}[];}catch{return null;}
+  let rows:{activation_config:string}[];try{rows=db.prepare(`SELECT activation_config FROM rustress_activation_task WHERE (${capability}='active' OR phase='verifying') AND json_extract(activation_config,'$.localPart')=? LIMIT 2`).all(localPart) as {activation_config:string}[];}catch{return null;}
   if(rows.length!==1)return null;
   for(const row of rows){try{const config=managedProvisionConfigSchema.parse(JSON.parse(row.activation_config));if(config.localPart===localPart&&
       (capability==="nip05"||config.invoiceIssuance==="enabled"))return config;}catch{/* Corrupt rows fail closed. */}}

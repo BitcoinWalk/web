@@ -20,6 +20,10 @@ describe("managed public city gateway",()=>{
     expect(await (await managedNip05("madeira",f.deps)).json()).toEqual({names:{madeira:active.brandPubkey}});
     expect((await managedLnurl("madeira","/.well-known/lnurlp/madeira","",f.deps)).status).toBe(404);
     expect(f.transport).toHaveBeenCalledTimes(1);expect(String(f.transport.mock.calls[0][0])).toContain("nostr.json");});
+  it("opens the bounded verification window only after exact provider activation",async()=>{const f=fixture("verifying","provisioning","provisioning");
+    expect(await (await managedNip05("madeira",f.deps)).json()).toEqual({names:{madeira:active.brandPubkey}});
+    expect((await managedLnurl("madeira","/.well-known/lnurlp/madeira","",f.deps)).status).toBe(200);
+  });
   it("proxies only bounded city LNURL paths without credentials",async()=>{const f=fixture("active"),response=await managedLnurl("madeira","/.well-known/lnurlp/madeira","",f.deps);expect(response.status).toBe(200);expect((await response.json()).tag).toBe("payRequest");expect(JSON.stringify(f.transport.mock.calls)).not.toContain("Authorization");expect((await managedLnurl("madeira","/v1/bitcoinwalk/capabilities","",f.deps)).status).toBe(404);expect((await managedLnurl("madeira","/lnurlp/../admin","",f.deps)).status).toBe(404);});
   it("fails closed on provider mismatch, oversized or unavailable responses",async()=>{const f=fixture();f.transport.mockResolvedValueOnce(new Response(JSON.stringify({names:{madeira:"b".repeat(64)}}),{headers:{"Content-Type":"application/json"}}));expect((await managedNip05("madeira",f.deps)).status).toBe(503);f.transport.mockRejectedValueOnce(new Error("offline"));expect((await managedLnurl("madeira","/lnurlp/madeira","",f.deps)).status).toBe(503);});
   it("suppresses both public capabilities when their operator gates are off",async()=>{const f=fixture("active"),deps={...f.deps,nip05Enabled:()=>false,lnurlEnabled:()=>false};
