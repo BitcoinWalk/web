@@ -14,11 +14,16 @@ export class SettlementCollector {
   if(!Number.isSafeInteger(after)||after<0||!Number.isSafeInteger(maxPages)||maxPages<1||maxPages>20)throw new Error("Invalid collector bounds");
   this.#busy=true;let cursor=after,credited=0,failed=0,pending=0;
   try{
-   for(const hash of [...this.#hints]){
+   const hints=[...this.#hints].slice(0,20);
+   for(const hash of hints){
     if(!this.enabled())return {state:"paused" as const};
     this.#hints.delete(hash);
-    try{await this.flow.collect(hash);}catch{/* Persisted pending rows remain eligible for sweep. */}
+    try{if((await this.flow.collect(hash)).state==="credited")credited++;else pending++;}catch{failed++;/* Persisted pending rows remain eligible for sweep. */}
    }
+   // A wallet notification is the latency-sensitive path. Return after its
+   // exact authenticated lookup so the automation can create the organizer
+   // payout before it starts the slower historical recovery sweep.
+   if(hints.length>0)return {state:"scanned" as const,cursor:after,done:false,credited,failed,pending};
    for(let page=0;page<maxPages;page++){
     if(!this.enabled())return {state:"paused" as const};
     const result=await this.flow.sweep(cursor,50);

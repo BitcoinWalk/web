@@ -19,6 +19,11 @@ describe("default-off payout automation",()=>{
  it("does nothing without an external enable grant",async()=>{const f=fixture(false);expect(f.automation.start()).toBe(false);expect(await f.automation.cycle()).toEqual({state:"paused"});expect(f.runtime.reconcile).not.toHaveBeenCalled();});
  it("reconciles, sweeps and creates at most one payout for an eligible bucket",async()=>{const f=fixture();expect(await f.automation.cycle()).toEqual({state:"completed",resumed:0,prepared:1,completed:1});expect(f.runtime.prepare).toHaveBeenCalledWith(f.hash,expect.any(String));expect(f.runtime.run).toHaveBeenCalledTimes(1);});
  it("resumes durable attempts before scanning and excludes their bucket from a new invoice",async()=>{const f=fixture(),id=randomUUID();f.ledger.reserve(f.bucket,id,"ab".repeat(32),"79000","10000");expect(await f.automation.cycle()).toMatchObject({state:"completed",resumed:1,prepared:0});expect(f.runtime.run).toHaveBeenCalledWith(id);expect(f.runtime.prepare).not.toHaveBeenCalled();});
+ it("pays an existing credit before starting a slow historical scan",async()=>{
+  const f=fixture();let release!:()=>void;f.runtime.poll.mockImplementationOnce(()=>new Promise(resolve=>{release=()=>resolve({state:"completed",result:{}});}));
+  const cycle=f.automation.cycle();for(let i=0;i<50&&f.runtime.poll.mock.calls.length===0;i++)await Promise.resolve();
+  expect(f.runtime.prepare).toHaveBeenCalledWith(f.hash,expect.any(String));expect(f.runtime.run).toHaveBeenCalledTimes(1);release();await expect(cycle).resolves.toMatchObject({state:"completed",prepared:1,completed:1});
+ });
  it("pauses fail closed and prevents overlapping cycles",async()=>{const f=fixture();f.runtime.poll.mockResolvedValueOnce({state:"paused"});expect(await f.automation.cycle()).toEqual({state:"blocked"});expect(f.runtime.pause).toHaveBeenCalled();});
  it("starts only when enabled and stop invalidates runtime",async()=>{vi.useFakeTimers();const f=fixture();expect(f.automation.start()).toBe(true);expect(f.automation.start()).toBe(false);await vi.advanceTimersByTimeAsync(1);f.automation.stop();expect(f.automation.running).toBe(false);expect(f.runtime.pause).toHaveBeenCalled();});
 });

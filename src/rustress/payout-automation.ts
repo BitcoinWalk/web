@@ -26,11 +26,17 @@ export class PayoutAutomation {
    for(const id of this.ledger.pendingPayoutIds(this.walletRef,50)){
     const result=await this.runtime.run(id);if(result.state!=="completed")throw new Error();resumed++;
    }
-   const scan=await this.runtime.poll(0,10);if(scan.state!=="completed")throw new Error();
-   for(const row of this.ledger.payableBuckets(this.walletRef,20)){
+   const attempted=new Set<string>();
+   const pay=async()=>{for(const row of this.ledger.payableBuckets(this.walletRef,20)){
+    if(attempted.has(row.sourceHash))continue;attempted.add(row.sourceHash);
     const id=randomUUID(),saved=await this.runtime.prepare(row.sourceHash,id);if(saved.state!=="completed")throw new Error();prepared++;
     const result=await this.runtime.run(id);if(result.state!=="completed")throw new Error();completed++;
-   }
+   }};
+   // Credits may already exist after a restart or an earlier long scan. Never
+   // hold those obligations behind another pass over every unpaid invoice.
+   await pay();
+   const scan=await this.runtime.poll(0,10);if(scan.state!=="completed")throw new Error();
+   await pay();
    return {state:"completed" as const,resumed,prepared,completed};
   }catch{this.runtime.pause();return {state:"blocked" as const};}finally{this.#busy=false;}
  }
