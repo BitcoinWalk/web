@@ -1,0 +1,27 @@
+.page>h1{margin-bottom:1rem}
+.queueGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1rem;align-items:start}
+.module{display:grid;gap:1rem;align-content:start;min-width:0;margin:0!important}
+.moduleHeader{display:flex;align-items:flex-start;justify-content:space-between;gap:1rem}
+.moduleHeader h2{margin:0 0 .35rem;font-size:1.35rem;line-height:1.2}
+.moduleHeader p{margin:0;color:#626b74;font-size:.92rem;line-height:1.45}
+.refresh{flex:none;min-height:2.5rem;padding:.5rem .8rem;font-weight:700;-webkit-tap-highlight-color:transparent;transition:transform 150ms ease-out,background-color 150ms ease-out}
+.refresh:not(:disabled):active{transform:scale(.96)}
+.notice{margin:0;padding:.75rem .85rem;border-left:.25rem solid #687078;border-radius:0 .5rem .5rem 0;background:#f4f5f6;font-size:.9rem}
+.notice:empty{display:none}
+.empty{display:grid;gap:.25rem;place-items:center;min-height:9rem;padding:1.5rem;text-align:center;border:1px dashed #b8bec5;border-radius:.75rem;color:#626b74}
+.empty strong{color:#2b3035}
+.activationList{display:grid;gap:.75rem}
+.activationCard{display:grid;gap:.85rem;margin:0!important;padding:1rem!important;border-radius:.75rem!important}
+.activationHeader{display:flex;align-items:center;gap:.75rem}
+.activationHeader h3{margin:0;font-size:1.05rem}
+.activationHeader p{margin:.2rem 0 0;color:#626b74;font-size:.84rem}
+.activationAvatar{width:3rem;height:3rem;border-radius:50%;object-fit:cover;outline:1px solid oklch(0 0 0/.1);outline-offset:-1px}
+.activationBanner{display:block;width:100%;height:auto;aspect-ratio:3/1;object-fit:cover;border-radius:.5rem;outline:1px solid oklch(0 0 0/.1);outline-offset:-1px}
+.identityMeta{margin:0;color:#555f68;font-size:.86rem;line-height:1.55;overflow-wrap:anywhere}
+.activationState{margin:0;padding:.65rem .75rem;border-radius:.5rem;background:#f6f7f8;font-size:.9rem}
+.primaryAction{justify-self:start;min-height:2.75rem;padding:.6rem .9rem;border-color:#b85c00!important;background:#f7931a!important;color:#17120d;font-weight:750;transition:transform 150ms ease-out,background-color 150ms ease-out}
+.primaryAction:not(:disabled):active{transform:scale(.96)}
+@media(hover:hover) and (pointer:fine){.refresh:hover{background:#f7f8f9}.primaryAction:hover{background:#ed870e!important}}
+@media(max-width:62rem){.queueGrid{grid-template-columns:1fr}}
+@media(max-width:38rem){.moduleHeader{display:grid}.refresh{width:100%}}
+@media(prefers-reduced-motion:reduce){.refresh,.primaryAction{transition:background-color 150ms ease-out}.refresh:not(:disabled):active,.primaryAction:not(:disabled):active{transform:none}}

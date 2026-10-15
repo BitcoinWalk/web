@@ -27,6 +27,7 @@ import {createSponsorshipRevision,latestSponsorships,querySponsorships,sponsorsh
 import CityFinder from "../../components/city-finder";
 import {provisionWalkieTalkieCity} from "../../lib/walkie-talkie-provision-client";
 import {adminCityRequests,FINAL_REJECTION_PREFIX,visibleDecisionNote,type AdminCityRequestStatus} from "../../domain/admin-city-requests";
+import workspaceStyles from "../../components/requests-screen.module.css";
 
 type Submission = { eventId: string; initialEventIds: string[]; author: string; cityId: string; slug: string; cityName: string; startAt: string; meetingPoint: string; city: CityDocument; previous?: string; previousCity?:CityDocument; paid:boolean; registered:boolean; established:boolean; status:AdminCityRequestStatus; decisionNote?:string; decidedAt?:number };
 type State = { message: string; tone: "info" | "error" | "success"; approvedWalk?: { href: string; name: string } };
@@ -118,7 +119,7 @@ export default function SubmissionApprovals() {
       setState({ message: "Configure the BitcoinWalk relay to load submissions.", tone: "error" });
       return;
     }
-    setBusy(true);setSubmissions([]);
+    setBusy(true);
     try {
       const pubkey = await getBrowserExtensionPubkey();
       if (!isSuperAdmin(pubkey)) throw new Error("This Nostr identity is not the BitcoinWalk super-admin.");
@@ -285,8 +286,8 @@ export default function SubmissionApprovals() {
     <span className="request-review-row__open">{submission.status==="pending"?"Review":"View"}<span aria-hidden="true"> →</span></span>
   </button>;
 
-  return <section className="request-review">
-    <div className="request-review__heading"><div><h2>City request queue</h2><p>Only waiting work appears here. Action required belongs to the super-admin; Awaits change belongs to a host or external provider. Use Cities for the complete inventory.</p></div><button disabled={busy} type="button" onClick={loadSubmissions}>{busy?"Refreshing…":"Refresh"}</button></div>
+  return <section className={`${workspaceStyles.module} request-review`}>
+    <div className={`${workspaceStyles.moduleHeader} request-review__heading`}><div><h2>City request queue ({queueSubmissions.length})</h2><p>Review new applications or see requests waiting for a host or provider.</p></div><button className={workspaceStyles.refresh} disabled={busy} type="button" onClick={loadSubmissions}>{busy?"Refreshing…":"Refresh"}</button></div>
     <p className={`request-review__notice request-review__notice--${state.tone}`} role={state.tone==="error"?"alert":"status"} aria-live="polite">{state.message}{state.approvedWalk&&<> <Link prefetch={false} href={state.approvedWalk.href}>View BitcoinWalk {state.approvedWalk.name} →</Link></>}</p>
     <div className="request-review__filters">
       <CityFinder disabled={busy||!queueSubmissions.length} label="Find a city" placeholder="Search waiting city requests…" value={selectedCity} onChange={setSelectedCity} items={requestCities}/>
