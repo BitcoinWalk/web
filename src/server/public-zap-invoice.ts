@@ -6,6 +6,7 @@ import {managedLnurl} from "./rustress-public-gateway";
 const hex=/^[0-9a-f]{64}$/;
 const maximumBodyBytes=65_536;
 export type PublicZapInvoiceInput={address:string;amountMsat:number;zapRequest:string};
+type Wait=(milliseconds:number)=>Promise<void>;
 
 export class PublicZapInvoiceError extends Error{constructor(message:string,readonly status=400){super(message);}}
 
@@ -31,7 +32,7 @@ function event(value:unknown):Event{
  const row=value as Event;if(row.kind!==9734||!verifyEvent(structuredClone(row))||nip57.validateZapRequest(JSON.stringify(row))!==null)throw new PublicZapInvoiceError("The signed zap request is invalid.");return row;
 }
 
-export async function createPublicZapInvoice(input:PublicZapInvoiceInput,fetcher:typeof fetch=fetch){
+export async function createPublicZapInvoice(input:PublicZapInvoiceInput,fetcher:typeof fetch=fetch,wait:Wait=milliseconds=>new Promise(resolve=>setTimeout(resolve,milliseconds))){
  if(!Number.isSafeInteger(input.amountMsat)||input.amountMsat<1||input.amountMsat>1_000_000_000||typeof input.zapRequest!=="string"||input.zapRequest.length>32_768)throw new PublicZapInvoiceError("The zap request is invalid.");
  const address=lightningAddress(`lightning:${input.address}`),localPart=address.address.split("@")[0];
  let request:Event;try{request=event(JSON.parse(input.zapRequest));}catch(error){if(error instanceof PublicZapInvoiceError)throw error;throw new PublicZapInvoiceError("The signed zap request is invalid.");}
@@ -43,7 +44,20 @@ export async function createPublicZapInvoice(input:PublicZapInvoiceInput,fetcher
  const callback=new URL(metadata.callback);
  if(callback.pathname!==`/lnurlp/${localPart}/callback`||callback.search||callback.hash)throw new PublicZapInvoiceError("The city Lightning callback is invalid.",502);
  callback.searchParams.set("amount",String(input.amountMsat));callback.searchParams.set("nostr",input.zapRequest);
- let invoiceResponse:Response;try{invoiceResponse=await fetcher(callback,{headers:{accept:"application/json"},redirect:"error",cache:"no-store",signal:AbortSignal.timeout(15_000)});}catch{throw new PublicZapInvoiceError("The zap invoice service could not be reached.",502);}
+ // The payout runtime pauses outgoing work while its Alby notification stream
+ // reconnects. Rustress keeps this exact request idempotent, so retrying the
+ // same signed callback bridges that short window without duplicating an
+ // invoice, changing its commitment or weakening any payout safety gate.
+ const deadline=Date.now()+38_000,retryDelay=2_500;let invoiceResponse:Response|undefined,lastTransportError=false;
+ for(let attempt=0;attempt<4;attempt++){
+  const remaining=deadline-Date.now();if(remaining<1_000)break;
+  try{invoiceResponse=await fetcher(callback,{headers:{accept:"application/json"},redirect:"error",cache:"no-store",signal:AbortSignal.timeout(Math.min(15_000,remaining))});lastTransportError=false;}
+  catch{invoiceResponse=undefined;lastTransportError=true;}
+  if(invoiceResponse&&invoiceResponse.status!==503)break;
+  if(attempt===3||deadline-Date.now()<=retryDelay)break;
+  await invoiceResponse?.body?.cancel();await wait(retryDelay);
+ }
+ if(!invoiceResponse)throw new PublicZapInvoiceError(lastTransportError?"The zap invoice service could not be reached.":"The zap invoice could not be created.",502);
  const body=await json(invoiceResponse) as {pr?:unknown;status?:unknown;reason?:unknown};
  if(body.status==="ERROR"||typeof body.pr!=="string")throw new PublicZapInvoiceError(typeof body.reason==="string"?body.reason:"The zap invoice could not be created.",502);
  return {invoice:body.pr,provider:metadata.nostrPubkey};
