@@ -73,15 +73,16 @@ export async function verifyCityLnurl(input: ExpectedCityEndpoint, transport: Tr
   try {callback = new URL(String(body.callback)); metadata = JSON.parse(String(body.metadata));}
   catch {throw new PublicProvisioningError("lnurl", "invalid");}
   const min = body.minSendable, max = body.maxSendable;
+  const nostrPubkey=body.nostrPubkey;
   const metadataValid = Array.isArray(metadata) && metadata.length > 0 && metadata.length <= 20 && metadata.every(row =>
     Array.isArray(row) && row.length === 2 && typeof row[0] === "string" && typeof row[1] === "string" && row[0].length <= 100 && row[1].length <= 10_000) &&
     metadata.some(row => Array.isArray(row) && row[0] === "text/plain");
   if (body.tag !== "payRequest" || !Number.isSafeInteger(min) || !Number.isSafeInteger(max) || Number(min) < 1 || Number(max) < Number(min) ||
       !metadataValid || callback.origin !== value.origin || callback.protocol !== "https:" || callback.username || callback.password || callback.hash ||
-      "allowsNostr" in body || "nostrPubkey" in body)
+      body.allowsNostr !== true || typeof nostrPubkey !== "string" || !/^[0-9a-f]{64}$/.test(nostrPubkey))
     throw new PublicProvisioningError("lnurl", "invalid");
   return {capability: "lnurl" as const, state: "verified" as const, address: `${value.localPart}@${value.domain}`,
-    callback: callback.toString(), minSendable: Number(min), maxSendable: Number(max)};
+    callback: callback.toString(), minSendable: Number(min), maxSendable: Number(max), allowsNostr:true as const, nostrPubkey};
 }
 
 export async function verifyCityPublicProvisioning(input: ExpectedCityEndpoint, transport: Transport = fetch) {

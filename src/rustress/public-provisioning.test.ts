@@ -5,9 +5,9 @@ const input = {publicOrigin:"https://bitcoinwalk.org",domain:"bitcoinwalk.org",l
 const headers = {"access-control-allow-origin":"*","content-type":"application/json; charset=utf-8"};
 const nip05 = {names:{madeira:input.brandPubkey}};
 const lnurl = {tag:"payRequest",callback:"https://bitcoinwalk.org/api/lnurl/callback/madeira",minSendable:1000,maxSendable:100_000_000,
-  metadata:JSON.stringify([["text/plain","BitcoinWalk in Madeira"]])};
+  metadata:JSON.stringify([["text/plain","BitcoinWalk in Madeira"]]),allowsNostr:true,nostrPubkey:"b".repeat(64)};
 const response = (body:unknown, init:ResponseInit={}) => new Response(JSON.stringify(body),{status:200,headers,...init});
-function transport(nip = nip05, pay = lnurl) {
+function transport(nip:unknown = nip05, pay:unknown = lnurl) {
   return vi.fn(async (url: string | URL | Request, options?: RequestInit) => {
     expect(options).toMatchObject({method:"GET",redirect:"error",cache:"no-store"});
     return String(url).includes("nostr.json") ? response(nip) : response(pay);
@@ -19,7 +19,7 @@ describe("public city provisioning verification",()=>{
     const fetcher=transport();
     await expect(verifyCityPublicProvisioning(input,fetcher)).resolves.toMatchObject({
       nip05:{state:"verified",identifier:"madeira@bitcoinwalk.org",pubkey:input.brandPubkey},
-      lnurl:{state:"verified",address:"madeira@bitcoinwalk.org",callback:lnurl.callback}});
+      lnurl:{state:"verified",address:"madeira@bitcoinwalk.org",callback:lnurl.callback,allowsNostr:true,nostrPubkey:lnurl.nostrPubkey}});
     expect(fetcher).toHaveBeenCalledTimes(2);
   });
   it("rejects wrong identities, aliases and missing public CORS",async()=>{
@@ -28,12 +28,13 @@ describe("public city provisioning verification",()=>{
     const noCors=vi.fn(async()=>response(nip05,{headers:{"content-type":"application/json"}})) as unknown as typeof fetch;
     await expect(verifyCityNip05(input,noCors)).rejects.toThrow("invalid");
   });
-  it("rejects off-origin or insecure callbacks and premature NIP-57 claims",async()=>{
+  it("rejects off-origin or insecure callbacks and invalid NIP-57 claims",async()=>{
     for(const changed of [
       {...lnurl,callback:"https://wallet.example/callback"},
       {...lnurl,callback:"http://bitcoinwalk.org/callback"},
       {...lnurl,allowsNostr:false},
-      {...lnurl,nostrPubkey:"b".repeat(64)},
+      {...lnurl,nostrPubkey:"not-a-pubkey"},
+      {...lnurl,nostrPubkey:undefined},
     ]) await expect(verifyCityLnurl(input,transport(nip05,changed))).rejects.toThrow("invalid");
   });
   it("does not require browser CORS on the wallet-facing LNURL metadata route",async()=>{
