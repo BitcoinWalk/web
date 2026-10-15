@@ -6,6 +6,7 @@ import {visibleDecisionNote} from "../domain/admin-city-requests";
 
 export type CityWorkflowStatus="action-required"|"awaits-change"|"online"|"offline";
 export type CityRelayType="shared"|"dedicated"|"migrated";
+export type CityTypeFilter="all"|"basic"|"pro-managed"|"pro-own";
 export type CityWorkflowAction="open-record"|"open-public"|"review-request"|"view-decision"|"manage-pro"|"set-online"|"set-offline"|"archive"|"retire-test";
 export type CityWorkflowRow={
   cityId:string;cityName:string;slug:string;status:CityWorkflowStatus;online:boolean;
@@ -40,6 +41,12 @@ export function cityWorkflowRows(input:{managed:ManagedCity[];pending:CityRevisi
 
 export const cityWorkflowLabel=(status:CityWorkflowStatus)=>({"action-required":"Action required","awaits-change":"Awaits change",online:"Online",offline:"Offline"})[status];
 export const cityRelayLabel=(relay:CityRelayType)=>({shared:"Shared relay",dedicated:"Dedicated relay",migrated:"Own relay · migrated"})[relay];
+export function cityMatchesType(row:CityWorkflowRow,filter:CityTypeFilter){
+ if(filter==="all")return true;
+ if(filter==="basic")return row.tier==="basic";
+ if(filter==="pro-own")return row.tier==="paid"&&row.relay==="migrated";
+ return row.tier==="paid"&&row.relay!=="migrated";
+}
 
 /** A compact operational instruction for rows that genuinely need work. The
  * owner follows the same boundary used to classify Action required versus

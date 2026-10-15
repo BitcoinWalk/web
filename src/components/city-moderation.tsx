@@ -20,7 +20,7 @@ import EventModerationPanel from "./event-moderation";
 import {CityIdentityHealthDetails} from "./city-identity-health";
 import type {CityIdentityHealth} from "../server/pro-city-identity-health";
 import AdminDataStatus,{resolvedAdminDataState,type AdminDataHealth} from "./admin-data-status";
-import {cityRelayLabel,cityWorkflowActions,cityWorkflowLabel,cityWorkflowNextStep,cityWorkflowRows,type CityWorkflowAction,type CityWorkflowRow,type CityWorkflowStatus} from "./city-backlog";
+import {cityMatchesType,cityRelayLabel,cityWorkflowActions,cityWorkflowLabel,cityWorkflowNextStep,cityWorkflowRows,type CityTypeFilter,type CityWorkflowAction,type CityWorkflowRow,type CityWorkflowStatus} from "./city-backlog";
 import CityActionsMenu from "./city-actions-menu";
 import CopyValue from "./copy-value";
 import styles from "./city-moderation.module.css";
@@ -42,7 +42,7 @@ export default function CityModeration(){
  const [identityHealthError,setIdentityHealthError]=useState("");
  const [selectedId,setSelectedId]=useState(dashboard.selectedCity);
  const [query,setQuery]=useState("");
- const [statusFilter,setStatusFilter]=useState<"all"|CityWorkflowStatus>("all");
+ const [cityTypeFilter,setCityTypeFilter]=useState<CityTypeFilter>("all");
  const scrollToCity=useRef("");
  const [calendarWalks,setCalendarWalks]=useState<CalendarWalk[]>([]);
  const [publicUrls,setPublicUrls]=useState<Record<string,string>>({});
@@ -141,7 +141,7 @@ export default function CityModeration(){
  const scoped=rows;
  const workflow=cityWorkflowRows({managed:rows,pending,needsChanges,rejected,health:identityHealth,paidCityIds,paidCities:directoryConfig.paidCities});
  const normalizedQuery=query.normalize("NFKD").replace(/\p{M}/gu,"").toLowerCase().trim();
- const visibleWorkflow=workflow.filter(item=>(statusFilter==="all"||item.status===statusFilter)&&(!normalizedQuery||`${item.cityName} ${item.slug} ${item.cityId}`.normalize("NFKD").replace(/\p{M}/gu,"").toLowerCase().includes(normalizedQuery)));
+ const visibleWorkflow=workflow.filter(item=>cityMatchesType(item,cityTypeFilter)&&(!normalizedQuery||`${item.cityName} ${item.slug} ${item.cityId}`.normalize("NFKD").replace(/\p{M}/gu,"").toLowerCase().includes(normalizedQuery)));
  const statusCounts=workflow.reduce<Record<CityWorkflowStatus,number>>((counts,item)=>({...counts,[item.status]:counts[item.status]+1}),{"action-required":0,"awaits-change":0,online:0,offline:0});
  function selectCity(id:string){setSelectedId(id);void run(async()=>{await reload(id);setMessage(id?"City state and walks loaded.":"City list loaded.");});}
  function reviewCity(id:string){scrollToCity.current=id;selectCity(id);}
@@ -163,7 +163,7 @@ export default function CityModeration(){
   <div className={styles.sectionHeading}><div><h2>Cities</h2><p>One operational backlog for every city. Work owned by the super-admin appears first, followed by work awaiting a host or provider.</p></div><button disabled={busy} onClick={()=>run(async()=>{await reload();setMessage("City state and selected city's walks refreshed.");})}>Refresh cities</button></div>
   <AdminDataStatus health={dataHealth} busy={busy} onRetry={()=>void run(async()=>{await reload(selectedId);setMessage("City state and selected city's walks refreshed.");})} scope="Cities" hideWhenReady/>
   <div className={styles.summary} aria-label="City status totals"><span className={styles.count}>Action required {statusCounts["action-required"]}</span><span className={styles.count}>Awaits change {statusCounts["awaits-change"]}</span><span className={styles.count}>Online {statusCounts.online}</span><span className={styles.count}>Offline {statusCounts.offline}</span></div>
-  <div className={styles.toolbar}><label>Filter cities<input type="search" value={query} onChange={event=>setQuery(event.target.value)} placeholder="Name, slug or city ID"/></label><label>Status<select value={statusFilter} onChange={event=>setStatusFilter(event.target.value as typeof statusFilter)}><option value="all">All statuses</option><option value="action-required">Action required</option><option value="awaits-change">Awaits change</option><option value="online">Online</option><option value="offline">Offline</option></select></label></div>
+  <div className={styles.toolbar}><label>Filter cities<input type="search" value={query} onChange={event=>setQuery(event.target.value)} placeholder="Name, slug or city ID"/></label><label>City type<select value={cityTypeFilter} onChange={event=>setCityTypeFilter(event.target.value as CityTypeFilter)}><option value="all">All city types</option><option value="basic">Basic</option><option value="pro-managed">Pro · managed relay</option><option value="pro-own">Pro · own relay</option></select></label></div>
   <ol className={styles.list} aria-label="City operational backlog">{visibleWorkflow.length?visibleWorkflow.map(item=>{const nextStep=cityWorkflowNextStep(item);return <li className={styles.item} key={item.cityId}>
    <div className={styles.row}><div className={styles.identity}><span className={styles.dot} data-online={item.online} role="img" aria-label={item.online?"Online":"Offline"}/><div><strong>{item.cityName}</strong><small>/{item.slug} · <CopyValue label={`${item.cityName} city ID`} value={item.cityId}/></small></div></div>
    <div className={styles.badges}><span className={styles.badge} data-status={item.status}>{cityWorkflowLabel(item.status)}</span><span className={styles.badge}>{item.tier==="paid"?"Paid":item.tier==="test"?"Test":"Basic"}</span><span className={styles.badge}>{cityRelayLabel(item.relay)}</span></div>

@@ -17,8 +17,12 @@ describe("awaits-change cleanup",()=>{
 describe("city backlog controls",()=>{
  it("uses the filter as the single city finder and exposes copyable city identifiers",()=>{
   const page=source();
-  expect(page).not.toContain('label="Jump to city"');
+ expect(page).not.toContain('label="Jump to city"');
   expect(page).toContain('placeholder="Name, slug or city ID"');
+  expect(page).toContain("All city types");
+  expect(page).toContain("Pro · managed relay");
+  expect(page).toContain("Pro · own relay");
+  expect(page).not.toContain("All statuses");
   expect(page).toContain("<CopyValue");
   expect(page).toContain("city ID`}");
  });

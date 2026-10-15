@@ -1,5 +1,5 @@
 import {describe,expect,it} from "vitest";
-import {cityWorkflowActions,cityWorkflowNextStep,cityWorkflowRows} from "./city-backlog";
+import {cityMatchesType,cityWorkflowActions,cityWorkflowNextStep,cityWorkflowRows} from "./city-backlog";
 import type {ManagedCity,NeedsChangesCity} from "../nostr/moderation";
 import type {CityRevision} from "../nostr/city-records";
 
@@ -15,6 +15,14 @@ describe("cityWorkflowRows",()=>{
  it("labels migrated operator inventory independently from its paid tier",()=>{
   const row=cityWorkflowRows({managed:[managed("l","London","approved")],pending:[],needsChanges:[],health:[],paidCityIds:new Set(["l"]),paidCities:{l:{slug:"london",featured:false,subdomainReady:true,relayMode:"migrated"}}})[0];
   expect(row).toMatchObject({tier:"paid",relay:"migrated",online:true});
+ });
+ it("filters Basic, managed Pro and own-relay Pro cities into distinct groups",()=>{
+  const [basic]=cityWorkflowRows({managed:[managed("b","Basic","approved")],pending:[],needsChanges:[],health:[],paidCityIds:new Set(),paidCities:{}});
+  const [managedPro]=cityWorkflowRows({managed:[managed("p","Pro","approved")],pending:[],needsChanges:[],health:[],paidCityIds:new Set(["p"]),paidCities:{}});
+  const [ownRelayPro]=cityWorkflowRows({managed:[managed("o","Own relay","approved")],pending:[],needsChanges:[],health:[],paidCityIds:new Set(["o"]),paidCities:{o:{slug:"own-relay",featured:false,subdomainReady:true,relayMode:"migrated"}}});
+  expect([basic,managedPro,ownRelayPro].filter(row=>cityMatchesType(row,"basic"))).toEqual([basic]);
+  expect([basic,managedPro,ownRelayPro].filter(row=>cityMatchesType(row,"pro-managed"))).toEqual([managedPro]);
+  expect([basic,managedPro,ownRelayPro].filter(row=>cityMatchesType(row,"pro-own"))).toEqual([ownRelayPro]);
  });
  it("keeps final application rejection offline rather than awaiting a third party",()=>{
   const row=cityWorkflowRows({managed:[],pending:[],needsChanges:[],rejected:[revision("r","Rejected")],health:[],paidCityIds:new Set(),paidCities:{}})[0];
