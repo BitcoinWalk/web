@@ -41,7 +41,7 @@ describe("cityWorkflowRows",()=>{
   const awaiting={revision:revision("w","Waiting"),rejection:{event:{id:"d".repeat(64)},approval:{cityId:"w",cityRevisionId:"a".repeat(64),status:"rejected",note:"  Add a clearer meeting point.\nThen resubmit.  "}} as NeedsChangesCity["rejection"]};
   const waiting=cityWorkflowRows({managed:[],pending:[],needsChanges:[awaiting],health:[],paidCityIds:new Set(),paidCities:{}})[0];
   expect(cityWorkflowNextStep(pending)).toEqual({owner:"Super-admin",action:"review the city application and accept it, request changes or reject it."});
-  expect(cityWorkflowNextStep(waiting)).toEqual({owner:"City host",action:"Add a clearer meeting point. Then resubmit."});
+  expect(cityWorkflowNextStep(waiting)).toEqual({owner:"City host",action:"Add a clearer meeting point. Then resubmit.",helpHref:"https://docs.bitcoinwalk.org/hosts/complete-city-setup/#correct-and-resubmit-a-city-application"});
  });
  it("turns identity health failures into role-specific one-line actions",()=>{
   const health={cityId:"g",cityName:"Graz",slug:"graz",availableInEnvironment:true,tier:"pro" as const,status:"action-required" as const,checkedAt:1,checks:[
@@ -50,7 +50,7 @@ describe("cityWorkflowRows",()=>{
   ]};
   const waiting=cityWorkflowRows({managed:[managed("g","Graz","approved")],pending:[],needsChanges:[],health:[health],paidCityIds:new Set(["g"]),paidCities:{}})[0];
   expect(waiting.status).toBe("awaits-change");
-  expect(cityWorkflowNextStep(waiting)).toEqual({owner:"City host",action:"connect the dedicated city signer and confirm its recovery method."});
+  expect(cityWorkflowNextStep(waiting)).toEqual({owner:"City host",action:"connect the dedicated city signer and confirm its recovery method.",helpHref:"https://docs.bitcoinwalk.org/hosts/complete-city-setup/#connect-the-city-identity"});
   expect(cityWorkflowNextStep({...waiting,status:"online"})).toBeNull();
  });
 });

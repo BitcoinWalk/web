@@ -19,6 +19,7 @@ export default defineConfig({
         ]},
         {label: "Hosts", items: [
           {label: "Manage your city and walks", slug: "organizers/manage-city-and-walks"},
+          {label: "Complete city setup", slug: "hosts/complete-city-setup"},
           {label: "City Transfer", slug: "organizers/transfer-city-ownership"}
         ]},
         {label: "Sponsors", items: [
