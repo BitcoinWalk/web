@@ -20,7 +20,6 @@ verify_operation(){
     const body=await response.json(),socket="/run/bitcoinwalk-payout-evidence/socket/evidence.sock",socketStat=fs.lstatSync(socket);
     if(response.status!==200||body.service!=="bitcoinwalk-rustress-payout"||body.mode!=="operation"||body.enabled!==true||body.running!==true||
       typeof body.ready!=="boolean"||!Number.isSafeInteger(body.consecutiveFailures)||body.consecutiveFailures<0||
-      !Number.isSafeInteger(body.operationExpiresAt)||body.operationExpiresAt<=Math.floor(Date.now()/1000)||body.authorizedCities!==2||
       counters.some(name=>!Number.isSafeInteger(body[name])||body[name]<0)||body.unknown!==0||body.invoiceOutcomesUnknown!==0||
       !socketStat.isSocket()||socketStat.isSymbolicLink()||(socketStat.mode&0o777)!==0o600||socketStat.uid!==0||fs.realpathSync(socket)!==socket)throw new Error();
    }).catch(()=>{process.exitCode=1;});

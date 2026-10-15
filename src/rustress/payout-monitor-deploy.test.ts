@@ -9,9 +9,11 @@ describe("production payout operation monitor",()=>{
   expect(monitor).toContain('body.mode!=="operation"');
   expect(monitor).toContain('body.enabled!==true');
  });
- it("still rolls back on unknown payment outcomes or invalid operation scope",()=>{
+ it("still rolls back on unknown payment outcomes while shell checks supervise operation scope and expiry",()=>{
   expect(monitor).toContain('body.unknown!==0||body.invoiceOutcomesUnknown!==0');
-  expect(monitor).toContain('body.authorizedCities!==2');
-  expect(monitor).toContain('body.operationExpiresAt<=Math.floor(Date.now()/1000)');
+  expect(monitor).not.toContain('body.authorizedCities');
+  expect(monitor).not.toContain('body.operationExpiresAt');
+  expect(monitor).toContain('org.bitcoinwalk.mode');
+  expect(monitor).toContain('bitcoinwalk-payout-operation-expiry.timer');
  });
 });
