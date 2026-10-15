@@ -165,6 +165,13 @@ Any failed or ambiguous check leaves invoice issuance closed and the durable tas
 retryable. Never substitute the BitcoinWalk retained destination for a missing
 organizer destination and never create a second Pro purchase invoice.
 
+NIP-05 may be activated and verified before the Lightning payout operation is
+healthy, but that identity-only phase must explicitly keep the public LNURL gate
+closed. On systemd deployments, apply the city-specific gates through the final
+`EnvironmentFile=` in the service environment chain and verify the effective
+process environment after restart; an earlier `Environment=` drop-in can be
+overridden by the base production environment files.
+
 Trigger automatically from durable entitlement, approved city, active branded
 identity and owner-confirmed destination records—not from an open browser or a
 manual provisioning button. Debounce/deduplicate concurrent triggers and compare
