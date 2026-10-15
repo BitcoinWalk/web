@@ -1,5 +1,5 @@
 import {describe,expect,it} from "vitest";
-import {cityWorkflowRows} from "./city-backlog";
+import {cityWorkflowActions,cityWorkflowRows} from "./city-backlog";
 import type {ManagedCity,NeedsChangesCity} from "../nostr/moderation";
 import type {CityRevision} from "../nostr/city-records";
 
@@ -18,6 +18,22 @@ describe("cityWorkflowRows",()=>{
  });
  it("keeps final application rejection offline rather than awaiting a third party",()=>{
   const row=cityWorkflowRows({managed:[],pending:[],needsChanges:[],rejected:[revision("r","Rejected")],health:[],paidCityIds:new Set(),paidCities:{}})[0];
-  expect(row).toMatchObject({status:"offline",online:false});
+ expect(row).toMatchObject({status:"offline",online:false});
+  expect(cityWorkflowActions(row)).toEqual(["view-decision"]);
+ });
+ it("exposes only valid actions for each workflow state",()=>{
+  const awaiting={revision:revision("w","Waiting"),rejection:{event:{id:"d".repeat(64)},approval:{cityId:"w",cityRevisionId:"a".repeat(64),status:"rejected"}}} as NeedsChangesCity;
+  const pending=cityWorkflowRows({managed:[],pending:[revision("p","Pending")],needsChanges:[],health:[],paidCityIds:new Set(),paidCities:{}})[0];
+  const waiting=cityWorkflowRows({managed:[],pending:[],needsChanges:[awaiting],health:[],paidCityIds:new Set(),paidCities:{}})[0];
+  const online=cityWorkflowRows({managed:[managed("o","Online","approved")],pending:[],needsChanges:[],health:[],paidCityIds:new Set(),paidCities:{}})[0];
+  const offline=cityWorkflowRows({managed:[managed("f","Offline","disapproved")],pending:[],needsChanges:[],health:[],paidCityIds:new Set(),paidCities:{}})[0];
+  const archived=cityWorkflowRows({managed:[managed("a","Archived","archived")],pending:[],needsChanges:[],health:[],paidCityIds:new Set(),paidCities:{}})[0];
+  const paid=cityWorkflowRows({managed:[managed("x","Paid","approved")],pending:[],needsChanges:[],health:[],paidCityIds:new Set(["x"]),paidCities:{}})[0];
+  expect(cityWorkflowActions(pending)).toEqual(["review-request"]);
+  expect(cityWorkflowActions(waiting)).toEqual(["review-request","archive"]);
+  expect(cityWorkflowActions(online)).toEqual(["open-record","open-public","set-offline","archive"]);
+  expect(cityWorkflowActions(offline)).toEqual(["open-record","set-online","archive"]);
+  expect(cityWorkflowActions(archived)).toEqual(["open-record","set-online"]);
+  expect(cityWorkflowActions(paid)).toEqual(["open-record","open-public","set-offline"]);
  });
 });

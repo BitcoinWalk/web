@@ -274,7 +274,7 @@ export default function SubmissionApprovals() {
   const queueSubmissions=useMemo(()=>submissions.filter(submission=>submission.status==="pending"||submission.status==="needs-changes"),[submissions]);
   const requestCities=[...new Map(queueSubmissions.map(submission=>[submission.cityId,{id:submission.cityId,name:submission.cityName,meta:submission.paid?"Pro — paid":submission.city.requestedTier==="paid"?"Pro — payment pending":"Basic",keywords:[submission.slug,submission.cityId,submission.author,...(submission.city.aliases??[])]}])).values()];
   const filteredSubmissions=useMemo(()=>queueSubmissions.filter(submission=>(!selectedCity||submission.cityId===selectedCity)&&(statusFilter==="all"||submission.status===statusFilter)),[queueSubmissions,selectedCity,statusFilter]);
-  const selectedSubmission=queueSubmissions.find(submission=>submission.eventId===reviewing);
+  const selectedSubmission=submissions.find(submission=>submission.eventId===reviewing);
   const statusLabels:Record<AdminCityRequestStatus,string>={pending:"Action required",accepted:"Accepted","needs-changes":"Awaits change",rejected:"Rejected",archived:"Archived"};
   const filters:Array<{key:"all"|AdminCityRequestStatus;label:string}>=[{key:"all",label:"All waiting"},{key:"pending",label:"Action required"},{key:"needs-changes",label:"Awaits change"}];
 

@@ -21,7 +21,8 @@ import EventModerationPanel from "./event-moderation";
 import {CityIdentityHealthDetails,identityHealthLabel} from "./city-identity-health";
 import type {CityIdentityHealth} from "../server/pro-city-identity-health";
 import AdminDataStatus,{resolvedAdminDataState,type AdminDataHealth} from "./admin-data-status";
-import {cityRelayLabel,cityWorkflowLabel,cityWorkflowRows,type CityWorkflowStatus} from "./city-backlog";
+import {cityRelayLabel,cityWorkflowActions,cityWorkflowLabel,cityWorkflowRows,type CityWorkflowAction,type CityWorkflowRow,type CityWorkflowStatus} from "./city-backlog";
+import CityActionsMenu from "./city-actions-menu";
 import styles from "./city-moderation.module.css";
 import {adminCityRequests} from "../domain/admin-city-requests";
 
@@ -101,6 +102,18 @@ export default function CityModeration(){
   }
   await reload();setMessage(`${completed.length} Awaits change ${completed.length===1?"city":"cities"} archived and verified: ${completed.join(", ")}. No infrastructure was deleted.`);
  });}
+ async function archiveAwaitingCity(row:NeedsChangesCity){await run(async()=>{
+  if(!paymentInventoryReady)throw new Error("Payment inventory is unavailable. Refresh cities before archiving anything.");
+  const city=row.revision.city;if(paidCityIds.has(city.cityId)||!!directoryConfig.paidCities[city.cityId])throw new Error("Paid or relay-backed cities cannot be archived from the city queue.");
+  const latest=(await records()).needsChanges.find(item=>item.revision.event.id===row.revision.event.id&&item.rejection.event.id===row.rejection.event.id);
+  if(!latest)throw new Error("This request changed. Reload before archiving it.");
+  if(window.prompt(`${ARCHIVE_NOTE}\nCity: ${city.cityName} (${city.cityId}).\nType the city slug '${city.slug}' to continue:`)!==city.slug){setMessage("Cancelled. No change published.");return;}
+  const template=createNeedsChangesArchiveDecision(latest);setMessage("Review the archive decision in your extension and sign…");
+  const signed=await signWithBrowserExtension(template);assertExactSigned(signed,template);await admin();
+  await publishVerifiedEvent(signed,relayConfig.writeRelays,1,authenticateWithBrowserExtension);
+  const readback=await queryDirectoryRecords(relayConfig.writeRelays);if(!archivedCityIds(readback.approvals).has(city.cityId))throw new Error("Archive acknowledged but relay read-back failed. Reload before retrying.");
+  await reload();setMessage(`${city.cityName} archived. Signed history remains and no infrastructure was deleted.`);
+ });}
  async function removeEvent(row:ManagedCity,item:ManagedCalendarEvent){await run(async()=>{
   await requireOccurrenceCancellationRelay(relayConfig.writeRelays);
   await current(row);const live=await queryCalendarEvents(relayConfig.writeRelays,{ids:[item.event.id]});if(!live.some(e=>e.id===item.event.id&&e.pubkey===item.event.pubkey))throw new Error("This exact occurrence is no longer public. Reload before deleting.");
@@ -132,6 +145,18 @@ export default function CityModeration(){
  const statusCounts=workflow.reduce<Record<CityWorkflowStatus,number>>((counts,item)=>({...counts,[item.status]:counts[item.status]+1}),{"action-required":0,"awaits-change":0,online:0,offline:0});
  function selectCity(id:string){setSelectedId(id);void run(async()=>{await reload(id);setMessage(id?"City state and walks loaded.":"City list loaded.");});}
  function reviewCity(id:string){scrollToCity.current=id;selectCity(id);}
+ function cityAction(item:CityWorkflowRow,action:CityWorkflowAction){
+  const menuItem={role:"menuitem" as const};
+  if(action==="open-record")return <button {...menuItem} disabled={busy} onClick={()=>reviewCity(item.cityId)}>Open city</button>;
+  if(action==="open-public"){const href=item.health&&!item.health.availableInEnvironment?`https://bitcoinwalk.org/${item.slug}`:`/${item.slug}`;return <a {...menuItem} href={href} target="_blank" rel="noreferrer">Open public page <span aria-hidden="true">↗</span></a>;}
+  if(action==="review-request"){const id=item.pending?.event.id??item.needsChanges?.revision.event.id;return <Link {...menuItem} href={`/admin/requests#submission-${id}`}>{item.source==="pending"?"Review application":"Review requested changes"}</Link>;}
+  if(action==="view-decision")return <Link {...menuItem} href={`/admin/requests#submission-${item.rejected!.event.id}`}>View final decision</Link>;
+  if(action==="manage-pro")return <Link {...menuItem} href={`/admin/upgrade?city=${encodeURIComponent(item.cityId)}`}>Continue Pro setup</Link>;
+  if(action==="set-online")return <button {...menuItem} disabled={busy||!dataCurrent} onClick={()=>decide(item.managed!,"approve")}>Set online</button>;
+  if(action==="set-offline")return <button {...menuItem} disabled={busy||!dataCurrent} onClick={()=>decide(item.managed!,"disapprove")}>Set offline</button>;
+  if(action==="retire-test")return <button {...menuItem} disabled={busy||!dataCurrent} onClick={()=>decide(item.managed!,"retire-test")}>Retire test city</button>;
+  return <button {...menuItem} className={styles.destructiveMenuItem} disabled={busy||!dataCurrent||!paymentInventoryReady} onClick={()=>item.managed?decide(item.managed,"archive"):archiveAwaitingCity(item.needsChanges!)}>Archive city</button>;
+ }
  useEffect(()=>()=>clearDashboardAuthorizationScope(authorizationScope),[]);
  useEffect(()=>{const cityId=scrollToCity.current;if(!cityId||!rows.some(row=>row.revision.city.cityId===cityId))return;scrollToCity.current="";requestAnimationFrame(()=>document.getElementById(`city-admin-${cityId}`)?.scrollIntoView({behavior:window.matchMedia("(prefers-reduced-motion: reduce)").matches?"auto":"smooth",block:"start"}));},[rows]);
  return <section>
@@ -143,9 +168,8 @@ export default function CityModeration(){
   <ol className={styles.list} aria-label="City operational backlog">{visibleWorkflow.length?visibleWorkflow.map(item=><li className={styles.item} key={item.cityId}>
    <div className={styles.row}><div className={styles.identity}><span className={styles.dot} data-online={item.online} role="img" aria-label={item.online?"Online":"Offline"}/><div><strong>{item.cityName}</strong><small>/{item.slug} · {item.cityId}</small></div></div>
    <div className={styles.badges}><span className={styles.badge} data-status={item.status}>{cityWorkflowLabel(item.status)}</span><span className={styles.badge}>{item.tier==="paid"?"Paid":item.tier==="test"?"Test":"Basic"}</span><span className={styles.badge}>{cityRelayLabel(item.relay)}</span></div>
-   <div className={styles.actions}>{item.source==="pending"?<Link href={`/admin/requests#submission-${item.pending!.event.id}`}>Review request</Link>:item.managed?<button type="button" disabled={busy} onClick={()=>reviewCity(item.cityId)}>Open city</button>:item.health?<a href={item.health.availableInEnvironment?`/${item.slug}`:`https://bitcoinwalk.org/${item.slug}`} target="_blank" rel="noreferrer">Open city ↗</a>:null}</div></div>
+   <CityActionsMenu cityName={item.cityName}>{cityWorkflowActions(item).map(action=><span className={styles.actionMenuItem} key={action}>{cityAction(item,action)}</span>)}</CityActionsMenu></div>
    {item.status==="awaits-change"&&<p className={styles.help}>Waiting for the city host or an external provider. The super-admin should not manufacture the missing proof.</p>}
-   {item.managed&&<details className={styles.statusActions}><summary>Change city status</summary><p>These are signed public-directory decisions. They do not delete ownership, history or relay infrastructure.</p><div className={styles.actions}>{item.managed.state!=="approved"?<button disabled={busy||!dataCurrent} onClick={()=>decide(item.managed!,"approve")}>Set online</button>:<button disabled={busy||!dataCurrent} onClick={()=>decide(item.managed!,"disapprove")}>Set offline</button>}{item.managed.state!=="archived"&&item.tier==="basic"?<button disabled={busy||!dataCurrent} onClick={()=>decide(item.managed!,"archive")}>Archive free city</button>:null}</div></details>}
   </li>):<li className={styles.empty}>No cities match these filters.</li>}</ol>
   {!!identityHealthError&&<p role="alert">{identityHealthError}</p>}
   {!!needsChanges.length&&<details className={styles.bulk}><summary><strong>Archive eligible Awaits change test cities ({needsChanges.length})</strong></summary><p>This cleanup retains signed history and never deletes infrastructure. Paid or relay-backed cities are blocked.</p><button disabled={busy||!dataCurrent||!paymentInventoryReady} onClick={archiveRejectedTests}>Archive eligible cities</button>{!paymentInventoryReady&&<p>Payment inventory must load before this action is enabled.</p>}</details>}

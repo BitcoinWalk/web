@@ -5,10 +5,11 @@ import type {PaidDirectoryCity} from "../domain/directory";
 
 export type CityWorkflowStatus="action-required"|"awaits-change"|"online"|"offline";
 export type CityRelayType="shared"|"dedicated"|"migrated";
+export type CityWorkflowAction="open-record"|"open-public"|"review-request"|"view-decision"|"manage-pro"|"set-online"|"set-offline"|"archive"|"retire-test";
 export type CityWorkflowRow={
   cityId:string;cityName:string;slug:string;status:CityWorkflowStatus;online:boolean;
   tier:"basic"|"paid"|"test";relay:CityRelayType;source:"managed"|"pending"|"awaits-change"|"inventory";
-  managed?:ManagedCity;pending?:CityRevision;needsChanges?:NeedsChangesCity;health?:CityIdentityHealth;
+  managed?:ManagedCity;pending?:CityRevision;needsChanges?:NeedsChangesCity;rejected?:CityRevision;health?:CityIdentityHealth;
 };
 
 const priority:Record<CityWorkflowStatus,number>={"action-required":0,"awaits-change":1,online:2,offline:3};
@@ -28,10 +29,27 @@ export function cityWorkflowRows(input:{managed:ManagedCity[];pending:CityRevisi
   }
   for(const item of needsChanges){const city=item.revision.city,h=healthById.get(city.cityId),paid=tier(city.cityId,h)==="paid";rows.set(city.cityId,{cityId:city.cityId,cityName:city.cityName,slug:city.slug,status:"awaits-change",online:false,tier:tier(city.cityId,h),relay:relay(city.cityId,paid),source:"awaits-change",needsChanges:item,health:h});}
   for(const item of pending){const city=item.city,h=healthById.get(city.cityId),paid=tier(city.cityId,h)==="paid";rows.set(city.cityId,{cityId:city.cityId,cityName:city.cityName,slug:city.slug,status:"action-required",online:false,tier:tier(city.cityId,h),relay:relay(city.cityId,paid),source:"pending",pending:item,health:h});}
-  for(const item of rejected){const city=item.city,h=healthById.get(city.cityId),paid=tier(city.cityId,h)==="paid";rows.set(city.cityId,{cityId:city.cityId,cityName:city.cityName,slug:city.slug,status:"offline",online:false,tier:tier(city.cityId,h),relay:relay(city.cityId,paid),source:"inventory",health:h});}
+  for(const item of rejected){const city=item.city,h=healthById.get(city.cityId),paid=tier(city.cityId,h)==="paid";rows.set(city.cityId,{cityId:city.cityId,cityName:city.cityName,slug:city.slug,status:"offline",online:false,tier:tier(city.cityId,h),relay:relay(city.cityId,paid),source:"inventory",rejected:item,health:h});}
   for(const h of health){if(rows.has(h.cityId))continue;const paid=tier(h.cityId,h)==="paid",status:CityWorkflowStatus=h.status==="complete"?"online":hostMustAct(h)||h.status==="not-configured"?"awaits-change":"action-required";rows.set(h.cityId,{cityId:h.cityId,cityName:h.cityName,slug:h.slug,status,online:true,tier:tier(h.cityId,h),relay:relay(h.cityId,paid),source:"inventory",health:h});}
   return [...rows.values()].sort((a,b)=>priority[a.status]-priority[b.status]||a.cityName.localeCompare(b.cityName));
 }
 
 export const cityWorkflowLabel=(status:CityWorkflowStatus)=>({"action-required":"Action required","awaits-change":"Awaits change",online:"Online",offline:"Offline"})[status];
 export const cityRelayLabel=(relay:CityRelayType)=>({shared:"Shared relay",dedicated:"Dedicated relay",migrated:"Own relay · migrated"})[relay];
+
+export function cityWorkflowActions(row:CityWorkflowRow):CityWorkflowAction[]{
+ if(row.source==="pending")return ["review-request"];
+ if(row.source==="awaits-change")return ["review-request",...(row.tier==="basic"?["archive" as const]:[])];
+ if(row.managed){
+  const actions:CityWorkflowAction[]=["open-record"];
+  if(row.online)actions.push("open-public");
+  if(row.health?.availableInEnvironment&&row.tier!=="basic"&&row.health.status!=="complete")actions.push("manage-pro");
+  actions.push(row.managed.state==="approved"?"set-offline":"set-online");
+  if(row.managed.state!=="archived"){if(row.tier==="basic")actions.push("archive");else if(row.tier==="test")actions.push("retire-test");}
+  return actions;
+ }
+ if(row.rejected)return ["view-decision"];
+ const actions:CityWorkflowAction[]=[];
+ if(row.health){actions.push("open-public");if(row.health.availableInEnvironment&&row.tier!=="basic"&&row.health.status!=="complete")actions.push("manage-pro");}
+ return actions;
+}
