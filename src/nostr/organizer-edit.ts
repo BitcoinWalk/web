@@ -3,6 +3,7 @@ import { cityDocumentSchema, cityOwnerPubkey, type CityAuthorization, type CityD
 import { isSuperAdmin } from "./authority";
 import type { ApprovalRecord, AuthorizationRecord, CityRevision } from "./city-records";
 import { archivedCityIds } from "./moderation";
+import {isFinalApplicationRejection} from "../domain/admin-city-requests";
 
 export function canEditCity(pubkey: string, grant: CityAuthorization): boolean {
   return isSuperAdmin(pubkey) || cityOwnerPubkey(grant) === pubkey || grant.editorPubkeys.includes(pubkey);
@@ -38,7 +39,7 @@ export function correctableRejectedCityRevisions(pubkey:string,grants:Authorizat
   return [...newestByCity.values()].filter(revision=>{
     if(registered.has(revision.city.cityId)||archived.has(revision.city.cityId))return false;
     const decision=[...approvals].sort((a,b)=>compareEvents(a.event,b.event)).find(record=>record.approval.cityId===revision.city.cityId&&record.approval.cityRevisionId===revision.event.id);
-    return decision?.approval.status==="rejected";
+    return decision?.approval.status==="rejected"&&!isFinalApplicationRejection(decision.approval.note);
   }).sort((a,b)=>a.city.cityName.localeCompare(b.city.cityName));
 }
 
