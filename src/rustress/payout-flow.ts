@@ -64,23 +64,22 @@ export class PayoutFlow {
  }
  /** Hash selects a saved city/destination version, not a caller-selected payee. */
  async prepare(hash:string,id:string){
-  try{
-   z.uuid().parse(id);
-   const s=this.ledger.incoming(this.deps.wallet.walletRef,hash);if(!s)throw new Error();
-   const {cityId,walletRef,destinationVersion,destination}=s,bucket={cityId,walletRef,destinationVersion,destination};
-   const existing=this.ledger.workerInput(id);
-   if(existing){if(JSON.stringify(existing.bucket)!==JSON.stringify(bucket))throw new Error();return this.ledger.status(id);}
-   if(this.now()>=this.#policy.expiresAt)throw new Error();
-   const invoice=await retrieveRecipientInvoice(destination,(min,max)=>{
+  z.uuid().parse(id);
+  const s=this.ledger.incoming(this.deps.wallet.walletRef,hash);if(!s)throw new Error("Payout obligation unavailable");
+  const {cityId,walletRef,destinationVersion,destination}=s,bucket={cityId,walletRef,destinationVersion,destination};
+  const existing=this.ledger.workerInput(id);
+  if(existing){if(JSON.stringify(existing.bucket)!==JSON.stringify(bucket))throw new Error("Payout obligation conflict");return this.ledger.status(id);}
+  if(this.now()>=this.#policy.expiresAt)throw new Error("Payout operation expired");
+  let invoice:Awaited<ReturnType<typeof retrieveRecipientInvoice>>;
+  try{invoice=await retrieveRecipientInvoice(destination,(min,max)=>{
     const remaining=BigInt(this.#policy.budgetMsat)-BigInt(this.#policy.acceptedPriorSpentMsat)-BigInt(this.#policy.maximumFeeMsat);
     if(remaining<1000n)throw new Error();const configured=BigInt(this.#policy.maximumPayoutMsat),effective=remaining<configured?remaining:configured;
     const cap=BigInt(max)<effective?max:String(effective);
     const amount=this.ledger.quote(bucket,min,cap);if(!amount)throw new Error();return amount;
-   },this.deps.wallet.network,{fetchJson:this.deps.fetchJson,now:this.now});
-   const native=(BigInt(invoice.amountMsat)+99n)/100n,fee=native>10000n?native:10000n;
-   if(fee>BigInt(this.#policy.maximumFeeMsat))throw new Error();
-   return this.#worker.prepare(bucket,id,invoice.paymentRequest,invoice.terms,String(fee));
-  }catch{throw new Error("Payout preparation unavailable; obligation retained");}
+   },this.deps.wallet.network,{fetchJson:this.deps.fetchJson,now:this.now});}catch{return null;}
+  const native=(BigInt(invoice.amountMsat)+99n)/100n,fee=native>10000n?native:10000n;
+  if(fee>BigInt(this.#policy.maximumFeeMsat))throw new Error("Payout fee policy unavailable");
+  return this.#worker.prepare(bucket,id,invoice.paymentRequest,invoice.terms,String(fee));
  }
  run(id:string){return this.#worker.run(id);}
 }

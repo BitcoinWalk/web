@@ -59,7 +59,7 @@ describe("isolated end-to-end payout flow",()=>{
  });
  it("retains small obligations until recipient minimum is met",async()=>{
   const f=fixture(":memory:","1000");await f.flow.collect(hash);
-  await expect(f.flow.prepare(hash,randomUUID())).rejects.toThrow("obligation retained");expect(f.ledger.balance(f.bucket).availableMsat).toBe("790");
+  await expect(f.flow.prepare(hash,randomUUID())).resolves.toBeNull();expect(f.ledger.balance(f.bucket).availableMsat).toBe("790");
   expect(f.deps.fetchJson).toHaveBeenCalledTimes(1);expect(f.deps.wallet.send).not.toHaveBeenCalled();
  });
  it("reuses a saved invoice without refetching on preparation retry",async()=>{
@@ -88,7 +88,7 @@ describe("isolated end-to-end payout flow",()=>{
   const f=fixture();await f.flow.collect(hash);
   expect(()=>f.flow.register({...f.bucket,destination:"attacker@wallet.example",paymentHash:hash,amountMsat:"100000"})).toThrow();
   f.deps.fetchJson.mockRejectedValueOnce(new Error("private"));
-  await expect(f.flow.prepare(hash,randomUUID())).rejects.toThrow(/^Payout preparation unavailable; obligation retained$/);
+  await expect(f.flow.prepare(hash,randomUUID())).resolves.toBeNull();
   expect(f.ledger.balance(f.bucket).availableMsat).toBe("79000");
  });
  it.each(["revoked","fee","binding","expired"])("blocks %s authorization without sending",async mode=>{
