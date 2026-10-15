@@ -4,19 +4,19 @@ import {isSuperAdmin} from "../nostr/authority";
 import {latestCityGrants} from "../nostr/editor-management";
 import {cityOwnerPubkey} from "./city";
 
-export type OrganizerDirectoryEntry={pubkey:string;createdCities:string[];editorCities:string[]};
+export type OrganizerDirectoryEntry={pubkey:string;hostCities:string[];editorCities:string[]};
 
-export function organizerDirectory(records:AuthorizationRecord[],revisions:CityRevision[],selectedCity=""):OrganizerDirectoryEntry[]{
+export function organizerDirectory(records:AuthorizationRecord[],revisions:CityRevision[],selectedCity="",currentHosts:ReadonlyMap<string,string>=new Map()):OrganizerDirectoryEntry[]{
  const names=new Map<string,string>();
  for(const revision of [...revisions].sort((a,b)=>compareEvents(a.event,b.event)))if(!names.has(revision.city.cityId))names.set(revision.city.cityId,revision.city.cityName);
- const entries=new Map<string,{created:Set<string>;edited:Set<string>}>();
- const add=(pubkey:string,type:"created"|"edited",city:string)=>{const entry=entries.get(pubkey)??{created:new Set<string>(),edited:new Set<string>()};entry[type].add(city);entries.set(pubkey,entry);};
+ const entries=new Map<string,{hosted:Set<string>;edited:Set<string>}>();
+ const add=(pubkey:string,type:"hosted"|"edited",city:string)=>{const entry=entries.get(pubkey)??{hosted:new Set<string>(),edited:new Set<string>()};entry[type].add(city);entries.set(pubkey,entry);};
  for(const {grant} of latestCityGrants(records)){
   if(selectedCity&&grant.cityId!==selectedCity)continue;
   const city=names.get(grant.cityId)??grant.cityId;
-  add(grant.creatorPubkey,"created",city);
-  const owner=cityOwnerPubkey(grant);if(owner!==grant.creatorPubkey)add(owner,"edited",city);
-  for(const pubkey of grant.editorPubkeys)if(pubkey!==grant.creatorPubkey&&pubkey!==owner&&!isSuperAdmin(pubkey))add(pubkey,"edited",city);
+  const owner=cityOwnerPubkey(grant),host=currentHosts.get(grant.cityId)??owner;
+  add(host,"hosted",city);
+  for(const pubkey of grant.editorPubkeys)if(pubkey!==host&&pubkey!==owner&&!isSuperAdmin(pubkey))add(pubkey,"edited",city);
  }
- return [...entries].map(([pubkey,value])=>({pubkey,createdCities:[...value.created].sort(),editorCities:[...value.edited].sort()})).sort((a,b)=>(a.createdCities[0]??a.editorCities[0]??a.pubkey).localeCompare(b.createdCities[0]??b.editorCities[0]??b.pubkey));
+ return [...entries].map(([pubkey,value])=>({pubkey,hostCities:[...value.hosted].sort(),editorCities:[...value.edited].sort()})).sort((a,b)=>(a.hostCities[0]??a.editorCities[0]??a.pubkey).localeCompare(b.hostCities[0]??b.editorCities[0]??b.pubkey));
 }

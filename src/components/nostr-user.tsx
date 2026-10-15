@@ -11,13 +11,13 @@ type Props={
  profile?:PublicProfile;
  variant?:"compact"|"card";
  resolveProfile?:boolean;
- createdCities?:string[];
+ hostCities?:string[];
  editorCities?:string[];
  showLightning?:boolean;
  profileLink?:boolean;
 };
 
-export default function NostrUser({pubkey,profile:provided,variant="card",resolveProfile=true,createdCities=[],editorCities=[],showLightning=true,profileLink=false}:Props){
+export default function NostrUser({pubkey,profile:provided,variant="card",resolveProfile=true,hostCities=[],editorCities=[],showLightning=true,profileLink=false}:Props){
  const [resolved,setResolved]=useState<{pubkey:string;profile:PublicProfile}>(),[failed,setFailed]=useState<string>();
  const [verified,setVerified]=useState<{key:string;value:boolean}>();
  const profile=resolved?.pubkey===pubkey?resolved.profile:provided;
@@ -42,7 +42,7 @@ export default function NostrUser({pubkey,profile:provided,variant="card",resolv
     {profileLink&&<a href={`nostr:${npub}`}>Open Nostr profile</a>}
    </div>
   </div>
-  {!!createdCities.length&&<p className={styles.cities}><strong>Created:</strong> {createdCities.join(", ")}</p>}
+  {!!hostCities.length&&<p className={styles.cities}><strong>Hosts:</strong> {hostCities.join(", ")}</p>}
   {!!editorCities.length&&<p className={styles.cities}><strong>Can edit:</strong> {editorCities.join(", ")}</p>}
  </article>;
 }
