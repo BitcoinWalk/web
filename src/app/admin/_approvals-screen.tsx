@@ -261,7 +261,7 @@ export default function SubmissionApprovals() {
 
   return (
     <section>
-      <h2>Requests</h2>
+      <h2>City applications — Action required</h2>
       <p role="status">
         {state.message}
         {state.approvedWalk && <>{" "}<Link prefetch={false} href={state.approvedWalk.href}>View BitcoinWalk {state.approvedWalk.name} →</Link></>}

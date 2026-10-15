@@ -6,7 +6,7 @@ const source=()=>readFileSync("src/app/organizer/_screen.tsx","utf8");
 describe("my cities inventory",()=>{
  it("shows direct status groups without a redundant city finder",()=>{
   const page=source();
-  for(const label of ['label:"Pending"','label:"Needs changes"'])expect(page).toContain(label);
+  for(const label of ['label:"Pending"','label:"Awaits change"'])expect(page).toContain(label);
   expect(page).toContain('const activeCities=cities.filter(item=>item.status==="editable"||item.status==="approved")');
   expect(page).toContain('<div className="organizer-city-active"');
   expect(page).not.toContain('{key:"active",label:"Active"');

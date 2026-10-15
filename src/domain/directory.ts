@@ -1,6 +1,6 @@
 import { resolveApprovedCity, type CityRevision, type ApprovalRecord } from "../nostr/city-records";
 import type { CityDocument } from "./city";
-export type PaidDirectoryCity={slug:string;featured:boolean;subdomainReady:boolean;cityName?:string;aliases?:string[]};
+export type PaidDirectoryCity={slug:string;featured:boolean;subdomainReady:boolean;cityName?:string;aliases?:string[];relayMode?:"dedicated"|"migrated"};
 export type DirectoryCity={city:CityDocument;href:string;tier:"free"|"paid";featured:boolean;hasUpcomingWalk:boolean};
 export type DirectoryOccurrence={start:number;status:"active"|"grace"|"upcoming"|"past";meetingPoint:CityDocument["meetingPoint"]};
 export function approvedDirectory(revisions:CityRevision[],approvals:ApprovalRecord[],paid:Record<string,PaidDirectoryCity>):DirectoryCity[] {

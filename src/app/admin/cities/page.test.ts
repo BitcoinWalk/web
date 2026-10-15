@@ -7,11 +7,13 @@ import CitiesPage,{movedCityTabHref} from "./page";
 describe("focused city administration",()=>{
   it("opens the city list directly without duplicate page tabs",()=>{
     const html=renderToStaticMarkup(createElement(CitiesPage)),source=readFileSync(new URL("../../../components/city-moderation.tsx",import.meta.url),"utf8");
-    expect(html).toContain("City list");
+    expect(html).toContain("City operational backlog");
     expect(html).toContain('aria-label="Cities data status"');
     expect(html).toContain("Loading the city directory and operational checks");
-    expect(html).toContain("Archived cities (0)");
-    expect(html).toContain("<details>");
+    expect(html).toContain("Action required 0");
+    expect(html).toContain("Awaits change 0");
+    expect(html).toContain("Online 0");
+    expect(html).toContain("Offline 0");
     expect(html).not.toContain("<h1>Cities</h1>");
     expect(html).not.toContain('role="tablist"');
     expect(html).not.toContain("Edit city");
