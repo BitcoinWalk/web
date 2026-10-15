@@ -34,23 +34,25 @@ function actionFor(row:CityIdentityHealth){
 
 export default function SuperAdminActionQueue({actor}:{actor:string}){
  const lock=useRef(false),[busy,setBusy]=useState(false),[loaded,setLoaded]=useState(false),[rows,setRows]=useState<CityIdentityHealth[]>([]),[message,setMessage]=useState(""),[copyState,setCopyState]=useState<Record<string,"copied"|"failed">>({}),[workingCity,setWorkingCity]=useState(""),[receipt,setReceipt]=useState<ActionReceipt|null>(null);
- const load=useCallback(async(completion?:{before:CityIdentityHealth;provisioning:ProvisioningStatus})=>{if(lock.current||!actor)return;lock.current=true;setBusy(true);if(!completion)setMessage("");try{
+ const load=useCallback(async()=>{if(lock.current||!actor)return;lock.current=true;setBusy(true);setMessage("");try{
   const event=await signPayment({action:"list"},actor),body=await paymentFetch(event);
   const next=body.identityHealth??[];setRows(next);setLoaded(true);
-  if(completion){const after=next.find(item=>item.cityId===completion.before.cityId),remaining=after?.checks.filter(check=>check.state==="fail"||check.state==="unknown").map(check=>check.label)??[],fingerprint=(row?:CityIdentityHealth)=>JSON.stringify(row?.checks.map(check=>[check.key,check.state])??[]),changed=fingerprint(completion.before)!==fingerprint(after),resolved=!after||after.status==="complete";
-   setReceipt({cityName:completion.before.cityName,checkedAt:Date.now(),provisioning:completion.provisioning,changed,resolved,remaining});setMessage(`${completion.before.cityName}: provisioning check finished. Review the result below.`);
-  }else setMessage(body.identityHealthError||"Identity and managed-service evidence refreshed.");
+  setMessage(body.identityHealthError||"Identity and managed-service evidence refreshed.");
  }catch(error){setLoaded(true);setMessage(error instanceof Error?error.message:"Post-approval checks could not be loaded.");}finally{lock.current=false;setBusy(false);}},[actor]);
  useDashboardAutoLoad(async()=>{await load();});
  const followUps=rows.filter(row=>row.tier!=="basic"&&row.status!=="complete"&&row.status!=="not-applicable");
  async function copySetup(row:CityIdentityHealth){try{await navigator.clipboard.writeText(new URL(setupUrl(row),window.location.origin).toString());setCopyState(value=>({...value,[row.cityId]:"copied"}));}catch{setCopyState(value=>({...value,[row.cityId]:"failed"}));}}
- async function retry(row:CityIdentityHealth){if(lock.current||!actor)return;lock.current=true;setBusy(true);setWorkingCity(row.cityId);setMessage("");try{
+ async function retry(row:CityIdentityHealth){if(lock.current){setMessage(`${row.cityName}: wait for the current refresh to finish, then retry.`);return;}if(!actor){setMessage("Connect the BitcoinWalk super-admin identity.");return;}lock.current=true;setBusy(true);setWorkingCity(row.cityId);setReceipt(null);setMessage(`${row.cityName}: approve the provisioning check in your signer…`);try{
   const origin=window.location.origin,command={action:"retry-city-provisioning" as const,cityId:row.cityId},event=await signWithBrowserExtension(proSetupTemplate(command,origin));
   if(event.pubkey!==actor||JSON.stringify(authorizeProSetup(event,origin))!==JSON.stringify(command))throw new Error("Connect the BitcoinWalk super-admin identity.");
+  setMessage(`${row.cityName}: signature accepted. Reconciling the existing provider state…`);
   const response=await fetch("/api/pro-setup",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({event}),signal:AbortSignal.timeout(60_000)}),body=await response.json();
   if(!response.ok)throw new Error(body.error||"Provisioning status could not be checked.");
-  setMessage(`${row.cityName}: provider reconciliation completed. Refreshing public evidence…`);
-  lock.current=false;setBusy(false);setWorkingCity("");await load({before:row,provisioning:body.provisioning as ProvisioningStatus});return;
+  const after=body.identityHealth as CityIdentityHealth|null,remaining=after?.checks.filter(check=>check.state==="fail"||check.state==="unknown").map(check=>check.label)??[],fingerprint=(value?:CityIdentityHealth|null)=>JSON.stringify(value?.checks.map(check=>[check.key,check.state])??[]),changed=!!after&&fingerprint(row)!==fingerprint(after),resolved=!!after&&after.status==="complete";
+  if(after)setRows(current=>current.map(item=>item.cityId===after.cityId?after:item));
+  setReceipt({cityName:row.cityName,checkedAt:event.created_at*1000,provisioning:body.provisioning as ProvisioningStatus,changed,resolved,remaining});
+  setMessage(body.identityHealthError||`${row.cityName}: provisioning check finished. Review the result below.`);
+  lock.current=false;setBusy(false);setWorkingCity("");return;
  }catch(error){setMessage(error instanceof Error?error.message:"Provisioning recovery failed safely.");lock.current=false;setBusy(false);setWorkingCity("");return;}
  }
  return <section className={`${styles.module} ${styles.followUpModule}`} id="post-approval-follow-ups">
