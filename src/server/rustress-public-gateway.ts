@@ -8,8 +8,11 @@ import {activeStandaloneAddress} from "../rustress/standalone-address-store";
 type Dependencies={db:DatabaseSync;origin:string;transport:JsonTransport;aliasTransport?:JsonTransport;nip05Enabled?:()=>boolean;lnurlEnabled?:()=>boolean;standaloneLnurlEnabled?:()=>boolean};
 const label=/^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 function publicCapabilityEnabled(capability:"NIP05"|"LNURL"){
-  if(process.env.BITCOINWALK_RUSTRESS_MANAGED_MADEIRA_PILOT!=="activation-v1")return false;
-  return process.env[`BITCOINWALK_RUSTRESS_${capability}_ENABLED`]==="1"||process.env.BITCOINWALK_RUSTRESS_ACTIVATION_ENABLED==="1";
+  // Capability-specific switches are the production contract for every managed
+  // city. Keep the old aggregate switch only for the bounded Madeira pilot.
+  if(process.env[`BITCOINWALK_RUSTRESS_${capability}_ENABLED`]==="1")return true;
+  return process.env.BITCOINWALK_RUSTRESS_MANAGED_MADEIRA_PILOT==="activation-v1"&&
+    process.env.BITCOINWALK_RUSTRESS_ACTIVATION_ENABLED==="1";
 }
 function dependencies():Dependencies{return {db:getPaymentRuntime().store.db,origin:process.env.BITCOINWALK_RUSTRESS_MANAGED_ORIGIN??"",transport:loopbackVirtualHostRequest,
   aliasTransport:fetch,

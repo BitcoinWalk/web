@@ -57,13 +57,16 @@ describe("managed public city gateway",()=>{
     const transport=vi.fn<typeof fetch>(),aliasTransport=vi.fn<typeof fetch>(async()=>new Response(JSON.stringify({tag:"payRequest",callback:"https://evil.example/callback",minSendable:1000,maxSendable:1000,allowsNostr:true,nostrPubkey:"f".repeat(64)}),{headers:{"Content-Type":"application/json"}})),deps={db,transport,aliasTransport,origin:"http://127.0.0.1:18895",nip05Enabled:()=>true,lnurlEnabled:()=>true};
     expect((await managedLnurl("donate","/.well-known/lnurlp/donate","",deps)).status).toBe(503);expect(transport).not.toHaveBeenCalled();
   });
-  it("keeps the legacy bounded activation switch compatible and requires the exact pilot mode",()=>{
+  it("uses explicit capability gates for managed cities and bounds the legacy switch to the Madeira pilot",()=>{
     const previous={mode:process.env.BITCOINWALK_RUSTRESS_MANAGED_MADEIRA_PILOT,legacy:process.env.BITCOINWALK_RUSTRESS_ACTIVATION_ENABLED,nip05:process.env.BITCOINWALK_RUSTRESS_NIP05_ENABLED,lnurl:process.env.BITCOINWALK_RUSTRESS_LNURL_ENABLED};
     try{process.env.BITCOINWALK_RUSTRESS_MANAGED_MADEIRA_PILOT="activation-v1";process.env.BITCOINWALK_RUSTRESS_ACTIVATION_ENABLED="1";delete process.env.BITCOINWALK_RUSTRESS_NIP05_ENABLED;delete process.env.BITCOINWALK_RUSTRESS_LNURL_ENABLED;
       expect(gatewayTest.publicCapabilityEnabled("NIP05")).toBe(true);expect(gatewayTest.publicCapabilityEnabled("LNURL")).toBe(true);
       delete process.env.BITCOINWALK_RUSTRESS_ACTIVATION_ENABLED;process.env.BITCOINWALK_RUSTRESS_NIP05_ENABLED="1";
       expect(gatewayTest.publicCapabilityEnabled("NIP05")).toBe(true);expect(gatewayTest.publicCapabilityEnabled("LNURL")).toBe(false);
-      process.env.BITCOINWALK_RUSTRESS_MANAGED_MADEIRA_PILOT="reservation-v1";expect(gatewayTest.publicCapabilityEnabled("NIP05")).toBe(false);
+      process.env.BITCOINWALK_RUSTRESS_MANAGED_MADEIRA_PILOT="";
+      expect(gatewayTest.publicCapabilityEnabled("NIP05")).toBe(true);expect(gatewayTest.publicCapabilityEnabled("LNURL")).toBe(false);
+      delete process.env.BITCOINWALK_RUSTRESS_NIP05_ENABLED;process.env.BITCOINWALK_RUSTRESS_ACTIVATION_ENABLED="1";
+      expect(gatewayTest.publicCapabilityEnabled("NIP05")).toBe(false);expect(gatewayTest.publicCapabilityEnabled("LNURL")).toBe(false);
     }finally{for(const [key,value] of Object.entries({BITCOINWALK_RUSTRESS_MANAGED_MADEIRA_PILOT:previous.mode,BITCOINWALK_RUSTRESS_ACTIVATION_ENABLED:previous.legacy,BITCOINWALK_RUSTRESS_NIP05_ENABLED:previous.nip05,BITCOINWALK_RUSTRESS_LNURL_ENABLED:previous.lnurl})){
       if(value===undefined)delete process.env[key];else process.env[key]=value;
     }}

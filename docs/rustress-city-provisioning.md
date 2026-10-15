@@ -130,6 +130,41 @@ Only the verified city owner can request payout changes by default; city-content
 
 ## Stage 3 — verified NIP-05 and Lightning activation (BW-19)
 
+### Mandatory Pro-city provisioning completion gate
+
+Every newly provisioned or transferred Pro city must complete all of these
+checks before the operator reports it ready. A settled entitlement, approved
+brand or visible **Zap the host** control is not sufficient evidence.
+
+1. Confirm the current approved city, active owner, active branded city identity
+   and latest owner-confirmed private payout destination. Never print the private
+   destination in deployment output.
+2. Reserve the canonical `<city>@bitcoinwalk.org` local part with invoice issuance
+   disabled. Read it back from the private provider and reject changed identity,
+   payout-version, wallet, split or city evidence.
+3. Add the exact production city UUID to a fresh, super-admin-signed payout
+   operation. The operation must bind the existing wallet and limits and the
+   fixed `organizerBasisPoints: 7900` / `retainedBasisPoints: 2100` policy.
+   Remove staging/test cities from production scope. Keep public LNURL closed
+   unless that exact operation is healthy after restart.
+4. Activate the versioned managed configuration and independently verify:
+   - `/.well-known/nostr.json?name=<city>` returns the exact approved city pubkey
+     with `Access-Control-Allow-Origin: *`;
+   - `/.well-known/lnurlp/<city>` returns valid LNURL-pay metadata whose callback
+     remains on `https://bitcoinwalk.org`;
+   - the applied private configuration still records the exact 79/21 split and
+     the latest owner-confirmed payout version;
+   - the payout operation, expiry timer, journal, backup monitor and app remain
+     healthy across restart.
+5. Perform a separately authorized small payment acceptance test. Reconcile the
+   incoming payment, one 79% organizer obligation and the 21% retained allocation
+   without exposing private destinations or credentials. A successful invoice by
+   itself does not prove the split settled correctly.
+
+Any failed or ambiguous check leaves invoice issuance closed and the durable task
+retryable. Never substitute the BitcoinWalk retained destination for a missing
+organizer destination and never create a second Pro purchase invoice.
+
 Trigger automatically from durable entitlement, approved city, active branded
 identity and owner-confirmed destination records—not from an open browser or a
 manual provisioning button. Debounce/deduplicate concurrent triggers and compare
