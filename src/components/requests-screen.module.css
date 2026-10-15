@@ -34,8 +34,12 @@
 .followUpDetails summary{cursor:pointer;font-weight:700}.followUpDetails ul{display:grid;gap:.65rem;margin:.75rem 0 0;padding:0;list-style:none}
 .followUpDetails li{display:grid;grid-template-columns:1.5rem 1fr;gap:.25rem;align-items:start}.followUpDetails li>span:first-child{font-weight:800;color:#8a5a00}.followUpDetails small{display:block;margin-top:.15rem;color:#626b74;line-height:1.4}
 .followUpActions{display:flex;flex-wrap:wrap;align-items:center;gap:.6rem}.followUpActions button,.actionLink{min-height:2.5rem;padding:.5rem .75rem}.actionLink{display:inline-flex;align-items:center;border:1px solid #b85c00;border-radius:.35rem;background:#f7931a;color:#17120d!important;font-weight:750;text-decoration:none}
+.provisioningReceipt{display:grid;gap:.9rem;padding:1rem;border:1px solid #d59b45;border-radius:.75rem;background:#fff8ef}.provisioningReceipt[data-resolved="true"]{border-color:#4d9a68;background:#f1faf4}
+.receiptHeading,.receiptHeading>div{display:flex;align-items:center;justify-content:space-between;gap:.75rem}.receiptHeading>div{justify-content:flex-start}.receiptHeading h3{margin:0;font-size:1.08rem}.receiptHeading p{margin:.15rem 0 0;color:#626b74;font-size:.82rem}.receiptHeading>button{display:grid;place-items:center;width:2.5rem;height:2.5rem;padding:0;font-size:1.35rem;line-height:1}.receiptIcon{display:grid;place-items:center;width:2rem;height:2rem;border-radius:50%;background:#f7931a;color:#17120d;font-weight:850}.provisioningReceipt[data-resolved="true"] .receiptIcon{background:#25834c;color:#fff}
+.receiptStates{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.5rem;margin:0}.receiptStates>div{padding:.65rem;border-radius:.5rem;background:oklch(1 0 0/.72)}.receiptStates dt{color:#626b74;font-size:.76rem;font-weight:700}.receiptStates dd{margin:.15rem 0 0;font-weight:750;text-transform:capitalize;overflow-wrap:anywhere}.provisioningReceipt>p{margin:0;line-height:1.5}
 @media(hover:hover) and (pointer:fine){.refresh:hover{background:#f7f8f9}.primaryAction:hover,.actionLink:hover{background:#ed870e!important}}
 @media(max-width:62rem){.queueGrid{grid-template-columns:1fr}}
 @media(max-width:50rem){.followUpList{grid-template-columns:1fr}}
+@media(max-width:50rem){.receiptStates{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:38rem){.moduleHeader{display:grid}.refresh{width:100%}}
 @media(prefers-reduced-motion:reduce){.refresh,.primaryAction{transition:background-color 150ms ease-out}.refresh:not(:disabled):active,.primaryAction:not(:disabled):active{transform:none}}
