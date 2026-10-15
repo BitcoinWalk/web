@@ -17,12 +17,13 @@ function publicCapabilityEnabled(capability:"NIP05"|"LNURL"){
 function dependencies():Dependencies{return {db:getPaymentRuntime().store.db,origin:process.env.BITCOINWALK_RUSTRESS_MANAGED_ORIGIN??"",transport:loopbackVirtualHostRequest,
   aliasTransport:fetch,
   nip05Enabled:()=>publicCapabilityEnabled("NIP05"),lnurlEnabled:()=>publicCapabilityEnabled("LNURL"),standaloneLnurlEnabled:()=>process.env.BITCOINWALK_RUSTRESS_STANDALONE_LNURL_ENABLED==="1"};}
-function activeConfig(localPart:string,db:DatabaseSync):ProvisionConfig|null{
+function activeConfig(localPart:string,capability:"nip05"|"lnurl",db:DatabaseSync):ProvisionConfig|null{
   if(!label.test(localPart)||localPart.length>63)return null;
   const table=db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='rustress_activation_task'").get();if(!table)return null;
-  let rows:{activation_config:string}[];try{rows=db.prepare("SELECT activation_config FROM rustress_activation_task WHERE phase IN ('verifying','needs-attention','active') AND json_extract(activation_config,'$.localPart')=? LIMIT 2").all(localPart) as {activation_config:string}[];}catch{return null;}
+  let rows:{activation_config:string}[];try{rows=db.prepare(`SELECT activation_config FROM rustress_activation_task WHERE ${capability}='active' AND json_extract(activation_config,'$.localPart')=? LIMIT 2`).all(localPart) as {activation_config:string}[];}catch{return null;}
   if(rows.length!==1)return null;
-  for(const row of rows){try{const config=managedProvisionConfigSchema.parse(JSON.parse(row.activation_config));if(config.invoiceIssuance==="enabled"&&config.localPart===localPart)return config;}catch{/* Corrupt rows fail closed. */}}
+  for(const row of rows){try{const config=managedProvisionConfigSchema.parse(JSON.parse(row.activation_config));if(config.localPart===localPart&&
+      (capability==="nip05"||config.invoiceIssuance==="enabled"))return config;}catch{/* Corrupt rows fail closed. */}}
   return null;
 }
 function privateOrigin(value:string){
@@ -60,14 +61,14 @@ export async function managedNip05(name:string,deps=dependencies()){
   if(root)return Response.json({names:{_:root.brandPubkey}},{headers:{...headers,"Access-Control-Allow-Origin":"*"}});
   const named=activeNamedIdentity(deps.db,name);
   if(named)return Response.json({names:{[name]:named.brandPubkey}},{headers:{...headers,"Access-Control-Allow-Origin":"*"}});
-  const config:PublicIdentity|ProvisionConfig|null=activePublicIdentity(deps.db,name)??activeConfig(name,deps.db);if(!config)return Response.json({names:{}},{headers:{...headers,"Access-Control-Allow-Origin":"*"}});
+  const config:PublicIdentity|ProvisionConfig|null=activePublicIdentity(deps.db,name)??activeConfig(name,"nip05",deps.db);if(!config)return Response.json({names:{}},{headers:{...headers,"Access-Control-Allow-Origin":"*"}});
   const text=await provider(`/.well-known/nostr.json?name=${encodeURIComponent(name)}`,config,deps);if(!text)return Response.json({names:{}},{status:503,headers:{...headers,"Access-Control-Allow-Origin":"*"}});
   try{const value=JSON.parse(text) as {names?:Record<string,unknown>};if(value.names?.[name]!==config.brandPubkey)throw new Error();
     return Response.json({names:{[name]:config.brandPubkey}},{headers:{...headers,"Access-Control-Allow-Origin":"*"}});
   }catch{return Response.json({names:{}},{status:503,headers:{...headers,"Access-Control-Allow-Origin":"*"}});}
 }
 export async function managedLnurl(localPart:string,path:string,search="",deps=dependencies()){
-  const city=activeConfig(localPart,deps.db),standalone=city?null:activeStandaloneAddress(deps.db,localPart);
+  const city=activeConfig(localPart,"lnurl",deps.db),standalone=city?null:activeStandaloneAddress(deps.db,localPart);
   if(city&&deps.lnurlEnabled&&!deps.lnurlEnabled()||standalone&&deps.standaloneLnurlEnabled&&!deps.standaloneLnurlEnabled())return Response.json({status:"ERROR",reason:"Address not found"},{status:404,headers});
   const config=city??standalone,allowed=path===`/.well-known/lnurlp/${localPart}`||path===`/lnurlp/${localPart}`||path.startsWith(`/lnurlp/${localPart}/`);
   if(!config||!allowed||search.length>2048||path.includes("..")||!/^\/[A-Za-z0-9._~!$&'()*+,;=:@%/-]+$/.test(path))return Response.json({status:"ERROR",reason:"Address not found"},{status:404,headers});
