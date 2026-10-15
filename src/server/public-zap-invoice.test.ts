@@ -7,9 +7,12 @@ function input(amountMsat=100_000){const request=finalizeEvent(nip57.makeZapRequ
 function metadata(callback="https://bitcoinwalk.org/lnurlp/madeira/callback"){return {tag:"payRequest",callback,minSendable:1000,maxSendable:1_000_000_000,allowsNostr:true,nostrPubkey:provider};}
 
 describe("public zap invoice boundary",()=>{
- it("uses the bounded app loopback only for a valid runtime port",()=>{
-  expect(publicZapInvoiceTransport("not-a-port")).toBe(fetch);expect(publicZapInvoiceTransport("0")).toBe(fetch);expect(publicZapInvoiceTransport("65536")).toBe(fetch);
-  expect(publicZapInvoiceTransport("3345")).not.toBe(fetch);
+ it("dispatches only canonical BitcoinWalk LNURL reads to the capability-gated gateway",async()=>{
+  const handler=vi.fn(async()=>Response.json(metadata())),transport=publicZapInvoiceTransport(handler);
+  await expect(transport("https://bitcoinwalk.org/.well-known/lnurlp/madeira",{method:"GET"})).resolves.toMatchObject({status:200});
+  expect(handler).toHaveBeenCalledWith("madeira","/.well-known/lnurlp/madeira","");
+  await expect(transport("https://example.org/.well-known/lnurlp/madeira",{method:"GET"})).rejects.toThrow("invalid");
+  await expect(transport("https://bitcoinwalk.org/api/payments",{method:"GET"})).rejects.toThrow("invalid");
  });
  it("loads trusted metadata and forwards the exact signed zap request server-side",async()=>{
   const signed=input();

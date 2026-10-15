@@ -1,7 +1,7 @@
 import {nip57,verifyEvent,type Event} from "nostr-tools";
 import {relayConfig} from "../lib/relay-config";
 import {lightningAddress,parseZapPayMetadata} from "../nostr/public-zap";
-import {canonicalLoopbackTransport} from "../rustress/loopback-http";
+import {managedLnurl} from "./rustress-public-gateway";
 
 const hex=/^[0-9a-f]{64}$/;
 const maximumBodyBytes=65_536;
@@ -9,10 +9,13 @@ export type PublicZapInvoiceInput={address:string;amountMsat:number;zapRequest:s
 
 export class PublicZapInvoiceError extends Error{constructor(message:string,readonly status=400){super(message);}}
 
-export function publicZapInvoiceTransport(port=process.env.PORT):typeof fetch{
- const value=Number(port);
- return typeof port==="string"&&/^\d{1,5}$/.test(port)&&Number.isSafeInteger(value)&&value>0&&value<=65_535
-  ?canonicalLoopbackTransport(`http://127.0.0.1:${value}`,"bitcoinwalk.org"):fetch;
+export function publicZapInvoiceTransport(handler=managedLnurl):typeof fetch{
+ return (async(input:RequestInfo|URL,init:RequestInit={})=>{
+  const target=new URL(typeof input==="string"?input:input instanceof URL?input.href:input.url),method=init.method??"GET";
+  const match=/^\/(?:\.well-known\/lnurlp|lnurlp)\/([a-z0-9]+(?:-[a-z0-9]+)*)(?:\/.*)?$/.exec(target.pathname);
+  if(target.origin!=="https://bitcoinwalk.org"||target.username||target.password||target.hash||method!=="GET"||!match)throw new Error("invalid public zap request");
+  return handler(match[1],target.pathname,target.search);
+ }) as typeof fetch;
 }
 
 async function json(response:Response){
