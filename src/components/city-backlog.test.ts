@@ -44,7 +44,7 @@ describe("cityWorkflowRows",()=>{
   expect(cityWorkflowActions(offline)).toEqual(["open-record","set-online","archive","delete"]);
   expect(cityWorkflowActions(archived)).toEqual(["open-record","set-online","delete"]);
   expect(cityWorkflowActions(paid)).toEqual(["open-record","open-public","set-offline"]);
-  expect(cityWorkflowActions({...paid,online:false,status:"offline",managed:{...paid.managed!,state:"disapproved"}})).toEqual(["open-record","set-online"]);
+  expect(cityWorkflowActions({...paid,online:false,status:"offline",managed:{...paid.managed!,state:"disapproved"}})).toEqual(["open-record","set-online","delete"]);
   expect(cityWorkflowActions(test)).toEqual(["open-record","manage-pro","set-online","retire-test","delete"]);
  });
  it("names the responsible person and exact next action for waiting rows",()=>{

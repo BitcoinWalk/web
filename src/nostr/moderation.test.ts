@@ -1,6 +1,6 @@
 import {describe,it,expect} from "vitest";
 import {finalizeEvent,type Event} from "nostr-tools";
-import {managedCities,visibleManagedCities,needsChangesCities,archivedCityIds,deletedCityIds,ARCHIVE_NOTE,TEST_CITY_ARCHIVE_NOTE,DELETE_CITY_NOTE,createCalendarDeletion,createOrganizerCancellation,createCityDeletionDecision,createCityModerationDecision,createCityPresentationDecision,createNeedsChangesArchiveDecision,type ManagedCity} from "./moderation";
+import {managedCities,visibleManagedCities,needsChangesCities,archivedCityIds,deletedCityIds,ARCHIVE_NOTE,TEST_CITY_ARCHIVE_NOTE,DELETE_CITY_NOTE,LEGACY_DELETE_BASIC_CITY_NOTE,createCalendarDeletion,createOrganizerCancellation,createCityDeletionDecision,createCityModerationDecision,createCityPresentationDecision,createNeedsChangesArchiveDecision,type ManagedCity} from "./moderation";
 import type {ApprovalRecord} from "./city-records";
 const city={cityId:"66f137cb-2ac1-4eef-8358-7dd66b45922f",slug:"radom",cityName:"Radom",description:"Walk",startAt:"2026-10-02T15:00:00Z",meetingPoint:{description:"Square",latitude:1,longitude:2},heroImageUrl:"https://example.com/i"};
 const event=(id:string,created_at:number):Event=>({id:id.repeat(64),created_at,kind:30304,pubkey:"a".repeat(64),sig:"",content:"",tags:[]});
@@ -74,6 +74,11 @@ describe("city lifecycle",()=>{
   expect(archivedCityIds([approval,deletion])).toEqual(new Set());
   expect(managedCities([revision],[approval,deletion])).toEqual([]);
   expect(needsChangesCities([revision],[approval,deletion])).toEqual([]);
+ });
+ it("continues to honor the legacy Basic-only deletion marker",()=>{
+  const deletion:ApprovalRecord={event:event("d",3),approval:{...approval.approval,status:"revoked",note:LEGACY_DELETE_BASIC_CITY_NOTE}};
+  expect(deletedCityIds([approval,deletion])).toEqual(new Set([city.cityId]));
+  expect(managedCities([revision],[approval,deletion])).toEqual([]);
  });
  it("finds rejected creator submissions and archives their exact revision",()=>{
   const rejected:ApprovalRecord={event:event("c",3),approval:{...approval.approval,status:"rejected",note:"Please revise"}};

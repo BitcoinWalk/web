@@ -4,7 +4,10 @@ import type {ApprovalRecord,CityRevision} from "./city-records";
 import {createApprovalEvent} from "./city-event";
 export const ARCHIVE_NOTE="ARCHIVE_FREE_CITY: Hide this free-tier city and its calendar; retain ownership, editors and history. No relay infrastructure is deleted.";
 export const TEST_CITY_ARCHIVE_NOTE="RETIRE_STAGING_TEST_CITY: Hide this staging-only test city and its calendar; retain signed history and isolated test payment/provisioning evidence. No production entitlement or infrastructure is changed.";
-export const DELETE_CITY_NOTE="DELETE_BASIC_CITY: Permanently remove this offline Basic city from BitcoinWalk active inventory, host editing and public discovery. Signed Nostr history and third-party copies may remain.";
+/** Keep recognizing the first Basic-only marker so an already signed deletion
+ * cannot reappear after the action is widened to every offline city. */
+export const LEGACY_DELETE_BASIC_CITY_NOTE="DELETE_BASIC_CITY: Permanently remove this offline Basic city from BitcoinWalk active inventory, host editing and public discovery. Signed Nostr history and third-party copies may remain.";
+export const DELETE_CITY_NOTE="DELETE_OFFLINE_CITY: Permanently remove this offline city from BitcoinWalk active inventory, host editing and public discovery. Signed Nostr history, payment records, provisioned services and third-party copies may remain.";
 /** Archive is city-wide, independent of which revision an editor can load. */
 export function archivedCityIds(approvals:ApprovalRecord[]):Set<string>{
  const seen=new Set<string>(),archived=new Set<string>();
@@ -20,7 +23,7 @@ export function deletedCityIds(approvals:ApprovalRecord[]):Set<string>{
  for(const {approval} of [...approvals].sort((a,b)=>compareEvents(a.event,b.event))){
   if(approval.status==="rejected"||seen.has(approval.cityId))continue;
   seen.add(approval.cityId);
-  if(approval.status==="revoked"&&approval.note===DELETE_CITY_NOTE)deleted.add(approval.cityId);
+  if(approval.status==="revoked"&&(approval.note===DELETE_CITY_NOTE||approval.note===LEGACY_DELETE_BASIC_CITY_NOTE))deleted.add(approval.cityId);
  }
  return deleted;
 }

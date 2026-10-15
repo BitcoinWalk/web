@@ -114,13 +114,12 @@ export default function CityModeration(){
   const readback=await queryDirectoryRecords(relayConfig.writeRelays);if(!archivedCityIds(readback.approvals).has(city.cityId))throw new Error("Archive acknowledged but relay read-back failed. Reload before retrying.");
   await reload();setMessage(`${city.cityName} archived. Signed history remains and no infrastructure was deleted.`);
  });}
- async function deleteOfflineCity(row:ManagedCity){await run(async()=>{
-  if(!paymentInventoryReady)throw new Error("Payment inventory is unavailable. Refresh cities before deleting anything.");
+ async function deleteOfflineCity(row:ManagedCity,paid:boolean){await run(async()=>{
   const city=row.revision.city,latest=await current(row);
   if(latest.state==="approved")throw new Error("Set this city offline before deleting it.");
-  if(paidCityIds.has(city.cityId)||!!directoryConfig.paidCities[city.cityId])throw new Error("Paid-city deletion requires the separate verified infrastructure and recovery workflow in BW-28.");
   const confirmation=`DELETE ${city.slug}`;
-  const warning=`${DELETE_CITY_NOTE}\n\nCity: ${city.cityName} (${city.cityId})\n\nThis removes the city from BitcoinWalk Cities, Requests, host editing, public pages and walk discovery. It does not erase signed events already copied to third-party Nostr relays.\n\nType '${confirmation}' to continue:`;
+  const retained=paid?"\n\nThis does not refund its payment or decommission any dedicated/own relay, NIP-05, Lightning payout, chat or other provisioned service. Those records and services remain for a separately verified infrastructure shutdown.":"";
+  const warning=`${DELETE_CITY_NOTE}\n\nCity: ${city.cityName} (${city.cityId})\n\nThis removes the city from BitcoinWalk Cities, Requests, host editing, public pages and walk discovery. It does not erase signed events already copied to third-party Nostr relays.${retained}\n\nType '${confirmation}' to continue:`;
   if(window.prompt(warning)!==confirmation){setMessage("Cancelled. Nothing deleted.");return;}
   const template=createCityDeletionDecision(latest);
   setMessage("Review the permanent city deletion in your extension and sign…");const signed=await signWithBrowserExtension(template);assertExactSigned(signed,template);await admin();await current(row);
@@ -169,7 +168,7 @@ export default function CityModeration(){
   if(action==="set-online")return <button {...menuItem} disabled={busy||!dataCurrent} onClick={()=>decide(item.managed!,"approve")}>Set online</button>;
   if(action==="set-offline")return <button {...menuItem} disabled={busy||!dataCurrent} onClick={()=>decide(item.managed!,"disapprove")}>Set offline</button>;
   if(action==="retire-test")return <button {...menuItem} disabled={busy||!dataCurrent} onClick={()=>decide(item.managed!,"retire-test")}>Retire test city</button>;
-  if(action==="delete")return <button {...menuItem} className={styles.destructiveMenuItem} disabled={busy||!dataCurrent||!paymentInventoryReady} onClick={()=>deleteOfflineCity(item.managed!)}>Delete city permanently</button>;
+  if(action==="delete")return <button {...menuItem} className={styles.destructiveMenuItem} disabled={busy||!dataCurrent} onClick={()=>deleteOfflineCity(item.managed!,item.tier==="paid")}>Delete city permanently</button>;
   return <button {...menuItem} className={styles.destructiveMenuItem} disabled={busy||!dataCurrent||!paymentInventoryReady} onClick={()=>item.managed?decide(item.managed,"archive"):archiveAwaitingCity(item.needsChanges!)}>Archive city</button>;
  }
  useEffect(()=>()=>clearDashboardAuthorizationScope(authorizationScope),[]);

@@ -202,6 +202,14 @@ App 0.3.125 was activated on staging on 1 October 2026 through the ordinary `bit
 
 A city-wide archive now resolves to **Archived**, independently of revision rejection, instead of appearing as **Needs changes**. Organizer city profiles and dashboard submissions keep archived cities out of their active lists and show them in a read-only **Archived cities** section with restoration guidance. The super-admin City list also has a permanent **Archived cities** finder; selecting an archived city exposes its retained record and **Approve / Restore** action. Restoration returns the city to the active finder without recreating it.
 
+An offline city can also be removed from BitcoinWalk's active inventory from its
+three-dot menu. This requires the exact typed phrase and a fresh super-admin
+signature, then disappears only after exact relay read-back. It is deliberately
+independent of payment-provider availability. For a paid city this action does
+not refund the settled entitlement or decommission its dedicated/owned relay,
+NIP-05, Lightning payout, chat, or other provisioned service; infrastructure
+shutdown remains a separate reviewed operation with its own recovery evidence.
+
 App 0.3.126 was activated on staging on 1 October 2026 through the ordinary `bitcoinwalk` deployment account. Artifact SHA-256: `8854caa82b558cfac7e02c4635014d8589d3bfaf7acee75c25ca706a4dbb177f`; deployment evidence: `/home/bitcoinwalk/backups/app-staging-deploy.8GFrP4`; active release: `/opt/bitcoinwalk-app-staging/releases/0.3.126-8854caa82b55`. All 466 tests, focused source lint, type-check, production build, backlog generation and packaged smoke passed.
 
 ## App 0.3.127 — compact super-admin Cities layout

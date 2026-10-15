@@ -81,7 +81,7 @@ export function cityWorkflowActions(row:CityWorkflowRow):CityWorkflowAction[]{
   if(row.health?.availableInEnvironment&&row.tier!=="basic"&&row.health.status!=="complete")actions.push("manage-pro");
   actions.push(row.managed.state==="approved"?"set-offline":"set-online");
   if(row.managed.state!=="archived"){if(row.tier==="basic")actions.push("archive");else if(row.tier==="test")actions.push("retire-test");}
-  if(!row.online&&row.tier!=="paid")actions.push("delete");
+  if(!row.online)actions.push("delete");
   return actions;
  }
  if(row.rejected)return ["view-decision"];
