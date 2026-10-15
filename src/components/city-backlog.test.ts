@@ -16,4 +16,8 @@ describe("cityWorkflowRows",()=>{
   const row=cityWorkflowRows({managed:[managed("l","London","approved")],pending:[],needsChanges:[],health:[],paidCityIds:new Set(["l"]),paidCities:{l:{slug:"london",featured:false,subdomainReady:true,relayMode:"migrated"}}})[0];
   expect(row).toMatchObject({tier:"paid",relay:"migrated",online:true});
  });
+ it("keeps final application rejection offline rather than awaiting a third party",()=>{
+  const row=cityWorkflowRows({managed:[],pending:[],needsChanges:[],rejected:[revision("r","Rejected")],health:[],paidCityIds:new Set(),paidCities:{}})[0];
+  expect(row).toMatchObject({status:"offline",online:false});
+ });
 });

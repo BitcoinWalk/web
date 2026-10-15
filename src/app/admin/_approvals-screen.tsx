@@ -155,9 +155,9 @@ export default function SubmissionApprovals() {
       setInviteSponsors(current=>Object.fromEntries(rows.filter(item=>!item.registered).map(item=>[item.eventId,current[item.eventId]??true])));
       setHeroImages(current=>Object.fromEntries(rows.map(item=>[item.eventId,current[item.eventId]??item.city.heroImageUrl??""])));
       setAliases(current=>Object.fromEntries(rows.map(item=>[item.eventId,current[item.eventId]??(item.city.aliases??[]).join(", ")])));
-      const pendingCount=rows.filter(row=>row.status==="pending").length;
+      const pendingCount=rows.filter(row=>row.status==="pending").length,waitingCount=rows.filter(row=>row.status==="pending"||row.status==="needs-changes").length;
       announcePendingRequestCount(pendingCount);
-      setState({ message: `${rows.length} cities loaded · ${pendingCount} awaiting a decision.${payments===null?" Payment status could not be verified, so paid markers are hidden.":""}`, tone: "info" });
+      setState({ message: `${waitingCount} waiting cities loaded · ${pendingCount} require a decision.${payments===null?" Payment status could not be verified, so paid markers are hidden.":""}`, tone: "info" });
     } catch (error) {
       setState({ message: error instanceof Error ? error.message : "Could not load submissions.", tone: "error" });
     } finally {setBusy(false);}
