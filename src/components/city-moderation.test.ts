@@ -13,3 +13,13 @@ describe("awaits-change cleanup",()=>{
   expect(page).toContain("archivedCityIds(readback.approvals).has(row.revision.city.cityId)");
  });
 });
+
+describe("city backlog controls",()=>{
+ it("uses the filter as the single city finder and exposes copyable city identifiers",()=>{
+  const page=source();
+  expect(page).not.toContain('label="Jump to city"');
+  expect(page).toContain('placeholder="Name, slug or city ID"');
+  expect(page).toContain("<CopyValue");
+  expect(page).toContain("city ID`}");
+ });
+});

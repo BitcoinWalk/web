@@ -534,7 +534,7 @@ export default function OrganizerEventsPage({canModerate=false}:{canModerate?:bo
       <div className={sponsorStyles.statusToggle} role="group" aria-label="Filter walks">{(["all","next","upcoming","past"] as WalkListFilter[]).map(value=><button key={value} type="button" aria-pressed={walkFilter===value} disabled={busy} onClick={()=>setWalkFilter(value)}>{value==="all"?"All":value==="next"?"Next Walk":value[0].toUpperCase()+value.slice(1)}</button>)}</div>
       <button type="button" disabled={busy} onClick={load}>{busy?"Loading walks…":"Refresh"}</button>
     </div>
-    <AdminDataStatus health={dataHealth} busy={busy} onRetry={()=>void load()} scope="Walks"/>
+    <AdminDataStatus health={dataHealth} busy={busy} onRetry={()=>void load()} scope="Walks" hideWhenReady/>
     {message&&<p role="status">{message}</p>}
     {hostingError&&<p role="alert">Hosting assignments could not be loaded: {hostingError}</p>}
     {!!owner && !!walks.length && <><button disabled={busy||publishingBlocked} onClick={openForm}>+ Add a walk</button>{publishingNotice&&<p role={publishingAccess==="suspended"?"alert":"status"}>{publishingNotice}</p>}</>}

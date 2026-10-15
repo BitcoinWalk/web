@@ -21,4 +21,10 @@ describe("AdminDataStatus",()=>{
   const html=renderToStaticMarkup(createElement(AdminDataStatus,{health:{state:"stale",message:"Last-known rows remain visible.",checkedAt:"2026-10-14T12:00:00.000Z"},scope:"Cities",onRetry:()=>{}}));
   expect(html).toContain("Showing last known data");expect(html).toContain("Last-known rows remain visible.");expect(html).toContain("Retry");expect(html).toContain('aria-label="Cities data status"');
  });
+ it("can suppress a duplicate ready state without hiding states that need attention",()=>{
+  const ready=renderToStaticMarkup(createElement(AdminDataStatus,{health:{state:"ready",message:"Current."},scope:"Cities",hideWhenReady:true}));
+  const partial=renderToStaticMarkup(createElement(AdminDataStatus,{health:{state:"partial",message:"One source is unavailable."},scope:"Cities",hideWhenReady:true}));
+  expect(ready).toBe("");
+  expect(partial).toContain("Some data unavailable");
+ });
 });

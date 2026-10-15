@@ -17,7 +17,8 @@ const labels:Record<AdminDataState,string>={
  failed:"Data unavailable",
 };
 
-export default function AdminDataStatus({health,onRetry,busy=false,scope="Dashboard"}:{health:AdminDataHealth;onRetry?:()=>void;busy?:boolean;scope?:string}){
+export default function AdminDataStatus({health,onRetry,busy=false,scope="Dashboard",hideWhenReady=false}:{health:AdminDataHealth;onRetry?:()=>void;busy?:boolean;scope?:string;hideWhenReady?:boolean}){
+ if(hideWhenReady&&health.state==="ready")return null;
  const needsAttention=health.state==="partial"||health.state==="stale"||health.state==="failed";
  return <div className={styles.status} data-state={health.state} role={health.state==="failed"?"alert":"status"} aria-live={health.state==="failed"?"assertive":"polite"} aria-label={`${scope} data status`}>
   <span className={styles.dot} aria-hidden="true"/>
