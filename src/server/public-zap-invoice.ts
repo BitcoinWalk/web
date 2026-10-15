@@ -1,12 +1,19 @@
 import {nip57,verifyEvent,type Event} from "nostr-tools";
 import {relayConfig} from "../lib/relay-config";
 import {lightningAddress,parseZapPayMetadata} from "../nostr/public-zap";
+import {canonicalLoopbackTransport} from "../rustress/loopback-http";
 
 const hex=/^[0-9a-f]{64}$/;
 const maximumBodyBytes=65_536;
 export type PublicZapInvoiceInput={address:string;amountMsat:number;zapRequest:string};
 
 export class PublicZapInvoiceError extends Error{constructor(message:string,readonly status=400){super(message);}}
+
+export function publicZapInvoiceTransport(port=process.env.PORT):typeof fetch{
+ const value=Number(port);
+ return typeof port==="string"&&/^\d{1,5}$/.test(port)&&Number.isSafeInteger(value)&&value>0&&value<=65_535
+  ?canonicalLoopbackTransport(`http://127.0.0.1:${value}`,"bitcoinwalk.org"):fetch;
+}
 
 async function json(response:Response){
  if(!response.ok)throw new PublicZapInvoiceError("The city Lightning address could not be loaded.",502);

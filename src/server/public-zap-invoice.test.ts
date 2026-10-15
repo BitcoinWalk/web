@@ -1,12 +1,16 @@
 import {finalizeEvent,getPublicKey,nip57} from "nostr-tools";
 import {describe,expect,it,vi} from "vitest";
-import {createPublicZapInvoice} from "./public-zap-invoice";
+import {createPublicZapInvoice,publicZapInvoiceTransport} from "./public-zap-invoice";
 
 const payerKey=new Uint8Array(32).fill(7),recipient=getPublicKey(new Uint8Array(32).fill(8)),provider=getPublicKey(new Uint8Array(32).fill(9));
 function input(amountMsat=100_000){const request=finalizeEvent(nip57.makeZapRequest({pubkey:recipient,amount:amountMsat,comment:"Thanks",relays:["wss://relay.ditto.pub/"]}),payerKey);return {address:"madeira@bitcoinwalk.org",amountMsat,zapRequest:JSON.stringify(request)};}
 function metadata(callback="https://bitcoinwalk.org/lnurlp/madeira/callback"){return {tag:"payRequest",callback,minSendable:1000,maxSendable:1_000_000_000,allowsNostr:true,nostrPubkey:provider};}
 
 describe("public zap invoice boundary",()=>{
+ it("uses the bounded app loopback only for a valid runtime port",()=>{
+  expect(publicZapInvoiceTransport("not-a-port")).toBe(fetch);expect(publicZapInvoiceTransport("0")).toBe(fetch);expect(publicZapInvoiceTransport("65536")).toBe(fetch);
+  expect(publicZapInvoiceTransport("3345")).not.toBe(fetch);
+ });
  it("loads trusted metadata and forwards the exact signed zap request server-side",async()=>{
   const signed=input();
   const fetcher=vi.fn<typeof fetch>().mockResolvedValueOnce(Response.json(metadata())).mockResolvedValueOnce(Response.json({pr:"lnbc1fixture"}));
