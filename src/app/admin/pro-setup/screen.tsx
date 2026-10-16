@@ -70,7 +70,7 @@ function ProSetupForm({enabled, actor, cities, fixedCityId="", embedded=false,in
         body: JSON.stringify({event}), signal: AbortSignal.timeout(60_000)});
       const body = await response.json();
       if (!response.ok) throw new Error(body.error || "Pro setup could not be prepared.");
-      setPreview(body.preview); setDestination(body.preview.payout.destination ?? body.preview.payout.suggestedDestination ?? "");
+      setPreview(body.preview); setDestination(body.preview.payout.destination ?? body.preview.payout.suggestedDestination ?? ""); setMessage("Pro services loaded.");
     } catch (error) {setMessage(error instanceof Error ? error.message : "Preparation failed; no account or payment was changed.");}
     finally {inFlight.current = false; setBusy(false);}
   },[actor,cityId,embedded]);
