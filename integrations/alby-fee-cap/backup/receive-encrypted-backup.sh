@@ -10,7 +10,9 @@ if [[ "$command_text" == "probe" ]]; then
   exit 0
 fi
 
-if [[ ! "$command_text" =~ ^upload\ (hub-feecap-[0-9]{8}T[0-9]{6}Z-[0-9a-f]{12}\.tar\.zst\.gpg)$ ]]; then
+candidate_pattern='hub-feecap-[0-9]{8}T[0-9]{6}Z-[0-9a-f]{12}\.tar\.zst\.gpg'
+live_pattern='hub-live-[0-9]{8}T[0-9]{6}Z-[0-9a-f]{12}-[0-9a-f]{12}\.tar\.zst\.gpg'
+if [[ ! "$command_text" =~ ^upload\ (($candidate_pattern)|($live_pattern))$ ]]; then
   echo "Unsupported backup receiver command" >&2
   exit 64
 fi

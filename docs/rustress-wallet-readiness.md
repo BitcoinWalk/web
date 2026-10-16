@@ -634,6 +634,18 @@ sponsor payout service remained version 0.1.1 in disabled mode with Docker
 network `none`; its backup and monitor timers both remained active. No invoice
 or payment was created during this acceptance.
 
+The encrypted initialized-state backup half of that remaining gate is now
+complete. A dedicated production namespace was added to the append-only `.138`
+receiver with retention independent from candidate archives. After updating its
+strict host-key pin from the reviewed authenticated public key, the approved
+sender stopped the Hub cleanly and streamed the whole live volume directly into
+the pinned offline recipient. The accepted 29,793,627-byte ciphertext matches
+SHA-256 `318d3b31…c4b6` locally and off-host. No plaintext duplicate or private
+decryption key was placed on either server. A verified encrypted copy and the
+cleanup-enforcing verifier are present on the trusted workstation; the key
+custodian's local decrypt/restore run and subsequent Hub unlock check remain
+required before this gate closes.
+
 Reviewed official tag v1.24.0, commit
 `d8ef0e70e0d265a8424276daee0a595ac31993c0`:
 

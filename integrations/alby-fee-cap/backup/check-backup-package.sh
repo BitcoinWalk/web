@@ -15,6 +15,13 @@ size="$(stat -c '%s' "$BITCOINWALK_HUB_BACKUP_DIR/$name")"
 [[ "$receipt" == "stored $name $sha256 $size" ]]
 (cd "$BITCOINWALK_HUB_BACKUP_DIR" && sha256sum -c "$name.sha256")
 
+live_name="hub-live-20261009T120100Z-2982a75a63c4-6bb8520025d7.tar.zst.gpg"
+live_receipt="$(printf 'encrypted-live-fixture' | SSH_ORIGINAL_COMMAND="upload $live_name" "$here/receive-encrypted-backup.sh")"
+live_sha256="$(sha256sum "$BITCOINWALK_HUB_BACKUP_DIR/$live_name" | cut -d' ' -f1)"
+live_size="$(stat -c '%s' "$BITCOINWALK_HUB_BACKUP_DIR/$live_name")"
+[[ "$live_receipt" == "stored $live_name $live_sha256 $live_size" ]]
+(cd "$BITCOINWALK_HUB_BACKUP_DIR" && sha256sum -c "$live_name.sha256")
+
 set +e
 printf duplicate | SSH_ORIGINAL_COMMAND="upload $name" "$here/receive-encrypted-backup.sh" >/dev/null 2>&1
 duplicate_status=$?
@@ -28,12 +35,19 @@ for offset in $(seq 2 70); do
   : > "$file"
   : > "$file.sha256"
 done
+for offset in $(seq 2 70); do
+  stamp="$(date -u -d "$offset days ago" +%Y%m%dT120100Z)"
+  file="$BITCOINWALK_HUB_BACKUP_DIR/hub-live-$stamp-2982a75a63c4-6bb8520025d7.tar.zst.gpg"
+  : > "$file"
+  : > "$file.sha256"
+done
 before="$(find "$BITCOINWALK_HUB_BACKUP_DIR" -maxdepth 1 -type f -name '*.tar.zst.gpg' | wc -l)"
 python3 "$here/prune-encrypted-backups.py"
 after="$(find "$BITCOINWALK_HUB_BACKUP_DIR" -maxdepth 1 -type f -name '*.tar.zst.gpg' | wc -l)"
-[[ "$after" -lt "$before" && "$after" -ge 14 ]]
+[[ "$after" -lt "$before" && "$after" -ge 28 ]]
 [[ -f "$BITCOINWALK_HUB_BACKUP_DIR/$name" ]]
+[[ -f "$BITCOINWALK_HUB_BACKUP_DIR/$live_name" ]]
 orphan_count="$(find "$BITCOINWALK_HUB_BACKUP_DIR" -maxdepth 1 -type f -name '*.sha256' | while read -r checksum; do [[ -f "${checksum%.sha256}" ]] || printf 'orphan\n'; done | wc -l)"
 [[ "$orphan_count" -eq 0 ]]
 
-printf 'Hub backup package checks passed (%s retained from %s fixture archives).\n' "$after" "$before"
+printf 'Hub backup package checks passed across separate candidate and live streams (%s retained from %s fixture archives).\n' "$after" "$before"

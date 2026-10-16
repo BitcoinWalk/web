@@ -87,3 +87,37 @@ rehearsal. It does not yet close production backup readiness: external
 timer-failure alerting and live wallet/history reconciliation remain required,
 and the rehearsal must be repeated after the wallet is initialized and before
 funds are introduced.
+
+## Initialized production snapshot — 16 October 2026
+
+The append-only receiver now accepts a separate `hub-live-*` namespace. Its
+retention buckets are calculated independently per production image/candidate
+pair, so candidate archives and production archives cannot displace one another.
+The receiver and pruner update passed duplicate refusal, checksum receipt and
+independent-stream retention fixtures before installation; no existing archive
+was modified by the installer.
+
+The previously pinned `.138` ED25519 key was stale after the documented host
+replacement. The current public host key was read through the already
+authenticated management connection and matched
+`SHA256:rV8nNjpNrk6tr0gNdLf1ZsO0tqPTJ8Ad7cdvQTnFcNY`. The protected transport pin
+was replaced atomically, its predecessor was retained locally, strict checking
+remained enabled and the restricted receiver probe passed. No key scan was
+trusted on its own.
+
+With explicit approval, the live v1.24.0 Hub was stopped cleanly and its complete
+initialized Docker volume streamed directly through Zstandard and OpenPGP
+encryption to the pinned offline-held recipient. No plaintext duplicate or
+private decryption key was created on either server. The receiver accepted
+`hub-live-20261016T125224Z-2982a75a63c4-6bb8520025d7.tar.zst.gpg` at 29,793,627
+bytes. Local and receiver copies are mode 0600, owned by their non-root
+`bitcoinwalk` accounts and independently match SHA-256
+`318d3b31a438b952109012ab8d7de0232576afcb0931ad45392264c6c72ac4b6`.
+The public Hub returned after the snapshot and awaits its normal human unlock.
+
+The ciphertext, receiver checksum and a verifier have also been copied to a
+mode-0700 folder on the trusted workstation. The agent has not decrypted or read
+the archive. Production restore readiness remains open until the key custodian
+runs that verifier locally, confirms path/type safety, SQLite integrity and
+automatic decrypted-data cleanup, and the running Hub is checked again after
+manual unlock.
