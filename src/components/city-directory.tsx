@@ -29,7 +29,7 @@ function Card({row}:{row:DirectoryCity}) {
   const luganoPlanB=isLuganoPlanBConference(city.slug,[city.heroImageUrl]);
   return <article className={styles.card}>
     <div className={styles.cardMedia} data-campaign={luganoPlanB?"lugano-planb":undefined}>
-      <Photo key={city.heroImageUrl} src={directoryImage(city.heroImageUrl)} alt={`BitcoinWalk in ${city.cityName}`}/>
+      <Photo key={city.heroImageUrl} src={luganoPlanB?"/brand/campaigns/lugano-planb-background.webp":directoryImage(city.heroImageUrl)} alt={`BitcoinWalk in ${city.cityName}`}/>
       {luganoPlanB&&<Image className={styles.campaignLogo} src="/brand/campaigns/lugano-planb-forum-2026.png" width={408} height={225} alt="Plan ₿ Forum — Lugano, October 23–24, 2026"/>}
     </div>
     <div className={styles.content}><p className={styles.eyebrow}>{row.tier==="paid"?"Dedicated city relay":"Community walk"}</p>

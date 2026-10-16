@@ -12,6 +12,7 @@ describe("homepage brand",()=>{
  it("adds the Plan B Forum campaign mark to the Lugano city card",()=>{
   const page=readFileSync(join(process.cwd(),"src/components/city-directory.tsx"),"utf8");
   expect(page).toContain("isLuganoPlanBConference(city.slug,[city.heroImageUrl])");
+  expect(page).toContain('luganoPlanB?"/brand/campaigns/lugano-planb-background.webp"');
   expect(page).toContain('/brand/campaigns/lugano-planb-forum-2026.png');
   expect(page).toContain('data-campaign={luganoPlanB?"lugano-planb":undefined}');
  });
