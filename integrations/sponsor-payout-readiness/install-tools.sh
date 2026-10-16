@@ -16,4 +16,4 @@ chmod 0700 "${target}"
 install -m 0700 install-nwc-secret.sh check-nwc-secret.sh run-readiness-probe.sh run-hub-safety-probe.sh "${target}/"
 install -m 0600 sponsor-payout-nwc-read-probe.cjs sponsor-payout-hub-safety-probe.cjs "${target}/"
 
-printf '%s\n' 'Sponsor payout readiness tools installed. The payout service remains disabled and no credential was loaded.'
+printf '%s\n' 'Sponsor payout readiness tools installed. The payout service remains disabled; no credential was read or changed.'
