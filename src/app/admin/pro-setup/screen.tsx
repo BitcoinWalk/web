@@ -9,6 +9,7 @@ import type {ProSetupPreview} from "../../../server/pro-setup";
 import CitySignerSetup from "../../../components/city-signer-setup";
 import CityBrandReview from "../../../components/city-brand-review";
 import CityProvisioningRecovery from "../../../components/city-provisioning-recovery";
+import communityStyles from "./community-visibility.module.css";
 
 export default function ProSetupScreen({enabled}: {enabled: boolean}) {
   const {pubkey, cities, role} = useDashboard();
@@ -70,15 +71,16 @@ function ProSetupForm({enabled, actor, cities, fixedCityId="", embedded=false}: 
   }
   async function setCommunityVisibility(surface:"walkie-talkie"|"armada",enabled:boolean){
     if(!preview||!actor||inFlight.current)return;
-    inFlight.current=true;setBusy(true);setMessage("Approve the public Armada visibility change in your signer.");
+    const label=surface==="walkie-talkie"?"Walkie Talkie":"Armada";
+    inFlight.current=true;setBusy(true);setMessage(`Approve the ${label} visibility change in your signer.`);
     try{
       const command={action:"set-community-visibility" as const,cityId:preview.cityId,surface,enabled},origin=window.location.origin;
       const event=await signWithBrowserExtension(proSetupTemplate(command,origin));
       if(event.pubkey!==actor||JSON.stringify(authorizeProSetup(event,origin))!==JSON.stringify(command))throw new Error("Your signer changed the community visibility request. Reconnect and try again.");
       const response=await fetch("/api/pro-setup",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({event}),signal:AbortSignal.timeout(60_000)}),body=await response.json();
-      if(!response.ok)throw new Error(body.error||"Armada visibility could not be changed.");
+      if(!response.ok)throw new Error(body.error||`${label} visibility could not be changed.`);
       setPreview(value=>value?{...value,community:body.community}:value);setMessage(body.community.message);
-    }catch(error){setMessage(error instanceof Error?error.message:"Armada visibility was not changed.");}
+    }catch(error){setMessage(error instanceof Error?error.message:`${label} visibility was not changed.`);}
     finally{inFlight.current=false;setBusy(false);}
   }
   return <section id={embedded?"pro-city-services":undefined} aria-labelledby={embedded?"pro-city-services-heading":undefined}>
@@ -99,19 +101,20 @@ function ProSetupForm({enabled, actor, cities, fixedCityId="", embedded=false}: 
         {preview.profile.nip05 && <p>NIP-05: <strong>{preview.profile.nip05}</strong></p>}
         <section aria-label="City service status"><h3>City services</h3><p><strong>{preview.capabilities.overall}</strong> — {preview.capabilities.detail}</p>
           <ul><li>NIP-05: <strong>{preview.capabilities.nip05}</strong></li><li>Lightning address: <strong>{preview.capabilities.lightning}</strong></li></ul></section>
-        <fieldset disabled={busy||!preview.community.active}>
+        <fieldset className={communityStyles.panel} disabled={busy}>
           <legend>Community visibility</legend>
-          <p>Choose which community options appear on this city&apos;s public pages. Hiding either option does not delete its data or history.</p>
-          {!preview.community.active&&<p>The city community must be activated by the super-admin before this control becomes available.</p>}
-          <div className="community-visibility" role="group" aria-label="Show Walkie Talkie on public city and walk pages">
-            <strong>Walkie Talkie</strong> <span>— NIP-29 messaging with NIP-17 support</span>{" "}
-            <button type="button" aria-pressed={preview.community.walkieTalkieEnabled} onClick={()=>void setCommunityVisibility("walkie-talkie",true)} disabled={busy||!preview.community.active||preview.community.walkieTalkieEnabled}>ON</button>
-            <button type="button" aria-pressed={!preview.community.walkieTalkieEnabled} onClick={()=>void setCommunityVisibility("walkie-talkie",false)} disabled={busy||!preview.community.active||!preview.community.walkieTalkieEnabled}>OFF</button>
-          </div>
-          <div className="community-visibility" role="group" aria-label="Show Armada on public city and walk pages">
-            <strong>Armada</strong> <span>— Concord community</span>{" "}
-            <button type="button" aria-pressed={preview.community.armadaEnabled} onClick={()=>void setCommunityVisibility("armada",true)} disabled={busy||!preview.community.active||preview.community.armadaEnabled}>ON</button>
-            <button type="button" aria-pressed={!preview.community.armadaEnabled} onClick={()=>void setCommunityVisibility("armada",false)} disabled={busy||!preview.community.active||!preview.community.armadaEnabled}>OFF</button>
+          <p className={communityStyles.intro}>Choose which community options appear on this city&apos;s public pages. Hiding one keeps its channel and message history intact.</p>
+          <div className={communityStyles.list}>
+            <div className={communityStyles.service} data-available={preview.community.walkieTalkieActive||undefined}>
+              <span className={communityStyles.icon} aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z"/><path d="M8 9h8M8 13h5"/></svg></span>
+              <span className={communityStyles.copy}><strong>Walkie Talkie</strong><span>NIP-29 messaging with NIP-17 support</span>{!preview.community.walkieTalkieActive&&<small>Awaiting channel activation</small>}</span>
+              <button className={communityStyles.switch} type="button" role="switch" aria-checked={preview.community.walkieTalkieEnabled} aria-label={`${preview.community.walkieTalkieEnabled?"Hide":"Show"} Walkie Talkie on public city and walk pages`} onClick={()=>void setCommunityVisibility("walkie-talkie",!preview.community.walkieTalkieEnabled)} disabled={busy||!preview.community.walkieTalkieActive}><span className={communityStyles.state}>{preview.community.walkieTalkieEnabled?"Shown":"Hidden"}</span><span className={communityStyles.track} aria-hidden="true"><span/></span></button>
+            </div>
+            <div className={communityStyles.service} data-available={preview.community.armadaActive||undefined}>
+              <span className={communityStyles.icon} aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3 4 7v5c0 5 3.4 8 8 9 4.6-1 8-4 8-9V7z"/><path d="m9 12 2 2 4-4"/></svg></span>
+              <span className={communityStyles.copy}><strong>Armada</strong><span>Private Concord community</span>{!preview.community.armadaActive&&<small>Awaiting Armada activation</small>}</span>
+              <button className={communityStyles.switch} type="button" role="switch" aria-checked={preview.community.armadaEnabled} aria-label={`${preview.community.armadaEnabled?"Hide":"Show"} Armada on public city and walk pages`} onClick={()=>void setCommunityVisibility("armada",!preview.community.armadaEnabled)} disabled={busy||!preview.community.armadaActive}><span className={communityStyles.state}>{preview.community.armadaEnabled?"Shown":"Hidden"}</span><span className={communityStyles.track} aria-hidden="true"><span/></span></button>
+            </div>
           </div>
         </fieldset>
         <fieldset disabled={busy}>

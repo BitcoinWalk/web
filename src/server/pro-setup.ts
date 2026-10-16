@@ -23,6 +23,7 @@ import type {EventTemplate} from "nostr-tools";
 import {cityProvisioningCapabilities, type CityProvisioningCapabilities} from "../rustress/provisioning-capabilities";
 import {verifyNip05} from "../nostr/profiles";
 import {ChatProvisionStore,type ChatVisibilitySurface} from "../chat-provisioning/store";
+import {WalkieTalkieProvisionStore,WALKIE_TALKIE_RELAY} from "../chat-provisioning/walkie-talkie-store";
 import {armadaChatUrl} from "../domain/chat";
 import {cityOwnerPubkey} from "../domain/city";
 import {legacyProEntitlement,type LegacyProEntitlement} from "../payments/legacy-pro-entitlement";
@@ -38,7 +39,7 @@ export type ProSetupPreview = {
   signer: {configured: boolean; pubkey?: string; version?: number};
   activation?: {requestId: string; expiresAt: number; proofsReady: boolean};
   capabilities: CityProvisioningCapabilities;
-  community: {active:boolean;walkieTalkieEnabled:boolean;armadaEnabled:boolean;url?:string};
+  community: {walkieTalkieActive:boolean;armadaActive:boolean;walkieTalkieEnabled:boolean;armadaEnabled:boolean;url?:string};
   steps: Array<{label: string; state: "ready" | "blocked"; detail: string}>;
 };
 
@@ -169,14 +170,15 @@ export async function prepareProSetupPreview(cityId: string, actor: string, orig
   const update=updateTable?getPaymentRuntime().store.db.prepare("SELECT payout_version payoutVersion,phase state FROM rustress_payout_update_task WHERE city=? ORDER BY payout_version DESC LIMIT 1").get(cityId) as {payoutVersion:number;state:string}|undefined:undefined;
   const payoutActivation=activeRow?.phase==="active"?update&&update.payoutVersion>activeRow.payoutVersion?{activeVersion:activeRow.payoutVersion,pendingVersion:update.payoutVersion,state:update.state==="active"?"active" as const:update.state==="blocked"||update.state==="needs-attention"?"needs-attention" as const:"pending" as const}:{activeVersion:activeRow.payoutVersion,state:"active" as const}:{state:"not-active" as const};
   const capabilities = cityProvisioningCapabilities(getPaymentRuntime().store.db,cityId);
-  const communityRow=new ChatProvisionStore(getPaymentRuntime().store.db).get(cityId),communityActive=communityRow?.phase==="active";
-  const communityUrl=communityActive?armadaChatUrl({relay:communityRow.relay,groupId:communityRow.groupId}):null;
+  const database=getPaymentRuntime().store.db,communityRow=new ChatProvisionStore(database).get(cityId),walkieTalkieRow=new WalkieTalkieProvisionStore(database).get(cityId);
+  const armadaActive=communityRow?.phase==="active",walkieTalkieActive=walkieTalkieRow?.phase==="active";
+  const communityUrl=armadaActive?armadaChatUrl({relay:communityRow.relay,groupId:communityRow.groupId}):null;
   const publicOriginValue=process.env.BITCOINWALK_PUBLIC_ORIGIN?.trim()||"https://bitcoinwalk.org",publicOrigin=new URL(publicOriginValue);
   if(publicOrigin.protocol!=="https:"||publicOrigin.origin!==publicOriginValue)throw new Error("Canonical public origin is not configured.");
   const identifier=`${slug}@${publicOrigin.hostname}`;
   const verifiedNip05=capabilities.nip05==="active"&&!!task.signer&&await verifyNip05(task.signer.pubkey,identifier);
   return {cityId, cityName: city.cityName, revisionId: row.revision.event.id, status: "preparation-only",
-    capabilities,community:{active:communityActive,walkieTalkieEnabled:communityActive&&communityRow.walkieTalkieEnabled===1,armadaEnabled:communityActive&&communityRow.armadaEnabled===1,...(communityUrl?{url:communityUrl}:{})},
+    capabilities,community:{walkieTalkieActive,armadaActive,walkieTalkieEnabled:walkieTalkieActive&&walkieTalkieRow.publicEnabled===1,armadaEnabled:armadaActive&&communityRow.armadaEnabled===1,...(communityUrl?{url:communityUrl}:{})},
     setup: {state: task.state, updatedAt: task.updatedAt},
     signer: task.signer ? {configured: true, pubkey: task.signer.pubkey, version: task.signer.version} : {configured: false},
     ...(pending ? {activation: {requestId: pending.id, expiresAt: pending.expires_at, proofsReady: !!pending.owner_proof && !!pending.brand_proof}} : {}),
@@ -196,11 +198,14 @@ export async function prepareProSetupPreview(cityId: string, actor: string, orig
 }
 
 export async function setProCommunityVisibility(cityId:string,actor:string,surface:ChatVisibilitySurface,enabled:boolean){
-  const before=await resolveProSetupAuthority(cityId,actor),store=new ChatProvisionStore(getPaymentRuntime().store.db),row=store.get(cityId);
-  if(!row||row.phase!=="active")throw new Error("Active community activation is required before changing public visibility.");
+  const before=await resolveProSetupAuthority(cityId,actor),database=getPaymentRuntime().store.db,armadaStore=new ChatProvisionStore(database),walkieTalkieStore=new WalkieTalkieProvisionStore(database);
+  const row=surface==="walkie-talkie"?walkieTalkieStore.get(cityId):armadaStore.get(cityId);
+  if(!row||row.phase!=="active")throw new Error(`Active ${surface==="walkie-talkie"?"Walkie Talkie":"Armada"} setup is required before changing public visibility.`);
   const after=await resolveProSetupAuthority(cityId,actor);if(JSON.stringify(before.authority)!==JSON.stringify(after.authority))throw new Error("City authority changed during the community visibility update. Reload and try again.");
-  const updated=store.setVisibility(cityId,surface,enabled),url=armadaChatUrl({relay:updated.relay,groupId:updated.groupId}),label=surface==="walkie-talkie"?"Walkie Talkie":"Armada";
-  return {active:true,walkieTalkieEnabled:updated.walkieTalkieEnabled===1,armadaEnabled:updated.armadaEnabled===1,...(url?{url}:{}),message:enabled?`${label} is now shown on this city’s public pages.`:`${label} is now hidden from this city’s public pages. The community and its history were not deleted.`};
+  if(surface==="walkie-talkie")walkieTalkieStore.setVisibility(cityId,enabled,Math.floor(Date.now()/1000),{tier:"pro",bindingId:before.entitlement.invoiceId,relay:WALKIE_TALKIE_RELAY});
+  else armadaStore.setVisibility(cityId,surface,enabled,Math.floor(Date.now()/1000),{tier:"pro",bindingId:before.entitlement.invoiceId,relay:row.relay});
+  const walkieTalkie=walkieTalkieStore.get(cityId),armada=armadaStore.get(cityId),walkieTalkieActive=walkieTalkie?.phase==="active",armadaActive=armada?.phase==="active",url=armadaActive?armadaChatUrl({relay:armada.relay,groupId:armada.groupId}):null,label=surface==="walkie-talkie"?"Walkie Talkie":"Armada";
+  return {walkieTalkieActive,armadaActive,walkieTalkieEnabled:walkieTalkieActive&&walkieTalkie.publicEnabled===1,armadaEnabled:armadaActive&&armada.armadaEnabled===1,...(url?{url}:{}),message:enabled?`${label} is now shown on this city’s public pages.`:`${label} is now hidden from this city’s public pages. The community and its history were not deleted.`};
 }
 
 export async function prepareBrandRequest(cityId: string, actor: string, origin: string) {

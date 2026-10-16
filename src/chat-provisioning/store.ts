@@ -95,9 +95,9 @@ export class ChatProvisionStore{
   if(result.changes!==1)throw new Error("The active community changed. Refresh and retry.");
   return this.get(cityId)!;
  }
- setVisibility(cityId:string,surface:ChatVisibilitySurface,enabled:boolean,now=Math.floor(Date.now()/1000)){
+ setVisibility(cityId:string,surface:ChatVisibilitySurface,enabled:boolean,now=Math.floor(Date.now()/1000),supplied?:ChatProvisionAuthority){
   const row=this.get(cityId);if(!row||row.phase!=="active")throw new Error("Active community activation is required before changing public visibility.");
-  const entitlement=this.entitlement(cityId);if(!entitlement||entitlement.invoiceId!==row.entitlementId)throw new Error("The settled Pro entitlement changed before the visibility update.");
+  this.assertAuthority(row,supplied);
   const column=surface==="walkie-talkie"?"walkieTalkieEnabled":"armadaEnabled";
   this.db.prepare(`UPDATE city_chat_provisioning SET ${column}=?,visibilityUpdatedAt=?,updatedAt=? WHERE cityId=? AND phase='active'`).run(enabled?1:0,now,now,cityId);
   return this.get(cityId)!;

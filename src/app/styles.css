@@ -28,7 +28,6 @@ textarea { min-height: 8rem; }
 .chat-button { display: inline-block; padding: 0.8rem 1.1rem; background: #171717; color: white; border-radius: 0.4rem; text-decoration: none; }
 .chat-button:hover { background: #383838; }
 .chat-button:focus-visible { outline: 3px solid #b85c00; outline-offset: 3px; }
-.community-visibility{display:grid;grid-template-columns:minmax(10rem,1fr) auto auto;gap:.5rem;align-items:center;margin:.65rem 0}.community-visibility span{font-size:.9rem;opacity:.75}.community-visibility button{min-width:3.4rem;border:1px solid color-mix(in srgb,currentColor 28%,transparent);background:Canvas;padding:.5rem .7rem}.community-visibility button[aria-pressed=true]{background:#f7931a;color:#17120d;border-color:#b85c00;font-weight:700}@media(max-width:650px){.community-visibility{grid-template-columns:1fr auto auto}.community-visibility span{grid-column:1/-1}}
 .walk-weather { display: flex; align-items: center; flex-wrap: wrap; gap: 0.35rem 0.7rem; width: fit-content; margin: -0.5rem 0 1rem; padding: 0.45rem 0.75rem; border-radius: 999px; background: #fff4e5; font-size: 0.92rem; }
 .walk-weather strong { font-size: 1rem; }
 .weather-detail { white-space: nowrap; }
