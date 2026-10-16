@@ -1,6 +1,6 @@
 # BW-109 — super-admin standalone Lightning addresses
 
-Requested 8 October 2026. Planned; no addresses provisioned.
+Requested 8 October 2026. Accepted in production and extended on 16 October 2026.
 
 Initial requested addresses: `endo@bitcoinwalk.org`, `donate@bitcoinwalk.org`.
 The user confirmed `bitcoinwalk@getalby.com` as the receiving destination for
@@ -9,6 +9,15 @@ or node identity. Verify that mapping during inventory. Prefer issuing invoices
 directly from that receiving wallet rather than adding a receive-and-forward hop.
 If it is a different wallet, review the alias/direct-invoice integration before
 activation; do not silently introduce an outgoing payment/fee path.
+
+The accepted direct-alias implementation now also serves
+`guide@bitcoinwalk.org`. Its NIP-05 mapping is the deployed BitcoinWalk Guide
+identity, `npub1nw6chvnj06vwyqywxwz7h749zt92exuem2k0c0grjffr6adnf57quxg4df`.
+Its LNURL-pay discovery keeps the branded identifier and points directly to the
+independently pinned `bitcoinwalk@getalby.com` callback; it does not add a split,
+forwarding wallet, outgoing payment permission or separate balance. The
+published NIP-57 receiver key remains the pinned Alby receiver signer and is
+deliberately distinct from Guide's NIP-05 identity key.
 
 ## CMS flow
 
@@ -43,8 +52,10 @@ Use atomic transactions, compare-and-swap versions, phase-specific idempotency
 and independent read-back. Public invoice issuance stays disabled until endpoint
 checks and the separately approved live pilot pass.
 
-Only LNURL-pay is requested. NIP-05 and NIP-57 recipient identities need explicit
-public-key choices and separate verification; do not invent them from names.
+The original scope requested only LNURL-pay. NIP-05 and NIP-57 recipient
+identities need explicit public-key choices and separate verification; do not
+invent them from names. Guide was added only after its deployed public key was
+explicitly selected and verified.
 `donate@bitcoinwalk.org` is a candidate for BW-107's Basic donation destination,
 with `bitcoinwalk@getalby.com` confirmed as its recipient. Wire it only after
 the provider-to-wallet mapping is verified and activation passes. Do not redirect
