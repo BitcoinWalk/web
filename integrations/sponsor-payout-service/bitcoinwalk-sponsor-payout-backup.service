@@ -1,0 +1,12 @@
+[Unit]
+Description=Back up the disabled BitcoinWalk sponsor payout state
+After=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=%h/.local/libexec/bitcoinwalk-sponsor-payout/backup-state.sh
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=%h/.local/state/bitcoinwalk-sponsor-payout

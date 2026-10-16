@@ -215,3 +215,10 @@ These components still have no live credential, listener or scheduler wiring.
 Until the isolated wallet, backup/restore, monitoring and deployment evidence
 are reviewed, `BITCOINWALK_SPONSOR_HOST_PAYOUT_ENABLED` must remain disabled and
 the product must not display a host invitation button or promise a host share.
+
+The first dedicated deployment package is documented in
+`sponsor-host-payout-operations.md`. Version `0.1.0` is intentionally
+networkless and credential-free: it verifies durable disabled-state restart,
+backup/restore and monitoring behavior without enabling the product or touching
+the wallet. Live wallet-history reconciliation remains blocked until a later,
+separately reviewed activation package is installed.
