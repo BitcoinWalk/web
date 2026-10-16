@@ -56,7 +56,12 @@ else
   printf '\n' > /dev/tty
 fi
 
-if [[ ! ${secret} =~ ^nostr\+walletconnect://[^[:space:]]+$ ]] ||
+# Some terminal clipboard paths retain the CR from a CRLF line ending. Remove
+# that delimiter only; every other whitespace character still fails closed.
+secret=${secret%$'\r'}
+
+if [[ ${secret} != nostr+walletconnect://* ]] ||
+   [[ ${secret} == *[[:space:]]* ]] ||
    ((${#secret} < 80 || ${#secret} > 8192)); then
   echo "The connection was not saved: invalid NWC URI." >&2
   exit 65

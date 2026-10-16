@@ -1,6 +1,6 @@
 #!/usr/bin/env sh
 set -eu
-root=$(CDPATH= cd -- "$(dirname "$0")/.."&&pwd);version=0.1.0;target="$root/release-build/bitcoinwalk-sponsor-payout-readiness-$version"
+root=$(CDPATH= cd -- "$(dirname "$0")/.."&&pwd);version=0.1.1;target="$root/release-build/bitcoinwalk-sponsor-payout-readiness-$version"
 rm -rf "$target";mkdir -p "$target"
 npx esbuild "$root/scripts/run-sponsor-payout-nwc-read-probe.ts" --bundle --platform=node --target=node24 --format=cjs --outfile="$target/sponsor-payout-nwc-read-probe.cjs" >/dev/null
 cp "$root/integrations/sponsor-payout-readiness/"*.sh "$target/"
