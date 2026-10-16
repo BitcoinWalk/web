@@ -32,8 +32,9 @@ describe("city backlog controls",()=>{
   expect(page).toContain("if(latest.state===\"approved\")");
   expect(page).not.toContain('if(!paymentInventoryReady)throw new Error("Payment inventory is unavailable. Refresh cities before deleting anything.")');
   expect(page).toContain("Payment records and any provisioned relay, NIP-05, Lightning, chat or other services remain");
-  expect(page).toContain("const confirmation=`DELETE ${city.slug}`");
+ expect(page).toContain("const confirmation=`DELETE ${city.slug}`");
   expect(page).toContain("deletedCityIds(readback.approvals).has(city.cityId)");
+  expect(page.indexOf("if(window.prompt(warning)!==confirmation)")).toBeLessThan(page.indexOf("await run(async()=>",page.indexOf("async function deleteOfflineCity")));
  });
  it("uses one reversible lifecycle hierarchy for every managed city",()=>{
   const page=source();

@@ -126,20 +126,22 @@ export default function CityModeration(){
   const readback=await queryDirectoryRecords(relayConfig.writeRelays);if(!archivedCityIds(readback.approvals).has(city.cityId))throw new Error("Archive acknowledged but relay read-back failed. Reload before retrying.");
   await reload();setMessage(`${city.cityName} archived. Signed history remains and no infrastructure was deleted.`);
  });}
- async function deleteOfflineCity(row:ManagedCity){await run(async()=>{
-  setMessage("Checking the current offline state…");
-  const city=row.revision.city,latest=await current(row);
-  if(latest.state==="approved")throw new Error("Set this city offline before deleting it.");
+ async function deleteOfflineCity(row:ManagedCity){
+  const city=row.revision.city;
   const confirmation=`DELETE ${city.slug}`;
   const warning=`${DELETE_CITY_NOTE}\n\nCity: ${city.cityName} (${city.cityId})\n\nThis removes the city from BitcoinWalk Cities, Requests, host editing, public pages and walk discovery. It does not erase signed events already copied to third-party Nostr relays. Payment records and any provisioned relay, NIP-05, Lightning, chat or other services remain; service shutdown is a separate verified operation.\n\nType '${confirmation}' to continue:`;
   if(window.prompt(warning)!==confirmation){setMessage("Cancelled. Nothing deleted.");return;}
-  const template=createCityDeletionDecision(latest);
-  setMessage("Approve permanent deletion in your signer…");const signed=await signWithBrowserExtension(template);assertExactSigned(signed,template);await admin();await current(row);
-  setMessage("Publishing the signed deletion…");
-  await publishVerifiedEvent(signed,relayConfig.writeRelays,1,authenticateWithBrowserExtension);
-  setMessage("Deletion published. Verifying exact relay read-back…");
-  const readback=await queryDirectoryRecords(relayConfig.writeRelays);if(!deletedCityIds(readback.approvals).has(city.cityId))throw new Error("Deletion was acknowledged but exact relay read-back failed. Reload before retrying.");
-  setSelectedId("");await reload("");setMessage(`${city.cityName} was permanently removed from BitcoinWalk inventory. Signed history, payment records and provisioned services remain.`);
+  await run(async()=>{
+   setMessage("Checking the current offline state…");
+   const latest=await current(row);
+   if(latest.state==="approved")throw new Error("Set this city offline before deleting it.");
+   const template=createCityDeletionDecision(latest);
+   setMessage("Approve permanent deletion in your signer…");const signed=await signWithBrowserExtension(template);assertExactSigned(signed,template);await admin();await current(row);
+   setMessage("Publishing the signed deletion…");
+   await publishVerifiedEvent(signed,relayConfig.writeRelays,1,authenticateWithBrowserExtension);
+   setMessage("Deletion published. Verifying exact relay read-back…");
+   const readback=await queryDirectoryRecords(relayConfig.writeRelays);if(!deletedCityIds(readback.approvals).has(city.cityId))throw new Error("Deletion was acknowledged but exact relay read-back failed. Reload before retrying.");
+   setSelectedId("");await reload("");setMessage(`${city.cityName} was permanently removed from BitcoinWalk inventory. Signed history, payment records and provisioned services remain.`);
  });}
  async function removeEvent(row:ManagedCity,item:ManagedCalendarEvent){await run(async()=>{
   await requireOccurrenceCancellationRelay(relayConfig.writeRelays);
