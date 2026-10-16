@@ -177,10 +177,10 @@ signed invitation. These existing super-admin links are BitcoinWalk invitations:
 the whole sponsorship payment follows the current platform checkout and no host
 payout is created.
 
-## Planned Pro host invitations
+## Guarded Pro host invitations
 
-BW-92 will add a separate, signed **Invite a sponsor** path for eligible Pro
-hosts. If a sponsor accepts and pays through that exact invitation, 79% of the
+BW-92 has a disabled-by-default, signed **Invite a sponsor** path for eligible
+Pro hosts. If a sponsor accepts and pays through that exact invitation, 79% of the
 sponsorship payment is owed to the host destination version bound at checkout
 and BitcoinWalk retains 21%. The checkout must show that allocation before it
 creates an invoice. Super-admin invitations remain explicitly platform-originated
@@ -192,6 +192,14 @@ revocation and the private payout-destination version must be verified and store
 with the order. Settlement must create the host obligation atomically and at
 most once. The existing Rustress 79/21 path is intentionally a city-zap rail with
 different invoice limits and settlement evidence; it cannot be reused for the
-21k–69k sponsorship packages without a separately reviewed sponsorship payout
-extension. Until that extension is accepted, the product must not display a host
-invitation button or promise a host share.
+21k–69k sponsorship packages.
+
+The second implementation slice adds an isolated, dependency-injected
+sponsorship payout sender. It binds every send to the settled obligation's exact
+host, city and payout-destination version, preserves the host's full 79% while
+charging fees only against BitcoinWalk's retained share, commits an unknown
+state before sending and reconciles ambiguous outcomes by exact payment-hash
+lookup without resending. It has no live wallet or scheduler wiring. Until its
+dedicated wallet, budget, backup, monitoring and deployment evidence are
+reviewed, `BITCOINWALK_SPONSOR_HOST_PAYOUT_ENABLED` must remain disabled and the
+product must not display a host invitation button or promise a host share.
