@@ -4,8 +4,8 @@ umask 077
 
 test "$(id -un)" = bitcoinwalk || { echo "Run as bitcoinwalk." >&2; exit 1; }
 cd "$(dirname "$0")/.."
-archive=app-staging-0.3.391.tar.gz
-expected=da43b0e7ec19a8dd5388f24719e3d2016b5f03526b701cadc9e3ad80821cfb13
+archive=app-staging-0.3.393.tar.gz
+expected=f224acef96d96ef9b899f802dac0588591434fc40f4992a62d12824446f5f8e5
 helper=/home/bitcoinwalk/bin/deploy-staging-app
 current=/opt/bitcoinwalk-app-staging/current
 service=bitcoinwalk-app-staging.service
@@ -15,10 +15,13 @@ madeira=83f15504-9fca-4d59-a0f6-616a559510df
 test "$(sha256sum "$archive" | cut -d' ' -f1)" = "$expected"
 test -x "$helper"
 previous=$(readlink -f "$current")
-test "$previous" = /opt/bitcoinwalk-app-staging/releases/0.3.390-75df16ee6172
+case "$previous" in
+  /opt/bitcoinwalk-app-staging/releases/0.3.390-*|/opt/bitcoinwalk-app-staging/releases/0.3.392-*) ;;
+  *) echo "Unexpected active staging release: $previous" >&2; exit 1 ;;
+esac
 test ! -e "$dropin"
 
-backup=$(mktemp -d /home/bitcoinwalk/backups/madeira-host-sponsor-invitations-0.3.391.XXXXXX)
+backup=$(mktemp -d /home/bitcoinwalk/backups/madeira-host-sponsor-invitations-0.3.393.XXXXXX)
 printf '%s\n' "$previous" >"$backup/current.before"
 cat >"$backup/zz-madeira-host-sponsor-invitations.conf" <<EOF
 [Service]
@@ -46,7 +49,7 @@ install -m 0600 "$backup/zz-madeira-host-sponsor-invitations.conf" "$dropin"
 systemctl --user daemon-reload
 printf '%s  %s\n' "$expected" "$archive" >"$archive.sha256"
 "$helper" "$PWD/$archive"
-test "$(curl -fsS --max-time 10 http://127.0.0.1:3338/api/healthz)" = '{"status":"ok","app":"bitcoinwalk-web","release":"app-staging-0.3.391"}'
+test "$(curl -fsS --max-time 10 http://127.0.0.1:3338/api/healthz)" = '{"status":"ok","app":"bitcoinwalk-web","release":"app-staging-0.3.393"}'
 pid=$(systemctl --user show "$service" -p MainPID --value)
 test "$pid" -gt 0
 grep -zqx 'BITCOINWALK_SPONSOR_HOST_PAYOUT_ENABLED=1' "/proc/$pid/environ"
@@ -54,4 +57,4 @@ grep -zqx "BITCOINWALK_SPONSOR_HOST_PAYOUT_CITY_IDS=$madeira" "/proc/$pid/enviro
 test "$(curl -sS -o /dev/null -w '%{http_code}' --max-time 10 http://127.0.0.1:3338/admin/sponsor)" = 200
 
 trap - EXIT INT TERM HUP
-echo "Madeira host sponsor invitations 0.3.391 are active on staging. The payout sender remains disabled and no wallet was funded or payment sent. Evidence: $backup"
+echo "Madeira host sponsor invitations 0.3.393 are active on staging. The payout sender remains disabled and no wallet was funded or payment sent. Evidence: $backup"

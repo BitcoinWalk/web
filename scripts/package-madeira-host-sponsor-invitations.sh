@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
 root=$(CDPATH= cd -- "$(dirname "$0")/.."&&pwd)
-version=0.3.391
+version=0.3.393
 name=bitcoinwalk-madeira-host-sponsor-invitations-$version
 target=$root/release-build/$name
 archive=$root/release-build/app-staging-$version.tar.gz

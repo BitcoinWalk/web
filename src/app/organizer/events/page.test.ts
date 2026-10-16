@@ -22,4 +22,37 @@ describe("organizer events landing view",()=>{
     expect(source.indexOf('aria-label="Filter walks"')).toBeLessThan(source.indexOf("{message&&"));
     expect(source).not.toContain('aria-label="Filter walks by status"');
   });
+  it("edits published walks in a full-screen modal with persistent actions",()=>{
+    const source=readFileSync(new URL("./_screen.tsx",import.meta.url),"utf8");
+    const styles=readFileSync(new URL("./walk-image-editor.module.css",import.meta.url),"utf8");
+    expect(source).toContain('role="dialog" aria-modal="true" aria-labelledby="walk-edit-title"');
+    expect(source).toContain('className={imageStyles.footer}');
+    expect(source).toContain('>Cancel</button><button className={imageStyles.primary}');
+    expect(source).toContain('"Sign and save changes"');
+    expect(source).not.toContain("Edit this published walk</legend><label>Date");
+    expect(styles).toContain("grid-template-rows:auto minmax(0,1fr) auto");
+    expect(styles).toContain("overflow-y:auto;overscroll-behavior:contain");
+  });
+  it("guides new walks through searchable details, schedule, preview and signing",()=>{
+    const source=readFileSync(new URL("./_screen.tsx",import.meta.url),"utf8");
+    const styles=readFileSync(new URL("./walk-image-editor.module.css",import.meta.url),"utf8");
+    expect(source).toContain('type AddWalkStep="details"|"schedule"|"preview"|"sign"');
+    expect(source).toContain('<CityFinder items={walks.filter');
+    expect(source).toContain('aria-label="Add a walk progress"');
+    expect(source).toContain('>Continue to schedule</AdminButton>');
+    expect(source).toContain('>Preview occurrences</AdminButton>');
+    expect(source).toContain('>Continue to sign</AdminButton>');
+    expect(source).toContain('disabled={index>current} aria-current=');
+    expect(source).toContain('"Sign and publish selected"');
+    expect(source).toContain('preview.length?"Save for later":"Cancel"');
+    expect(styles).toContain(".steps{display:grid;grid-template-columns:repeat(4,1fr)");
+    expect(styles).toContain(".footerSpacer{flex:1}");
+  });
+  it("retains the selected walk view in the URL and restores it on back",()=>{
+    const source=readFileSync(new URL("./_screen.tsx",import.meta.url),"utf8");
+    expect(source).toContain('searchParams.get("view")');
+    expect(source).toContain('window.addEventListener("popstate",sync)');
+    expect(source).toContain('url.searchParams.set("view",value)');
+    expect(source).toContain('window.history.pushState');
+  });
 });
