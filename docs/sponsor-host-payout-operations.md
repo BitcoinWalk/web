@@ -131,3 +131,23 @@ The sponsor-payout service is still version 0.1.1, disabled, networkless and
 unfunded, and no invoice or payment was created. This supplies the reviewed
 native fee-ceiling path that was previously an open activation gate; it does not
 activate the sender or authorize funding or a payout.
+
+## Invitation scope and super-admin audit
+
+Host invitations may be city-wide or bound to one exact currently available
+walk. The walk identifier is covered by the host's Nostr signature, retained in
+the hash-only capability record and rechecked before invoice creation. A
+walk-scoped invitation always creates a one-walk order for that exact walk;
+changing the package or selection fails before wallet access.
+
+The super-admin **Host payouts** view is audit-only for settled money. It shows
+the invitation scope and the immutable received, host and retained amounts. Its
+signed safety override can revoke future uses of an invitation, with the actor
+and signed event retained durably. It cannot alter an already accepted checkout,
+change a payout destination or version, edit the 79/21 arithmetic, mark an
+obligation paid, or remove an obligation.
+
+The ordinary public city-zap, LNURL callback, hosted-by and Rustress gateway
+regression suites remain separate from this route and passed unchanged. The
+payout wallet remains disabled and unfunded; a real staging payout still needs
+separate explicit authorization.

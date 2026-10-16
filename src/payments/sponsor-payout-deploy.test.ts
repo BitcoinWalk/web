@@ -10,8 +10,8 @@ describe("disabled sponsor payout deployment",()=>{
  });
  it("backs up, restores and monitors the exact disabled service",()=>{
   const backup=file("integrations/sponsor-payout-service/backup-state.sh"),monitor=file("integrations/sponsor-payout-service/monitor-disabled.sh");
-  expect(backup).toContain("backup-sqlite-online.mjs");expect(backup).toContain("verify-sponsor-payout-restore.cjs");expect(backup).toContain("--network none");
-  expect(monitor).toContain('version=0.1.0');expect(monitor).toContain('$version|disabled|none|true|running');expect(monitor).toContain("verify-sponsor-payout-service.cjs");expect(monitor).toContain("28800");
+  expect(backup).toContain("state-tool.py");expect(backup).toContain('state-tool.py" backup');expect(backup).toContain('state-tool.py" verify-backup');expect(backup).not.toContain("docker ");
+  expect(monitor).toContain("state-tool.py");expect(monitor).toContain('state-tool.py" verify-live');expect(monitor).not.toContain("docker ");expect(monitor).toContain("28800");
  });
  it("installs periodic backup and monitoring without enabling the product flag",()=>{
   const install=file("integrations/sponsor-payout-service/install-disabled.sh");

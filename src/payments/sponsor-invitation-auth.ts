@@ -2,8 +2,10 @@ import {verifyEvent,type Event,type EventTemplate} from "nostr-tools";
 
 export type SponsorInvitationCommand=
  |{action:"list"}
- |{action:"create";id:string;cityId:string;tokenHash:string;expiresAt:number}
- |{action:"revoke";id:string};
+ |{action:"create";id:string;cityId:string;walkId:string|null;tokenHash:string;expiresAt:number}
+ |{action:"revoke";id:string}
+ |{action:"admin-list"}
+ |{action:"admin-revoke";id:string};
 
 export function sponsorInvitationRequest(origin:string,command:SponsorInvitationCommand):EventTemplate{
  return {kind:27235,created_at:Math.floor(Date.now()/1000),tags:[["u",`${origin}/api/sponsor-invitations`],["method","POST"],["t","bitcoinwalk-sponsor-invitation-v1"]],content:JSON.stringify(command)};

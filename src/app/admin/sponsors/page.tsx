@@ -25,12 +25,13 @@ import {sponsorshipDateTimeInput,sponsorshipEpoch,sponsorshipWindowSummary} from
 import AdminTabs,{AdminTabPanel} from "../../../components/admin-tabs";
 import {AdminPageHeader} from "../../../components/admin-ui";
 import HostSponsorInvitations from "./host-sponsor-invitations";
+import SponsorPayoutAudit from "./sponsor-payout-audit";
 
 type WalkOption={event:Event;cityId:string;address:string;label:string;start:number;timeZone:string;status:"upcoming"|"active"|"past"};
 function pubkey(value:string):string{const clean=value.trim();if(/^[0-9a-f]{64}$/.test(clean))return clean;try{const decoded=nip19.decode(clean);if(decoded.type==="npub")return decoded.data;}catch{}throw new Error("Enter a valid sponsor npub.");}
 export default function SponsorsPage(){const {role}=useDashboard();return role==="super-admin"?<SponsorAdminTabs/>:<SponsorUserTabs/>;}
 const sponsorTabs=[{id:"sponsors" as const,label:"Sponsors"},{id:"payments" as const,label:"Payments"}];
-function SponsorAdminTabs(){const [tab,setTab]=useState<"sponsors"|"payments">("sponsors");return <main><AdminPageHeader title="Sponsorships" description="Manage sponsor assignments, artwork and payments without leaving the dashboard."/><AdminTabs tabs={sponsorTabs} value={tab} onChange={setTab} label="Sponsor workspace" idPrefix="sponsor-workspace"/><AdminTabPanel idPrefix="sponsor-workspace" value={tab}>{tab==="sponsors"?<SponsorAdminPage/>:<SponsorPayments/>}</AdminTabPanel></main>;}
+function SponsorAdminTabs(){const tabs=[...sponsorTabs,{id:"host-payouts" as const,label:"Host payouts"}],[tab,setTab]=useState<"sponsors"|"payments"|"host-payouts">("sponsors");return <main><AdminPageHeader title="Sponsorships" description="Manage sponsor assignments, artwork and payments without leaving the dashboard."/><AdminTabs tabs={tabs} value={tab} onChange={setTab} label="Sponsor workspace" idPrefix="sponsor-workspace"/><AdminTabPanel idPrefix="sponsor-workspace" value={tab}>{tab==="sponsors"?<SponsorAdminPage/>:tab==="payments"?<SponsorPayments/>:<SponsorPayoutAudit/>}</AdminTabPanel></main>;}
 function SponsorUserTabs(){const dashboard=useDashboard(),host=dashboard.role==="organizer",tabs=host?[...sponsorTabs,{id:"invite" as const,label:"Invite a sponsor"}]:sponsorTabs,[tab,setTab]=useState<"sponsors"|"payments"|"invite">("sponsors");return <main><AdminPageHeader title="Sponsorships" description={host?"Invite sponsors and review sponsored walks and payments.":"Review your sponsored walks and payments."}/><AdminTabs tabs={tabs} value={tab} onChange={setTab} label="Sponsor workspace" idPrefix="sponsor-workspace"/><AdminTabPanel idPrefix="sponsor-workspace" value={tab}>{tab==="invite"?<HostSponsorInvitations/>:<SponsorPayments audience="sponsor" view={tab==="sponsors"?"walks":"payments"}/>}</AdminTabPanel></main>;}
 function SponsorAdminPage(){
  const [selectedSponsor,setSelectedSponsor]=useState<{hash?:string;pubkey:string;cityId:string;scopeKey:string}|null>(null);
