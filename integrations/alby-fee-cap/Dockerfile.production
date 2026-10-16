@@ -9,6 +9,5 @@ LABEL org.opencontainers.image.title="BitcoinWalk Hub fee-cap production" \
       org.bitcoinwalk.start-enabled="true"
 
 COPY production-entrypoint.sh /usr/local/bin/bitcoinwalk-production-entrypoint
-RUN test -x /usr/local/bin/bitcoinwalk-production-entrypoint
 ENTRYPOINT ["/usr/local/bin/bitcoinwalk-production-entrypoint"]
 CMD ["/opt/bitcoinwalk-hub/bin/albyhub"]

@@ -2,6 +2,7 @@
 set -euo pipefail
 
 root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+[[ -x "$root/production-entrypoint.sh" ]] || { echo "Production entrypoint is not executable." >&2; exit 1; }
 for file in production-entrypoint.sh cutover-live-hub-feecap.sh rollback-live-hub-feecap.sh finalize-live-hub-feecap.sh; do
   bash -n "$root/$file"
 done
