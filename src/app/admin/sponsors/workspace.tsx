@@ -12,7 +12,7 @@ import styles from "./sponsors.module.css";
 
 type City={id:string;name:string;slug:string};
 export type SponsorWalkStatus="upcoming"|"active"|"past";
-type Walk={event:Event;cityId:string;address:string;label:string;start:number;status:SponsorWalkStatus};
+type Walk={event:Event;cityId:string;address:string;label:string;start:number;timeZone:string;status:SponsorWalkStatus};
 export type WalkStatusFilter="all"|"next"|"upcoming"|"past";
 const walkStatusLabels:Record<SponsorWalkStatus,string>={upcoming:"Upcoming",active:"Happening now",past:"Past"};
 export function nextWalkIdsByCity(walks:Pick<Walk,"event"|"cityId"|"start"|"status">[]){const next=new Map<string,{id:string;start:number}>();for(const walk of walks){if(walk.status==="past")continue;const current=next.get(walk.cityId);if(!current||walk.start<current.start)next.set(walk.cityId,{id:walk.event.id,start:walk.start});}return new Set([...next.values()].map(walk=>walk.id));}
