@@ -50,10 +50,10 @@ describe("my cities inventory",()=>{
  it("keeps every paid-city host control inside the selected city",()=>{
   const page=source();
   expect(page).toContain('import {ProCitySetup} from "../admin/pro-setup/screen"');
-  expect(page).toContain('workspaceTab==="pro"&&proCityIds.has(base.city.cityId)');
-  expect(page).toContain('<ProCitySetup enabled cityId={base.city.cityId}/>');
+  expect(page).toContain('hidden={workspaceTab!=="pro"}');
+  expect(page).toContain('<ProCitySetup enabled cityId={base.city.cityId} active={workspaceTab==="pro"}/>');
   expect(page).not.toContain("Complete Pro setup");
   expect(page).not.toContain("/admin/upgrade");
  });
- it("uses a focused workspace with separate profile and Pro service views",()=>{const page=source();expect(page).toContain('type WorkspaceTab="profile"|"pro"');expect(page).toContain('aria-label="City settings"');expect(page).toContain('>Profile</button>');expect(page).toContain('>Pro services</button>');expect(page).toContain('workspaceTab==="pro"');expect(page).toContain('Alternative names and technical details');});
+ it("uses a focused workspace with separate profile and Pro service views",()=>{const page=source();expect(page).toContain('type WorkspaceTab="profile"|"pro"');expect(page).toContain('aria-label="City settings"');expect(page).toContain('>Profile</button>');expect(page).toContain('>Pro services</button>');expect(page).toContain('active={workspaceTab==="pro"}');expect(page).toContain('Alternative names and technical details');});
 });

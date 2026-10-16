@@ -1,6 +1,6 @@
 "use client";
 import Image from "next/image";
-import {useEffect, useRef, useState} from "react";
+import {useCallback, useEffect, useRef, useState} from "react";
 import CityFinder from "../../../components/city-finder";
 import {useDashboard} from "../../../components/dashboard-context";
 import {signWithBrowserExtension} from "../../../nostr/signer";
@@ -17,16 +17,17 @@ export default function ProSetupScreen({enabled}: {enabled: boolean}) {
   // Remount on account changes so private setup responses never cross login boundaries.
   return <ProSetupForm key={pubkey} enabled={enabled} actor={pubkey} cities={cities}/>;
 }
-export function ProCitySetup({enabled,cityId}:{enabled:boolean;cityId:string}){
+export function ProCitySetup({enabled,cityId,active=true}:{enabled:boolean;cityId:string;active?:boolean}){
   const {pubkey,cities}=useDashboard();
   useEffect(()=>{if(window.location.hash!=="#pro-city-services")return;const frame=requestAnimationFrame(()=>document.getElementById("pro-city-services")?.scrollIntoView({block:"start"}));return()=>cancelAnimationFrame(frame);},[cityId]);
-  return <ProSetupForm key={`${pubkey}:${cityId}`} enabled={enabled} actor={pubkey} cities={cities} fixedCityId={cityId} embedded/>;
+  return <ProSetupForm key={`${pubkey}:${cityId}`} enabled={enabled} actor={pubkey} cities={cities} fixedCityId={cityId} embedded autoPrepare={active}/>;
 }
-function ProSetupForm({enabled, actor, cities, fixedCityId="", embedded=false}: {enabled: boolean; actor: string; cities: Array<{id: string; name: string}>;fixedCityId?:string;embedded?:boolean}) {
+function ProSetupForm({enabled, actor, cities, fixedCityId="", embedded=false,autoPrepare=false}: {enabled: boolean; actor: string; cities: Array<{id: string; name: string}>;fixedCityId?:string;embedded?:boolean;autoPrepare?:boolean}) {
   const [cityId, setCityId] = useState(fixedCityId), [preview, setPreview] = useState<ProSetupPreview | null>(null);
   const [busy, setBusy] = useState(false), [message, setMessage] = useState(""), [destination, setDestination] = useState("");
   const inFlight = useRef(false);
   const deepLinkApplied = useRef(false);
+  const autoPrepared=useRef(false);
   useEffect(()=>{
     if(fixedCityId)return;
     if(deepLinkApplied.current||!cities.length)return;
@@ -37,9 +38,9 @@ function ProSetupForm({enabled, actor, cities, fixedCityId="", embedded=false}: 
     queueMicrotask(()=>{if(active){setCityId(requested);setMessage("Your Pro city is selected. Verify it with your signer to continue from the saved setup state.");}});
     return()=>{active=false;};
   },[cities,fixedCityId]);
-  async function prepare() {
+  const prepare=useCallback(async function prepare() {
     if (!cityId || !actor || inFlight.current) return;
-    inFlight.current = true; setBusy(true); setMessage(""); setPreview(null);
+    inFlight.current = true; setBusy(true); setMessage(embedded?"Confirm the private Pro-services check in your signer…":""); setPreview(null);
     try {
       const command = {action: "preview" as const, cityId}, origin = window.location.origin;
       const event = await signWithBrowserExtension(proSetupTemplate(command, origin));
@@ -53,7 +54,12 @@ function ProSetupForm({enabled, actor, cities, fixedCityId="", embedded=false}: 
       setPreview(body.preview); setDestination(body.preview.payout.destination ?? body.preview.payout.suggestedDestination ?? "");
     } catch (error) {setMessage(error instanceof Error ? error.message : "Preparation failed; no account or payment was changed.");}
     finally {inFlight.current = false; setBusy(false);}
-  }
+  },[actor,cityId,embedded]);
+  useEffect(()=>{
+    if(!enabled||!autoPrepare||autoPrepared.current||!cityId||!actor)return;
+    const frame=requestAnimationFrame(()=>{autoPrepared.current=true;void prepare();});
+    return()=>cancelAnimationFrame(frame);
+  },[actor,autoPrepare,cityId,enabled,prepare]);
   async function savePayout() {
     if (!preview || !destination.trim() || !actor || inFlight.current) return;
     inFlight.current = true; setBusy(true); setMessage("");
@@ -90,9 +96,10 @@ function ProSetupForm({enabled, actor, cities, fixedCityId="", embedded=false}: 
       <p>BitcoinWalk automatically fills the city name, avatar and banner from the approved city record. Connect the separate city signer and confirm the payout destination. Every completed step is saved, so you can safely return without paying again.</p>
       {!fixedCityId&&<CityFinder label="Your city" placeholder="Search your cities…" value={cityId} disabled={busy} items={cities}
         onChange={id => {setCityId(id); setPreview(null); setDestination(""); setMessage("");}}/>}
-      <button type="button" onClick={() => void prepare()} disabled={busy || !cityId || !actor}>{busy ? "Preparing…" : "Verify and preview Pro setup"}</button>
-      <p><small>Your signer confirms a private, read-only request. It is not published to Nostr.</small></p>
+      {!embedded&&<button type="button" onClick={() => void prepare()} disabled={busy || !cityId || !actor}>{busy ? "Preparing…" : "Verify and preview Pro setup"}</button>}
+      <p><small>{embedded?"Opening this tab asks your signer to authorize a private, read-only check. Nothing is published to Nostr.":"Your signer confirms a private, read-only request. It is not published to Nostr."}</small></p>
       {message && <p role="alert">{message}</p>}
+      {embedded&&!preview&&!!message&&!busy&&<button type="button" onClick={()=>void prepare()} disabled={!cityId||!actor}>Retry Pro services</button>}
       {preview && <section aria-label="Prepared city profile">
         <h2>{preview.profile.display_name}</h2>
         <Image unoptimized src={preview.profile.banner} alt={`${preview.cityName} profile banner`} width={1500} height={500} style={{width: "100%", maxWidth: 750, height: "auto"}}/>
