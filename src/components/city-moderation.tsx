@@ -210,7 +210,7 @@ export default function CityModeration(){
   if(action==="open-public"){const href=item.health&&!item.health.availableInEnvironment?`https://bitcoinwalk.org/${item.slug}`:`/${item.slug}`;return <a {...menuItem} href={href} target="_blank" rel="noreferrer">Open public page <span aria-hidden="true">↗</span></a>;}
   if(action==="review-request"){const id=item.pending?.event.id??item.needsChanges?.revision.event.id;return <Link {...menuItem} href={`/admin/requests#submission-${id}`}>{item.source==="pending"?"Review application":"Review requested changes"}</Link>;}
   if(action==="view-decision")return <Link {...menuItem} href={`/admin/requests#submission-${item.rejected!.event.id}`}>View final decision</Link>;
-  if(action==="manage-pro")return <Link {...menuItem} href={`/admin/upgrade?city=${encodeURIComponent(item.cityId)}`}>Continue Pro setup</Link>;
+  if(action==="manage-pro")return <Link {...menuItem} href="/admin/requests#post-approval-follow-ups">Review Pro follow-up</Link>;
   if(action==="set-online")return <button {...menuItem} disabled={busy||!directoryCurrent} onClick={()=>decide(item.managed!,"approve")}>Restore online</button>;
   if(action==="set-offline")return <button {...menuItem} disabled={busy||!directoryCurrent} onClick={()=>decide(item.managed!,"disapprove")}>Set offline</button>;
   if(action==="delete")return <button {...menuItem} className={styles.destructiveMenuItem} disabled={busy||!directoryCurrent} onClick={()=>deleteOfflineCity(item.managed!)}>Delete permanently</button>;

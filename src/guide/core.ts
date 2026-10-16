@@ -32,7 +32,7 @@ export const configSchema = z.object({
   directoryStatusURL:z.string().url().refine(value=>{const u=new URL(value);return (u.href==="http://127.0.0.1:3345/api/directory-notifications"||u.href==="http://127.0.0.1:3338/api/directory-notifications")&&!u.username&&!u.password&&!u.hash&&!u.search;}).optional(),
   directoryAdminURL:z.string().url().refine(value=>new URL(value).href==="https://bitcoinwalk.org/admin").optional(),
   proSetupStatusURL:z.string().url().refine(value=>{const u=new URL(value);return (u.href==="http://127.0.0.1:3345/api/pro-setup-notifications"||u.href==="http://127.0.0.1:3338/api/pro-setup-notifications")&&!u.username&&!u.password&&!u.hash&&!u.search;}).optional(),
-  proSetupAdminURL:z.string().url().refine(value=>{const u=new URL(value);return u.protocol==="https:"&&["bitcoinwalk.org","app-staging.bitcoinwalk.org"].includes(u.hostname)&&u.pathname==="/admin/upgrade"&&!u.port&&!u.search&&!u.hash&&!u.username&&!u.password;}).optional(),
+  proSetupAdminURL:z.string().url().refine(value=>{const u=new URL(value);return u.protocol==="https:"&&["bitcoinwalk.org","app-staging.bitcoinwalk.org"].includes(u.hostname)&&["/admin/my-cities","/admin/upgrade"].includes(u.pathname)&&!u.port&&!u.search&&!u.hash&&!u.username&&!u.password;}).optional(),
   enabled: z.boolean().default(false),
 });
 export type GuideConfig = z.infer<typeof configSchema>;
@@ -80,7 +80,7 @@ export function directoryAlert(purpose:"directory-invitation"|"directory-active"
 }
 
 export function proSetupAlert(cityName:string,cityId:string,adminURL:string):string{
- const city=cityName.replace(/[\p{C}\p{Z}]+/gu," ").trim(),url=new URL(adminURL);url.searchParams.set("city",cityId);
+ const city=cityName.replace(/[\p{C}\p{Z}]+/gu," ").trim(),url=new URL(adminURL);url.searchParams.set("city",cityId);if(url.pathname==="/admin/my-cities")url.hash="pro-city-services";
  return `Your BitcoinWalk in ${city} is ready for Pro setup.\n\nComplete or resume the city identity, payout and public profile setup: ${url.href}\n\nYour payment is already recorded. Do not pay again. BitcoinWalk never asks for your private key; keep the city signer recovery method safe.\n\nBitcoinWalk Guide is automated; replies are not monitored.`;
 }
 

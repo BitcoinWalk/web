@@ -12,7 +12,7 @@ export function identityHealthLabel(row?:CityIdentityHealth){return row?labels[r
 function Status({row}:{row:CityIdentityHealth}){return <span style={{display:"inline-block",border:`1px solid ${colors[row.status]}`,borderRadius:"999px",padding:"0.12rem 0.55rem",color:colors[row.status],fontWeight:700,fontSize:"0.85em"}}>{labels[row.status]}</span>;}
 function time(value:number){return new Intl.DateTimeFormat(undefined,{dateStyle:"medium",timeStyle:"short"}).format(new Date(value*1000));}
 function OrganizerSetupLink({row}:{row:CityIdentityHealth}){
- const [copyState,setCopyState]=useState<"idle"|"copied"|"failed">("idle"),path=`/admin/upgrade?city=${encodeURIComponent(row.cityId)}`,href=row.availableInEnvironment?path:`https://bitcoinwalk.org${path}`;
+ const [copyState,setCopyState]=useState<"idle"|"copied"|"failed">("idle"),path=`/admin/my-cities?city=${encodeURIComponent(row.cityId)}#pro-city-services`,href=row.availableInEnvironment?path:`https://bitcoinwalk.org${path}`;
  async function copy(){try{await navigator.clipboard.writeText(new URL(href,window.location.origin).toString());setCopyState("copied");}catch{setCopyState("failed");}}
  return <><button type="button" onClick={copy}>{copyState==="copied"?"Copied host setup link":"Copy host setup link"}</button>{" "}<Link href={href} target="_blank" rel="noreferrer">Preview host setup ↗</Link>{copyState==="failed"?<span role="alert"> Copy failed. Open the setup page and copy its address.</span>:null}</>;
 }

@@ -1,5 +1,8 @@
 import {redirect} from "next/navigation";
 
-export default function ProSetupRedirect() {
-  redirect("/admin/upgrade");
+export const dynamic="force-dynamic";
+
+export default async function ProSetupRedirect({searchParams}:{searchParams:Promise<{city?:string|string[]}>}){
+ const cityValue=(await searchParams).city,city=Array.isArray(cityValue)?cityValue[0]:cityValue;
+ redirect(city?`/admin/my-cities?city=${encodeURIComponent(city)}#pro-city-services`:"/admin/my-cities");
 }

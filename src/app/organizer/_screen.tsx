@@ -20,6 +20,7 @@ import {organizerCityInventory,type OrganizerCityInventoryItem} from "../../doma
 import {paymentFetch,signPayment,type LogoPackView} from "../../components/city-payment";
 import {createInitialCalendarProposal} from "../../nostr/calendar-event";
 import {calendarRoute} from "../../nostr/calendar-records";
+import {ProCitySetup} from "../admin/pro-setup/screen";
 
 const LocationPicker = dynamic(() => import("../../components/location-picker"), {ssr:false});
 function exactTag(event:Event,name:string){const tags=event.tags.filter(tag=>tag[0]===name&&tag.length===2);return tags.length===1?tags[0][1]:"";}
@@ -59,7 +60,8 @@ export default function OrganizerPage() {
       const {grants,revisions,approvals}=loaded;
       if(await getBrowserExtensionPubkey()!==key) throw new Error("Signer account changed. Reconnect with the intended account.");
       const available=organizerCityInventory(key,grants,revisions,approvals);
-      const preferred=available.find(item=>item.revision.city.cityId===dashboard.selectedCity);
+      const requestedCity=new URLSearchParams(window.location.search).get("city")??dashboard.selectedCity;
+      const preferred=available.find(item=>item.revision.city.cityId===requestedCity);
       if(preferred)select(preferred.revision);
       else if(available.length===1)select(available[0].revision);
       setIdentity(key);setCities(available);setDecisions([...approvals].sort((a,b)=>compareEvents(a.event,b.event)));
@@ -156,7 +158,7 @@ export default function OrganizerPage() {
       <p>{selectedCity.correctable?"Only this rejected request can be replaced. It remains inactive until the super-admin approves the corrected revision.":"Edit the city description, hero image and default meeting point. Scheduled walks are managed separately in Walks. Pending edits are publicly readable; do not include private details."}</p>
       <p>City ID: {base.city.cityId}<br/>Editing revision: {base.event.id}<br/>Revision status: {submitted ? "New edit submitted" : status}</p>
       {selectedCity.editable&&<p><a href={`/${encodeURIComponent(base.city.slug)}`} target="_blank" rel="noreferrer">Open approved public page</a> (only available if an approved revision is published).</p>}
-      {proCityIds.has(base.city.cityId)&&<section aria-label="Pro city setup"><h3>Pro city setup</h3><p>Your payment is recorded. Complete or resume the city identity, payout and public profile setup without paying again.</p><p><a className="chat-button" href={`/admin/upgrade?city=${encodeURIComponent(base.city.cityId)}`}>Complete Pro setup</a></p></section>}
+      {proCityIds.has(base.city.cityId)&&<ProCitySetup enabled cityId={base.city.cityId}/>}
       {selectedLogo?.href&&<p><a href={selectedLogo.href} target="_blank" rel="noreferrer">Download your Pro city logo pack</a></p>}
       <form key={base.event.id} onSubmit={submit}>
         <fieldset disabled={busy || submitted}>

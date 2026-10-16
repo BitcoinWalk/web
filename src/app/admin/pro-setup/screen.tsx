@@ -16,12 +16,18 @@ export default function ProSetupScreen({enabled}: {enabled: boolean}) {
   // Remount on account changes so private setup responses never cross login boundaries.
   return <ProSetupForm key={pubkey} enabled={enabled} actor={pubkey} cities={cities}/>;
 }
-function ProSetupForm({enabled, actor, cities}: {enabled: boolean; actor: string; cities: Array<{id: string; name: string}>}) {
-  const [cityId, setCityId] = useState(""), [preview, setPreview] = useState<ProSetupPreview | null>(null);
+export function ProCitySetup({enabled,cityId}:{enabled:boolean;cityId:string}){
+  const {pubkey,cities}=useDashboard();
+  useEffect(()=>{if(window.location.hash!=="#pro-city-services")return;const frame=requestAnimationFrame(()=>document.getElementById("pro-city-services")?.scrollIntoView({block:"start"}));return()=>cancelAnimationFrame(frame);},[cityId]);
+  return <ProSetupForm key={`${pubkey}:${cityId}`} enabled={enabled} actor={pubkey} cities={cities} fixedCityId={cityId} embedded/>;
+}
+function ProSetupForm({enabled, actor, cities, fixedCityId="", embedded=false}: {enabled: boolean; actor: string; cities: Array<{id: string; name: string}>;fixedCityId?:string;embedded?:boolean}) {
+  const [cityId, setCityId] = useState(fixedCityId), [preview, setPreview] = useState<ProSetupPreview | null>(null);
   const [busy, setBusy] = useState(false), [message, setMessage] = useState(""), [destination, setDestination] = useState("");
   const inFlight = useRef(false);
   const deepLinkApplied = useRef(false);
   useEffect(()=>{
+    if(fixedCityId)return;
     if(deepLinkApplied.current||!cities.length)return;
     deepLinkApplied.current=true;
     const requested=new URLSearchParams(window.location.search).get("city");
@@ -29,7 +35,7 @@ function ProSetupForm({enabled, actor, cities}: {enabled: boolean; actor: string
     let active=true;
     queueMicrotask(()=>{if(active){setCityId(requested);setMessage("Your Pro city is selected. Verify it with your signer to continue from the saved setup state.");}});
     return()=>{active=false;};
-  },[cities]);
+  },[cities,fixedCityId]);
   async function prepare() {
     if (!cityId || !actor || inFlight.current) return;
     inFlight.current = true; setBusy(true); setMessage(""); setPreview(null);
@@ -75,13 +81,13 @@ function ProSetupForm({enabled, actor, cities}: {enabled: boolean; actor: string
     }catch(error){setMessage(error instanceof Error?error.message:"Armada visibility was not changed.");}
     finally{inFlight.current=false;setBusy(false);}
   }
-  return <section>
-    <h1>Upgrade your city</h1>
+  return <section id={embedded?"pro-city-services":undefined} aria-labelledby={embedded?"pro-city-services-heading":undefined}>
+    {embedded?<h2 id="pro-city-services-heading">Pro city services</h2>:<h1>Upgrade your city</h1>}
     <p>Your personal account remains your dashboard login. Your city will have its own public BitcoinWalk identity.</p>
     {!enabled ? <p role="status">This setup is being prepared and is not available yet. Your Pro payment remains recorded; do not pay again.</p> : <>
       <p>BitcoinWalk automatically fills the city name, avatar and banner from the approved city record. Connect the separate city signer and confirm the payout destination. Every completed step is saved, so you can safely return without paying again.</p>
-      <CityFinder label="Your city" placeholder="Search your cities…" value={cityId} disabled={busy} items={cities}
-        onChange={id => {setCityId(id); setPreview(null); setDestination(""); setMessage("");}}/>
+      {!fixedCityId&&<CityFinder label="Your city" placeholder="Search your cities…" value={cityId} disabled={busy} items={cities}
+        onChange={id => {setCityId(id); setPreview(null); setDestination(""); setMessage("");}}/>}
       <button type="button" onClick={() => void prepare()} disabled={busy || !cityId || !actor}>{busy ? "Preparing…" : "Verify and preview Pro setup"}</button>
       <p><small>Your signer confirms a private, read-only request. It is not published to Nostr.</small></p>
       {message && <p role="alert">{message}</p>}

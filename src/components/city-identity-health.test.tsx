@@ -37,7 +37,7 @@ describe("city identity health UI",()=>{
   ]};
   const html=renderToStaticMarkup(createElement(CityIdentityHealthDetails,{row:missing}));
   expect(html).toContain("Copy host setup link");
-  expect(html).toContain("/admin/upgrade?city=city");
+  expect(html).toContain("/admin/my-cities?city=city#pro-city-services");
   expect(html).not.toContain("Review activation request");
  });
  it("routes a completed organizer proof to activation review",()=>{

@@ -42,7 +42,15 @@ describe("my cities inventory",()=>{
  it("loads the whole owner inventory and opens a sole city automatically",()=>{
   const page=source();
   expect(page).toContain("const available=organizerCityInventory(key,grants,revisions,approvals);");
+  expect(page).toContain('new URLSearchParams(window.location.search).get("city")');
   expect(page).toContain("else if(available.length===1)select(available[0].revision)");
   expect(page).not.toContain(".filter(item=>!dashboard.selectedCity");
+ });
+ it("keeps every paid-city host control inside the selected city",()=>{
+  const page=source();
+  expect(page).toContain('import {ProCitySetup} from "../admin/pro-setup/screen"');
+  expect(page).toContain('proCityIds.has(base.city.cityId)&&<ProCitySetup enabled cityId={base.city.cityId}/>');
+  expect(page).not.toContain("Complete Pro setup");
+  expect(page).not.toContain("/admin/upgrade");
  });
 });

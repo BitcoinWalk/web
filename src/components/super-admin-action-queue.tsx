@@ -15,7 +15,7 @@ type ProvisioningStatus={reservation:{state:string}|null;activation:{state:strin
 type ActionReceipt={cityName:string;checkedAt:number;provisioning:ProvisioningStatus;changed:boolean;resolved:boolean;remaining:string[]};
 
 function setupUrl(row:CityIdentityHealth){
- const path=`/admin/upgrade?city=${encodeURIComponent(row.cityId)}`;
+ const path=`/admin/my-cities?city=${encodeURIComponent(row.cityId)}#pro-city-services`;
  return row.availableInEnvironment?path:`https://bitcoinwalk.org${path}`;
 }
 

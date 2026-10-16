@@ -4,7 +4,7 @@ Existing paid accounts with an already-created city identity use the planned [BW
 
 ## Delivered first slice — 7 October 2026
 
-The feature-gated `/admin/upgrade` screen prepares an owner-only profile preview using an authenticated, origin-bound `/api/pro-setup` command. The former `/admin/pro-setup` address redirects to the canonical upgrade URL. It is deliberately **preparation-only**, not a completed account activation flow.
+The selected paid city in `/admin/my-cities` contains the owner-only Pro services workspace. It prepares its profile preview through an authenticated, origin-bound `/api/pro-setup` command. The retired `/admin/upgrade` and `/admin/pro-setup` addresses redirect into My Cities and preserve the selected city. It is deliberately **preparation-only**, not a completed account activation flow.
 
 The backend checks current approval, creator authorization, anchored directory ownership (where present), durable city entitlement and city/organizer suspensions. It never infers ownership from an editor-authored revision, payer, requested tier or public profile. Directory failures/conflicting transport states stop preparation rather than falling back to creator access. Bounded history reads fail at their limit. Recheck all authority evidence after artwork preparation to reject stale results.
 
@@ -28,7 +28,7 @@ The route is intentionally absent from normal navigation while activation is inc
 
 ## Resumable owner handoff — 10 October 2026
 
-Paid cities now remain actionable from **My cities**. The payment list is read through the existing owner-signed endpoint; a Pro city displays **Complete Pro setup**, linking to `/admin/upgrade?city=<uuid>`. The query value only selects a city already present in the signed-in dashboard. It grants no authority and never triggers a signer prompt automatically; every server action still reconstructs current authority.
+Paid cities remain actionable entirely within **My Cities**. The payment list is read through the existing owner-signed endpoint; selecting a Pro city displays its identity, payout, community-visibility and city-signer controls in place. A `?city=<uuid>` query only selects a city already present in the signed-in dashboard. It grants no authority and never triggers a signer prompt automatically; every server action still reconstructs current authority.
 
 BitcoinWalk Guide has a separate signed, loopback-only feed for incomplete Pro tasks. The app returns a row only after rechecking current approval, current anchored owner, settled entitlement and moderation. Active branded bindings are omitted. The feed contains city name/ID, owner pubkey and coarse task state only—never the payer, entitlement identifier or payout destination. The durable encrypted outbox sends one city-specific resume link, retries the exact envelope, suppresses work that is no longer actionable and sends one new message if verified ownership changes. Opening the link cannot activate or alter anything.
 
