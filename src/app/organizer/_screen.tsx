@@ -23,6 +23,8 @@ import {paymentFetch,signPayment,type LogoPackView} from "../../components/city-
 import {createInitialCalendarProposal} from "../../nostr/calendar-event";
 import {calendarRoute} from "../../nostr/calendar-records";
 import {ProCitySetup} from "../admin/pro-setup/screen";
+import {CityIdentityHealthDetails} from "../../components/city-identity-health";
+import type {CityIdentityHealth} from "../../server/pro-city-identity-health";
 import styles from "./my-cities.module.css";
 
 const LocationPicker = dynamic(() => import("../../components/location-picker"), {ssr:false});
@@ -38,6 +40,7 @@ export default function OrganizerPage() {
   const [cities,setCities] = useState<OrganizerCityInventoryItem[]>([]);
   const [logoPacks,setLogoPacks]=useState<LogoPackView[]>([]);
   const [proCityIds,setProCityIds]=useState<Set<string>>(new Set());
+  const [identityHealth,setIdentityHealth]=useState<CityIdentityHealth[]>([]);
   const [decisions,setDecisions] = useState<ApprovalRecord[]>([]);
   const [base,setBase] = useState<CityRevision|null>(null);
   const [pin,setPin] = useState<LocationValue|null>(null);
@@ -57,7 +60,7 @@ export default function OrganizerPage() {
   async function load() {
     if(lock.current) return;
     if (base && !submitted && !window.confirm("Reloading discards any unsent form changes. Continue?")) return;
-    lock.current=true;setBusy(true);select(null);setCities([]);setProCityIds(new Set());setIdentity("");
+    lock.current=true;setBusy(true);select(null);setCities([]);setProCityIds(new Set());setIdentityHealth([]);setIdentity("");
     try {
       if (!relayConfig.readRelays.length) throw new Error("No read relay configured.");
       const key=await getBrowserExtensionPubkey();
@@ -76,6 +79,7 @@ export default function OrganizerPage() {
       setIdentity(key);setCities(available);setDecisions([...approvals].sort((a,b)=>compareEvents(a.event,b.event)));
       setLogoPacks(logoResult?.logoPacks??[]);
       setProCityIds(new Set(logoResult?.proCityIds??(logoResult?.payments??[]).filter(payment=>payment.tier==="paid").map(payment=>payment.cityId)));
+      setIdentityHealth(logoResult?.identityHealth??[]);
       setMessage(available.length ? "" : "No cities were returned for this identity. Check your signer account and relay connection.");
     } catch(error) {setMessage(error instanceof Error ? error.message : "Could not load walks.");}
     finally {lock.current=false;setBusy(false);}
@@ -171,7 +175,7 @@ export default function OrganizerPage() {
           {selectedCity&&!selectedCity.editable&&!selectedCity.correctable?<div className={styles.statePanel}><span className={styles.stateIcon}>!</span><div><h3>{stateLabel(selectedCity.status)}</h3><p>{selectedCity.status==="archived"?"This city is read-only and hidden from public and active host views. Contact BitcoinWalk to request restoration.":selectedCity.status==="rejected"?"This application was declined and cannot be resubmitted as a correction. Contact BitcoinWalk if the circumstances have materially changed.":selectedCity.status==="needs-changes"?"This request is waiting for the original host to make the requested correction. A super-admin cannot replace that host's signed submission.":"This request is awaiting super-admin review. It cannot be changed while that review is pending."}</p></div></div>:<>
             {selectedCity.correctable&&<div className={styles.reviewPanel} aria-labelledby="correction-heading"><p className={styles.eyebrow}>Reviewer feedback</p><h3 id="correction-heading">Correct and resubmit {base.city.cityName}</h3><p>{selectedCity.reviewNote?.trim()||"No specific reason was provided. Review the submitted details carefully before resubmitting."}</p><small>Update the fields below, then submit a replacement. The original signed walks remain in history.</small></div>}
             <nav className={styles.tabs} aria-label="City settings"><button type="button" aria-current={workspaceTab==="profile"?"page":undefined} onClick={()=>setWorkspaceTab("profile")}><Icon><path d="M4 21v-7a4 4 0 0 1 4-4h8a4 4 0 0 1 4 4v7"/><circle cx="12" cy="4" r="3"/></Icon>Profile</button>{proCityIds.has(base.city.cityId)&&<button type="button" aria-current={workspaceTab==="pro"?"page":undefined} onClick={()=>setWorkspaceTab("pro")}><Icon><path d="m12 3 2.2 4.5 4.9.7-3.6 3.5.9 4.9-4.4-2.3-4.4 2.3.9-4.9-3.6-3.5 4.9-.7z"/></Icon>Pro services</button>}</nav>
-            {proCityIds.has(base.city.cityId)&&<div className={styles.proPanel} hidden={workspaceTab!=="pro"}><ProCitySetup enabled cityId={base.city.cityId} active={workspaceTab==="pro"}/></div>}
+            {proCityIds.has(base.city.cityId)&&<div className={styles.proPanel} hidden={workspaceTab!=="pro"}>{dashboard.role==="super-admin"?<CityIdentityHealthDetails row={identityHealth.find(row=>row.cityId===base.city.cityId)} onRecheck={load}/>:<ProCitySetup enabled cityId={base.city.cityId} active={workspaceTab==="pro"}/>}</div>}
             <section className={styles.profilePanel} aria-labelledby="city-profile-heading" hidden={workspaceTab!=="profile"}>
               <div className={styles.panelHeading}><div><p className={styles.eyebrow}>{selectedCity.correctable?"Correction":"Public information"}</p><h3 id="city-profile-heading">{selectedCity.correctable?"City correction":"City profile"}</h3><p>{selectedCity.correctable?"Only this replacement can be reviewed. It stays private until approved.":"Edit the description, hero image and default meeting point shown across your city and walks."}</p></div></div>
               <form className={styles.editorForm} key={base.event.id} onSubmit={submit}>

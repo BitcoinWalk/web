@@ -1,6 +1,12 @@
 import type {DatabaseSync} from "node:sqlite";
 export type OrganizerProNextAction={cityId:string;cityName:string;state:"confirm-payout"|"connect-city-signer"|"submit-activation"|"awaiting-review"|"awaiting-publication"};
 type SetupRow={cityId:string;cityName:string;state:"setup-required"|"payout-confirmed"|"signer-confirmed"|"ready-for-proof"};type RequestRow={status:string;expiresAt:number;ownerProof:string|null;brandProof:string|null};
+/** Durable Pro inventory for the super-admin city workspace. This must not
+ * depend on invoice visibility: imported legacy cities have no invoice. */
+export function adminProCityIds(db:DatabaseSync):string[]{
+ const legacy=!!db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='legacy_pro_entitlement'").get();
+ return (db.prepare(`SELECT cityId FROM paid_city_entitlement${legacy?" UNION SELECT cityId FROM legacy_pro_entitlement":""} ORDER BY cityId`).all() as Array<{cityId:string}>).map(row=>row.cityId);
+}
 /** Current ownership, rather than the historical invoice owner, controls which
  * paid-city workspace an organizer can open. */
 export function organizerProCityIds(db:DatabaseSync,actor:string):string[]{

@@ -11,7 +11,7 @@ import {serverReadRelays} from "../../../lib/server-relay-config";
 import {validatePayoutDestination} from "../../../server/lnurl-pay";
 import {PayoutDestinationStore} from "../../../payments/payout-destination-store";
 import {listProCityIdentityHealth} from "../../../server/pro-city-identity-health";
-import {organizerProCityIds,organizerProNextActions} from "../../../payments/organizer-pro-next-action";
+import {adminProCityIds,organizerProCityIds,organizerProNextActions} from "../../../payments/organizer-pro-next-action";
 export const dynamic="force-dynamic",runtime="nodejs";
 export function visibleLogoPacks(statuses:LogoPackStatus[],payments:PaymentView[],actor:string,superAdmin:string){
  const admin=actor===superAdmin,owned=new Set(payments.map(payment=>payment.cityId));
@@ -44,8 +44,9 @@ export async function POST(request:Request){
    case "list":{
     const payments=service.list(body.event.pubkey,SUPER_ADMIN_PUBKEY),logoPacks=visibleLogoPacks(getLogoCatalog().statuses(),payments,body.event.pubkey,SUPER_ADMIN_PUBKEY);
     if(body.event.pubkey!==SUPER_ADMIN_PUBKEY)return Response.json({payments,logoPacks,proCityIds:organizerProCityIds(runtime.store.db,body.event.pubkey),proSetupActions:organizerProNextActions(runtime.store.db,body.event.pubkey)},{headers});
-    try{return Response.json({payments,logoPacks,identityHealth:await listProCityIdentityHealth(body.event.pubkey)},{headers});}
-    catch{return Response.json({payments,logoPacks,identityHealth:[],identityHealthError:"City identity health could not be checked. Existing city identities and payments were not changed."},{headers});}
+    const proCityIds=adminProCityIds(runtime.store.db);
+    try{return Response.json({payments,logoPacks,proCityIds,identityHealth:await listProCityIdentityHealth(body.event.pubkey)},{headers});}
+    catch{return Response.json({payments,logoPacks,proCityIds,identityHealth:[],identityHealthError:"City identity health could not be checked. Existing city identities and payments were not changed."},{headers});}
    }
   }
  }catch(error){const message=error instanceof Error?error.message:"";const safe=/^(Only the city creator|City ownership changed|Enter a valid|The Lightning|Lightning endpoint|This destination|Use a personal)/.test(message);return Response.json({error:safe?message:"Payment verification is temporarily unavailable. Your invoice and payment status remain saved."},{status:safe?409:503,headers});}

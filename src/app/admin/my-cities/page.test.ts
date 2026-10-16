@@ -55,5 +55,6 @@ describe("my cities inventory",()=>{
   expect(page).not.toContain("Complete Pro setup");
   expect(page).not.toContain("/admin/upgrade");
  });
+ it("shows super-admin Pro identity health without opening owner-only setup",()=>{const page=source();expect(page).toContain('dashboard.role==="super-admin"?<CityIdentityHealthDetails');expect(page).toContain('identityHealth.find(row=>row.cityId===base.city.cityId)');});
  it("uses a focused workspace with separate profile and Pro service views",()=>{const page=source();expect(page).toContain('type WorkspaceTab="profile"|"pro"');expect(page).toContain('aria-label="City settings"');expect(page).toContain('>Profile</button>');expect(page).toContain('>Pro services</button>');expect(page).toContain('active={workspaceTab==="pro"}');expect(page).toContain('Alternative names and technical details');});
 });
