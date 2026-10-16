@@ -26,6 +26,14 @@ describe("managed public city gateway",()=>{
   });
   it("proxies only bounded city LNURL paths without credentials",async()=>{const f=fixture("active"),response=await managedLnurl("madeira","/.well-known/lnurlp/madeira","",f.deps);expect(response.status).toBe(200);expect((await response.json()).tag).toBe("payRequest");expect(JSON.stringify(f.transport.mock.calls)).not.toContain("Authorization");expect((await managedLnurl("madeira","/v1/bitcoinwalk/capabilities","",f.deps)).status).toBe(404);expect((await managedLnurl("madeira","/lnurlp/../admin","",f.deps)).status).toBe(404);});
   it("fails closed on provider mismatch, oversized or unavailable responses",async()=>{const f=fixture();f.transport.mockResolvedValueOnce(new Response(JSON.stringify({names:{madeira:"b".repeat(64)}}),{headers:{"Content-Type":"application/json"}}));expect((await managedNip05("madeira",f.deps)).status).toBe(503);f.transport.mockRejectedValueOnce(new Error("offline"));expect((await managedLnurl("madeira","/lnurlp/madeira","",f.deps)).status).toBe(503);});
+  it("retries the same idempotent invoice callback across a transient payout-readiness outage",async()=>{const f=fixture("active"),pause=vi.fn(async()=>{}),invoice=JSON.stringify({pr:"lnbc1fixture",routes:[],verify:"https://bitcoinwalk.org/lnurlp/madeira/verify/fixture"});
+    f.transport.mockResolvedValueOnce(new Response(JSON.stringify({status:"ERROR"}),{status:503,headers:{"Content-Type":"application/json"}})).mockResolvedValueOnce(new Response(invoice,{headers:{"Content-Type":"application/json"}}));
+    const response=await managedLnurl("madeira","/lnurlp/madeira/callback","?amount=100000",{...f.deps,pause});expect(response.status).toBe(200);expect(await response.json()).toMatchObject({pr:"lnbc1fixture"});expect(f.transport).toHaveBeenCalledTimes(2);expect(pause).toHaveBeenCalledWith(750);
+    expect(new Set(f.transport.mock.calls.map(call=>String(call[0]))).size).toBe(1);
+  });
+  it("keeps invoice callbacks fail-closed after the bounded retry budget",async()=>{const f=fixture("active"),pause=vi.fn(async()=>{});f.transport.mockRejectedValue(new Error("offline"));
+    expect((await managedLnurl("madeira","/lnurlp/madeira/callback","?amount=100000",{...f.deps,pause})).status).toBe(503);expect(f.transport).toHaveBeenCalledTimes(3);expect(pause).toHaveBeenCalledTimes(2);
+  });
   it("suppresses both public capabilities when their operator gates are off",async()=>{const f=fixture("active"),deps={...f.deps,nip05Enabled:()=>false,lnurlEnabled:()=>false};
     expect(await (await managedNip05("madeira",deps)).json()).toEqual({names:{}});expect((await managedLnurl("madeira","/.well-known/lnurlp/madeira","",deps)).status).toBe(404);
     expect(f.transport).not.toHaveBeenCalled();});

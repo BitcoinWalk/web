@@ -5,7 +5,7 @@ import {activeNamedIdentity,activePublicIdentity,activeRootIdentity,type PublicI
 import {getPaymentRuntime} from "../payments/runtime";
 import {activeStandaloneAddress} from "../rustress/standalone-address-store";
 
-type Dependencies={db:DatabaseSync;origin:string;transport:JsonTransport;aliasTransport?:JsonTransport;nip05Enabled?:()=>boolean;lnurlEnabled?:()=>boolean;standaloneLnurlEnabled?:()=>boolean};
+type Dependencies={db:DatabaseSync;origin:string;transport:JsonTransport;aliasTransport?:JsonTransport;nip05Enabled?:()=>boolean;lnurlEnabled?:()=>boolean;standaloneLnurlEnabled?:()=>boolean;pause?:(milliseconds:number)=>Promise<void>};
 const label=/^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 function publicCapabilityEnabled(capability:"NIP05"|"LNURL"){
   // Capability-specific switches are the production contract for every managed
@@ -36,6 +36,14 @@ async function provider(path:string,config:Pick<ProvisionConfig,"domain">,deps:D
   const reader=response.body?.getReader();if(!reader)return null;const decoder=new TextDecoder();let text="",bytes=0;
   try{for(;;){const part=await reader.read();if(part.done)break;bytes+=part.value.length;if(bytes>65_536)return null;text+=decoder.decode(part.value,{stream:true});}text+=decoder.decode();JSON.parse(text);return text;}
   catch{return null;}finally{await reader.cancel();}
+}
+async function invoiceProvider(path:string,config:Pick<ProvisionConfig,"domain">,deps:Dependencies){
+  const pause=deps.pause??(milliseconds=>new Promise(resolve=>setTimeout(resolve,milliseconds)));
+  for(let attempt=0;attempt<3;attempt++){
+    const response=await provider(path,config,deps);if(response!==null)return response;
+    if(attempt<2)await pause(750*(attempt+1));
+  }
+  return null;
 }
 const headers={"Cache-Control":"no-store","Content-Type":"application/json; charset=utf-8"};
 const zapAliasEndpoint="https://getalby.com/.well-known/lnurlp/bitcoinwalk";
@@ -76,6 +84,7 @@ export async function managedLnurl(localPart:string,path:string,search="",deps=d
     const metadata=await standaloneZapMetadata(localPart,deps.aliasTransport??fetch);
     return metadata?Response.json(metadata,{headers:{...headers,"Access-Control-Allow-Origin":"*"}}):Response.json({status:"ERROR",reason:"Payment service unavailable"},{status:503,headers});
   }
-  const text=await provider(path+search,config,deps);return text===null?Response.json({status:"ERROR",reason:"Payment service unavailable"},{status:503,headers}):new Response(text,{headers});
+  const callback=path===`/lnurlp/${localPart}/callback`;
+  const text=await (callback?invoiceProvider(path+search,config,deps):provider(path+search,config,deps));return text===null?Response.json({status:"ERROR",reason:"Payment service unavailable"},{status:503,headers}):new Response(text,{headers});
 }
-export const gatewayTest={activeConfig,publicCapabilityEnabled,loopbackTransport:loopbackVirtualHostRequest,standaloneZapMetadata};
+export const gatewayTest={activeConfig,publicCapabilityEnabled,loopbackTransport:loopbackVirtualHostRequest,standaloneZapMetadata,invoiceProvider};
