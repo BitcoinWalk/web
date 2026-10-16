@@ -50,25 +50,35 @@ export default function CityModeration(){
  const [publicAliases,setPublicAliases]=useState<Record<string,string>>({});
  const [dataHealth,setDataHealth]=useState<AdminDataHealth>({state:"loading",message:"Loading the city directory and operational checks…"});
  const [directoryCurrent,setDirectoryCurrent]=useState(false);
- const lock=useRef(false);const [busy,setBusy]=useState(false),[rows,setRows]=useState<ManagedCity[]>([]),[events,setEvents]=useState<Event[]>([]),[message,setMessage]=useState("Loading cities…");
+ const serviceCheckGeneration=useRef(0),lock=useRef(false);const [busy,setBusy]=useState(false),[rows,setRows]=useState<ManagedCity[]>([]),[events,setEvents]=useState<Event[]>([]),[message,setMessage]=useState("Loading cities…");
  async function admin(){if(!isSuperAdmin(await getBrowserExtensionPubkey()))throw new Error("Select the BitcoinWalk super-admin in your extension.");}
  async function records(){const directory=await queryDirectoryRecords(relayConfig.writeRelays),applications=adminCityRequests(directory.revisions,directory.approvals);return {rows:managedCities(directory.revisions,directory.approvals),calendarWalks:approvedCalendarWalks(directory.revisions,directory.approvals),needsChanges:applications.filter(row=>row.status==="needs-changes"&&row.decision).map(row=>({revision:row.revision,rejection:row.decision!})),pending:applications.filter(row=>row.status==="pending").map(row=>row.revision),rejected:applications.filter(row=>row.status==="rejected").map(row=>row.revision),deleted:deletedCityIds(directory.approvals)};}
  async function reload(cityId=selectedId){
-  const hadData=rows.length>0;
+ const hadData=rows.length>0;
   const retainedOperationalData=paymentInventoryReady||logoPacks.length>0||identityHealth.length>0;
+  const generation=++serviceCheckGeneration.current;
   setDirectoryCurrent(false);
   setDashboardAuthorizationScope(authorizationScope,false);
   setDataHealth(current=>({state:"loading",message:"Refreshing cities without clearing the current view or unsaved URL edits…",checkedAt:current.checkedAt}));
   try{
    const snapshot=await records(),nextEvents=cityId?await queryCalendarEvents(relayConfig.writeRelays,{cityId}):[];
    if(nextEvents.length>=500)throw new Error("This city's event read limit was reached. Ask an administrator to review its history.");
-   await admin();const pubkey=await getBrowserExtensionPubkey(),logoResult=await signPayment({action:"list"},pubkey).then(paymentFetch).catch(()=>null);
+   await admin();const pubkey=await getBrowserExtensionPubkey();
    setRows(snapshot.rows);setCalendarWalks(snapshot.calendarWalks);setNeedsChanges(snapshot.needsChanges);setPending(snapshot.pending);setRejected(snapshot.rejected);setDeletedIds(snapshot.deleted);setEvents(nextEvents);
-   if(logoResult){setLogoPacks(logoResult.logoPacks??[]);setPaidCityIds(new Set((logoResult.payments??[]).filter(payment=>payment.tier==="paid").map(payment=>payment.cityId)));setIdentityHealth(logoResult.identityHealth??[]);setIdentityHealthError(logoResult.identityHealthError??"");setPaymentInventoryReady(true);}
-   else {setPaymentInventoryReady(false);setIdentityHealthError("City identity and payment checks could not be refreshed. Their last-known results remain visible. City status and deletion actions use the current directory and remain available; payment-dependent request cleanup is paused.");}
+   setPaymentInventoryReady(false);
    setDirectoryCurrent(true);setDashboardAuthorizationScope(authorizationScope,true);
-   const checkedAt=new Date().toISOString(),state=resolvedAdminDataState({incomplete:!logoResult,retainedData:!logoResult&&retainedOperationalData,hasFreshData:true,visibleCount:snapshot.rows.length});
-   setDataHealth({state,message:logoResult?(snapshot.rows.length?`${snapshot.rows.length} cities and the selected city's walks were checked successfully.`:"No cities were returned by the verified directory."):retainedOperationalData?"The city directory is current. Identity and payment checks are showing last-known results, but city status and deletion actions remain available.":"The city directory is current. Identity and payment checks are unavailable, but city status and deletion actions remain available.",checkedAt});
+   const checkedAt=new Date().toISOString(),state=resolvedAdminDataState({incomplete:false,retainedData:false,hasFreshData:true,visibleCount:snapshot.rows.length});
+   setDataHealth({state,message:snapshot.rows.length?`${snapshot.rows.length} cities were checked successfully. Identity and payment evidence is refreshing separately.`:"No cities were returned by the verified directory. Identity and payment evidence is refreshing separately.",checkedAt});
+   void signPayment({action:"list"},pubkey).then(paymentFetch).then(logoResult=>{
+    if(serviceCheckGeneration.current!==generation)return;
+    setLogoPacks(logoResult.logoPacks??[]);setPaidCityIds(new Set((logoResult.payments??[]).filter(payment=>payment.tier==="paid").map(payment=>payment.cityId)));setIdentityHealth(logoResult.identityHealth??[]);setIdentityHealthError(logoResult.identityHealthError??"");setPaymentInventoryReady(true);
+    setDataHealth({state,message:snapshot.rows.length?`${snapshot.rows.length} cities and their identity and payment evidence were checked successfully.`:"No cities were returned by the verified directory.",checkedAt:new Date().toISOString()});
+   }).catch(()=>{
+    if(serviceCheckGeneration.current!==generation)return;
+    setPaymentInventoryReady(false);setIdentityHealthError("City identity and payment checks could not be refreshed. Their last-known results remain visible. City status and deletion actions use the current directory and remain available; payment-dependent request cleanup is paused.");
+    const fallback=resolvedAdminDataState({incomplete:true,retainedData:retainedOperationalData,hasFreshData:true,visibleCount:snapshot.rows.length});
+    setDataHealth({state:fallback,message:retainedOperationalData?"The city directory is current. Identity and payment checks are showing last-known results, but city status and deletion actions remain available.":"The city directory is current. Identity and payment checks are unavailable, but city status and deletion actions remain available.",checkedAt:new Date().toISOString()});
+   });
   }catch(error){setDirectoryCurrent(false);setDashboardAuthorizationScope(authorizationScope,false);const checkedAt=new Date().toISOString(),detail=error instanceof Error?error.message:"City data could not be loaded.",state=resolvedAdminDataState({incomplete:true,retainedData:hadData,hasFreshData:false,visibleCount:rows.length});setDataHealth({state,message:hadData?`${detail} Last-known cities and unsaved URL edits remain visible; changes are paused.`:detail,checkedAt});throw error;}
  }
  async function run(action:()=>Promise<void>){if(lock.current)return;lock.current=true;setBusy(true);try{await admin();await action();}catch(e){setMessage(e instanceof Error?e.message:"Operation failed. Reload before retrying.");}finally{lock.current=false;setBusy(false);}}
@@ -173,7 +183,7 @@ export default function CityModeration(){
   if(action==="delete")return <button {...menuItem} className={styles.destructiveMenuItem} disabled={busy||!directoryCurrent} onClick={()=>deleteOfflineCity(item.managed!)}>Delete permanently</button>;
   return <button {...menuItem} className={styles.destructiveMenuItem} disabled={busy||!directoryCurrent||!paymentInventoryReady} onClick={()=>archiveAwaitingCity(item.needsChanges!)}>Archive request</button>;
  }
- useEffect(()=>()=>clearDashboardAuthorizationScope(authorizationScope),[]);
+ useEffect(()=>()=>{serviceCheckGeneration.current++;clearDashboardAuthorizationScope(authorizationScope);},[]);
  useEffect(()=>{const cityId=scrollToCity.current;if(!cityId||!rows.some(row=>row.revision.city.cityId===cityId))return;scrollToCity.current="";requestAnimationFrame(()=>document.getElementById(`city-admin-${cityId}`)?.scrollIntoView({behavior:window.matchMedia("(prefers-reduced-motion: reduce)").matches?"auto":"smooth",block:"start"}));},[rows]);
  return <section>
   <div className={styles.sectionHeading}><div><h2>Cities</h2><p>One operational backlog for every city. Work owned by the super-admin appears first, followed by work awaiting a host or provider.</p></div><button disabled={busy} onClick={()=>run(async()=>{await reload();setMessage("City state and selected city's walks refreshed.");})}>Refresh cities</button></div>

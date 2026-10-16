@@ -69,6 +69,7 @@ describe("city lifecycle",()=>{
   expect(()=>createCityDeletionDecision(active)).toThrow("Set the city offline");
   const offline:ManagedCity={...active,state:"disapproved"},template=createCityDeletionDecision(offline),content=JSON.parse(template.content);
   expect(content).toEqual({...approval.approval,status:"revoked",note:DELETE_CITY_NOTE});
+  expect(template.created_at).toBeGreaterThan(offline.decision.event.created_at);
   const deletion:ApprovalRecord={event:event("d",3),approval:content};
   expect(deletedCityIds([approval,deletion])).toEqual(new Set([city.cityId]));
   expect(archivedCityIds([approval,deletion])).toEqual(new Set());

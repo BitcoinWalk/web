@@ -50,6 +50,8 @@ describe("city backlog controls",()=>{
   expect(page).toContain("setDirectoryCurrent(true);setDashboardAuthorizationScope(authorizationScope,true)");
   expect(page).toContain("disabled={busy||!directoryCurrent}");
   expect(page).toContain("city status and deletion actions remain available");
+  expect(page).toContain('void signPayment({action:"list"},pubkey).then(paymentFetch)');
+  expect(page.indexOf("setDirectoryCurrent(true)")).toBeLessThan(page.indexOf('void signPayment({action:"list"},pubkey)'));
  });
  it("excludes signed deletions from retained service inventory rows",()=>{
   const page=source();

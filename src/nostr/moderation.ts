@@ -72,7 +72,8 @@ export function createCityModerationDecision(row:ManagedCity,action:"approve"|"d
 export function createCityDeletionDecision(row:ManagedCity):EventTemplate{
  if(row.state==="approved")throw new Error("Set the city offline before deleting it.");
  const city=row.revision.city;
- return createApprovalEvent({cityId:city.cityId,cityRevisionId:row.revision.event.id,status:"revoked",note:DELETE_CITY_NOTE});
+ const template=createApprovalEvent({cityId:city.cityId,cityRevisionId:row.revision.event.id,status:"revoked",note:DELETE_CITY_NOTE});
+ return {...template,created_at:Math.max(template.created_at,row.decision.event.created_at+1)};
 }
 /** Change only the super-admin-controlled public presentation of an approved city.
  * Organizer ownership, the signed city revision and all initial walks stay exact. */
