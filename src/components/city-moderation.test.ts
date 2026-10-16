@@ -46,6 +46,17 @@ describe("city backlog controls",()=>{
   expect(page).not.toContain("Retire staging test city");
   expect(page).not.toContain("Approve / Restore");
  });
+ it("opens a signed city editor with hero and current OG previews",()=>{
+  const page=source();
+  expect(page).toContain(">Edit city</button>");
+  expect(page).not.toContain(">Open city</button>");
+  expect(page).toContain("Hero image URL");
+  expect(page).toContain("Current OG assets");
+  expect(page).toContain('fetch("/api/cities"');
+  expect(page).toContain('fetch("/api/events"');
+  expect(page).toContain("createCityUpdateEvent(candidate,latest.revision.event.id)");
+  expect(page).toContain("Open Requests to review the new hero and sign the separate approval");
+ });
  it("keeps directory lifecycle actions available when optional service checks fail",()=>{
   const page=source();
   expect(page).toContain("setDirectoryCurrent(true);setDashboardAuthorizationScope(authorizationScope,true)");
@@ -60,9 +71,11 @@ describe("city backlog controls",()=>{
   expect(page).toContain("setDeletedIds(snapshot.deleted)");
   expect(page).toContain("excludedCityIds:deletedIds");
  });
- it("respects reduced-motion preferences when opening a city review",()=>{
+ it("keeps the city editor modal dismissible and prevents background scrolling",()=>{
   const page=source();
-  expect(page).toContain('matchMedia("(prefers-reduced-motion: reduce)")');
-  expect(page).toContain('?"auto":"smooth"');
+  expect(page).toContain('event.key==="Escape"');
+  expect(page).toContain('document.body.style.overflow="hidden"');
+  expect(page).toContain('role="dialog"');
+  expect(page).toContain('aria-modal="true"');
  });
 });

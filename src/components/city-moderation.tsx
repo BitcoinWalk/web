@@ -1,6 +1,6 @@
 "use client";
 import {useDashboard,useDashboardAutoLoad} from "./dashboard-context";
-import {useEffect,useRef,useState} from "react";
+import {useEffect,useRef,useState,type FormEvent} from "react";
 import Link from "next/link";
 import {nip19,type Event} from "nostr-tools";
 import AdminCityLink from "./admin-city-link";
@@ -25,6 +25,12 @@ import CityActionsMenu from "./city-actions-menu";
 import CopyValue from "./copy-value";
 import styles from "./city-moderation.module.css";
 import {adminCityRequests} from "../domain/admin-city-requests";
+import {createCityUpdateEvent} from "../nostr/city-event";
+import {editedCity} from "../nostr/organizer-edit";
+import {cityAliases} from "../domain/city";
+import {importCityImageURL} from "../lib/media-client";
+
+type CityOgAsset={label:string;url:string};
 
 const authorizationScope="cities";
 
@@ -44,10 +50,13 @@ export default function CityModeration(){
  const [selectedId,setSelectedId]=useState(dashboard.selectedCity);
  const [query,setQuery]=useState("");
  const [cityTypeFilter,setCityTypeFilter]=useState<CityTypeFilter>("all");
- const scrollToCity=useRef("");
  const [calendarWalks,setCalendarWalks]=useState<CalendarWalk[]>([]);
  const [publicUrls,setPublicUrls]=useState<Record<string,string>>({});
  const [publicAliases,setPublicAliases]=useState<Record<string,string>>({});
+ const [editingRow,setEditingRow]=useState<ManagedCity|null>(null);
+ const [editDescription,setEditDescription]=useState(""),[editAliases,setEditAliases]=useState(""),[editMeeting,setEditMeeting]=useState(""),[editHero,setEditHero]=useState("");
+ const [editLatitude,setEditLatitude]=useState(""),[editLongitude,setEditLongitude]=useState("");
+ const [editAssets,setEditAssets]=useState<CityOgAsset[]>([]),[editAssetsMessage,setEditAssetsMessage]=useState("");
  const [dataHealth,setDataHealth]=useState<AdminDataHealth>({state:"loading",message:"Loading the city directory and operational checks…"});
  const [directoryCurrent,setDirectoryCurrent]=useState(false);
  const serviceCheckGeneration=useRef(0),lock=useRef(false);const [busy,setBusy]=useState(false),[rows,setRows]=useState<ManagedCity[]>([]),[events,setEvents]=useState<Event[]>([]),[message,setMessage]=useState("Loading cities…");
@@ -165,17 +174,39 @@ export default function CityModeration(){
   const readback=await records(),saved=readback.rows.find(item=>item.revision.city.cityId===city.cityId);if(saved?.decision.event.id!==signed.id)throw new Error("URL change acknowledged but current state was not confirmed. Reload before retrying.");
   setPublicUrls(value=>({...value,[city.cityId]:slug}));setPublicAliases(value=>({...value,[city.cityId]:aliases.join(", ")}));await reload(city.cityId);setSelectedId(city.cityId);setMessage(`${city.cityName}: canonical URL is now /${slug}. Previous spellings remain redirects.`);
  });}
+ function closeCityEditor(){if(busy)return;setEditingRow(null);setEditAssets([]);setEditAssetsMessage("");}
+ function openCityEditor(row:ManagedCity){
+  const city=row.revision.city;
+  setEditingRow(row);setEditDescription(city.description);setEditAliases((city.aliases??[]).join("\n"));setEditMeeting(city.meetingPoint.description);setEditHero(city.heroImageUrl??"");setEditLatitude(String(city.meetingPoint.latitude));setEditLongitude(String(city.meetingPoint.longitude));setEditAssets([]);setEditAssetsMessage("Loading the current city and walk OG assets…");
+  void Promise.allSettled([fetch("/api/cities",{cache:"no-store"}).then(async response=>{if(!response.ok)throw new Error();return response.json() as Promise<{cities?:Array<{id:string;avatarUrl:string}>}>;}),fetch("/api/events",{cache:"no-store"}).then(async response=>{if(!response.ok)throw new Error();return response.json() as Promise<{events?:Array<{name:string;link:string;image:string}>}>;})]).then(results=>{
+   const assets:CityOgAsset[]=[];if(results[0].status==="fulfilled"){const cityAsset=results[0].value.cities?.find(item=>item.id===city.cityId);if(cityAsset?.avatarUrl)assets.push({label:"Current city OG image",url:cityAsset.avatarUrl});}
+   if(results[1].status==="fulfilled")for(const event of results[1].value.events??[]){try{if(new URL(event.link).pathname.split("/").filter(Boolean)[0]===city.slug&&event.image)assets.push({label:event.name,url:event.image});}catch{}}
+   const unique=[...new Map(assets.map(asset=>[asset.url,asset])).values()];setEditAssets(unique);setEditAssetsMessage(unique.length?`${unique.length} current OG asset${unique.length===1?"":"s"} loaded.`:results.every(result=>result.status==="rejected")?"Current OG assets could not be loaded.":"No generated OG assets are currently available for this city.");
+  });
+ }
+ async function submitCityEdit(event:FormEvent<HTMLFormElement>){event.preventDefault();const row=editingRow;if(!row)return;await run(async()=>{
+  const latest=await current(row),city=latest.revision.city,latitude=Number(editLatitude),longitude=Number(editLongitude),aliases=cityAliases(editAliases,city.cityName);
+  if(!Number.isFinite(latitude)||latitude < -90||latitude > 90)throw new Error("Enter a latitude between -90 and 90.");
+  if(!Number.isFinite(longitude)||longitude < -180||longitude > 180)throw new Error("Enter a longitude between -180 and 180.");
+  if(aliases.length>20)throw new Error("Use no more than 20 alternative city names.");
+  let heroImageUrl=editHero.trim()||undefined;
+  if(heroImageUrl&&heroImageUrl!==city.heroImageUrl){setMessage("Approve importing the new city hero into protected BitcoinWalk storage…");heroImageUrl=(await importCityImageURL(city.cityId,heroImageUrl)).url;}
+  const candidate=editedCity(city,{startAt:city.startAt,description:editDescription,meetingPoint:{description:editMeeting,latitude,longitude},heroImageUrl,aliases:aliases.length?aliases:undefined});
+  setMessage("Approve the city revision in your signer…");const signed=await signWithBrowserExtension(createCityUpdateEvent(candidate,latest.revision.event.id));
+  if(!isSuperAdmin(signed.pubkey))throw new Error("Signer identity changed. Select the BitcoinWalk super-admin and retry.");
+  await admin();await current(row);await publishVerifiedEvent(signed,relayConfig.writeRelays,1,authenticateWithBrowserExtension);
+  const readback=await queryDirectoryRecords(relayConfig.writeRelays);if(!readback.revisions.some(revision=>revision.event.id===signed.id))throw new Error("The revision was acknowledged but exact relay read-back failed. Reload before retrying.");
+  setEditingRow(null);setEditAssets([]);await reload("");setMessage(`${city.cityName} revision submitted. Open Requests to review the new hero and sign the separate approval.`);
+ });}
  function eventRow(row:ManagedCity,item:ManagedCalendarEvent){const city=row.revision.city,nevent=calendarNevent(item.event,relayConfig.calendarRelayHints),href=eventPageHref(city.slug,nevent),when=new Intl.DateTimeFormat(undefined,{dateStyle:"full",timeStyle:"short",...(item.timeZone?{timeZone:item.timeZone}:{})}).format(new Date(item.start*1000));return <li key={item.event.id}><p><strong>{item.status==="active"?"Active":item.status==="grace"?"Late-arrival grace":item.status==="upcoming"?"Upcoming":"Past"}</strong> — {when}<br/>{item.meetingPoint.description}<br/><WalkIdentifiers organizerNpub={nip19.npubEncode(item.event.pubkey)} nevent={nevent}/></p><p><a href={href} target="_blank" rel="noreferrer">Open event ↗</a>{" "}<button disabled={busy||!directoryCurrent} onClick={()=>removeEvent(row,item)}>Cancel this walk</button></p></li>;}
  const scoped=rows;
  const workflow=cityWorkflowRows({managed:rows,pending,needsChanges,rejected,health:identityHealth,paidCityIds,paidCities:directoryConfig.paidCities,excludedCityIds:deletedIds});
  const normalizedQuery=query.normalize("NFKD").replace(/\p{M}/gu,"").toLowerCase().trim();
  const visibleWorkflow=workflow.filter(item=>cityMatchesType(item,cityTypeFilter)&&(!normalizedQuery||`${item.cityName} ${item.slug} ${item.cityId}`.normalize("NFKD").replace(/\p{M}/gu,"").toLowerCase().includes(normalizedQuery)));
  const statusCounts=workflow.reduce<Record<CityWorkflowStatus,number>>((counts,item)=>({...counts,[item.status]:counts[item.status]+1}),{"action-required":0,"awaits-change":0,online:0,offline:0});
- function selectCity(id:string){setSelectedId(id);void run(async()=>{await reload(id);setMessage(id?"City state and walks loaded.":"City list loaded.");});}
- function reviewCity(id:string){scrollToCity.current=id;selectCity(id);}
  function cityAction(item:CityWorkflowRow,action:CityWorkflowAction){
   const menuItem={role:"menuitem" as const};
-  if(action==="open-record")return <button {...menuItem} disabled={busy} onClick={()=>reviewCity(item.cityId)}>Open city</button>;
+  if(action==="open-record")return <button {...menuItem} disabled={busy} onClick={()=>openCityEditor(item.managed!)}>Edit city</button>;
   if(action==="open-public"){const href=item.health&&!item.health.availableInEnvironment?`https://bitcoinwalk.org/${item.slug}`:`/${item.slug}`;return <a {...menuItem} href={href} target="_blank" rel="noreferrer">Open public page <span aria-hidden="true">↗</span></a>;}
   if(action==="review-request"){const id=item.pending?.event.id??item.needsChanges?.revision.event.id;return <Link {...menuItem} href={`/admin/requests#submission-${id}`}>{item.source==="pending"?"Review application":"Review requested changes"}</Link>;}
   if(action==="view-decision")return <Link {...menuItem} href={`/admin/requests#submission-${item.rejected!.event.id}`}>View final decision</Link>;
@@ -186,7 +217,7 @@ export default function CityModeration(){
   return <button {...menuItem} className={styles.destructiveMenuItem} disabled={busy||!directoryCurrent||!paymentInventoryReady} onClick={()=>archiveAwaitingCity(item.needsChanges!)}>Archive request</button>;
  }
  useEffect(()=>()=>{serviceCheckGeneration.current++;clearDashboardAuthorizationScope(authorizationScope);},[]);
- useEffect(()=>{const cityId=scrollToCity.current;if(!cityId||!rows.some(row=>row.revision.city.cityId===cityId))return;scrollToCity.current="";requestAnimationFrame(()=>document.getElementById(`city-admin-${cityId}`)?.scrollIntoView({behavior:window.matchMedia("(prefers-reduced-motion: reduce)").matches?"auto":"smooth",block:"start"}));},[rows]);
+ useEffect(()=>{if(!editingRow)return;const previous=document.body.style.overflow;document.body.style.overflow="hidden";const close=(event:KeyboardEvent)=>{if(event.key==="Escape"&&!busy){setEditingRow(null);setEditAssets([]);setEditAssetsMessage("");}};document.addEventListener("keydown",close);return()=>{document.body.style.overflow=previous;document.removeEventListener("keydown",close);};},[editingRow,busy]);
  return <section>
   <div className={styles.sectionHeading}><div><h2>Cities</h2><p>One operational backlog for every city. Work owned by the super-admin appears first, followed by work awaiting a host or provider.</p></div><button disabled={busy} onClick={()=>run(async()=>{await reload();setMessage("City state and selected city's walks refreshed.");})}>Refresh cities</button></div>
   <AdminDataStatus health={dataHealth} busy={busy} onRetry={()=>void run(async()=>{await reload(selectedId);setMessage("City state and selected city's walks refreshed.");})} scope="Cities" hideWhenReady/>
@@ -201,6 +232,29 @@ export default function CityModeration(){
   {!!identityHealthError&&<p role="alert">{identityHealthError}</p>}
   {!!needsChanges.length&&<details className={styles.bulk}><summary><strong>Archive eligible Awaits change test cities ({needsChanges.length})</strong></summary><p>This cleanup retains signed history and never deletes infrastructure. Paid or relay-backed cities are blocked.</p><button disabled={busy||!directoryCurrent||!paymentInventoryReady} onClick={archiveRejectedTests}>Archive eligible requests</button>{!paymentInventoryReady&&<p>Payment inventory must load before this action is enabled.</p>}</details>}
   <p role="status">{message}</p>
+  {editingRow&&<div className={styles.editBackdrop} role="presentation" onMouseDown={event=>{if(event.target===event.currentTarget)closeCityEditor();}}>
+   <section className={styles.editModal} role="dialog" aria-modal="true" aria-labelledby="city-edit-title">
+    <header className={styles.editHeader}><div><span className={styles.editEyebrow}>City profile</span><h2 id="city-edit-title">Edit {editingRow.revision.city.cityName}</h2><p>Submit a signed revision, then approve it separately in Requests.</p></div><button autoFocus type="button" disabled={busy} onClick={closeCityEditor} aria-label="Close city editor">×</button></header>
+    <form onSubmit={submitCityEdit}>
+     <div className={styles.editBody}>
+      <section className={styles.editFields} aria-label="City details">
+       <label>Description<textarea required maxLength={5000} value={editDescription} onChange={event=>setEditDescription(event.target.value)}/></label>
+       <label>Alternative city names<textarea maxLength={2020} value={editAliases} onChange={event=>setEditAliases(event.target.value)} placeholder="One name per line"/></label>
+       <label>Default meeting point<input required maxLength={500} value={editMeeting} onChange={event=>setEditMeeting(event.target.value)}/></label>
+       <div className={styles.coordinateFields}><label>Latitude<input required type="number" min="-90" max="90" step="any" value={editLatitude} onChange={event=>setEditLatitude(event.target.value)}/></label><label>Longitude<input required type="number" min="-180" max="180" step="any" value={editLongitude} onChange={event=>setEditLongitude(event.target.value)}/></label></div>
+       <label>Hero image URL<input type="url" value={editHero} onChange={event=>setEditHero(event.target.value)} placeholder="https://… (.png, .jpg or .webp)"/></label>
+       <p className={styles.editHelp}>Use a public HTTPS JPEG, PNG or WebP up to 10 MB. BitcoinWalk imports it as a protected 1536 × 1024 WebP after you sign.</p>
+       {editHero&&<figure className={styles.heroPreview}><img src={editHero} alt={`Proposed hero for ${editingRow.revision.city.cityName}`} referrerPolicy="no-referrer"/><figcaption>Proposed hero image</figcaption></figure>}
+      </section>
+      <aside className={styles.assetPanel}><div className={styles.assetHeading}><h3>Current OG assets</h3><a href={`/${encodeURIComponent(editingRow.decision.approval.slug??editingRow.revision.city.slug)}`} target="_blank" rel="noreferrer">Open public city <span aria-hidden="true">↗</span></a></div><p>{editAssetsMessage}</p>
+       <div className={styles.assetGrid}>{editAssets.map(asset=><figure key={asset.url}><img src={asset.url} alt={asset.label} referrerPolicy="no-referrer"/><figcaption><strong>{asset.label}</strong><a href={asset.url} target="_blank" rel="noreferrer">Open full size <span aria-hidden="true">↗</span></a></figcaption></figure>)}</div>
+       {!editAssets.length&&editingRow.revision.city.heroImageUrl&&<figure><img src={editingRow.revision.city.heroImageUrl} alt={`Current hero for ${editingRow.revision.city.cityName}`} referrerPolicy="no-referrer"/><figcaption><strong>Current stored hero</strong></figcaption></figure>}
+      </aside>
+     </div>
+     <footer className={styles.editFooter}><button type="button" disabled={busy} onClick={closeCityEditor}>Cancel</button><button className={styles.primaryAction} type="submit" disabled={busy}>{busy?"Working…":"Sign and submit revision"}</button></footer>
+    </form>
+   </section>
+  </div>}
   {scoped.filter(row=>row.revision.city.cityId===selectedId).map(row=>{const city=row.revision.city,canonicalSlug=row.decision.approval.slug??city.slug,currentAliases=row.decision.approval.aliases??city.aliases??[],logo=logoPacks.find(pack=>pack.cityId===city.cityId&&pack.revisionId===row.revision.event.id),walk=calendarWalks.find(w=>w.revision.city.cityId===city.cityId),items=walk?managedCalendarEvents(walk,events):[],currentItems=items.filter(item=>item.status!=="past"),past=items.filter(item=>item.status==="past"),showPast=pastCities.has(city.cityId),online=row.state==="approved";return <article className={styles.record} id={`city-admin-${city.cityId}`} key={city.cityId}>
    <h3>{city.cityName} — {online?"online":"offline"}</h3><AdminCityLink city={{...city,slug:canonicalSlug,aliases:currentAliases}} approved={online}/><p>City ID: <CopyValue label={`${city.cityName} city ID`} value={city.cityId}/><br/>Revision: {row.revision.event.id}</p><CityIdentityHealthDetails row={identityHealth.find(item=>item.cityId===city.cityId)}/>
    <details><summary><strong>Public URL</strong></summary><div><label>Canonical URL <span>bitcoinwalk.org/</span><input aria-label="Canonical city URL" value={publicUrls[city.cityId]??canonicalSlug} onChange={event=>setPublicUrls(value=>({...value,[city.cityId]:event.target.value}))}/></label><label>Legacy URL aliases <input aria-label="Legacy city URL aliases" value={publicAliases[city.cityId]??currentAliases.join(", ")} onChange={event=>setPublicAliases(value=>({...value,[city.cityId]:event.target.value}))} placeholder="Previous spellings, separated by commas"/></label><p>For a Pro city, the matching relay hostname is <code>{`${publicUrls[city.cityId]??canonicalSlug}.bitcoinwalk.org`}</code>. Existing aliases redirect to the canonical city URL.</p><button disabled={busy||!directoryCurrent||!online} onClick={()=>savePublicUrl(row)}>Sign and save public URL</button></div></details>
