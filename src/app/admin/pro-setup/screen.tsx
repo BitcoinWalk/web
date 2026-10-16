@@ -25,6 +25,11 @@ export function proSetupJourney(preview:ProSetupPreview,now=Date.now()):ProSetup
 }
 
 function ShieldIcon(){return <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>}
+async function signProSetup(template:Parameters<typeof signWithBrowserExtension>[0]){
+  let timer:ReturnType<typeof setTimeout>|undefined;
+  try{return await Promise.race([signWithBrowserExtension(template),new Promise<never>((_,reject)=>{timer=setTimeout(()=>reject(new Error("Your signer did not respond. Open it, then select Retry Pro services.")),60_000);})]);}
+  finally{if(timer)clearTimeout(timer);}
+}
 
 export default function ProSetupScreen({enabled}: {enabled: boolean}) {
   const {pubkey, cities, role} = useDashboard();
@@ -35,14 +40,13 @@ export default function ProSetupScreen({enabled}: {enabled: boolean}) {
 export function ProCitySetup({enabled,cityId,active=true}:{enabled:boolean;cityId:string;active?:boolean}){
   const {pubkey,cities}=useDashboard();
   useEffect(()=>{if(window.location.hash!=="#pro-city-services")return;const frame=requestAnimationFrame(()=>document.getElementById("pro-city-services")?.scrollIntoView({block:"start"}));return()=>cancelAnimationFrame(frame);},[cityId]);
-  return <ProSetupForm key={`${pubkey}:${cityId}`} enabled={enabled} actor={pubkey} cities={cities} fixedCityId={cityId} embedded autoPrepare={active}/>;
+  return <ProSetupForm key={`${pubkey}:${cityId}`} enabled={enabled} actor={pubkey} cities={cities} fixedCityId={cityId} embedded interactive={active}/>;
 }
-function ProSetupForm({enabled, actor, cities, fixedCityId="", embedded=false,autoPrepare=false}: {enabled: boolean; actor: string; cities: Array<{id: string; name: string}>;fixedCityId?:string;embedded?:boolean;autoPrepare?:boolean}) {
+function ProSetupForm({enabled, actor, cities, fixedCityId="", embedded=false,interactive=true}: {enabled: boolean; actor: string; cities: Array<{id: string; name: string}>;fixedCityId?:string;embedded?:boolean;interactive?:boolean}) {
   const [cityId, setCityId] = useState(fixedCityId), [preview, setPreview] = useState<ProSetupPreview | null>(null);
   const [busy, setBusy] = useState(false), [message, setMessage] = useState(""), [destination, setDestination] = useState("");
   const inFlight = useRef(false);
   const deepLinkApplied = useRef(false);
-  const autoPrepared=useRef(false);
   useEffect(()=>{
     if(fixedCityId)return;
     if(deepLinkApplied.current||!cities.length)return;
@@ -58,7 +62,7 @@ function ProSetupForm({enabled, actor, cities, fixedCityId="", embedded=false,au
     inFlight.current = true; setBusy(true); setMessage(embedded?"Confirm the private Pro-services check in your signer…":""); setPreview(null);
     try {
       const command = {action: "preview" as const, cityId}, origin = window.location.origin;
-      const event = await signWithBrowserExtension(proSetupTemplate(command, origin));
+      const event = await signProSetup(proSetupTemplate(command, origin));
       if (event.pubkey !== actor || JSON.stringify(authorizeProSetup(event, origin)) !== JSON.stringify(command)) {
         throw new Error("Your signer changed the setup request. Reconnect and try again.");
       }
@@ -70,11 +74,6 @@ function ProSetupForm({enabled, actor, cities, fixedCityId="", embedded=false,au
     } catch (error) {setMessage(error instanceof Error ? error.message : "Preparation failed; no account or payment was changed.");}
     finally {inFlight.current = false; setBusy(false);}
   },[actor,cityId,embedded]);
-  useEffect(()=>{
-    if(!enabled||!autoPrepare||autoPrepared.current||!cityId||!actor)return;
-    const frame=requestAnimationFrame(()=>{autoPrepared.current=true;void prepare();});
-    return()=>cancelAnimationFrame(frame);
-  },[actor,autoPrepare,cityId,enabled,prepare]);
   async function savePayout() {
     if (!preview || !destination.trim() || !actor || inFlight.current) return;
     inFlight.current = true; setBusy(true); setMessage("");
@@ -117,7 +116,7 @@ function ProSetupForm({enabled, actor, cities, fixedCityId="", embedded=false,au
       {!embedded&&<button type="button" onClick={() => void prepare()} disabled={busy || !cityId || !actor}>{busy ? "Preparing…" : "Verify and preview Pro setup"}</button>}
       <p className={styles.privateCheck}><ShieldIcon/>{embedded?"This private status check is read-only and is never published to Nostr.":"Your signer confirms a private, read-only request. It is not published to Nostr."}</p>
       {message && <p className={styles.message} role="alert">{message}</p>}
-      {embedded&&!preview&&!!message&&!busy&&<button className={styles.retry} type="button" onClick={()=>void prepare()} disabled={!cityId||!actor}>Retry Pro services</button>}
+      {embedded&&!preview&&interactive&&<button className={styles.retry} type="button" onClick={()=>void prepare()} disabled={busy||!cityId||!actor}>{busy?"Waiting for signer…":message?"Retry Pro services":"Verify and load Pro services"}</button>}
       {preview && <section aria-label="Prepared city profile">
         {journey&&<section className={styles.journey} aria-label="Pro setup progress">
           <div className={styles.journeyTop}><div><p className={styles.eyebrow}>{preview.cityName} Pro</p><h3>{journey.title}</h3><p>Every completed step is saved. You can leave and return without paying again or creating another identity.</p></div><span className={styles.state} data-tone={journey.mode}>{journey.badge}</span></div>
