@@ -15,7 +15,9 @@ export function organizerProCityIds(db:DatabaseSync,actor:string):string[]{
  return (db.prepare(`SELECT task.cityId FROM pro_setup_task task WHERE task.currentOwnerPubkey=? AND (EXISTS(
   SELECT 1 FROM paid_city_entitlement entitlement WHERE entitlement.cityId=task.cityId AND entitlement.invoiceId=task.entitlementId)${legacy?` OR EXISTS(
   SELECT 1 FROM legacy_pro_entitlement entitlement WHERE entitlement.cityId=task.cityId AND entitlement.entitlementId=task.entitlementId)`:""})${legacy?` UNION
-  SELECT cityId FROM legacy_pro_entitlement WHERE originalOwnerPubkey=?`:""} ORDER BY cityId`).all(...(legacy?[actor,actor]:[actor])) as Array<{cityId:string}>).map(row=>row.cityId);
+  SELECT cityId FROM legacy_pro_entitlement WHERE originalOwnerPubkey=?`:""} UNION
+  SELECT entitlement.cityId FROM paid_city_entitlement entitlement WHERE entitlement.owner=? AND NOT EXISTS(
+   SELECT 1 FROM pro_setup_task task WHERE task.cityId=entitlement.cityId) ORDER BY cityId`).all(...(legacy?[actor,actor,actor]:[actor,actor])) as Array<{cityId:string}>).map(row=>row.cityId);
 }
 /** Owner-only, non-secret projection for the first dashboard action after login. */
 export function organizerProNextActions(db:DatabaseSync,actor:string,now=Math.floor(Date.now()/1000)):OrganizerProNextAction[]{
