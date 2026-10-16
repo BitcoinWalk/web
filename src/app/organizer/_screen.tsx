@@ -2,8 +2,10 @@
 import {useDashboard,useDashboardAutoLoad} from "../../components/dashboard-context";
 
 import dynamic from "next/dynamic";
+import Image from "next/image";
+import Link from "next/link";
 import { compareEvents, type Event } from "nostr-tools";
-import { useRef, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import type { LocationValue } from "../../components/location-picker";
 import { relayConfig } from "../../lib/relay-config";
 import { createCityUpdateEvent } from "../../nostr/city-event";
@@ -21,9 +23,13 @@ import {paymentFetch,signPayment,type LogoPackView} from "../../components/city-
 import {createInitialCalendarProposal} from "../../nostr/calendar-event";
 import {calendarRoute} from "../../nostr/calendar-records";
 import {ProCitySetup} from "../admin/pro-setup/screen";
+import styles from "./my-cities.module.css";
 
 const LocationPicker = dynamic(() => import("../../components/location-picker"), {ssr:false});
 function exactTag(event:Event,name:string){const tags=event.tags.filter(tag=>tag[0]===name&&tag.length===2);return tags.length===1?tags[0][1]:"";}
+type WorkspaceTab="profile"|"pro";
+const stateLabel=(status:OrganizerCityInventoryItem["status"])=>status==="editable"||status==="approved"?"Active":status==="awaiting-approval"?"Pending":status==="needs-changes"?"Needs changes":status==="archived"?"Archived":"Rejected";
+function Icon({children}: {children:ReactNode}){return <svg aria-hidden="true" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">{children}</svg>;}
 
 export default function OrganizerPage() {
   const lock = useRef(false);
@@ -38,6 +44,9 @@ export default function OrganizerPage() {
   const [message,setMessage] = useState("Connect your host account to load cities you can edit.");
   const [submitted,setSubmitted] = useState(false);
   const [submittedImageUrl,setSubmittedImageUrl]=useState("");
+  const [workspaceTab,setWorkspaceTab]=useState<WorkspaceTab>("profile");
+
+  useEffect(()=>{if(window.location.hash!=="#pro-city-services")return;let active=true;queueMicrotask(()=>{if(active)setWorkspaceTab("pro");});return()=>{active=false;};},[]);
 
   function select(revision: CityRevision|null) {
     setBase(revision); setPin(revision?.city.meetingPoint ?? null); setSubmitted(false);setSubmittedImageUrl("");
@@ -140,41 +149,44 @@ export default function OrganizerPage() {
   function chooseCity(cityId:string){
     const next=cities.find(item=>item.revision.city.cityId===cityId)?.revision??null;
     if(base&&!submitted&&(selectedCity?.editable||selectedCity?.correctable)&&base.city.cityId!==next?.city.cityId&&!window.confirm("Switching cities discards unsent changes. Continue?"))return false;
-    select(next);return true;
+    select(next);setWorkspaceTab("profile");return true;
   }
-  return <section>
-    <button type="button" disabled={busy} onClick={load}>{busy?"Loading cities…":"Refresh cities"}</button>
-    {message&&<p role="status" aria-live="polite">{message}</p>}
-    {!!activeCities.length&&<div className="organizer-city-active" aria-labelledby="organizer-cities-active"><h3 id="organizer-cities-active">Active</h3><div className="organizer-city-list">{activeCities.map(item=><button key={item.revision.city.cityId} type="button" disabled={busy} aria-pressed={base?.city.cityId===item.revision.city.cityId} onClick={()=>chooseCity(item.revision.city.cityId)}><strong>{item.revision.city.cityName}</strong><span>/{item.revision.city.slug}</span></button>)}</div></div>}
-    {!!cityGroups.length&&<div className="organizer-city-groups">{cityGroups.map(group=><section key={group.key} aria-labelledby={`organizer-cities-${group.key}`}>
-      <h3 id={`organizer-cities-${group.key}`}>{group.label}</h3>
-      <div className="organizer-city-list">{group.items.map(item=><button key={item.revision.city.cityId} type="button" disabled={busy} aria-pressed={base?.city.cityId===item.revision.city.cityId} onClick={()=>chooseCity(item.revision.city.cityId)}><strong>{item.revision.city.cityName}</strong><span>/{item.revision.city.slug}</span></button>)}</div>
-    </section>)}</div>}
-    {!!archivedCities.length&&<details className="organizer-city-archive"><summary><strong>Archived ({archivedCities.length})</strong></summary><div className="organizer-city-list">{archivedCities.map(item=><button key={item.revision.city.cityId} type="button" disabled={busy} aria-pressed={base?.city.cityId===item.revision.city.cityId} onClick={()=>chooseCity(item.revision.city.cityId)}><strong>{item.revision.city.cityName}</strong><span>/{item.revision.city.slug}</span></button>)}</div></details>}
-    {base && selectedCity&&!selectedCity.editable&&!selectedCity.correctable&&<section><h3>{base.city.cityName} — {selectedCity.status==="archived"?"Archived":selectedCity.status==="rejected"?"Rejected":selectedCity.status==="needs-changes"?"Awaits change":"Pending approval"}</h3><p>{selectedCity.status==="archived"?"This city is read-only and hidden from public and active host views. Contact BitcoinWalk to request restoration.":selectedCity.status==="rejected"?"This application was declined and cannot be resubmitted as a correction. Contact BitcoinWalk if the circumstances have materially changed.":selectedCity.status==="needs-changes"?"This request is waiting for the original host to make the requested correction. A super-admin cannot replace that host's signed submission.":"This request is awaiting super-admin review. It cannot be changed while that review is pending."}</p></section>}
-    {base && selectedCity?.correctable&&<section aria-labelledby="correction-heading"><h2 id="correction-heading">Correct and resubmit {base.city.cityName}</h2><p><strong>Reviewer feedback:</strong> {selectedCity.reviewNote?.trim()||"No specific reason was provided. Review the submitted details carefully before resubmitting."}</p><p>Update the fields below, then submit a replacement for review. Your original signed walk references are preserved automatically.</p></section>}
-    {base && (selectedCity?.editable||selectedCity?.correctable) && <section>
-      <h2>{selectedCity.correctable?"City correction":"City profile"}</h2>
-      <p>{selectedCity.correctable?"Only this rejected request can be replaced. It remains inactive until the super-admin approves the corrected revision.":"Edit the city description, hero image and default meeting point. Scheduled walks are managed separately in Walks. Pending edits are publicly readable; do not include private details."}</p>
-      <p>City ID: {base.city.cityId}<br/>Editing revision: {base.event.id}<br/>Revision status: {submitted ? "New edit submitted" : status}</p>
-      {selectedCity.editable&&<p><a href={`/${encodeURIComponent(base.city.slug)}`} target="_blank" rel="noreferrer">Open approved public page</a> (only available if an approved revision is published).</p>}
-      {proCityIds.has(base.city.cityId)&&<ProCitySetup enabled cityId={base.city.cityId}/>}
-      {selectedLogo?.href&&<p><a href={selectedLogo.href} target="_blank" rel="noreferrer">Download your Pro city logo pack</a></p>}
-      <form key={base.event.id} onSubmit={submit}>
-        <fieldset disabled={busy || submitted}>
-          <legend>Walk details</legend>
-          <LocationPicker cityName={base.city.cityName} onCityNameChange={()=>{}} cityLocked value={pin} onChange={value=>{if(!lock.current&&!submitted)setPin(value);}} />
-          <label>Alternative city names <textarea name="aliases" defaultValue={(base.city.aliases??[]).join("\n")} maxLength={2020} placeholder={base.city.cityName==="Warszawa"?"Warsaw\nWarschau\nVarsovia":"One name per line"} /></label>
-          <p>Optional. Add localized, translated or conventional spellings—one per line. These improve directory search but do not change the displayed city name or URL.</p>
-          <label>Walk description <textarea name="description" defaultValue={base.city.description} maxLength={5000} required /></label>
-          <label>Meeting-point description <input name="meetingDescription" defaultValue={base.city.meetingPoint.description} maxLength={500} required /></label>
-          <label>Default city landscape image URL <input name="heroImageUrl" type="url" defaultValue={base.city.heroImageUrl??""} /></label>
-          <p>Future walks inherit this image unless their organizer chooses a walk-specific override. A replacement is imported into BitcoinWalk storage and becomes public only after super-admin approval.</p>
-          <p>The city URL, chat configuration and sponsor are preserved. This form does not change editor permissions.</p>
-          <button type="submit">{submitted?"Submitted":busy?"Submitting…":selectedCity.correctable?"Submit correction for review":"Submit edit for approval"}</button>
-        </fieldset>
-      </form>
-      {submitted&&<section aria-live="polite"><h3>Submitted city image</h3>{submittedImageUrl?<img className="hero-image" src={submittedImageUrl} alt={`Pending landscape for BitcoinWalk ${base.city.cityName}`} referrerPolicy="no-referrer"/>:<p>The submitted revision removes the city template image.</p>}<p>This is the safely stored image in the pending revision. The public city template and inherited walk images will change only after super-admin approval.</p></section>}
-    </section>}
-  </section>;
+  const cityButton=(item:OrganizerCityInventoryItem)=><button className={styles.cityButton} key={item.revision.city.cityId} type="button" disabled={busy} aria-pressed={base?.city.cityId===item.revision.city.cityId} onClick={()=>chooseCity(item.revision.city.cityId)}>
+    <span className={styles.cityButtonIcon}>{item.revision.city.cityName.slice(0,1).toUpperCase()}</span><span className={styles.cityButtonCopy}><strong>{item.revision.city.cityName}</strong><small>/{item.revision.city.slug}</small></span><span className={styles.cityButtonState} data-state={item.status}>{stateLabel(item.status)}</span>
+  </button>;
+  return <main className={styles.page}>
+    <header className={styles.pageHeader}><div><p className={styles.eyebrow}>City management</p><h1>My cities</h1><p>Manage your public city profile and Pro services from one place.</p></div><button className={styles.refreshButton} type="button" disabled={busy} onClick={load}><Icon><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/></Icon>{busy?"Refreshing…":"Refresh"}</button></header>
+    {message&&<p className={styles.notice} data-error={message.toLowerCase().includes("could not")||undefined} role="status" aria-live="polite">{message}</p>}
+    <div className={styles.workspace}>
+      <aside className={styles.cityRail} aria-label="Your cities">
+        <div className={styles.railHeader}><h2>Cities</h2><span>{cities.length}</span></div>
+        {!!activeCities.length&&<section className={styles.cityGroup} aria-labelledby="organizer-cities-active"><h3 id="organizer-cities-active">Active</h3><div className={styles.cityList}>{activeCities.map(cityButton)}</div></section>}
+        {cityGroups.map(group=><section className={styles.cityGroup} key={group.key} aria-labelledby={`organizer-cities-${group.key}`}><h3 id={`organizer-cities-${group.key}`}>{group.label}</h3><div className={styles.cityList}>{group.items.map(cityButton)}</div></section>)}
+        {!!archivedCities.length&&<details className={styles.archive}><summary><span>Archived</span><span>{archivedCities.length}</span></summary><div className={styles.cityList}>{archivedCities.map(cityButton)}</div></details>}
+        {!cities.length&&!busy&&<div className={styles.railEmpty}><p>No cities found for this account.</p><small>Check the connected signer, then refresh.</small></div>}
+      </aside>
+      <section className={styles.cityWorkspace}>
+        {!base||!selectedCity?<div className={styles.emptyState}><span className={styles.emptyIcon}><Icon><path d="M3 21h18"/><path d="M5 21V7l7-4 7 4v14"/><path d="M9 21v-8h6v8"/></Icon></span><h2>Select a city</h2><p>Choose a city to manage its profile and services.</p></div>:<>
+          <header className={styles.cityHeader}><div className={styles.cityIdentity}><span className={styles.cityAvatar}>{base.city.cityName.slice(0,1).toUpperCase()}</span><div><div className={styles.cityTitleRow}><h2>{base.city.cityName}</h2><span className={styles.statusBadge} data-state={selectedCity.status}>{stateLabel(selectedCity.status)}</span>{proCityIds.has(base.city.cityId)&&<span className={styles.proBadge}>Pro</span>}</div><p>bitcoinwalk.org/{base.city.slug}</p></div></div><div className={styles.headerActions}>{selectedCity.editable&&<a className={styles.secondaryAction} href={`/${encodeURIComponent(base.city.slug)}`} target="_blank" rel="noreferrer">View public page <Icon><path d="M14 3h7v7"/><path d="M10 14 21 3"/><path d="M21 14v7H3V3h7"/></Icon></a>}{selectedLogo?.href&&<a className={styles.secondaryAction} href={selectedLogo.href} target="_blank" rel="noreferrer">Logo pack</a>}</div></header>
+          {selectedCity&&!selectedCity.editable&&!selectedCity.correctable?<div className={styles.statePanel}><span className={styles.stateIcon}>!</span><div><h3>{stateLabel(selectedCity.status)}</h3><p>{selectedCity.status==="archived"?"This city is read-only and hidden from public and active host views. Contact BitcoinWalk to request restoration.":selectedCity.status==="rejected"?"This application was declined and cannot be resubmitted as a correction. Contact BitcoinWalk if the circumstances have materially changed.":selectedCity.status==="needs-changes"?"This request is waiting for the original host to make the requested correction. A super-admin cannot replace that host's signed submission.":"This request is awaiting super-admin review. It cannot be changed while that review is pending."}</p></div></div>:<>
+            {selectedCity.correctable&&<div className={styles.reviewPanel} aria-labelledby="correction-heading"><p className={styles.eyebrow}>Reviewer feedback</p><h3 id="correction-heading">Correct and resubmit {base.city.cityName}</h3><p>{selectedCity.reviewNote?.trim()||"No specific reason was provided. Review the submitted details carefully before resubmitting."}</p><small>Update the fields below, then submit a replacement. The original signed walks remain in history.</small></div>}
+            <nav className={styles.tabs} aria-label="City settings"><button type="button" aria-current={workspaceTab==="profile"?"page":undefined} onClick={()=>setWorkspaceTab("profile")}><Icon><path d="M4 21v-7a4 4 0 0 1 4-4h8a4 4 0 0 1 4 4v7"/><circle cx="12" cy="4" r="3"/></Icon>Profile</button>{proCityIds.has(base.city.cityId)&&<button type="button" aria-current={workspaceTab==="pro"?"page":undefined} onClick={()=>setWorkspaceTab("pro")}><Icon><path d="m12 3 2.2 4.5 4.9.7-3.6 3.5.9 4.9-4.4-2.3-4.4 2.3.9-4.9-3.6-3.5 4.9-.7z"/></Icon>Pro services</button>}</nav>
+            {workspaceTab==="pro"&&proCityIds.has(base.city.cityId)?<div className={styles.proPanel}><ProCitySetup enabled cityId={base.city.cityId}/></div>:<section className={styles.profilePanel} aria-labelledby="city-profile-heading">
+              <div className={styles.panelHeading}><div><p className={styles.eyebrow}>{selectedCity.correctable?"Correction":"Public information"}</p><h3 id="city-profile-heading">{selectedCity.correctable?"City correction":"City profile"}</h3><p>{selectedCity.correctable?"Only this replacement can be reviewed. It stays private until approved.":"Edit the description, hero image and default meeting point shown across your city and walks."}</p></div></div>
+              <form className={styles.editorForm} key={base.event.id} onSubmit={submit}>
+                <fieldset disabled={busy || submitted}>
+                  <div className={styles.formSection}><div className={styles.formSectionHeading}><span>1</span><div><h4>About the city</h4><p>Give visitors a clear reason to join your BitcoinWalk.</p></div></div><label>City description<textarea name="description" defaultValue={base.city.description} maxLength={5000} required/></label></div>
+                  <div className={styles.formSection}><div className={styles.formSectionHeading}><span>2</span><div><h4>Meeting point</h4><p>Set the default location inherited by new walks.</p></div></div><LocationPicker cityName={base.city.cityName} onCityNameChange={()=>{}} cityLocked value={pin} onChange={value=>{if(!lock.current&&!submitted)setPin(value);}}/><label>Meeting-point description<input name="meetingDescription" defaultValue={base.city.meetingPoint.description} maxLength={500} required/></label></div>
+                  <div className={styles.formSection}><div className={styles.formSectionHeading}><span>3</span><div><h4>City image</h4><p>This landscape becomes the default for future walks.</p></div></div>{base.city.heroImageUrl&&<Image unoptimized className={styles.heroPreview} src={base.city.heroImageUrl} alt={`Current ${base.city.cityName} city landscape`} width={1200} height={525} referrerPolicy="no-referrer"/>}<label>Landscape image URL<input name="heroImageUrl" type="url" defaultValue={base.city.heroImageUrl??""} placeholder="https://…"/></label><small>A new image is copied into protected BitcoinWalk storage and changes publicly only after approval.</small></div>
+                  <details className={styles.advanced}><summary>Alternative names and technical details</summary><div><label>Alternative city names<textarea name="aliases" defaultValue={(base.city.aliases??[]).join("\n")} maxLength={2020} placeholder={base.city.cityName==="Warszawa"?"Warsaw\nWarschau\nVarsovia":"One name per line"}/></label><p>Add localized or conventional spellings, one per line. They improve search without changing the public URL.</p><dl><div><dt>City ID</dt><dd><code>{base.city.cityId}</code></dd></div><div><dt>Revision</dt><dd><code>{base.event.id}</code></dd></div><div><dt>Status</dt><dd>{submitted?"New edit submitted":status}</dd></div></dl></div></details>
+                  <div className={styles.formFooter}><p>Changes are signed by your connected account and sent for review. Walk schedules are managed separately in <Link href="/admin/walks">Walks</Link>.</p><button className={styles.primaryAction} type="submit">{submitted?"Submitted":busy?"Submitting…":selectedCity.correctable?"Submit correction":"Submit for approval"}</button></div>
+                </fieldset>
+              </form>
+              {submitted&&<div className={styles.successPanel} aria-live="polite"><span>✓</span><div><h3>Changes submitted</h3>{submittedImageUrl?<Image unoptimized className={styles.heroPreview} src={submittedImageUrl} alt={`Pending landscape for BitcoinWalk ${base.city.cityName}`} width={1200} height={525} referrerPolicy="no-referrer"/>:<p>The submitted revision removes the city template image.</p>}<p>The public city remains unchanged until a super-admin approves this revision.</p></div></div>}
+            </section>}
+          </>}
+        </>}
+      </section>
+    </div>
+  </main>;
 }

@@ -8,26 +8,27 @@ describe("my cities inventory",()=>{
   const page=source();
   for(const label of ['label:"Pending"','label:"Awaits change"'])expect(page).toContain(label);
   expect(page).toContain('const activeCities=cities.filter(item=>item.status==="editable"||item.status==="approved")');
-  expect(page).toContain('<div className="organizer-city-active"');
+  expect(page).toContain('className={styles.cityRail}');
+  expect(page).toContain('className={styles.cityGroup}');
   expect(page).not.toContain('{key:"active",label:"Active"');
   expect(page).toContain(".filter(group=>group.items.length)");
   expect(page).toContain('const archivedCities=cities.filter(item=>item.status==="archived")');
-  expect(page).toContain('<details className="organizer-city-archive">');
-  expect(page.indexOf("organizer-city-archive")).toBeGreaterThan(page.indexOf("organizer-city-groups"));
+  expect(page).toContain('<details className={styles.archive}>');
+  expect(page.indexOf('className={styles.archive}')).toBeGreaterThan(page.indexOf("cityGroups.map"));
   expect(page).not.toContain("<CityFinder");
   expect(page).not.toContain("Search your cities");
  });
  it("places city-profile guidance inside the editable city panel",()=>{
-  const page=source(),panel=page.indexOf("{base && (selectedCity?.editable||selectedCity?.correctable) && <section>"),heading=page.indexOf('selectedCity.correctable?"City correction":"City profile"');
+  const page=source(),panel=page.indexOf('className={styles.profilePanel}'),heading=page.indexOf('selectedCity.correctable?"City correction":"City profile"');
   expect(panel).toBeGreaterThan(-1);
   expect(heading).toBeGreaterThan(panel);
-  expect(page.indexOf("Edit the city description, hero image and default meeting point.")).toBeGreaterThan(panel);
+  expect(page.indexOf("Edit the description, hero image and default meeting point shown across your city and walks.")).toBeGreaterThan(panel);
  });
  it("shows reviewer feedback and the exact resubmission action for correctable rejected requests",()=>{
   const page=source();
   expect(page).toContain("Correct and resubmit {base.city.cityName}");
-  expect(page).toContain("<strong>Reviewer feedback:</strong>");
-  expect(page).toContain("Submit correction for review");
+  expect(page).toContain('className={styles.eyebrow}>Reviewer feedback');
+  expect(page).toContain('selectedCity.correctable?"Submit correction":"Submit for approval"');
   expect(page).toContain("correctableRejectedCityRevisions");
   expect(page).toContain('tag[3]==="initial-walk"');
   expect(page).toContain("createInitialCalendarProposal(candidate,zone,calendarRoute(original)");
@@ -49,8 +50,10 @@ describe("my cities inventory",()=>{
  it("keeps every paid-city host control inside the selected city",()=>{
   const page=source();
   expect(page).toContain('import {ProCitySetup} from "../admin/pro-setup/screen"');
-  expect(page).toContain('proCityIds.has(base.city.cityId)&&<ProCitySetup enabled cityId={base.city.cityId}/>');
+  expect(page).toContain('workspaceTab==="pro"&&proCityIds.has(base.city.cityId)');
+  expect(page).toContain('<ProCitySetup enabled cityId={base.city.cityId}/>');
   expect(page).not.toContain("Complete Pro setup");
   expect(page).not.toContain("/admin/upgrade");
  });
+ it("uses a focused workspace with separate profile and Pro service views",()=>{const page=source();expect(page).toContain('type WorkspaceTab="profile"|"pro"');expect(page).toContain('aria-label="City settings"');expect(page).toContain('>Profile</button>');expect(page).toContain('>Pro services</button>');expect(page).toContain('workspaceTab==="pro"');expect(page).toContain('Alternative names and technical details');});
 });
