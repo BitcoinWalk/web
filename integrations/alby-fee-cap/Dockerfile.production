@@ -1,0 +1,14 @@
+FROM bitcoinwalk/hub-feecap-candidate:6bb8520025d7
+
+LABEL org.opencontainers.image.title="BitcoinWalk Hub fee-cap production" \
+      org.opencontainers.image.revision="6bb8520025d781f8570ef1a5d134fe545a1586f3ab46cfedd780e15a641cfa84" \
+      org.opencontainers.image.source="https://github.com/BitcoinWalk/web" \
+      org.opencontainers.image.vendor="BitcoinWalk" \
+      org.opencontainers.image.version="6bb8520025d7" \
+      org.bitcoinwalk.production-ready="true" \
+      org.bitcoinwalk.start-enabled="true"
+
+COPY production-entrypoint.sh /usr/local/bin/bitcoinwalk-production-entrypoint
+RUN test -x /usr/local/bin/bitcoinwalk-production-entrypoint
+ENTRYPOINT ["/usr/local/bin/bitcoinwalk-production-entrypoint"]
+CMD ["/opt/bitcoinwalk-hub/bin/albyhub"]
