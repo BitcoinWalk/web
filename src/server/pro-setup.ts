@@ -15,7 +15,7 @@ import {ProfileArtworkStore} from "../logos/profile-artwork";
 import {managedBackground} from "./share-image";
 import {PayoutDestinationStore} from "../payments/payout-destination-store";
 import {ProSetupTaskStore} from "../payments/pro-setup-task-store";
-import {validatePayoutDestination} from "./lnurl-pay";
+import {normalizePayoutDestination,validatePayoutDestination} from "./lnurl-pay";
 import {SUPER_ADMIN_PUBKEY} from "../nostr/authority";
 import {authorizeCitySignerProof, type ProSetupCommand} from "../nostr/pro-setup-command";
 import {CityBrandStore} from "../directory/city-brand-store";
@@ -322,9 +322,11 @@ export async function saveProSetupPayout(cityId: string, actor: string, destinat
 }
 
 /** Internal worker resolver, never a browser-supplied provisioning payload.
- * Requires a published signed binding and repeats live checks on every call.
+ * Requires a published signed binding and repeats authority/read-back checks on
+ * every call. Initial activation also probes the private payout destination;
+ * an already applied immutable version is rechecked from durable signed state.
  * Calling this does not create invoices or make provisioning publicly active. */
-export async function resolveRustressProvisionEvidence(requestId: string, payoutVersion?: number) {
+export async function resolveRustressProvisionEvidence(requestId: string, payoutVersion?: number, revalidatePayout = true) {
   const before = await brandReviewEvidence(requestId, SUPER_ADMIN_PUBKEY, true);
   const {authority} = before.resolved;
   const approved = before.store.approvedForPublication(requestId, SUPER_ADMIN_PUBKEY, authority);
@@ -346,9 +348,16 @@ export async function resolveRustressProvisionEvidence(requestId: string, payout
   // owner-signed destination and bind its version into the provider evidence.
   if (!payout || payout.ownerPubkey !== authority.ownerPubkey)
     throw new Error("Current owner payout confirmation is required.");
-  const validated = await validatePayoutDestination(payout.normalized, {blockedDomains: ["bitcoinwalk.org",
-    ...(process.env.BITCOINWALK_PAYOUT_BLOCKED_DOMAINS ?? "").split(",").map(value => value.trim()).filter(Boolean)]});
-  if (validated.normalized !== payout.normalized) throw new Error("Payout destination changed.");
+  // Initial activation and payout replacements must prove that the personal
+  // destination can issue a provider-bound invoice. Once the exact immutable
+  // payout version is applied, routine NIP-05/LNURL read-back must not probe the
+  // organizer's personal endpoint again: a temporary downstream outage must
+  // not withdraw an otherwise exact city identity or its public address.
+  const normalized = revalidatePayout
+    ? (await validatePayoutDestination(payout.normalized, {blockedDomains: ["bitcoinwalk.org",
+        ...(process.env.BITCOINWALK_PAYOUT_BLOCKED_DOMAINS ?? "").split(",").map(value => value.trim()).filter(Boolean)]})).normalized
+    : normalizePayoutDestination(payout.normalized).normalized;
+  if (normalized !== payout.normalized) throw new Error("Payout destination changed.");
   const after = await brandReviewEvidence(requestId, SUPER_ADMIN_PUBKEY, true);
   const confirmed = after.store.approvedForPublication(requestId, SUPER_ADMIN_PUBKEY, after.resolved.authority);
   if (JSON.stringify(authority) !== JSON.stringify(after.resolved.authority) || confirmed.event.id !== approved.event.id ||
@@ -368,7 +377,7 @@ export async function resolveRustressProvisionEvidence(requestId: string, payout
 /** Managed activation evidence uses the same freshly revalidated authority as
  * fixture reservation, but binds the real managed wallet reference. */
 export async function resolveRustressActivationEvidence(requestId: string, publicOrigin = "https://bitcoinwalk.org",current?:ProvisionConfig) {
-  const evidence = await resolveRustressProvisionEvidence(requestId,current?.payoutVersion);
+  const evidence = await resolveRustressProvisionEvidence(requestId,current?.payoutVersion,current===undefined);
   const reserved = provisionConfigSchema.parse({...evidence.config, walletRef: "bitcoinwalk-rustress"});
   const activation = current??createCityActivation(reserved);
   if(current){const base=createCityActivation(reserved);if(payoutUpdateStableFields.some(field=>current[field]!==base[field])||current.payoutVersion!==base.payoutVersion)

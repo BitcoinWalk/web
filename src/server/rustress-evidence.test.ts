@@ -11,7 +11,8 @@ import {CityBrandStore} from "../directory/city-brand-store";
 import {ProSetupTaskStore} from "../payments/pro-setup-task-store";
 import {PayoutDestinationStore} from "../payments/payout-destination-store";
 import {cityBrandProofTemplate} from "../nostr/city-brand";
-import {brandPublicationDependencies, proSetupDependencies, resolveRustressProvisionEvidence} from "./pro-setup";
+import {brandPublicationDependencies, proSetupDependencies, resolveRustressActivationEvidence, resolveRustressProvisionEvidence} from "./pro-setup";
+import {createCityActivation} from "../rustress/activation-contract";
 import * as lnurl from "./lnurl-pay";
 
 const adminKey=new Uint8Array(32).fill(1), ownerKey=new Uint8Array(32).fill(2), brandKey=new Uint8Array(32).fill(3);
@@ -77,6 +78,15 @@ it("rejects ownership changes during endpoint validation",async()=>{
 it("rejects failed endpoint validation",async()=>{
   vi.mocked(lnurl.validatePayoutDestination).mockRejectedValueOnce(new Error("endpoint unavailable"));
   await expect(resolveRustressProvisionEvidence(requestId)).rejects.toThrow("endpoint unavailable");
+});
+it("does not re-probe an immutable payout destination while rechecking an applied activation",async()=>{
+  const first=await resolveRustressActivationEvidence(requestId),active=createCityActivation(first.reserved);
+  vi.mocked(lnurl.validatePayoutDestination).mockClear();
+  vi.mocked(lnurl.validatePayoutDestination).mockRejectedValue(new Error("personal endpoint temporarily unavailable"));
+  const result=await resolveRustressActivationEvidence(requestId,"https://bitcoinwalk.org",active);
+  expect(result.activation).toEqual(active);
+  expect(result.reserved).toEqual(first.reserved);
+  expect(lnurl.validatePayoutDestination).not.toHaveBeenCalled();
 });
 it("uses a fresh owner-signed payout before initial provisioning without replacing the active city identity",async()=>{
   const changed={...destination,normalized:"owner@wallet.example",endpoint:"https://wallet.example/.well-known/lnurlp/owner",callback:"https://wallet.example/callback"};
