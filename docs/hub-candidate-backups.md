@@ -117,7 +117,14 @@ The public Hub returned after the snapshot and awaits its normal human unlock.
 
 The ciphertext, receiver checksum and a verifier have also been copied to a
 mode-0700 folder on the trusted workstation. The agent has not decrypted or read
-the archive. Production restore readiness remains open until the key custodian
-runs that verifier locally, confirms path/type safety, SQLite integrity and
-automatic decrypted-data cleanup, and the running Hub is checked again after
-manual unlock.
+the archive. On 16 October 2026 the key custodian ran that verifier locally with
+the offline-held key. It returned
+`LIVE_RESTORE_REHEARSAL_OK files=8 apps=5 permissions=31
+recovery_artifact_present=no decrypted_material_removed_on_exit=yes`, confirming
+archive path/type safety, SQLite integrity, the expected application and
+permission inventory, absence of a recovery artifact and automatic cleanup of
+all decrypted material. A subsequent inspection found no
+`bitcoinwalk-hub-live-restore.*` directory under `/tmp`. The running Hub had
+already passed its post-snapshot manual unlock and local/public health checks.
+This closes initialized production backup and restore readiness. The agent never
+received the passphrase or private key and never decrypted or read the archive.

@@ -642,9 +642,16 @@ sender stopped the Hub cleanly and streamed the whole live volume directly into
 the pinned offline recipient. The accepted 29,793,627-byte ciphertext matches
 SHA-256 `318d3b31…c4b6` locally and off-host. No plaintext duplicate or private
 decryption key was placed on either server. A verified encrypted copy and the
-cleanup-enforcing verifier are present on the trusted workstation; the key
-custodian's local decrypt/restore run and subsequent Hub unlock check remain
-required before this gate closes.
+cleanup-enforcing verifier are present on the trusted workstation. The key
+custodian then completed the local-only restore rehearsal on 16 October. It
+reported eight safe archive entries, five applications, 31 permissions, no
+recovery artifact and automatic removal of all decrypted material. No matching
+temporary restore directory remained under `/tmp`. Together with the already
+accepted post-snapshot manual unlock and local/public Hub health checks, this
+closes the initialized production encrypted off-host backup/restore gate. The
+agent never received the decryption passphrase or private key and never read the
+archive or restored database. This acceptance does not authorize production
+cutover, wallet funding, payout activation or a payment.
 
 Reviewed official tag v1.24.0, commit
 `d8ef0e70e0d265a8424276daee0a595ac31993c0`:
