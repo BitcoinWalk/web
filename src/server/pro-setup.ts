@@ -25,6 +25,7 @@ import {verifyNip05} from "../nostr/profiles";
 import {ChatProvisionStore,type ChatVisibilitySurface} from "../chat-provisioning/store";
 import {armadaChatUrl} from "../domain/chat";
 import {cityOwnerPubkey} from "../domain/city";
+import {legacyProEntitlement,type LegacyProEntitlement} from "../payments/legacy-pro-entitlement";
 
 /** This preflight cannot publish, create invoices, assign identities or activate payments. */
 export type ProSetupPreview = {
@@ -44,8 +45,10 @@ export type ProSetupPreview = {
 // Dependencies stay explicit so incomplete reads and owner changes can be tested without networking.
 export const proSetupDependencies = {
   ...citySetupEvidence,
-  entitlement: (cityId: string) => getPaymentRuntime().store.db.prepare(
-    "SELECT invoiceId,owner FROM paid_city_entitlement WHERE cityId=?").get(cityId) as {invoiceId: string; owner: string} | undefined,
+  entitlement: (cityId: string):({invoiceId:string;owner:string;legacy?:false}|LegacyProEntitlement)|undefined => {
+    const db=getPaymentRuntime().store.db,paid=db.prepare("SELECT invoiceId,owner FROM paid_city_entitlement WHERE cityId=?").get(cityId) as {invoiceId:string;owner:string}|undefined;
+    return paid??legacyProEntitlement(db,cityId);
+  },
 };
 async function resolveProSetupEvidence(cityId: string, deps = proSetupDependencies) {
   const [snapshot, grants] = await Promise.all([deps.snapshot(), deps.grants()]);
@@ -105,14 +108,16 @@ const brandStore = () => new CityBrandStore(getPaymentRuntime().store.db);
 
 function ensureSetupTask(resolved: Awaited<ReturnType<typeof resolveProSetupAuthority>>) {
   const db = getPaymentRuntime().store.db;
-  const binding = db.prepare(`SELECT payment_invoice.revisionId,payment_invoice_payout.destinationVersion
+  const binding = resolved.entitlement.legacy?{revisionId:resolved.row.revision.event.id,destinationVersion:resolved.entitlement.registrationVersion}:db.prepare(`SELECT payment_invoice.revisionId,payment_invoice_payout.destinationVersion
     FROM payment_invoice LEFT JOIN payment_invoice_payout ON payment_invoice_payout.invoiceId=payment_invoice.id WHERE payment_invoice.id=?`)
     .get(resolved.entitlement.invoiceId) as {revisionId: string; destinationVersion: number | null} | undefined;
   if (!binding) throw new Error("The settled Pro payment record is incomplete. Contact the administrator; do not pay again.");
   const store = new ProSetupTaskStore(db);
-  const task = store.ensure({cityId: resolved.authority.cityId, entitlementId: resolved.entitlement.invoiceId,
+  let task = store.ensure({cityId: resolved.authority.cityId, entitlementId: resolved.entitlement.invoiceId,
     originalOwnerPubkey: resolved.entitlement.owner, currentOwnerPubkey: resolved.authority.ownerPubkey,
     ...(binding.destinationVersion === null ? {} : {registrationVersion: binding.destinationVersion})});
+  if(resolved.entitlement.legacy&&!task.signer&&resolved.authority.ownerPubkey===resolved.entitlement.owner)
+    task=store.adoptVerifiedSigner(resolved.authority.cityId,resolved.entitlement.invoiceId,resolved.authority.ownerPubkey,resolved.entitlement.brandPubkey);
   return {task, store, binding};
 }
 
@@ -174,7 +179,7 @@ export async function prepareProSetupPreview(cityId: string, actor: string, orig
       ...(verifiedNip05 ? {nip05: identifier} : {}),
       ...(capabilities.lightning === "active" && process.env.BITCOINWALK_RUSTRESS_LNURL_ENABLED === "1" ? {lud16: identifier} : {})},
     steps: [
-      {label: "Pro payment and city ownership", state: "ready", detail: "Verified against current approval, ownership, moderation and settled payment records."},
+      {label: "Pro entitlement and city ownership", state: "ready", detail: "Verified against current approval, ownership, moderation and either settled payment or operator-confirmed legacy activation evidence."},
       {label: "City profile artwork", state: "ready", detail: "Prepared from the approved city photo. The avatar uses the larger icon without city lettering."},
       {label: "Personal payout destination", state: payout ? "ready" : "blocked", detail: payout ? payoutActivation.state==="active"&&payoutActivation.activeVersion===payout.version?`Owner-confirmed destination version ${payout.version} is active.`:payoutActivation.state==="pending"?`Destination version ${payout.version} is being verified. Version ${payoutActivation.activeVersion} remains active until it passes.`:payoutActivation.state==="needs-attention"?`Destination version ${payout.version} needs attention. Version ${payoutActivation.activeVersion} remains active.`:`Owner-confirmed destination version ${payout.version} is saved privately. It is not active until provisioning is verified.` : suggestion ? "Your checkout destination was recovered privately. Confirm it again with the current city owner’s signer before activation." : "Add and confirm your personal Lightning address or LNURL-pay destination below."},
       {label: "Separate city signer", state: task.signer ? "ready" : "blocked", detail: task.signer ? `Expected city signer version ${task.signer.version} is confirmed privately. Its key remains outside BitcoinWalk.` : "Create or connect a recoverable city identity and prove control of its exact public key."},
@@ -393,6 +398,22 @@ const payoutUpdateStableFields=["cityId","domain","localPart","brandPubkey","aut
 /** Rebuilds a payout-only successor from live owner, binding and endpoint
  * evidence. The active configuration is never replaced by browser input. */
 export async function resolveRustressPayoutUpdateEvidence(requestId:string,current:ProvisionConfig,publicOrigin="https://bitcoinwalk.org"){
+  const db=getPaymentRuntime().store.db,regular=db.prepare("SELECT 1 FROM city_brand_request WHERE id=? AND status='active'").get(requestId);
+  if(!regular){
+    const active=db.prepare("SELECT request FROM rustress_activation_task WHERE city=? AND phase='active'").get(current.cityId) as {request:string}|undefined;
+    const resolved=await resolveProSetupEvidence(current.cityId);
+    if(!active||active.request!==requestId||!resolved.entitlement.legacy)throw new Error("Current city payment authority does not permit this payout update.");
+    const payout=new PayoutDestinationStore(db).current(current.cityId);
+    if(!payout||payout.ownerPubkey!==resolved.authority.ownerPubkey||payout.version<=current.payoutVersion)throw new Error("Current owner payout confirmation is required.");
+    const normalized=(await validatePayoutDestination(payout.normalized,{blockedDomains:["bitcoinwalk.org",
+      ...(process.env.BITCOINWALK_PAYOUT_BLOCKED_DOMAINS??"").split(",").map(value=>value.trim()).filter(Boolean)]})).normalized;
+    if(normalized!==payout.normalized)throw new Error("Payout destination changed.");
+    const saved=db.prepare("SELECT authority,owner_event_id ownerEventId FROM payout_destination_version WHERE city_id=? AND version=?").get(current.cityId,payout.version) as {authority:string;ownerEventId:string}|undefined;
+    if(!saved)throw new Error("Owner-signed payout evidence is incomplete.");
+    const config=managedProvisionConfigSchema.parse({...current,version:current.version+1,payoutVersion:payout.version,payoutDestination:payout.normalized,invoiceIssuance:"enabled"});
+    return {config,publicOrigin,proofHash:createHash("sha256").update(JSON.stringify({legacyEntitlement:resolved.entitlement.invoiceId,
+      ownerEvent:saved.ownerEventId,authority:saved.authority,previous:provisionDigest(current),update:provisionDigest(config)})).digest("hex")};
+  }
   const evidence=await resolveRustressProvisionEvidence(requestId),base={...evidence.config,walletRef:"bitcoinwalk-rustress"};
   if(current.invoiceIssuance!=="enabled"||payoutUpdateStableFields.some(field=>current[field]!==base[field])||base.payoutVersion<=current.payoutVersion)
     throw new Error("Current city payment authority does not permit this payout update.");

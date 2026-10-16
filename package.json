@@ -33,6 +33,7 @@
     "rustress-managed:package": "scripts/package-rustress-managed.sh",
     "rustress:nip05-import:build": "esbuild scripts/import-madeira-production-nip05.ts --bundle --platform=node --target=node24 --format=cjs --outfile=release-build/import-madeira-production-nip05.cjs",
     "production:entitlement-import:build": "esbuild scripts/import-graz-production-entitlement.ts --bundle --platform=node --target=node24 --format=cjs --outfile=release-build/import-graz-production-entitlement.cjs",
+    "madeira:legacy-pro:build": "esbuild scripts/install-madeira-legacy-pro-entitlement.ts --bundle --platform=node --target=node24 --format=cjs --outfile=release-build/install-madeira-legacy-pro-entitlement.cjs",
     "nip05:super-admin:build": "esbuild scripts/install-super-admin-nip05.ts --bundle --platform=node --target=node24 --format=cjs --outfile=release-build/install-super-admin-nip05.cjs",
     "rustress-shadow:build": "esbuild scripts/run-rustress-wallet-shadow.ts --bundle --platform=node --target=node24 --format=cjs --outfile=release-build/rustress-wallet-shadow.cjs && esbuild scripts/verify-rustress-wallet-shadow.ts --bundle --platform=node --target=node24 --format=cjs --outfile=release-build/verify-rustress-wallet-shadow.cjs",
     "rustress-shadow:package": "npm run rustress-shadow:build && scripts/package-rustress-wallet-shadow.sh",

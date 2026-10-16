@@ -30,8 +30,9 @@ export class PayoutUpdateWorkflow{
  status(city:string){const row=this.row(city);return row?{cityId:city,payoutVersion:row.payout_version,state:row.phase,updatedAt:row.updated_at}:null;}
  pendingCities(){return (this.db.prepare("SELECT city FROM rustress_payout_update_task WHERE phase NOT IN ('active','blocked') GROUP BY city ORDER BY MIN(updated_at),city LIMIT 10").all() as {city:string}[]).map(row=>row.city);}
  async retry(city:string){const row=this.row(city);if(!row||row.phase==="active")return this.status(city);this.db.prepare("UPDATE rustress_payout_update_task SET phase='unknown',lease=NULL,until=0,updated_at=? WHERE city=? AND payout_version=?").run(this.now(),city,row.payout_version);return this.run(city);}
- async enqueue(requestId:string){
-  const active=this.db.prepare("SELECT request,activation_config,phase FROM rustress_activation_task WHERE city=(SELECT city_id FROM city_brand_request WHERE id=?)").get(requestId) as {request:string;activation_config:string;phase:string}|undefined;
+ async enqueue(requestId:string,legacyCityId?:string){
+  const active=(legacyCityId?this.db.prepare("SELECT request,activation_config,phase FROM rustress_activation_task WHERE city=?").get(legacyCityId):
+    this.db.prepare("SELECT request,activation_config,phase FROM rustress_activation_task WHERE city=(SELECT city_id FROM city_brand_request WHERE id=?)").get(requestId)) as {request:string;activation_config:string;phase:string}|undefined;
   if(!active||active.request!==requestId||active.phase!=="active")throw new Error("An active city payment configuration is required before changing its payout destination.");
   const current=managedProvisionConfigSchema.parse(JSON.parse(active.activation_config));
   const evidence=await this.resolve(requestId,current),next=managedProvisionConfigSchema.parse(evidence.config);

@@ -118,7 +118,7 @@ async function reconcileCity(service:NonNullable<ReturnType<typeof runtime>>,cit
     const latest=service.db.prepare("SELECT MAX(version) payoutVersion FROM payout_destination_version WHERE city_id=?").get(city) as {payoutVersion:number|null};
     const known=service.payoutUpdates.status(city);
     if(active&&latest.payoutVersion!==null&&latest.payoutVersion>active.payoutVersion&&(!known||known.state==="active"&&known.payoutVersion<latest.payoutVersion)){
-      try{await service.payoutUpdates.enqueue(request.id);}catch(error){console.warn(`Managed payout update deferred for ${city}: ${managedReservationPreflightReason(error)}.`);}
+      try{await service.payoutUpdates.enqueue(request.id,service.madeiraBridge&&city===MADEIRA_PILOT.cityId?city:undefined);}catch(error){console.warn(`Managed payout update deferred for ${city}: ${managedReservationPreflightReason(error)}.`);}
     }
     const update=service.payoutUpdates.status(city);if(update&&update.state!=="active"&&update.state!=="blocked")await service.payoutUpdates.run(city);
   }
@@ -133,8 +133,9 @@ export function managedProvisioningStatus(city:string){const service=runtime();r
   reservation:service.reservation.status(city),activation:service.activation.status(city),payoutUpdate:service.payoutUpdates.status(city),activationEnabled:service.activationEnabled}:null;}
 
 export async function queueManagedPayoutUpdate(city:string){const service=runtime();if(!service||!service.allow.has(city))return null;
- const request=service.db.prepare("SELECT id FROM city_brand_request WHERE city_id=? AND status='active' ORDER BY rowid DESC LIMIT 1").get(city) as {id:string}|undefined;
- if(!request)return null;await service.payoutUpdates.enqueue(request.id);return service.payoutUpdates.status(city);}
+ let request=service.db.prepare("SELECT id FROM city_brand_request WHERE city_id=? AND status='active' ORDER BY rowid DESC LIMIT 1").get(city) as {id:string}|undefined;
+ let legacy=false;if(!request&&service.madeiraBridge&&city===MADEIRA_PILOT.cityId){const active=service.db.prepare("SELECT request FROM rustress_activation_task WHERE city=? AND phase='active'").get(city) as {request:string}|undefined;if(active){request={id:active.request};legacy=true;}}
+ if(!request)return null;await service.payoutUpdates.enqueue(request.id,legacy?city:undefined);return service.payoutUpdates.status(city);}
 
 export async function retryManagedProvisioning(city:string,actor:string){
   if(actor!==SUPER_ADMIN_PUBKEY)throw new Error("Super-admin provisioning recovery required.");

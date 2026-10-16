@@ -5,9 +5,11 @@ type SetupRow={cityId:string;cityName:string;state:"setup-required"|"payout-conf
  * paid-city workspace an organizer can open. */
 export function organizerProCityIds(db:DatabaseSync,actor:string):string[]{
  if(!/^[0-9a-f]{64}$/.test(actor))return[];
- return (db.prepare(`SELECT task.cityId FROM pro_setup_task task JOIN paid_city_entitlement entitlement
-  ON entitlement.cityId=task.cityId AND entitlement.invoiceId=task.entitlementId
-  WHERE task.currentOwnerPubkey=? ORDER BY task.cityId`).all(actor) as Array<{cityId:string}>).map(row=>row.cityId);
+ const legacy=!!db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='legacy_pro_entitlement'").get();
+ return (db.prepare(`SELECT task.cityId FROM pro_setup_task task WHERE task.currentOwnerPubkey=? AND (EXISTS(
+  SELECT 1 FROM paid_city_entitlement entitlement WHERE entitlement.cityId=task.cityId AND entitlement.invoiceId=task.entitlementId)${legacy?` OR EXISTS(
+  SELECT 1 FROM legacy_pro_entitlement entitlement WHERE entitlement.cityId=task.cityId AND entitlement.entitlementId=task.entitlementId)`:""})${legacy?` UNION
+  SELECT cityId FROM legacy_pro_entitlement WHERE originalOwnerPubkey=?`:""} ORDER BY cityId`).all(...(legacy?[actor,actor]:[actor])) as Array<{cityId:string}>).map(row=>row.cityId);
 }
 /** Owner-only, non-secret projection for the first dashboard action after login. */
 export function organizerProNextActions(db:DatabaseSync,actor:string,now=Math.floor(Date.now()/1000)):OrganizerProNextAction[]{

@@ -60,6 +60,8 @@ describe("durable Pro setup tasks", () => {
 
   it("allows owner equals brand only for the explicit MEP transfer path",()=>{const {store}=setup();store.ensure({cityId,entitlementId,originalOwnerPubkey:owner,currentOwnerPubkey:nextOwner},100);expect(()=>store.confirmSigner(cityId,entitlementId,nextOwner,nextOwner,101)).toThrow("separate");expect(store.confirmSigner(cityId,entitlementId,nextOwner,nextOwner,102,true)).toMatchObject({signer:{pubkey:nextOwner},state:"signer-confirmed"});});
 
+  it("adopts an operator-verified legacy signer only while the original owner remains current",()=>{const {store}=setup();store.ensure({cityId,entitlementId,originalOwnerPubkey:owner,currentOwnerPubkey:owner},100);expect(store.adoptVerifiedSigner(cityId,entitlementId,owner,owner,101)).toMatchObject({state:"signer-confirmed",signer:{pubkey:owner,version:1}});expect(store.adoptVerifiedSigner(cityId,entitlementId,owner,owner,102)).toMatchObject({signer:{version:1,confirmedAt:101}});store.ensure({cityId,entitlementId,originalOwnerPubkey:owner,currentOwnerPubkey:nextOwner},110);expect(()=>store.adoptVerifiedSigner(cityId,entitlementId,nextOwner,owner,111)).toThrow("current owner");});
+
   it("fails closed on entitlement or checkout binding conflicts", () => {
     const {store} = setup();
     store.ensure({cityId, entitlementId, originalOwnerPubkey: owner, currentOwnerPubkey: owner, registrationVersion: 1});

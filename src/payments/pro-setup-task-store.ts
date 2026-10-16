@@ -102,6 +102,19 @@ export class ProSetupTaskStore {
     return this.view(this.row(cityId)!);
   }
 
+  /** Adopts a signer already proven by an operator-reviewed activation. This
+   * must never be called with browser-supplied evidence. */
+  adoptVerifiedSigner(cityId:string,entitlementId:string,currentOwnerPubkey:string,brandPubkey:string,now=Math.floor(Date.now()/1000)):ProSetupTask{
+    const row=this.row(cityId);
+    if(!row||row.entitlementId!==entitlementId||row.currentOwnerPubkey!==currentOwnerPubkey||row.originalOwnerPubkey!==currentOwnerPubkey||!/^[0-9a-f]{64}$/.test(brandPubkey))
+      throw new Error("Legacy city signer evidence does not match the current owner.");
+    if(row.brandPubkey!==null&&row.brandPubkey!==brandPubkey)throw new Error("Saved city signer differs from legacy activation evidence.");
+    if(row.brandPubkey===brandPubkey&&row.backupAcknowledgedAt!==null)return this.view(row);
+    this.db.prepare(`UPDATE pro_setup_task SET brandPubkey=?,brandVersion=brandVersion+1,backupAcknowledgedAt=?,
+      state=CASE WHEN payoutVersion IS NULL THEN 'signer-confirmed' ELSE 'ready-for-proof' END,updatedAt=? WHERE cityId=?`).run(brandPubkey,now,now,cityId);
+    return this.view(this.row(cityId)!);
+  }
+
   clearSigner(cityId: string, entitlementId: string, currentOwnerPubkey: string, now = Math.floor(Date.now() / 1000)): ProSetupTask {
     const row = this.row(cityId);
     if (!row || row.entitlementId !== entitlementId || row.currentOwnerPubkey !== currentOwnerPubkey) throw new Error("Pro setup authority changed. Reload and try again.");
