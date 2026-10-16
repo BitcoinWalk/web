@@ -13,7 +13,7 @@ const positive=money.refine(value=>BigInt(value)>0n);
 export type SponsorHostObligation={orderId:string;invitationId:string;cityId:string;hostPubkey:string;payoutVersion:number;receivedMsat:string;hostMsat:string;retainedMsat:string;state:"owed"|"unknown"|"paid"};
 export type SponsorPayoutStatus={state:SponsorHostObligation["state"];amountMsat:string;attemptState:AttemptRow["state"]|null;feeMsat:string|null;feeLimitExceeded:boolean};
 type AttemptRow={id:string;orderId:string;walletRef:string;destinationFingerprint:string;paymentHash:string;amountMsat:string;feeCapMsat:string;expiresAt:number;state:"prepared"|"unknown"|"paid"|"cancelled";invoiceDocument:string;feeMsat:string|null;createdAt:number;updatedAt:number};
-type Authorization={obligation:SponsorHostObligation;destination:PayoutDestinationVersion;walletRef:string;paymentHash:string|null;amountMsat:string;maximumFeeMsat:string};
+export type SponsorPayoutAuthorization={obligation:SponsorHostObligation;destination:PayoutDestinationVersion;walletRef:string;paymentHash:string|null;amountMsat:string;maximumFeeMsat:string};
 type RetrievedInvoice=ReturnType<typeof validateOutgoingInvoice>;
 
 /** Durable sponsorship-only send ledger. It deliberately does not share credits,
@@ -60,6 +60,33 @@ export class SponsorPayoutStore{
    this.db.prepare("UPDATE sponsorship_host_payout_attempt SET state='unknown',updatedAt=? WHERE id=? AND state='prepared'").run(this.now(),id);
    this.db.prepare("UPDATE sponsorship_host_obligation SET state='unknown' WHERE orderId=? AND state='owed'").run(row.orderId);return true;});
  }
+ /** Atomic wallet-wide lifetime limit. Unknown sends reserve their full fee cap;
+  * confirmed sends use the exact fee returned by the bound wallet. */
+ claimWithinBudget(id:string,walletRef:string,budgetMsat:string){
+  ref.parse(walletRef);positive.parse(budgetMsat);
+  return this.transaction(()=>{const row=this.row(uuid.parse(id));if(!row||row.state!=="prepared"||row.walletRef!==walletRef)return false;
+   const obligation=this.obligation(row.orderId);if(!obligation||obligation.state!=="owed")return false;
+   const attempts=this.db.prepare("SELECT amountMsat,feeCapMsat,feeMsat,state FROM sponsorship_host_payout_attempt WHERE walletRef=? AND state IN ('unknown','paid')").all(walletRef) as Pick<AttemptRow,"amountMsat"|"feeCapMsat"|"feeMsat"|"state">[];
+   const used=attempts.reduce((sum,attempt)=>sum+BigInt(attempt.amountMsat)+BigInt(attempt.state==="paid"?attempt.feeMsat!:attempt.feeCapMsat),0n);
+   if(used+BigInt(row.amountMsat)+BigInt(row.feeCapMsat)>BigInt(budgetMsat))return false;
+   this.db.prepare("UPDATE sponsorship_host_payout_attempt SET state='unknown',updatedAt=? WHERE id=? AND state='prepared'").run(this.now(),id);
+   this.db.prepare("UPDATE sponsorship_host_obligation SET state='unknown' WHERE orderId=? AND state='owed'").run(row.orderId);return true;});
+ }
+ budgetUsage(walletRef:string){
+  ref.parse(walletRef);const attempts=this.db.prepare("SELECT amountMsat,feeCapMsat,feeMsat,state FROM sponsorship_host_payout_attempt WHERE walletRef=? AND state IN ('unknown','paid')").all(walletRef) as Pick<AttemptRow,"amountMsat"|"feeCapMsat"|"feeMsat"|"state">[];
+  return {usedMsat:String(attempts.reduce((sum,attempt)=>sum+BigInt(attempt.amountMsat)+BigInt(attempt.state==="paid"?attempt.feeMsat!:attempt.feeCapMsat),0n)),uncertain:attempts.filter(attempt=>attempt.state==="unknown").length};
+ }
+ recoveryAttempts(walletRef:string){
+  ref.parse(walletRef);return (this.db.prepare("SELECT * FROM sponsorship_host_payout_attempt WHERE walletRef=? ORDER BY createdAt,id").all(walletRef) as AttemptRow[]).map(row=>{
+   const commitment=createHash("sha256").update(JSON.stringify({id:row.id,orderId:row.orderId,walletRef:row.walletRef,destinationFingerprint:row.destinationFingerprint,paymentHash:row.paymentHash,amountMsat:row.amountMsat,feeCapMsat:row.feeCapMsat,expiresAt:row.expiresAt,invoiceDocument:row.invoiceDocument})).digest("hex");
+   return {id:row.id,orderId:row.orderId,state:row.state,hash:row.paymentHash,commitment};
+  });
+ }
+ quarantineAttempt(id:string){
+  return this.transaction(()=>{const row=this.row(uuid.parse(id));if(!row||row.state!=="prepared")return false;const obligation=this.obligation(row.orderId);if(!obligation||obligation.state!=="owed")return false;
+   this.db.prepare("UPDATE sponsorship_host_payout_attempt SET state='unknown',updatedAt=? WHERE id=? AND state='prepared'").run(this.now(),id);
+   this.db.prepare("UPDATE sponsorship_host_obligation SET state='unknown' WHERE orderId=? AND state='owed'").run(row.orderId);return true;});
+ }
  cancelExpired(id:string){return this.transaction(()=>{const row=this.row(uuid.parse(id));if(!row||row.state!=="prepared")return false;this.db.prepare("UPDATE sponsorship_host_payout_attempt SET state='cancelled',updatedAt=? WHERE id=? AND state='prepared'").run(this.now(),id);return true;});}
  confirmPaid(id:string,result:{walletRef:string;paymentHash:string;amountMsat:string;feeMsat:string;preimage:string}){
   ref.parse(result.walletRef);hex.parse(result.paymentHash);positive.parse(result.amountMsat);money.parse(result.feeMsat);hex.parse(result.preimage);
@@ -78,11 +105,11 @@ export class SponsorPayoutStore{
  * authorization. No browser request can choose a destination or invoice. */
 export class SponsorPayoutSender{
  constructor(private store:SponsorPayoutStore,private destinations:{version:(cityId:string,version:number)=>PayoutDestinationVersion|null},private wallet:PayoutWallet,
-  private authorize:(input:Authorization)=>Promise<boolean>,private feeCap:(obligation:SponsorHostObligation)=>string,
-  private options:{now?:()=>number;retrieve?:(destination:string,amountMsat:string,network:OutgoingTerms["network"])=>Promise<RetrievedInvoice>}={}){}
+  private authorize:(input:SponsorPayoutAuthorization)=>Promise<boolean>,private feeCap:(obligation:SponsorHostObligation)=>string,
+  private options:{now?:()=>number;retrieve?:(destination:string,amountMsat:string,network:OutgoingTerms["network"])=>Promise<RetrievedInvoice>;claim?:(attemptId:string)=>boolean|Promise<boolean>}={}){}
  private now(){return (this.options.now??(()=>Math.floor(Date.now()/1000)))();}
  private destination(obligation:SponsorHostObligation){const value=this.destinations.version(obligation.cityId,obligation.payoutVersion);if(!value||value.ownerPubkey!==obligation.hostPubkey)throw new Error("Sponsor payout destination version mismatch");return value;}
- private authority(obligation:SponsorHostObligation,destination:PayoutDestinationVersion,paymentHash:string|null,maximumFeeMsat:string):Authorization{return {obligation,destination,walletRef:this.wallet.walletRef,paymentHash,amountMsat:obligation.hostMsat,maximumFeeMsat};}
+ private authority(obligation:SponsorHostObligation,destination:PayoutDestinationVersion,paymentHash:string|null,maximumFeeMsat:string):SponsorPayoutAuthorization{return {obligation,destination,walletRef:this.wallet.walletRef,paymentHash,amountMsat:obligation.hostMsat,maximumFeeMsat};}
  async process(orderId:string):Promise<SponsorPayoutStatus|null>{
   try{
    let obligation=this.store.obligation(orderId);if(!obligation||obligation.state==="paid")return this.store.status(orderId);
@@ -106,7 +133,7 @@ export class SponsorPayoutSender{
     if(attempt.expiresAt<=this.now()+30){this.store.cancelExpired(attempt.id);return this.process(orderId);}
     if(!await this.authorize(this.authority(obligation,destination,attempt.paymentHash,attempt.feeCapMsat)))return this.store.status(orderId);
     validateOutgoingInvoice(document.invoice,document.terms,this.now());
-    if(this.store.claim(attempt.id)){try{await this.wallet.send({invoice:checked.paymentRequest,maximumFeeMsat:attempt.feeCapMsat,paymentHash:attempt.paymentHash});}catch{/* An ambiguous send is reconciled only by exact-hash lookup. */}}
+    if(await (this.options.claim?.(attempt.id)??this.store.claim(attempt.id))){try{await this.wallet.send({invoice:checked.paymentRequest,maximumFeeMsat:attempt.feeCapMsat,paymentHash:attempt.paymentHash});}catch{/* An ambiguous send is reconciled only by exact-hash lookup. */}}
    }
    attempt=this.store.active(orderId)!;if(attempt.state!=="unknown")return this.store.status(orderId);
    const result=await this.wallet.lookup(attempt.paymentHash);if(result.state==="paid")this.store.confirmPaid(attempt.id,result);

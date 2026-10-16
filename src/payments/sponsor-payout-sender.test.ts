@@ -70,6 +70,15 @@ describe("sponsorship host payout sender",()=>{
   const f=fixture();const other=new SponsorPayoutSender(f.store,f.destinations,f.wallet,f.authorize,()=>"5000",{now:()=>time,retrieve:f.retrieve});
   await Promise.all([f.sender.process(orderId),other.process(orderId)]);expect(f.wallet.send).toHaveBeenCalledTimes(1);expect(f.store.status(orderId)?.state).toBe("paid");
  });
+ it("atomically reserves the lifetime budget including the full fee cap for unknown sends",()=>{
+  const f=fixture(),secondOrder="10000000-0000-4000-8000-000000000002",secondInvitation="20000000-0000-4000-8000-000000000002",secondPreimage="13".repeat(32),secondHash=createHash("sha256").update(Buffer.from(secondPreimage,"hex")).digest("hex");
+  f.db.prepare("INSERT INTO sponsorship_host_obligation VALUES(?,?,?,?,?,?,?,?, 'owed')").run(secondOrder,secondInvitation,cityId,host,3,received,hostMsat,retained);
+  const first=validateOutgoingInvoice(makeInvoice(),terms,time),second=validateOutgoingInvoice(makeInvoice(time,secondHash),terms,time),fingerprint="ab".repeat(32);
+  const a=f.store.reserve({id:"40000000-0000-4000-8000-000000000001",orderId,walletRef:"sponsor-wallet",destinationFingerprint:fingerprint,paymentHash:first.paymentHash,amountMsat:hostMsat,feeCapMsat:"5000",expiresAt:first.expiresAt,invoice:first.paymentRequest,terms:first.terms});
+  const b=f.store.reserve({id:"40000000-0000-4000-8000-000000000002",orderId:secondOrder,walletRef:"sponsor-wallet",destinationFingerprint:fingerprint,paymentHash:second.paymentHash,amountMsat:hostMsat,feeCapMsat:"5000",expiresAt:second.expiresAt,invoice:second.paymentRequest,terms:second.terms});
+  expect(f.store.claimWithinBudget(a.id,"sponsor-wallet","33185000")).toBe(true);expect(f.store.claimWithinBudget(b.id,"sponsor-wallet","33185000")).toBe(false);
+  expect(f.store.budgetUsage("sponsor-wallet")).toEqual({usedMsat:"33185000",uncertain:1});expect(f.store.status(secondOrder)).toMatchObject({state:"owed",attemptState:"prepared"});
+ });
  it("rejects corrupt obligation arithmetic before any wallet work",async()=>{
   const f=fixture();f.db.prepare("UPDATE sponsorship_host_obligation SET hostMsat='33000000'").run();expect(await f.sender.process(orderId)).toBeNull();expect(f.retrieve).not.toHaveBeenCalled();expect(f.wallet.send).not.toHaveBeenCalled();
  });

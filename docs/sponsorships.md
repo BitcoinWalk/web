@@ -199,7 +199,19 @@ sponsorship payout sender. It binds every send to the settled obligation's exact
 host, city and payout-destination version, preserves the host's full 79% while
 charging fees only against BitcoinWalk's retained share, commits an unknown
 state before sending and reconciles ambiguous outcomes by exact payment-hash
-lookup without resending. It has no live wallet or scheduler wiring. Until its
-dedicated wallet, budget, backup, monitoring and deployment evidence are
-reviewed, `BITCOINWALK_SPONSOR_HOST_PAYOUT_ENABLED` must remain disabled and the
-product must not display a host invitation button or promise a host share.
+lookup without resending.
+
+The activation foundation requires a dedicated isolated Alby Hub connection,
+distinct from both sponsorship checkout and ordinary city-zap connections. Its
+only permitted methods are payment, exact lookup and the read probes needed for
+recovery; invoice creation and notifications are excluded. The spending budget
+must never renew. A signed operation binds the exact release, wallet fingerprint,
+off-host journal, lifetime budget, payout and fee ceilings, reviewed cities and
+a maximum seven-day window. The local budget claim is atomic, unknown sends
+reserve their full fee cap, and restart recovery requires every possible send to
+match both the off-host journal and authenticated wallet history.
+
+These components still have no live credential, listener or scheduler wiring.
+Until the isolated wallet, backup/restore, monitoring and deployment evidence
+are reviewed, `BITCOINWALK_SPONSOR_HOST_PAYOUT_ENABLED` must remain disabled and
+the product must not display a host invitation button or promise a host share.
