@@ -15,6 +15,9 @@ export async function paymentFetch(event:Event){
  return result as {payment?:PaymentView|null;payments?:PaymentView[];logoPacks?:LogoPackView[];proCityIds?:string[];proSetupActions?:OrganizerProNextAction[];identityHealth?:CityIdentityHealth[];identityHealthError?:string};
 }
 export function signPayment(command:PaymentCommand,owner:string){return (command.action==="list"||command.action==="status"?signReadForOrganizer:signForOrganizer)(paymentRequest(command,window.location.origin),owner);}
+export function paidPlanMessage(source:PaymentView["source"]){return source==="admin-pro-promotion-v1"?"Pro access granted by BitcoinWalk. Your city plan is Pro.":"Payment verified. Your city plan is Pro.";}
+export function paymentReferenceLabel(source:PaymentView["source"]){return source==="admin-pro-promotion-v1"?"Administrative grant event":"Payment hash";}
+export function planHeading(source:PaymentView["source"]){return source==="admin-pro-promotion-v1"?"Pro plan — lifetime access":"Pro plan — 21,000 sats";}
 
 export default function CityPayment({cityId,revisionId,owner,payoutDestination,autoCreate=false,passive=false,onPaid}:{cityId:string;revisionId:string;owner:string;payoutDestination:string;autoCreate?:boolean;passive?:boolean;onPaid?:()=>void}){
  const [payment,setPayment]=useState<PaymentView|null>(null),[error,setError]=useState(""),[busy,setBusy]=useState(false);
@@ -47,8 +50,8 @@ export default function CityPayment({cityId,revisionId,owner,payoutDestination,a
   },15000);
   return()=>{active=false;clearInterval(timer);};
  },[readRequest,payment?.status,passive,refresh]);
- return <section className="city-plan-payment" aria-label="Pro plan payment"><h3>Pro plan — 21,000 sats</h3>
-  {payment?.tier==="paid"?<p role="status"><strong>Payment verified. Your city plan is Pro.</strong> City review and setup of the included services continue separately.</p>:<>
+ return <section className="city-plan-payment" aria-label="Pro plan payment"><h3>{planHeading(payment?.source)}</h3>
+  {payment?.tier==="paid"?<p role="status"><strong>{paidPlanMessage(payment.source)}</strong> City review and setup of the included services continue separately.</p>:<>
    <p>Pay the one-time lifetime fee with a lightning wallet. Payment is verified automatically.</p>
    {payment?.invoice&&payment.status==="pending"&&<QRCodeSVG value={`lightning:${payment.invoice}`} size={320} level="M" marginSize={2} title="Lightning invoice QR code for 21,000 sats"/>}
    {payment?.status==="pending"&&<><p><a href={`lightning:${payment.invoice}`}>Open lightning wallet</a></p><label>Invoice<textarea readOnly value={payment.invoice} rows={4}/></label>{!passive&&<button type="button" onClick={()=>void navigator.clipboard.writeText(payment.invoice).catch(()=>setError("Copy the invoice from the field above."))}>Copy invoice</button>}<p>Expires: {new Date(payment.expiresAt*1000).toLocaleString()}</p></>}
@@ -56,7 +59,7 @@ export default function CityPayment({cityId,revisionId,owner,payoutDestination,a
    {payment&&(payment.status==="creating"||payment.status==="creation-uncertain")&&<p>Invoice creation needs support review. Your order has been preserved.</p>}
    {(!payment||payment.status==="expired")&&!passive&&<button type="button" disabled={busy} onClick={()=>void refresh(true)}>{busy?"Preparing invoice…":"Get 21,000-sat invoice"}</button>}
   </>}
-  {payment?.paymentHash&&<p>Payment hash: <code style={{overflowWrap:"anywhere"}}>{payment.paymentHash}</code></p>}
+  {payment?.paymentHash&&<p>{paymentReferenceLabel(payment.source)}: <code style={{overflowWrap:"anywhere"}}>{payment.paymentHash}</code></p>}
   {!passive&&<button type="button" disabled={busy} onClick={()=>void refresh(false)}>{busy?"Checking…":"Check payment"}</button>}
   {error&&<p role="alert">{error}</p>}
  </section>;
