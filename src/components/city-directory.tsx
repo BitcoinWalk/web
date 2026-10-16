@@ -13,6 +13,7 @@ import {DEFAULT_HOME_PAGE,HOME_PAGE_ID,type ContentPage} from "../domain/content
 import {latestContentPages,queryContentRevisions} from "../nostr/content-records";
 import {filterHomeSponsoredWalks,type HomeSponsoredWalk} from "../domain/home-sponsored-walks";
 import {heroObjectPosition} from "../domain/hero-presentation";
+import {isLuganoPlanBConference} from "../domain/share-campaign";
 import SponsoredWalks from "./sponsored-walks";
 import styles from "./city-directory.module.css";
 const DirectoryMap=dynamic(()=>import("./directory-map"),{ssr:false,loading:()=> <p>Loading map…</p>});
@@ -25,8 +26,12 @@ function Photo({src,alt}:{src?:string;alt:string}) {
 }
 function Card({row}:{row:DirectoryCity}) {
   const {city}=row;
+  const luganoPlanB=isLuganoPlanBConference(city.slug,[city.heroImageUrl]);
   return <article className={styles.card}>
-    <Photo key={city.heroImageUrl} src={directoryImage(city.heroImageUrl)} alt={`BitcoinWalk in ${city.cityName}`}/>
+    <div className={styles.cardMedia} data-campaign={luganoPlanB?"lugano-planb":undefined}>
+      <Photo key={city.heroImageUrl} src={directoryImage(city.heroImageUrl)} alt={`BitcoinWalk in ${city.cityName}`}/>
+      {luganoPlanB&&<Image className={styles.campaignLogo} src="/brand/campaigns/lugano-planb-forum-2026.png" width={408} height={225} alt="Plan ₿ Forum — Lugano, October 23–24, 2026"/>}
+    </div>
     <div className={styles.content}><p className={styles.eyebrow}>{row.tier==="paid"?"Dedicated city relay":"Community walk"}</p>
       <h3><a href={row.href}>BitcoinWalk {city.cityName}</a></h3>
       <p>{row.hasUpcomingWalk?new Intl.DateTimeFormat(undefined,{dateStyle:"medium",timeStyle:"short"}).format(new Date(city.startAt)):"No upcoming walk scheduled."}</p>
