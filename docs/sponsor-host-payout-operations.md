@@ -71,3 +71,27 @@ remained unchanged at version `0.2.14`, mode `operation`, state `running`.
 This evidence authorizes no payout. Health still reports
 `restartReconciliation: blocked-disabled`, zero wallet access and both payouts
 and host invitations disabled.
+
+## Private wallet handoff checkpoint — 16 October 2026
+
+The isolated **BitcoinWalk Sponsor Payout** connection has a zero balance, a
+100,000-sat non-renewing lifetime budget and only the required payment and
+recovery-read permissions. An accidentally disclosed predecessor credential was
+never installed and its Hub connection was revoked before use. The replacement
+credential was pasted directly from Hub into a masked terminal prompt; it did
+not pass through command arguments, environment variables, shell history, Git
+or deployment archives.
+
+Package `bitcoinwalk-sponsor-payout-readiness-0.1.1` stores the credential below
+the non-root `bitcoinwalk` account's mode-0700 state directory in a mode-0600
+file. The exact bundled one-shot probe then authenticated to the wallet on
+Bitcoin mainnet and successfully performed only `get_info` and a one-row
+`list_transactions` read. It created no invoice and sent no payment. Redacted
+evidence is retained owner-only at
+`readiness/nwc-readiness.json`; the probe prints no wallet identifier, relay,
+balance, transaction or secret.
+
+After the read, the persistent payout container remained version `0.1.0`, mode
+`disabled`, network `none` and state `running`. Its credential is not mounted
+into that container. This closes the private handoff and non-spending protocol
+readiness gate only; it does not authorize service activation or wallet funding.
