@@ -1,5 +1,5 @@
 import {describe,expect,it} from "vitest";
-import {isLuganoPlanBConference,isManchesterBitfestCampaign,luganoPlanBCityPreview,luganoPlanBWalkPreview,manchesterBitfestCityPreview,manchesterBitfestWalkPreview,LUGANO_PLANB_MEDIA_HASH,MANCHESTER_BITFEST_MEDIA_HASH} from "./share-campaign";
+import {isLuganoPlanBConference,isManchesterBitfestCampaign,luganoPlanBCityPreview,luganoPlanBWalkPreview,manchesterBitfestCityPreview,manchesterBitfestWalkPreview,LUGANO_PLANB_CITYSCAPE_MEDIA_HASH,LUGANO_PLANB_MEDIA_HASH,MANCHESTER_BITFEST_MEDIA_HASH} from "./share-campaign";
 
 const hero=`https://app-staging.bitcoinwalk.org/api/media/files/${MANCHESTER_BITFEST_MEDIA_HASH}.webp`;
 describe("Manchester Bitfest share campaign",()=>{
@@ -22,6 +22,7 @@ describe("Lugano Plan B Forum share campaign",()=>{
   const hero=`https://app-staging.bitcoinwalk.org/api/media/files/${LUGANO_PLANB_MEDIA_HASH}.webp`;
   it("is bound to Lugano and the exact approved conference hero",()=>{
     expect(isLuganoPlanBConference("lugano",[hero])).toBe(true);
+    expect(isLuganoPlanBConference("lugano",[`https://app-staging.bitcoinwalk.org/api/media/files/${LUGANO_PLANB_CITYSCAPE_MEDIA_HASH}.webp`])).toBe(true);
     expect(isLuganoPlanBConference("lugano",[`https://app-staging.bitcoinwalk.org/api/media/files/${"a".repeat(64)}.webp`])).toBe(false);
     expect(isLuganoPlanBConference("another-city",[hero])).toBe(false);
   });
