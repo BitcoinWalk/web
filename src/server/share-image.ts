@@ -4,7 +4,7 @@ import {join} from "node:path";
 import sharp from "sharp";
 import {readMedia} from "./media-store";
 import type {ShareBackgroundPosition} from "../domain/hero-presentation";
-const VERSION="og-city-v11",WIDTH=1200,HEIGHT=630;
+const VERSION="og-city-v12",WIDTH=1200,HEIGHT=630;
 const digest=(body:Buffer)=>createHash("sha256").update(body).digest("hex");
 const root=()=>join(process.env.BITCOINWALK_MEDIA_ROOT||join(process.env.TMPDIR||"/tmp","bitcoinwalk-media"),"og");
 const pending=new Map<string,Promise<string>>();
