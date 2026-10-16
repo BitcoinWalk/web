@@ -124,7 +124,7 @@ export default function CitySignerSetup({cityId, cityName, actor, saved, activat
     <p>This signer controls the public <strong>BitcoinWalk in {cityName}</strong> identity. It never replaces your personal dashboard login.</p>
     {saved.configured && saved.pubkey && <p><strong>Expected city identity:</strong> <code title={nip19.npubEncode(saved.pubkey)}>{short(saved.pubkey)}</code> · version {saved.version}</p>}
     {!pubkey ? <>
-      {saved.pubkey===actor&&<><button type="button" onClick={connectExistingCityAccount}>Use connected city identity</button><p><small>This existing city account is already the verified owner and public identity. No replacement account is needed.</small></p></>}
+      {saved.configured&&<div className="city-signer-reuse"><p><strong>Reuse the existing city identity.</strong><br/><small>This city already has a saved, verified identity. Reconnect it; do not create another account.</small></p>{saved.pubkey===actor&&<button type="button" onClick={connectExistingCityAccount}>Use connected city identity</button>}</div>}
       {!saved.configured && <button type="button" onClick={create}>Create new city identity</button>}
       <p>{saved.configured ? "Reconnect the expected city identity using its remote signer or saved backup:" : "Or connect a city identity kept in a remote signer or load an existing backup:"}</p>
       <label>City private key or bunker signer<input type="password" value={input} onChange={event => setInput(event.target.value)} placeholder="nsec1… or bunker://…" autoComplete="off" spellCheck={false}/></label>
@@ -140,7 +140,7 @@ export default function CitySignerSetup({cityId, cityName, actor, saved, activat
       {saved.configured&&saved.pubkey===pubkey&&profile?.nip05&&<button type="button" onClick={publishProfile}>Publish verified city profile</button>}
     </>}
     {activation&&<p><strong>{activationExpired ? "Activation request expired" : activation.proofsReady?"Awaiting super-admin review":"Activation request prepared"}</strong> · {activationExpired ? "Your saved payout and city signer are unchanged." : <>expires {new Date(activation.expiresAt*1000).toLocaleString()}</>} <button type="button" onClick={activationExpired ? () => onActivation(undefined, "Expired request dismissed. Sign a new activation request when ready; no payment or new identity is required.") : cancelActivation}>{activationExpired ? "Dismiss expired request" : "Cancel request"}</button></p>}
-    {saved.configured && <button type="button" onClick={clearSaved}>Clear saved city signer</button>}
+    {saved.configured && <details className="city-signer-advanced"><summary>Identity replacement and recovery</summary><p><small>Only clear the saved identity when you intentionally need to replace it. This does not create a replacement or activate one.</small></p><button type="button" onClick={clearSaved}>Clear saved city signer</button></details>}
     {message && <p role="status">{message}</p>}
   </fieldset>;
 }
