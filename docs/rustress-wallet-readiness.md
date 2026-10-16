@@ -578,6 +578,25 @@ cleanup passed, with no temporary restore directory remaining. External failure
 alerting and post-initialization wallet/history reconciliation remain open. See the
 [backup and key-custody runbook](hub-candidate-backups.md).
 
+### Live Hub migration boundary audit — 16 October 2026
+
+The public Hub reports v1.24.0, setup complete and running on Bitcoin mainnet at
+the private loopback listener `127.0.0.1:8080`. It is not present in the
+`bitcoinwalk` account's rootless Docker namespace: that namespace contains only
+the stopped, reviewed fee-cap candidate. The active listener belongs to the
+root-owned Docker boundary, so the live container identity and persistent mount
+must be established before a real-state rehearsal can be designed.
+
+`inspect-live-hub-boundary.sh` is a root-only, read-only inventory for that
+checkpoint. It first verifies the non-sensitive Hub readiness response, then
+requires exactly one running root-owned container serving port 8080. Its output
+is limited to image identity, start time, restart/network/read-only policy, port
+binding and mount locations. It never prints container environment, labels,
+command arguments, database contents, credentials, recovery material or wallet
+balances. The package checker rejects stop/start/restart/remove/copy/exec,
+SQLite and decryption operations. Running this audit does not authorize a live
+backup, permission change, migration, service interruption or candidate start.
+
 Reviewed official tag v1.24.0, commit
 `d8ef0e70e0d265a8424276daee0a595ac31993c0`:
 
