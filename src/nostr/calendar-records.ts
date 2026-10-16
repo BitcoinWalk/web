@@ -79,6 +79,7 @@ function matchesOccurrenceDays(event:Event,start:number,end:number):boolean {try
 function matchesGeohash(event:Event,latitude:number,longitude:number):boolean {const geohash=one(event,"g");return geohash===null||geohash===encodeGeohash(latitude,longitude);}
 const managedImage=/^https:\/\/(?:app-staging\.)?bitcoinwalk\.org\/api\/media\/files\/[0-9a-f]{64}\.webp$/;
 export function calendarImageOverride(event:Event):string|null {const marker=one(event,"bitcoinwalk-image"),image=one(event,"image");return marker==="override-v1"&&image&&managedImage.test(image)?image:null;}
+export function calendarContentImage(event:Event):string|null {const image=one(event,"bitcoinwalk-content-image");return image&&managedImage.test(image)?image:null;}
 export function calendarRoute(event:Event):string|null {if(one(event,"bitcoinwalk-route")!=="alltrails-v1")return null;for(const tag of event.tags.filter(tag=>tag[0]==="r"&&tag.length===2)){try{const route=allTrailsRoute(tag[1]);if(route)return route.url;}catch{}}return null;}
 export function matchesOrganizerCalendar(event:Event,walk:CalendarWalk):boolean {
   if(event.kind!==31923||isSuperAdmin(event.pubkey)||!verifyEvent(event))return false;
@@ -86,6 +87,7 @@ export function matchesOrganizerCalendar(event:Event,walk:CalendarWalk):boolean 
   if(one(event,"bitcoinwalk")!=="occurrence-v1"||one(event,"i")!==city.cityId||source(event,"city-revision")!==walk.revision.event.id||source(event,"city-approval")!==walk.approval.event.id)return false;
   const override=calendarImageOverride(event),marker=one(event,"bitcoinwalk-image");
   if(marker!==null&&marker!=="override-v1"||marker==="override-v1"&&!override)return false;
+  const contentImages=event.tags.filter(tag=>tag[0]==="bitcoinwalk-content-image");if(contentImages.length>1||contentImages.length===1&&!calendarContentImage(event))return false;
   if(one(event,"title")!==`BitcoinWalk ${city.cityName}`||one(event,"summary")!==`BitcoinWalk in ${city.cityName}`||(!override&&one(event,"image")!==(city.heroImageUrl??null))||one(event,"t")!=="bitcoinwalk"||event.content.trim().length<1||event.content.length>5000)return false;
   const start=Number(one(event,"start")),end=Number(one(event,"end"));
   if(!Number.isSafeInteger(start)||!Number.isSafeInteger(end)||end-start<900||end-start>43200||!matchesOccurrenceDays(event,start,end))return false;

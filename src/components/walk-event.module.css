@@ -1,0 +1,2 @@
+.contentImage{margin:1.25rem 0 1.75rem;max-width:960px}
+.contentImage img{display:block;width:100%;height:auto;max-height:720px;object-fit:contain;border-radius:9px;outline:1px solid oklch(0 0 0 / .1);outline-offset:-1px;background:#f4f4f4}

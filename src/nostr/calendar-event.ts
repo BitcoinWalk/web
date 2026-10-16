@@ -94,6 +94,7 @@ export function createOrganizerCalendarEvent(walk: CalendarWalk, occurrence: Loc
     event.tags=event.tags.filter(tag=>tag[0]!=="image");
     event.tags.push(["image",occurrence.heroImageUrl],["bitcoinwalk-image","override-v1"]);
   }
+  if(occurrence.contentImageUrl)event.tags.push(["bitcoinwalk-content-image",occurrence.contentImageUrl]);
   event.tags.push(
     ["start_tzid", occurrence.timeZone],
     ["end_tzid", occurrence.timeZone],

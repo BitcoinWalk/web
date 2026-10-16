@@ -1,8 +1,9 @@
 import type { Event } from "nostr-tools";
+import Image from "next/image";
 import CoordinatesCopy from "./coordinates-copy";
 import WalkDelegation from "./walk-delegation";
 import CalendarShare from "./calendar-share";
-import { calendarImageOverride,calendarNevent, calendarOccurrence,calendarRoute,initialCalendarHero, type CalendarWalk, type CalendarSource } from "../nostr/calendar-records";
+import { calendarContentImage,calendarImageOverride,calendarNevent, calendarOccurrence,calendarRoute,initialCalendarHero, type CalendarWalk, type CalendarSource } from "../nostr/calendar-records";
 import { relayConfig } from "../lib/relay-config";
 import CityChat, {cityChatDetails} from "./city-chat";
 import WalkWeather, {WeatherAttribution} from "./walk-weather";
@@ -20,6 +21,7 @@ import SponsorModule from "./sponsor-module";
 import type {SponsorshipPresentation} from "../domain/sponsorship";
 import PublicCitySupport from "./public-city-support";
 import type {ChatConfig} from "../domain/chat";
+import styles from "./walk-event.module.css";
 
 export default async function WalkEvent({event,walk,currentProfile,logoHref,titleLogo,sponsorship={state:"hidden"},sponsorOgImage,chatConfig}:{event:Event;walk:CalendarWalk;currentProfile:CalendarSource;logoHref?:string;titleLogo?:LogoVariantAsset;sponsorship?:SponsorshipPresentation;sponsorOgImage?:string;chatConfig?:ChatConfig}) {
   const city=walk.revision.city,occurrence=calendarOccurrence(event),point=occurrence?.meetingPoint??city.meetingPoint;
@@ -37,7 +39,9 @@ export default async function WalkEvent({event,walk,currentProfile,logoHref,titl
     <WalkWeather result={weather} timeZone={occurrence?.timeZone??null} chatUrl={chat.url}/>
     <ResilientHero sources={[calendarImageOverride(event),forecastHero,city.heroImageUrl,walk.approval.approval.heroImageUrl,initialCalendarHero(event,walk)]} alt={`BitcoinWalk ${city.cityName}`} forecast={!calendarImageOverride(event)&&!!forecastHero}/>
     <p>{new Intl.DateTimeFormat(undefined,{dateStyle:"full",timeStyle:"short",...(occurrence?.timeZone?{timeZone:occurrence.timeZone}:{})}).format(new Date(start))}</p>
-    <WalkDescriptions cityName={currentProfile.revision.city.cityName} cityDescription={currentProfile.revision.city.description} eventDescription={event.content}/><p>{point.description}</p>
+    <WalkDescriptions cityName={currentProfile.revision.city.cityName} cityDescription={currentProfile.revision.city.description} eventDescription={event.content}/>
+    {calendarContentImage(event)&&<figure className={styles.contentImage}><Image src={calendarContentImage(event)!} width={1600} height={900} sizes="(max-width: 960px) 100vw, 960px" unoptimized alt={`BitcoinWalk ${city.cityName} walk`}/></figure>}
+    <p>{point.description}</p>
     {calendarRoute(event)&&<WalkRoute url={calendarRoute(event)!}/>}
     <CoordinatesCopy latitude={point.latitude} longitude={point.longitude}/>
     {host.state==="personal"&&<WalkDelegation event={publicEvent} readOnly/>}

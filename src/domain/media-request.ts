@@ -11,6 +11,7 @@ export const mediaRequestSchema=z.discriminatedUnion("action",[
  z.object({action:z.literal("upload-sponsor-logo"),cityId:z.string().uuid(),sponsorPubkey:z.string().regex(/^[0-9a-f]{64}$/),sha256:z.string().regex(/^[0-9a-f]{64}$/),mime:z.enum(["image/png","image/webp","image/svg+xml"])}).strict(),
  z.object({action:z.literal("upload-paid-sponsor-logo"),orderId:z.string().uuid(),cityId:z.string().uuid(),sponsorPubkey:z.string().regex(/^[0-9a-f]{64}$/),sha256:z.string().regex(/^[0-9a-f]{64}$/),mime:z.enum(["image/png","image/webp","image/svg+xml"])}).strict(),
  z.object({action:z.literal("upload-chat-image"),relay:z.url(),groupId:z.string().regex(/^[A-Za-z0-9_-]{1,128}$/),sha256:z.string().regex(/^[0-9a-f]{64}$/),mime:z.enum(["image/jpeg","image/png","image/webp"]),bytes:z.number().int().positive().max(5*1024*1024)}).strict(),
+ z.object({action:z.literal("upload-walk-image"),cityId:z.string().uuid(),sha256:z.string().regex(/^[0-9a-f]{64}$/),mime:z.enum(["image/jpeg","image/png","image/webp"]),bytes:z.number().int().positive().max(5*1024*1024)}).strict(),
  z.object({action:z.literal("generate-paid-sponsor-composite"),orderId:z.string().uuid(),cityId:z.string().uuid(),sponsorPubkey:z.string().regex(/^[0-9a-f]{64}$/),hash:z.string().regex(/^[0-9a-f]{64}$/)}).strict(),
  z.object({action:z.literal("import-city-image"),cityId:z.string().uuid(),sourceUrl:z.url()}),
  z.object({action:z.literal("generate-city-image"),cityId:z.string().uuid(),cityRevisionId:z.string().regex(/^[0-9a-f]{64}$/)}),
