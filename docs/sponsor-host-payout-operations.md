@@ -151,3 +151,16 @@ The ordinary public city-zap, LNURL callback, hosted-by and Rustress gateway
 regression suites remain separate from this route and passed unchanged. The
 payout wallet remains disabled and unfunded; a real staging payout still needs
 separate explicit authorization.
+
+## Staging acceptance checkpoint — 16 October 2026
+
+Staging app `0.3.390` deployed the walk-scoped invitation and super-admin audit
+surface from reconciled commit `936450b`. The complete combined tree passed
+1,808 tests, lint, type checking, optimized build, deterministic packaging and
+standalone package smoke. Non-root deployment evidence is retained at
+`/home/bitcoinwalk/backups/app-staging-deploy.cepUCW`; public and loopback health
+both identify `app-staging-0.3.390`.
+
+Deployment did not enable the payout flag, mount the payout credential, fund
+the isolated wallet or send a payment. Interactive signed-flow acceptance and
+the explicitly authorized minimal staging payout remain separate gates.
