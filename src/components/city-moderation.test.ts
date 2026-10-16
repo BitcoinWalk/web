@@ -32,8 +32,9 @@ describe("city backlog controls",()=>{
   expect(page).toContain("if(latest.state===\"approved\")");
   expect(page).not.toContain('if(!paymentInventoryReady)throw new Error("Payment inventory is unavailable. Refresh cities before deleting anything.")');
   expect(page).toContain("Payment records and any provisioned relay, NIP-05, Lightning, chat or other services remain");
-  expect(page).toContain("const confirmation=`DELETE ${city.slug}`");
+ expect(page).toContain("const confirmation=`DELETE ${city.slug}`");
   expect(page).toContain("deletedCityIds(readback.approvals).has(city.cityId)");
+  expect(page.indexOf("if(window.prompt(warning)!==confirmation)")).toBeLessThan(page.indexOf("await run(async()=>",page.indexOf("async function deleteOfflineCity")));
  });
  it("uses one reversible lifecycle hierarchy for every managed city",()=>{
   const page=source();
@@ -50,6 +51,14 @@ describe("city backlog controls",()=>{
   expect(page).toContain("setDirectoryCurrent(true);setDashboardAuthorizationScope(authorizationScope,true)");
   expect(page).toContain("disabled={busy||!directoryCurrent}");
   expect(page).toContain("city status and deletion actions remain available");
+  expect(page).toContain('void signPayment({action:"list"},pubkey).then(paymentFetch)');
+  expect(page.indexOf("setDirectoryCurrent(true)")).toBeLessThan(page.indexOf('void signPayment({action:"list"},pubkey)'));
+ });
+ it("excludes signed deletions from retained service inventory rows",()=>{
+  const page=source();
+  expect(page).toContain("deleted:deletedCityIds(directory.approvals)");
+  expect(page).toContain("setDeletedIds(snapshot.deleted)");
+  expect(page).toContain("excludedCityIds:deletedIds");
  });
  it("respects reduced-motion preferences when opening a city review",()=>{
   const page=source();

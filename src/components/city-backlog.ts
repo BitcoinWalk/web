@@ -20,8 +20,8 @@ const hostGuide="https://docs.bitcoinwalk.org/hosts/complete-city-setup/";
 const priority:Record<CityWorkflowStatus,number>={"action-required":0,"awaits-change":1,online:2,offline:3};
 const hostMustAct=(health?:CityIdentityHealth)=>!!health?.checks.some(check=>(check.key==="identity"||check.key==="recovery")&&check.state==="fail");
 
-export function cityWorkflowRows(input:{managed:ManagedCity[];pending:CityRevision[];needsChanges:NeedsChangesCity[];rejected?:CityRevision[];health:CityIdentityHealth[];paidCityIds:Set<string>;paidCities:Record<string,PaidDirectoryCity>}):CityWorkflowRow[]{
-  const {managed,pending,needsChanges,rejected=[],health,paidCityIds,paidCities}=input,rows=new Map<string,CityWorkflowRow>();
+export function cityWorkflowRows(input:{managed:ManagedCity[];pending:CityRevision[];needsChanges:NeedsChangesCity[];rejected?:CityRevision[];health:CityIdentityHealth[];paidCityIds:Set<string>;paidCities:Record<string,PaidDirectoryCity>;excludedCityIds?:Set<string>}):CityWorkflowRow[]{
+  const {managed,pending,needsChanges,rejected=[],health,paidCityIds,paidCities,excludedCityIds=new Set<string>()}=input,rows=new Map<string,CityWorkflowRow>();
   const healthById=new Map(health.map(item=>[item.cityId,item]));
   const tier=(cityId:string,healthRow?:CityIdentityHealth):CityWorkflowRow["tier"]=>healthRow?.tier==="pilot"?"test":paidCityIds.has(cityId)||!!paidCities[cityId]||healthRow?.tier==="pro"?"paid":"basic";
   const relay=(cityId:string,paid:boolean):CityRelayType=>paidCities[cityId]?.relayMode==="migrated"?"migrated":paid?"dedicated":"shared";
@@ -35,7 +35,7 @@ export function cityWorkflowRows(input:{managed:ManagedCity[];pending:CityRevisi
   for(const item of needsChanges){const city=item.revision.city,h=healthById.get(city.cityId),paid=tier(city.cityId,h)==="paid";rows.set(city.cityId,{cityId:city.cityId,cityName:city.cityName,slug:city.slug,status:"awaits-change",online:false,tier:tier(city.cityId,h),relay:relay(city.cityId,paid),source:"awaits-change",needsChanges:item,health:h});}
   for(const item of pending){const city=item.city,h=healthById.get(city.cityId),paid=tier(city.cityId,h)==="paid";rows.set(city.cityId,{cityId:city.cityId,cityName:city.cityName,slug:city.slug,status:"action-required",online:false,tier:tier(city.cityId,h),relay:relay(city.cityId,paid),source:"pending",pending:item,health:h});}
   for(const item of rejected){const city=item.city,h=healthById.get(city.cityId),paid=tier(city.cityId,h)==="paid";rows.set(city.cityId,{cityId:city.cityId,cityName:city.cityName,slug:city.slug,status:"offline",online:false,tier:tier(city.cityId,h),relay:relay(city.cityId,paid),source:"inventory",rejected:item,health:h});}
-  for(const h of health){if(rows.has(h.cityId))continue;const paid=tier(h.cityId,h)==="paid",status:CityWorkflowStatus=h.status==="complete"?"online":hostMustAct(h)||h.status==="not-configured"?"awaits-change":"action-required";rows.set(h.cityId,{cityId:h.cityId,cityName:h.cityName,slug:h.slug,status,online:true,tier:tier(h.cityId,h),relay:relay(h.cityId,paid),source:"inventory",health:h});}
+  for(const h of health){if(rows.has(h.cityId)||excludedCityIds.has(h.cityId))continue;const paid=tier(h.cityId,h)==="paid",status:CityWorkflowStatus=h.status==="complete"?"online":hostMustAct(h)||h.status==="not-configured"?"awaits-change":"action-required";rows.set(h.cityId,{cityId:h.cityId,cityName:h.cityName,slug:h.slug,status,online:true,tier:tier(h.cityId,h),relay:relay(h.cityId,paid),source:"inventory",health:h});}
   return [...rows.values()].sort((a,b)=>priority[a.status]-priority[b.status]||a.cityName.localeCompare(b.cityName));
 }
 

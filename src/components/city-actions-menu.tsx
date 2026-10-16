@@ -23,6 +23,6 @@ export default function CityActionsMenu({cityName,children}:{cityName:string;chi
   <button ref={trigger} className={styles.actionMenuTrigger} type="button" aria-label={`Actions for ${cityName}`} aria-haspopup="menu" aria-expanded={open} onClick={()=>setOpen(value=>!value)}>
    <svg aria-hidden="true" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.75"/><circle cx="12" cy="12" r="1.75"/><circle cx="19" cy="12" r="1.75"/></svg>
   </button>
-  {open&&<div className={styles.actionMenuPanel} role="menu" aria-label={`${cityName} actions`} onKeyDown={moveFocus} onClickCapture={()=>setOpen(false)}>{children}</div>}
+  {open&&<div className={styles.actionMenuPanel} role="menu" aria-label={`${cityName} actions`} onKeyDown={moveFocus} onClick={()=>setOpen(false)}>{children}</div>}
  </div>;
 }
