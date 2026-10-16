@@ -190,7 +190,7 @@ the contained app archive has SHA-256
 
 ## Pro eligibility repair
 
-Candidate `0.3.398` fixes the boundary exposed by the Madeira staging test.
+Candidate `0.3.399` fixes the boundary exposed by the Madeira staging test.
 The invitation API had required provider-local Rustress queue rows inside the
 web-app database, even though those queues belong to the isolated payout
 service. A completed Pro city could therefore disappear from the invitation
@@ -206,3 +206,8 @@ atomically mirrors Madeira's already reviewed production entitlement and
 payout-authority rows into the isolated staging database; it verifies the
 owner signature, makes an online database backup, logs no payout destination,
 does not enable the payout sender and cannot send a payment.
+
+The first `0.3.398` wrapper reconciled the rows successfully but its immediate
+post-restart health probe raced application startup and restored the preceding
+app/feature setting. `0.3.399` retains the atomic, idempotent reconciliation
+and adds a bounded startup-health wait before accepting the release.

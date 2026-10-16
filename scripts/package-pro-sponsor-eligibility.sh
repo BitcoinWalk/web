@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
 root=$(CDPATH= cd -- "$(dirname "$0")/.."&&pwd)
-version=0.3.398
+version=0.3.399
 name=bitcoinwalk-pro-sponsor-eligibility-$version
 target=$root/release-build/$name
 archive=$root/release-build/app-staging-$version.tar.gz
