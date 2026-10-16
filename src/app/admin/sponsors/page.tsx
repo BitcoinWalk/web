@@ -22,12 +22,15 @@ import SponsorLogoUpload from "../../../components/sponsor-logo-upload";
 import SponsorLogoReview from "../../../components/sponsor-logo-review";
 import SponsorPayments from "../../../components/sponsor-payments";
 import {sponsorshipDateTimeInput,sponsorshipEpoch,sponsorshipWindowSummary} from "../../../domain/zoned-date-time";
+import AdminTabs,{AdminTabPanel} from "../../../components/admin-tabs";
+import {AdminPageHeader} from "../../../components/admin-ui";
 
 type WalkOption={event:Event;cityId:string;address:string;label:string;start:number;timeZone:string;status:"upcoming"|"active"|"past"};
 function pubkey(value:string):string{const clean=value.trim();if(/^[0-9a-f]{64}$/.test(clean))return clean;try{const decoded=nip19.decode(clean);if(decoded.type==="npub")return decoded.data;}catch{}throw new Error("Enter a valid sponsor npub.");}
 export default function SponsorsPage(){const {role}=useDashboard();return role==="super-admin"?<SponsorAdminTabs/>:<SponsorUserTabs/>;}
-function SponsorAdminTabs(){const [tab,setTab]=useState<"sponsors"|"payments">("sponsors");return <><nav className={styles.tabs} aria-label="Sponsor workspace"><button type="button" aria-pressed={tab==="sponsors"} onClick={()=>setTab("sponsors")}>Sponsors</button><button type="button" aria-pressed={tab==="payments"} onClick={()=>setTab("payments")}>Payments</button></nav>{tab==="sponsors"?<SponsorAdminPage/>:<main><SponsorPayments/></main>}</>;}
-function SponsorUserTabs(){const [tab,setTab]=useState<"sponsors"|"payments">("sponsors");return <><nav className={styles.tabs} aria-label="Sponsor workspace"><button type="button" aria-pressed={tab==="sponsors"} onClick={()=>setTab("sponsors")}>Sponsors</button><button type="button" aria-pressed={tab==="payments"} onClick={()=>setTab("payments")}>Payments</button></nav><main><SponsorPayments audience="sponsor" view={tab==="sponsors"?"walks":"payments"}/></main></>;}
+const sponsorTabs=[{id:"sponsors" as const,label:"Sponsors"},{id:"payments" as const,label:"Payments"}];
+function SponsorAdminTabs(){const [tab,setTab]=useState<"sponsors"|"payments">("sponsors");return <main><AdminPageHeader title="Sponsorships" description="Manage sponsor assignments, artwork and payments without leaving the dashboard."/><AdminTabs tabs={sponsorTabs} value={tab} onChange={setTab} label="Sponsor workspace" idPrefix="sponsor-workspace"/><AdminTabPanel idPrefix="sponsor-workspace" value={tab}>{tab==="sponsors"?<SponsorAdminPage/>:<SponsorPayments/>}</AdminTabPanel></main>;}
+function SponsorUserTabs(){const [tab,setTab]=useState<"sponsors"|"payments">("sponsors");return <main><AdminPageHeader title="Sponsorships" description="Review your sponsored walks and payments."/><AdminTabs tabs={sponsorTabs} value={tab} onChange={setTab} label="Sponsor workspace" idPrefix="sponsor-workspace"/><AdminTabPanel idPrefix="sponsor-workspace" value={tab}><SponsorPayments audience="sponsor" view={tab==="sponsors"?"walks":"payments"}/></AdminTabPanel></main>;}
 function SponsorAdminPage(){
  const [selectedSponsor,setSelectedSponsor]=useState<{hash?:string;pubkey:string;cityId:string;scopeKey:string}|null>(null);
  const [composite,setComposite]=useState("");

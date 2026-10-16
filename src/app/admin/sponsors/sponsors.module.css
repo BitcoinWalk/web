@@ -7,8 +7,7 @@
 .workspace{max-width:1100px;margin:0 auto}
 .heading,.toolbar,.groupHeading{display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap}
 .heading h1{margin-bottom:.3rem}.heading p,.groupHeading p{color:#616975;margin-top:.3rem}
-.toolbar{margin:1.5rem 0}.tabs{display:flex;gap:.25rem;background:#e9ecef;padding:.3rem;border-radius:10px}
-.tabs button{border:0;background:transparent;padding:.7rem 1.2rem;border-radius:7px;font-weight:600}.tabs button[aria-pressed=true]{background:#fff;color:#20262d;box-shadow:0 1px 4px #0002}
+.toolbar{margin:1.5rem 0}
 .search{flex:1;max-width:25rem;margin:0}.search input{margin:0;width:100%}
 .statusToggle{display:flex;gap:.2rem;flex-wrap:wrap}.statusToggle button{border:1px solid #c9cfd6;background:#fff;padding:.55rem .8rem;border-radius:7px}.statusToggle button[aria-pressed=true]{background:#20262d;color:#fff;border-color:#20262d}
 .groups{display:grid;gap:1.1rem}.group{background:#fff;border:1px solid #e0e3e7;border-radius:12px;padding:1.25rem;margin:0}.groupHeading{margin-bottom:1rem}.groupHeading h2{margin:0;font-size:1.35rem}
@@ -18,4 +17,4 @@
 .dateWindow{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.75rem 1rem;margin:1rem 0;padding:1rem;border:1px solid #e2c797;border-radius:8px;background:#fff}.dateWindow p,.dateWindow small{grid-column:1/-1;margin:0}.dateWindow p span{display:block;margin-top:.25rem;color:#616975;font-weight:400}.dateWindow label{margin:0}.dateWindow small{color:#616975}
 .textButton{background:none;border:0;text-decoration:underline;padding:.6rem 0;font-size:.9rem}.assets{border-top:1px solid #e7e9ed;margin-top:1rem;padding-top:1rem}.assets summary,.secondary summary{cursor:pointer;font-weight:600}.assets section{border:0;padding:1rem 0;margin:0}
 .secondary,.invite{margin-top:1.5rem;padding:1.25rem;border:1px solid #e0e3e7;border-radius:12px;background:#fff}.invite{background:#fff8ed}.invite h2{margin-top:0}.inviteLink{display:flex;flex-wrap:wrap;gap:1rem;align-items:center;justify-content:space-between;margin-top:1rem;overflow-wrap:anywhere}.inviteLink a{white-space:nowrap}.empty{padding:2rem;text-align:center;border:1px dashed #cbd0d7;border-radius:12px;color:#616975}.srOnly{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
-@media(max-width:600px){.toolbar{align-items:stretch;flex-direction:column}.search{max-width:none}.statusToggle button{flex:1}.group{padding:1rem}.walkHeading .badge{display:none}.editor{padding:.75rem}.dateWindow{grid-template-columns:1fr}.dateWindow p,.dateWindow small{grid-column:1}.tabs button{flex:1}}
+@media(max-width:600px){.toolbar{align-items:stretch;flex-direction:column}.search{max-width:none}.statusToggle button{flex:1}.group{padding:1rem}.walkHeading .badge{display:none}.editor{padding:.75rem}.dateWindow{grid-template-columns:1fr}.dateWindow p,.dateWindow small{grid-column:1}}

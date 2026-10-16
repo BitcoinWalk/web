@@ -51,4 +51,9 @@ describe("city backlog controls",()=>{
   expect(page).toContain("disabled={busy||!directoryCurrent}");
   expect(page).toContain("city status and deletion actions remain available");
  });
+ it("respects reduced-motion preferences when opening a city review",()=>{
+  const page=source();
+  expect(page).toContain('matchMedia("(prefers-reduced-motion: reduce)")');
+  expect(page).toContain('?"auto":"smooth"');
+ });
 });
