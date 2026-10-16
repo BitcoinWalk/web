@@ -12,7 +12,7 @@ export type LogoPackView={cityId:string;revisionId:string;slug:string;cityName:s
 export async function paymentFetch(event:Event){
  const response=await fetch("/api/payments",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({event}),signal:AbortSignal.timeout(60000),cache:"no-store"});
  const result=await response.json();if(!response.ok)throw new Error(result.error??"Payment service unavailable.");
- return result as {payment?:PaymentView|null;payments?:PaymentView[];logoPacks?:LogoPackView[];proSetupActions?:OrganizerProNextAction[];identityHealth?:CityIdentityHealth[];identityHealthError?:string};
+ return result as {payment?:PaymentView|null;payments?:PaymentView[];logoPacks?:LogoPackView[];proCityIds?:string[];proSetupActions?:OrganizerProNextAction[];identityHealth?:CityIdentityHealth[];identityHealthError?:string};
 }
 export function signPayment(command:PaymentCommand,owner:string){return (command.action==="list"||command.action==="status"?signReadForOrganizer:signForOrganizer)(paymentRequest(command,window.location.origin),owner);}
 

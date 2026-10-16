@@ -1,6 +1,14 @@
 import type {DatabaseSync} from "node:sqlite";
 export type OrganizerProNextAction={cityId:string;cityName:string;state:"confirm-payout"|"connect-city-signer"|"submit-activation"|"awaiting-review"|"awaiting-publication"};
 type SetupRow={cityId:string;cityName:string;state:"setup-required"|"payout-confirmed"|"signer-confirmed"|"ready-for-proof"};type RequestRow={status:string;expiresAt:number;ownerProof:string|null;brandProof:string|null};
+/** Current ownership, rather than the historical invoice owner, controls which
+ * paid-city workspace an organizer can open. */
+export function organizerProCityIds(db:DatabaseSync,actor:string):string[]{
+ if(!/^[0-9a-f]{64}$/.test(actor))return[];
+ return (db.prepare(`SELECT task.cityId FROM pro_setup_task task JOIN paid_city_entitlement entitlement
+  ON entitlement.cityId=task.cityId AND entitlement.invoiceId=task.entitlementId
+  WHERE task.currentOwnerPubkey=? ORDER BY task.cityId`).all(actor) as Array<{cityId:string}>).map(row=>row.cityId);
+}
 /** Owner-only, non-secret projection for the first dashboard action after login. */
 export function organizerProNextActions(db:DatabaseSync,actor:string,now=Math.floor(Date.now()/1000)):OrganizerProNextAction[]{
  if(!/^[0-9a-f]{64}$/.test(actor))return[];const rows=db.prepare(`SELECT task.cityId,invoice.cityName,task.state FROM pro_setup_task task JOIN payment_invoice invoice ON invoice.id=task.entitlementId WHERE task.currentOwnerPubkey=? ORDER BY task.createdAt,task.cityId`).all(actor) as SetupRow[],requestsAvailable=!!db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='city_brand_request'").get();

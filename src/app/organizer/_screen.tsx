@@ -66,7 +66,7 @@ export default function OrganizerPage() {
       else if(available.length===1)select(available[0].revision);
       setIdentity(key);setCities(available);setDecisions([...approvals].sort((a,b)=>compareEvents(a.event,b.event)));
       setLogoPacks(logoResult?.logoPacks??[]);
-      setProCityIds(new Set((logoResult?.payments??[]).filter(payment=>payment.tier==="paid").map(payment=>payment.cityId)));
+      setProCityIds(new Set(logoResult?.proCityIds??(logoResult?.payments??[]).filter(payment=>payment.tier==="paid").map(payment=>payment.cityId)));
       setMessage(available.length ? "" : "No cities were returned for this identity. Check your signer account and relay connection.");
     } catch(error) {setMessage(error instanceof Error ? error.message : "Could not load walks.");}
     finally {lock.current=false;setBusy(false);}
