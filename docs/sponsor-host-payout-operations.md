@@ -55,3 +55,19 @@ Do not change the mode file or set
    invitations remain unchanged.
 
 The wallet remains unfunded until the user separately authorizes a transfer.
+
+## Disabled host acceptance — 16 October 2026
+
+Package `0.1.0` was checksum-verified and installed as the non-root
+`bitcoinwalk` account on the payout host. The container is rootless, read-only,
+has Docker network mode `none`, mounts only the read-only `disabled` mode file
+and its writable state directory, and exposes no host port or credential mount.
+Its aggregate health stayed disabled across a real restart while the durable
+generation advanced from 1 to 2. Backup/restore verification produced
+`service-20261016T104529Z.sqlite`; the backup and monitor timers are active and
+the monitor accepted a one-second-old backup. The independent Rustress service
+remained unchanged at version `0.2.14`, mode `operation`, state `running`.
+
+This evidence authorizes no payout. Health still reports
+`restartReconciliation: blocked-disabled`, zero wallet access and both payouts
+and host invitations disabled.
