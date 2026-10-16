@@ -5,7 +5,7 @@ Preproduction housekeeping: 2–3 October 2026. See `preproduction-review-2026-1
 and `development-handover.md` for current evidence and operating context.
 Tracking rule: keep this file current whenever an item changes status, scope, dependency, or verification result. The file is the maintained source; a separate Plan task is not automatically synchronized.
 
-## Execution order — reconciled 16 October 2026
+## Execution order — reconciled 17 October 2026
 
 This is the authoritative order for all unfinished work. Work top to bottom within a lane. Keep only one engineering item active at a time unless the earlier item is waiting for a named organizer, third party or separately authorized payment test; in that case, record the wait and continue with the next executable item. **Planned** means ready to schedule, **Future** means deliberately later, and parked/blocked work must not consume implementation time until its stated gate changes.
 
@@ -13,14 +13,11 @@ This is the authoritative order for all unfinished work. Work top to bottom with
 
 | Order | ID | Why now | Exit before moving on |
 |---:|---|---|---|
-| 1 | BW-137 | Pro setup is the active organizer conversion path and app `0.3.397` changed its signer choice. | Authenticated acceptance of new, gifted, legacy-paid and verified existing-owner flows, including cancel/resume and truthful inactive states. |
-| 2 | BW-143 | Hanover is paid and the repeatable Overview/Guide handoff is deployed. | Organizer receives the current Guide message, completes payout/signer/proofs, and the activation count becomes one without another invoice. |
-| 3 | BW-144 | The audited Basic-to-Pro promotion tool now depends on the same organizer handoff. | Staging refusal/idempotency rehearsal, one reviewed signed grant, Guide receipt and complete Pro-service read-back. Do not execute a production promotion without the separate signed grant. |
-| 4 | BW-108 | MEP ownership transfer is implemented but still lacks signed staging acceptance. | Complete one real owner/recovery transfer with directory, CMS, entitlement and branded identity read-back. |
-| 5 | BW-92 | Sponsor host revenue share is implemented behind a disabled gate. | One separately authorized, minimally funded staging payout with restart/no-duplicate evidence. |
-| 6 | BW-133 | Chat draft/account isolation is a P1 correctness boundary before adding more messaging surfaces. | Web room switching, attachment scoping, unread behavior and reconnect deduplication pass. |
-| 7 | BW-125 | The mobile NIP-29 core is already in progress. | Finish online city-group/invite provisioning and UX polish; keep notifications and BLE as later slices behind BW-93 and the stated two-phone gates. |
-| 8 | BW-128 | Standard Guide/NIP-17 interoperability is required before claiming compatible DMs. | Real Guide receipt, independent-client bidirectional text, signer variants, account switching and tested-client matrix pass. |
+| 1 | BW-108 | MEP ownership transfer is implemented but still lacks signed staging acceptance. | Complete one real owner/recovery transfer with directory, CMS, entitlement and branded identity read-back. |
+| 2 | BW-92 | Sponsor host revenue share is implemented behind a disabled gate. | One separately authorized, minimally funded staging payout with restart/no-duplicate evidence. |
+| 3 | BW-133 | Chat draft/account isolation is the first executable P1 correctness boundary while BW-108 waits for an owner and BW-92 waits for a separately authorized funded test. | Web room switching, attachment scoping, unread behavior and reconnect deduplication pass. |
+| 4 | BW-125 | The mobile NIP-29 core is already in progress. | Finish online city-group/invite provisioning and UX polish; keep notifications and BLE as later slices behind BW-93 and the stated two-phone gates. |
+| 5 | BW-128 | Standard Guide/NIP-17 interoperability is required before claiming compatible DMs. | Real Guide receipt, independent-client bidirectional text, signer variants, account switching and tested-client matrix pass. |
 
 BW-141 is the continuous release gate for this lane: prepare and run its cross-role/accessibility matrix with each phased release instead of postponing all acceptance until the end.
 
@@ -59,6 +56,9 @@ BW-78 is not in the executable queue: its own scope says no implementation is pl
 |---|---|---|
 | **BW-142** | Parked by user | London owner connects a valid replacement destination and explicitly resumes the audited debt-recovery operation. |
 | **BW-121** | Parked by user | The postcard maker works end to end and the user explicitly resumes it. |
+| **BW-137** | Parked by user | Explicitly resume Pro setup acceptance. Before organizer outreach, promote the tested explicit signer action and bounded retry to production. |
+| **BW-143** | Parked by user | Explicitly resume the Graz/Hanover handoff after Guide uses the production feed and links, production and staging transition history cannot collide, the short one-action copy is installed, and organizers have a simple way to publish a verified NIP-17 inbox. Neither current organizer npub advertised a kind-10050 inbox on the checked discovery relays on 17 October 2026. |
+| **BW-144** | Parked with BW-143 | Resume only after the shared production organizer handoff is ready; the separate reviewed signed grant remains mandatory before any production promotion. |
 | **BW-119** | Blocked | Graz organizer completes the retained production payout/signer/proof steps. |
 | **BW-96** | Blocked | A genuine directory transition occurs and its organizer can confirm the Guide message. |
 | **BW-10** | Blocked | The named external clients provide a supported discovery/import path and consent where required. |
