@@ -40,6 +40,24 @@ aliases remain healthy and Zooid does not restart or receive traffic.
 - Organizer-supplied legacy `chatUrl` values do not control the rendered button or paid status. No existing signed records are rewritten.
 - New walk submissions automatically include the configured global link; the manual URL field is removed. Missing chat provisioning does not prevent submission. The legacy field is now optional, and calendar payloads omit it when absent.
 
+## Unified Chats interface
+
+The app uses one conversation list rather than separate chat products. A regular
+participant sees the verified city room, BitcoinWalk Global and their direct
+conversations. An eligible organizer additionally sees the role-gated
+**BitcoinWalk Guides** room containing the current active-city organizers,
+BitcoinWalk Guide and the BitcoinWalk HQ account. NIP-17 Guide notifications and
+other direct messages appear in the same list as direct conversations.
+
+The interface labels public community, organizer-only and encrypted direct
+conversations clearly, but does not make people choose a protocol. NIP-29 group
+messages and NIP-17 direct messages retain their own destinations, membership and
+privacy properties; the app never mirrors content between them. Room, account,
+draft and attachment state must remain isolated when switching conversations.
+BW-133 establishes that shared safety boundary, BW-145 provisions and reconciles
+the organizer room, BW-125 carries the same destination model into mobile, and
+BW-128 supplies standard direct-message interoperability.
+
 After provisioning a real paid relay/group, use **Monitoring → Communities** to
 verify signed public/open NIP-29 metadata and then activate the exact destination
 with a second super-admin signature. Do not place paid destinations in source
