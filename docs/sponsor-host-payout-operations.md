@@ -187,3 +187,22 @@ is `bitcoinwalk-madeira-host-sponsor-invitations-0.3.394.tar.gz` with SHA-256
 `512905b8a5f012399a63d74275c0bf210181a24a015715250b75bac9f168f2d0`;
 the contained app archive has SHA-256
 `ed7ecd3847c1ff1083c3435adfdb9a4db9f66bb65078dc0d34daffe092256c9a`.
+
+## Pro eligibility repair
+
+Candidate `0.3.398` fixes the boundary exposed by the Madeira staging test.
+The invitation API had required provider-local Rustress queue rows inside the
+web-app database, even though those queues belong to the isolated payout
+service. A completed Pro city could therefore disappear from the invitation
+picker despite its valid entitlement and public addresses.
+
+Eligibility now derives from the canonical settled Pro entitlement, current
+signed city owner, exact owner-confirmed payout version, and fresh public
+NIP-05 plus LNURL read-back. The feature scope can follow every city that
+passes those checks, so a future Pro city becomes available without another
+hard-coded UUID. Basic cities, incomplete setup, stale owners, missing payout
+versions and failed public read-back still fail closed. The staging installer
+atomically mirrors Madeira's already reviewed production entitlement and
+payout-authority rows into the isolated staging database; it verifies the
+owner signature, makes an online database backup, logs no payout destination,
+does not enable the payout sender and cannot send a payment.

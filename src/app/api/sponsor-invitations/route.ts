@@ -37,7 +37,7 @@ export async function POST(request:Request){
   const actor=authorizeSponsorInvitation(body.event,origin,signedCommand(body)),runtime=getPaymentRuntime();
   if(body.action==="admin-list"){if(actor!==SUPER_ADMIN_PUBKEY)return Response.json({error:"Super-admin access required."},{status:403,headers});return Response.json({invitations:runtime.sponsorInvitations.listAll(),obligations:runtime.sponsors.hostPayoutAudit()},{headers});}
   if(body.action==="admin-revoke"){if(actor!==SUPER_ADMIN_PUBKEY)return Response.json({error:"Super-admin access required."},{status:403,headers});return Response.json({invitation:runtime.sponsorInvitations.revoke(body.id,actor,JSON.stringify(body.event),true)},{headers});}
-  const eligible=(await eligibleSponsorHostCities(runtime.store.db,actor)).filter(city=>scope.cityIds.has(city.id)),available=await runtime.sponsors.available(),cities=eligible.map(city=>({...city,walks:available.find(item=>item.id===city.id)?.walks??[]}));
+  const eligible=(await eligibleSponsorHostCities(runtime.store.db,actor)).filter(city=>scope.allows(city.id)),available=await runtime.sponsors.available(),cities=eligible.map(city=>({...city,walks:available.find(item=>item.id===city.id)?.walks??[]}));
   if(body.action==="list")return Response.json({invitations:runtime.sponsorInvitations.list(actor),cities},{headers});
   if(body.action==="revoke")return Response.json({invitation:runtime.sponsorInvitations.revoke(body.id,actor,JSON.stringify(body.event))},{headers});
   const city=eligible.find(item=>item.id===body.cityId);if(!city)throw new Error("Choose an active Pro city that you own and finish its payout setup first.");

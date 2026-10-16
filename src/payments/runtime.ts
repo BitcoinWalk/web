@@ -36,7 +36,7 @@ export function getPaymentRuntime():PaymentRuntime{
  const sponsorScope=sponsorHostPayoutScope();
  const wallet=new NwcWallet(required("BITCOINWALK_NWC_URL")),service=new PaymentService(store,wallet,(city,revision)=>verifyPurchasableCity([sourceRelay()],city,revision),undefined,
   (city,revision)=>verifyGiftableCity([sourceRelay()],city,revision)),sponsors=new SponsorService(store.db,wallet,sponsorshipCatalog,undefined,sponsorInvitations,sponsorScope.enabled,
-   async invitation=>sponsorScope.cityIds.has(invitation.cityId)&&(await eligibleSponsorHostCities(store.db,invitation.hostPubkey)).some(city=>city.id===invitation.cityId&&city.payoutVersion===invitation.payoutVersion));
+   async invitation=>sponsorScope.allows(invitation.cityId)&&(await eligibleSponsorHostCities(store.db,invitation.hostPubkey)).some(city=>city.id===invitation.cityId&&city.payoutVersion===invitation.payoutVersion));
  let busy=false;
  const reconcile=async()=>{if(busy)return;busy=true;try{await service.reconcile();await sponsors.reconcile();}catch{console.warn("Payment reconciliation deferred; durable state was retained.");}finally{busy=false;}};
  const timer=setInterval(()=>void reconcile(),15_000);timer.unref();
