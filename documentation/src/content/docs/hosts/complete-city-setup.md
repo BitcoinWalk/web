@@ -34,6 +34,8 @@ The corrected submission keeps the existing City ID and signed history. If the r
 
 Use this when the city has already paid or received a gifted Pro upgrade but setup is incomplete.
 
+After login, **Overview** is the source of truth. Its highlighted **Next required action** card names the current step. BitcoinWalk Guide can send the same next step as a private NIP-17 direct message, with links to the exact city setup and this procedure. A Guide message is a notification, not a chat: replies are not monitored, and an older message may have been overtaken by work completed in the dashboard.
+
 1. Connect the personal Nostr account that already hosts the city.
 2. On **Overview**, select **Continue Pro setup** under the correct city. If BitcoinWalk Guide supplied a setup link, use that exact link.
 3. Select **Verify and preview Pro setup** and check the city name, website and generated artwork.
@@ -45,6 +47,24 @@ Use this when the city has already paid or received a gifted Pro upgrade but set
 9. After the verified city address appears in Pro setup, reconnect the exact saved city signer and select **Publish verified city profile**. Wait for successful relay read-back.
 
 Do not pay another checkout invoice when the page says the payment is already recorded.
+
+### Guide message sequence
+
+Guide sends at most one encrypted message when the city enters each meaningful state. Reopening the page, restarting Guide or leaving the city in the same state does not create another message. Cities that were already fully active when this sequence was introduced are silently recorded and do not receive a historical completion message.
+
+| State observed by Guide | Who acts next | What the message asks for |
+| --- | --- | --- |
+| Payment recorded; payout not confirmed | Host | Open the exact city setup and confirm the private payout destination. |
+| Payout confirmed; city signer missing | Host | Create or reconnect a separate recoverable city identity, back it up and verify its `npub`. |
+| City signer saved; payout missing | Host | Reconnect the personal host account and confirm the payout destination. |
+| Payout and signer ready | Host | Reconnect the exact city signer and submit the host and city-signer activation proofs. |
+| Activation proofs submitted | BitcoinWalk | Review the exact private proofs. The host should wait and must not repeat signatures. |
+| Identity approved | BitcoinWalk | Publish the approved binding and verify exact relay read-back. The host should wait. |
+| Identity binding active | Host | Reconnect the exact city signer and publish the verified public city profile. |
+
+Each message names the city, links to `/admin/my-cities?city=<City ID>#pro-city-services`, links back to this procedure, says that payment is already recorded, and warns against sharing secrets. The retired Pro setup addresses redirect to the same selected city, but Guide uses My Cities directly. Messages never contain the payout destination, private activation proofs, wallet credentials, an `nsec`, a seed phrase, a bunker secret or a recovery file.
+
+A relay acknowledgement means only that an allowed inbox relay accepted the encrypted event. It is not proof that the host read it. If a queued message becomes stale before delivery—for example because the host completed the step elsewhere—Guide suppresses it and follows the current state instead.
 
 ## Connect the city identity
 

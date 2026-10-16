@@ -11,7 +11,7 @@ vi.mock("../payments/payout-destination-store", () => ({PayoutDestinationStore: 
 }}));
 import {getPaymentRuntime} from "../payments/runtime";
 import {managedBackground} from "./share-image";
-import {clearProSetupSigner, prepareBrandRequest, prepareProSetupPreview, resolveProSetupAuthority, reviewBrandRequest, saveProSetupSigner, proSetupDependencies} from "./pro-setup";
+import {clearProSetupSigner, prepareBrandRequest, prepareProSetupPreview, resolveProSetupAuthority, reviewBrandRequest, saveProSetupSigner, proSetupDependencies, proSetupNotificationState} from "./pro-setup";
 import {citySignerProofTemplate} from "../nostr/pro-setup-command";
 import {ProSetupTaskStore} from "../payments/pro-setup-task-store";
 import {SUPER_ADMIN_PUBKEY} from "../nostr/authority";
@@ -34,6 +34,13 @@ beforeEach(() => {
 });
 afterEach(() => {database.close(); vi.restoreAllMocks(); vi.unstubAllEnvs();});
 describe("Pro setup fresh authority", () => {
+  it("projects organizer action and BitcoinWalk waiting states for Guide",()=>{
+    expect(proSetupNotificationState("ready-for-proof",undefined,100)).toBe("ready-for-proof");
+    expect(proSetupNotificationState("ready-for-proof",{status:"pending",expiresAt:200,ownerProof:"owner",brandProof:"brand"},100)).toBe("awaiting-review");
+    expect(proSetupNotificationState("ready-for-proof",{status:"pending",expiresAt:100,ownerProof:"owner",brandProof:"brand"},100)).toBe("ready-for-proof");
+    expect(proSetupNotificationState("ready-for-proof",{status:"approved",expiresAt:1,ownerProof:"owner",brandProof:"brand"},100)).toBe("awaiting-publication");
+    expect(proSetupNotificationState("ready-for-proof",{status:"active",expiresAt:1,ownerProof:"owner",brandProof:"brand"},100)).toBe("active");
+  });
   it("prepares approved artwork without exposing private authority or claiming activation", async () => {
     vi.spyOn(proSetupDependencies, "snapshot").mockImplementation(deps.snapshot);
     vi.spyOn(proSetupDependencies, "grants").mockImplementation(deps.grants);

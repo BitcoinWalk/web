@@ -79,9 +79,17 @@ export function directoryAlert(purpose:"directory-invitation"|"directory-active"
  return `The BitcoinWalk directory activation for ${city} did not complete.\n\nYour owner signature remains unchanged and no replacement event was created. BitcoinWalk will review the transport failure and retry the exact event; do not sign a duplicate request.\n\nBitcoinWalk Guide is automated; replies are not monitored.`;
 }
 
-export function proSetupAlert(cityName:string,cityId:string,adminURL:string):string{
+export type ProSetupAlertState="setup-required"|"payout-confirmed"|"signer-confirmed"|"ready-for-proof"|"awaiting-review"|"awaiting-publication"|"active";
+export function proSetupAlert(cityName:string,cityId:string,state:ProSetupAlertState,adminURL:string):string{
  const city=cityName.replace(/[\p{C}\p{Z}]+/gu," ").trim(),url=new URL(adminURL);url.searchParams.set("city",cityId);if(url.pathname==="/admin/my-cities")url.hash="pro-city-services";
- return `Your BitcoinWalk in ${city} is ready for Pro setup.\n\nComplete or resume the city identity, payout and public profile setup: ${url.href}\n\nYour payment is already recorded. Do not pay again. BitcoinWalk never asks for your private key; keep the city signer recovery method safe.\n\nBitcoinWalk Guide is automated; replies are not monitored.`;
+ const footer=`\n\nOpen the current status: ${url.href}\nProcedure: https://docs.bitcoinwalk.org/hosts/complete-city-setup/\n\nYour payment is already recorded. Do not pay again. Never share a private key, seed phrase, bunker secret or recovery file.\n\nBitcoinWalk Guide is automated; replies are not monitored. The dashboard is authoritative if the state has changed.`;
+ if(state==="setup-required")return `Next step for BitcoinWalk in ${city}: confirm your payout destination.\n\nConnect the personal Nostr account that already manages the city, verify the prepared profile, then confirm your private Lightning address or LNURL-pay destination.${footer}`;
+ if(state==="payout-confirmed")return `Next step for BitcoinWalk in ${city}: connect a separate city signer.\n\nCreate or reconnect the recoverable identity for the public city account. Back it up and verify the exact npub before saving it. Your personal host account remains the dashboard login.${footer}`;
+ if(state==="signer-confirmed")return `Next step for BitcoinWalk in ${city}: confirm your payout destination.\n\nThe city signer is saved. Reconnect the personal host account and confirm the private Lightning address or LNURL-pay destination for your organizer share.${footer}`;
+ if(state==="ready-for-proof")return `Next step for BitcoinWalk in ${city}: sign the private activation request.\n\nReconnect the exact saved city signer, verify its npub, then submit both the host authorization and city-signer proof.${footer}`;
+ if(state==="awaiting-review")return `BitcoinWalk in ${city}: activation proofs were submitted.\n\nNo organizer action is needed now. BitcoinWalk must review the exact private proofs. Do not create another city identity or repeat completed signatures.${footer}`;
+ if(state==="awaiting-publication")return `BitcoinWalk in ${city}: the city identity was approved.\n\nNo organizer action is needed now. BitcoinWalk must publish the approved binding and verify exact relay read-back.${footer}`;
+ return `Next step for BitcoinWalk in ${city}: publish the verified city profile.\n\nThe city identity binding is active. Reconnect the exact saved city signer, select Publish verified city profile, and wait for successful relay read-back.${footer}`;
 }
 
 export function payoutUpdateAlert(cityName:string,cityId:string,state:"pending"|"active"|"attention",adminURL:string):string{

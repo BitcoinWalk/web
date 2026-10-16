@@ -73,22 +73,29 @@ function mepOwnerBrandEligible(resolved:Awaited<ReturnType<typeof resolveProSetu
  return rows.some(row=>{try{return (JSON.parse(row.challenge) as import("../nostr/city-brand").CityBrandChallenge).binding.brandPubkey===brandPubkey;}catch{return false;}});
 }
 
-export type ProSetupNotification = {cityId:string;cityName:string;ownerPubkey:string;kind:"setup";state:ProSetupPreview["setup"]["state"];updatedAt:number}|
+export type ProSetupNotification = {cityId:string;cityName:string;ownerPubkey:string;kind:"setup";state:ProSetupPreview["setup"]["state"]|"awaiting-review"|"awaiting-publication"|"active";updatedAt:number}|
   {cityId:string;cityName:string;ownerPubkey:string;kind:"payout-update";payoutVersion:number;state:"queued"|"preparing"|"prepared"|"applying"|"verifying"|"unknown"|"needs-attention"|"active"|"blocked";updatedAt:number};
+type SetupNotificationState=Extract<ProSetupNotification,{kind:"setup"}>["state"];
+export function proSetupNotificationState(taskState:ProSetupPreview["setup"]["state"],request:{status:"pending"|"approved"|"active";expiresAt:number;ownerProof:string|null;brandProof:string|null}|undefined,now=Math.floor(Date.now()/1000)):SetupNotificationState{
+  if(request?.status==="active")return "active";
+  if(request?.status==="approved")return "awaiting-publication";
+  if(request?.status==="pending"&&request.expiresAt>now&&request.ownerProof&&request.brandProof)return "awaiting-review";
+  return taskState;
+}
 /** Guide-safe projection. Each row is re-authorized against current approval,
  * ownership, entitlement and moderation before it can name a recipient. */
 export async function listProSetupNotifications():Promise<ProSetupNotification[]> {
   const db=getPaymentRuntime().store.db,store=new ProSetupTaskStore(db),rows:ProSetupNotification[]=[];
   const updateTable=db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='rustress_payout_update_task'").get();
   for(const cityId of store.cityIds()){
-    const active=db.prepare("SELECT id FROM city_brand_request WHERE city_id=? AND status='active' LIMIT 1").get(cityId);
+    const request=db.prepare(`SELECT status,expires_at expiresAt,owner_proof ownerProof,brand_proof brandProof
+      FROM city_brand_request WHERE city_id=? AND status IN ('pending','approved','active') ORDER BY rowid DESC LIMIT 1`).get(cityId) as
+      {status:"pending"|"approved"|"active";expiresAt:number;ownerProof:string|null;brandProof:string|null}|undefined;
     const update=updateTable?db.prepare("SELECT payout_version payoutVersion,phase state,updated_at updatedAt FROM rustress_payout_update_task WHERE city=? ORDER BY payout_version DESC LIMIT 1").get(cityId) as {payoutVersion:number;state:Extract<ProSetupNotification,{kind:"payout-update"}>["state"];updatedAt:number}|undefined:undefined;
-    // Completed city setup without a payout transition is not actionable and
-    // must not consume fresh relay reads or block another city's notification.
-    if(active&&!update)continue;
     try{
       const resolved=await resolveProSetupEvidence(cityId),{task}=ensureSetupTask(resolved);
-      if(!active)rows.push({cityId,cityName:resolved.row.revision.city.cityName,ownerPubkey:resolved.authority.ownerPubkey,kind:"setup",state:task.state,updatedAt:task.updatedAt});
+      const state=proSetupNotificationState(task.state,request);
+      rows.push({cityId,cityName:resolved.row.revision.city.cityName,ownerPubkey:resolved.authority.ownerPubkey,kind:"setup",state,updatedAt:request?.expiresAt??task.updatedAt});
       if(update)rows.push({cityId,cityName:resolved.row.revision.city.cityName,ownerPubkey:resolved.authority.ownerPubkey,kind:"payout-update",...update});
     }catch(error){
       const message=error instanceof Error?error.message:"";

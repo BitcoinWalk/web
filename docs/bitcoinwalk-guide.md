@@ -8,12 +8,41 @@ the pinned Guide identity one signed read of the sanitized replication report;
 the Guide receives no relay status credential. Healthy replication was baselined
 without historical messages. Mobile push remains an acceptance item.
 
-The current source also supports owner-only Pro setup reminders. A signed loopback
-feed exposes only freshly authorized incomplete tasks. The Guide queues one encrypted
-city-specific `/admin/upgrade` link, preserves exact-event retry across restart and
-notifies a replacement verified owner once. It receives no payout destination,
-payment credential or activation authority. This path awaits staging deployment and
-one real delivery/resume acceptance before BW-105 can close.
+The current source supports an owner-only Pro setup handoff. A signed loopback feed
+re-authorizes the current owner and projects only the city, recipient and workflow
+state. Guide queues one encrypted city-specific `/admin/my-cities` message per state:
+payout confirmation, separate city signer, private activation proofs, waiting for
+review, waiting for publication and verified-profile publication. It preserves the
+exact encrypted event across retry and restart, suppresses a queued state after it
+becomes stale, and notifies a replacement verified owner without reusing the prior
+owner's envelope. Guide receives no payout destination, payment credential, private
+proof, signer secret or activation authority.
+
+### Paid Pro organizer handoff
+
+The app feed and Guide worker must be released together because the signed feed's
+setup-state enum is shared. On first observation, Guide records and sends the current
+incomplete state; an already-active city is silently baselined to prevent a historical
+completion-message flood. It does not replay every earlier step. Later state changes use a durable key of
+`city + state + recipient`, so a restart or repeated scan cannot send the same step
+twice. Setup and payout-update transitions use separate state rows so one workflow
+cannot cause the other to replay.
+
+| Feed state | Guide purpose | Organizer-facing result |
+| --- | --- | --- |
+| `setup-required` | `pro-setup-setup-required` | Confirm payout. |
+| `payout-confirmed` | `pro-setup-payout-confirmed` | Connect and back up the separate city signer. |
+| `signer-confirmed` | `pro-setup-signer-confirmed` | Confirm payout. |
+| `ready-for-proof` | `pro-setup-ready-for-proof` | Submit both private activation proofs. |
+| `awaiting-review` | `pro-setup-awaiting-review` | Wait for BitcoinWalk review; do not repeat signatures. |
+| `awaiting-publication` | `pro-setup-awaiting-publication` | Wait for publication and exact read-back. |
+| `active` | `pro-setup-active` | Publish the verified city profile with the exact signer. |
+
+Every message contains the safe city-scoped resume URL, the public procedure URL,
+the “do not pay again” warning, secret-handling guidance and the notification-only
+disclaimer. Before delivery the worker compares the durable submission key with the
+fresh feed. A mismatch marks the row obsolete. One inbox-relay acknowledgement is
+delivery evidence, never a read receipt.
 
 The reviewed upgrade was staged on the app VPS at
 `/home/bitcoinwalk/incoming/bitcoinwalk-guide-pro-setup-0.3.220`. Its installer
