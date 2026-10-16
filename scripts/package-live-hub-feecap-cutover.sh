@@ -2,7 +2,7 @@
 set -euo pipefail
 
 root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
-version="0.1.2"
+version="0.1.3"
 name="bitcoinwalk-live-hub-feecap-cutover-$version"
 target="$root/release-build/$name"
 archive="$root/release-build/$name.tar.gz"

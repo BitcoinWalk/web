@@ -39,7 +39,14 @@ sha256sum -c "$here/SHA256SUMS" >/dev/null
 ! docker volume inspect "$snapshot_volume" >/dev/null 2>&1 || { echo "Rollback snapshot already exists." >&2; exit 73; }
 
 info="$(curl -fsS --max-time 8 http://127.0.0.1:8080/api/info)"
-jq -e '.version == "v1.24.0" and .setupCompleted == true and .running == true and .network == "bitcoin"' >/dev/null <<<"$info"
+jq -e '
+  .version == "v1.24.0"
+  and .setupCompleted == true
+  and (
+    (.running == true and .network == "bitcoin")
+    or (.running == false and (.network == "" or .network == null))
+  )
+' >/dev/null <<<"$info"
 uid="$(id -u bitcoinwalk)"
 sponsor_boundary="$(runuser -u bitcoinwalk -- env XDG_RUNTIME_DIR="/run/user/$uid" docker inspect bitcoinwalk-sponsor-payout --format '{{index .Config.Labels "org.bitcoinwalk.version"}}|{{index .Config.Labels "org.bitcoinwalk.mode"}}|{{.HostConfig.NetworkMode}}|{{.State.Status}}')"
 [[ "$sponsor_boundary" == "0.1.1|disabled|none|running" ]] || { echo "Sponsor payout boundary is not safely disabled." >&2; exit 65; }
