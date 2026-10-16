@@ -1,5 +1,5 @@
 import {describe,expect,it} from "vitest";
-import {classifyCityIdentityTier,summarizeCityIdentityHealth,type CityIdentityHealthEvidence} from "./pro-city-identity-health";
+import {classifyCityIdentityTier,managedCityProfileMatches,summarizeCityIdentityHealth,type CityIdentityHealthEvidence} from "./pro-city-identity-health";
 
 const base=(overrides:Partial<CityIdentityHealthEvidence>={}):CityIdentityHealthEvidence=>({
  cityId:"11111111-1111-4111-8111-111111111111",cityName:"Madeira",slug:"madeira",availableInEnvironment:true,tier:"pro",checkedAt:100,
@@ -24,6 +24,13 @@ describe("Pro city identity health",()=>{
   const row=summarizeCityIdentityHealth(base({profile:{reachable:3,matching:1,nip05:1,lightning:3}}));
   expect(row.status).toBe("action-required");
   expect(row.checks.find(check=>check.key==="profile")?.state).toBe("fail");
+ });
+ it("automatically accepts the exact city signer's conventional name and HTTPS avatar",()=>{
+  const active=base().active;
+  active!.challenge.profile={name:"BitcoinWalk in London",picture:"https://bitcoinwalk.org/avatar.webp",website:"https://bitcoinwalk.org/london"} as never;
+  expect(managedCityProfileMatches({name:"BitcoinWalk London",picture:"https://blossom.primal.net/london.jpg",website:"https://bitcoinwalk.org/london"},active,"London")).toBe(true);
+  expect(managedCityProfileMatches({name:"Other London",picture:"https://blossom.primal.net/london.jpg",website:"https://bitcoinwalk.org/london"},active,"London")).toBe(false);
+  expect(managedCityProfileMatches({name:"BitcoinWalk London",picture:"https://blossom.primal.net/london.jpg",website:"https://example.com"},active,"London")).toBe(false);
  });
  it("does not treat an external read outage as evidence of failure",()=>{
   const row=summarizeCityIdentityHealth(base({binding:"unknown",profile:{reachable:1,matching:1,nip05:1,lightning:1}}));

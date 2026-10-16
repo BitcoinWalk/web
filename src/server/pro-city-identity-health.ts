@@ -39,8 +39,8 @@ export function summarizeCityIdentityHealth(input:CityIdentityHealthEvidence):Ci
   const task=input.task,active=input.active,brand=active?.challenge.binding.brandPubkey,identifier=`${input.slug}@bitcoinwalk.org`;
   const identityOk=!!task?.signer&&!!brand&&task.signer.pubkey===brand;
   const profileState:IdentityHealthCheckState=input.profile.matching>=2?"pass":input.profile.reachable>=2?"fail":"unknown";
-  const profileDetail=profileState==="pass"?"The expected city name, avatar and website were read back from at least two public profile relays.":
-    profileState==="fail"?"The public city profile is missing or differs from the approved city identity on the readable profile relays.":"Fewer than two profile relays could be checked; no failure is inferred.";
+  const profileDetail=profileState==="pass"?"The city-signed name, avatar and approved website were read back from at least two public profile relays.":
+    profileState==="fail"?"The public city profile is missing a valid city name or avatar, or its website differs from the approved city identity on the readable profile relays.":"Fewer than two profile relays could be checked; no failure is inferred.";
   const nip05State:IdentityHealthCheckState=input.capabilities.nip05!=="active"?"fail":input.profile.reachable<2?"unknown":input.profile.nip05<2||!input.nip05Verified?"fail":"pass";
   const lightningState:IdentityHealthCheckState=input.capabilities.lightning!=="active"?"fail":input.profile.reachable<2?"unknown":input.profile.lightning<2?"fail":"pass";
   const checks:CityIdentityHealthCheck[]=[
@@ -83,7 +83,11 @@ function latestProfile(events:Event[],pubkey:string):PublicProfile|null{
   for(const event of events.filter(value=>value.pubkey===pubkey).sort((a,b)=>b.created_at-a.created_at||a.id.localeCompare(b.id))){const profile=parsePublicProfile(event,requested);if(profile)return profile;}
   return null;
 }
-function profileMatches(profile:PublicProfile|null,active:ActiveBrand|null){const expected=active?.challenge.profile;return !!profile&&!!expected&&profile.name===expected.name&&profile.picture===expected.picture&&profile.website===expected.website;}
+export function managedCityProfileMatches(profile:PublicProfile|null,active:ActiveBrand|null,cityName:string){
+  const expected=active?.challenge.profile;
+  if(!profile||!expected||!profile.name||!profile.picture||profile.website!==expected.website)return false;
+  return profile.name===expected.name||profile.name===`BitcoinWalk ${cityName}`||profile.name===`BitcoinWalk in ${cityName}`;
+}
 
 /** Read-only super-admin projection. It never creates an identity, retries provisioning or changes a public record. */
 export async function listProCityIdentityHealth(actor:string):Promise<CityIdentityHealth[]>{
@@ -107,7 +111,7 @@ export async function listProCityIdentityHealth(actor:string):Promise<CityIdenti
     let binding:CityIdentityHealthEvidence["binding"]="fail";
     if(current){if(!bindingRelays.length||bindingReads.some(read=>read.error))binding="unknown";else binding=bindingReads.every(read=>resolveCityBrand(read.events.filter(event=>event.tags.some(tag=>tag[0]==="i"&&tag[1]===cityId)),cityId)?.event.id===current.eventId)?"pass":"fail";}
     const brand=current?.challenge.binding.brandPubkey??task?.signer?.pubkey,identifier=`${slug}@bitcoinwalk.org`,profiles:ProfileEvidence={reachable:0,matching:0,nip05:0,lightning:0};
-    if(brand)for(const read of publicProfileReads){if(read.error)continue;profiles.reachable++;const profile=latestProfile(read.events,brand);if(profileMatches(profile,current))profiles.matching++;if(profile?.nip05===identifier)profiles.nip05++;if(profile?.lnurl===identifier)profiles.lightning++;}
+    if(brand)for(const read of publicProfileReads){if(read.error)continue;profiles.reachable++;const profile=latestProfile(read.events,brand);if(managedCityProfileMatches(profile,current,cityName))profiles.matching++;if(profile?.nip05===identifier)profiles.nip05++;if(profile?.lnurl===identifier)profiles.lightning++;}
     const capabilities=tier!=="basic"?cityProvisioningCapabilities(db,cityId):{overall:"setup-required",nip05:"setup-required",lightning:"setup-required",retryable:false,detail:"Not applicable."} as CityProvisioningCapabilities;
     const activation=table(db,"rustress_activation_task")?db.prepare("SELECT updated_at FROM rustress_activation_task WHERE city=?").get(cityId) as {updated_at:number}|undefined:undefined;
     const nip05Verified=!!brand&&capabilities.nip05==="active"&&await verifyNip05(brand,identifier);
