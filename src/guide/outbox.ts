@@ -28,14 +28,20 @@ export class Outbox {
     this.db.exec(`CREATE TABLE IF NOT EXISTS pro_setup_transition (city_id TEXT NOT NULL, kind TEXT NOT NULL, recipient TEXT NOT NULL, state TEXT NOT NULL, PRIMARY KEY(city_id,kind));
       INSERT OR IGNORE INTO pro_setup_transition(city_id,kind,recipient,state)
       SELECT city_id,CASE WHEN state LIKE 'payout-update:%' THEN 'payout-update' ELSE 'setup' END,recipient,state FROM pro_setup_state;`);
+    this.db.exec("CREATE TABLE IF NOT EXISTS pro_welcome_baseline (city_id TEXT NOT NULL, recipient TEXT NOT NULL, PRIMARY KEY(city_id,recipient))");
   }
   ingestProSetup(tasks:GuideProSetupTask[],secret:Uint8Array,adminURL:string):number{
     this.db.exec("BEGIN IMMEDIATE");
     try{
-      let queued=0;
+      let queued=0;const welcomeInitialized=!!this.db.prepare("SELECT value FROM meta WHERE key='pro-welcome-initialized'").get();
       for(const task of tasks){
+        if(!welcomeInitialized&&task.kind==="setup"&&(task.state==="active"||task.state==="complete"))
+          this.db.prepare("INSERT OR IGNORE INTO pro_welcome_baseline VALUES (?,?)").run(task.cityId,task.ownerPubkey);
         const previous=this.db.prepare("SELECT recipient,state FROM pro_setup_transition WHERE city_id=? AND kind=?").get(task.cityId,task.kind) as {recipient:string;state:string}|undefined;
-        if(task.kind==="setup"&&(!previous||previous.recipient!==task.ownerPubkey||previous.state!==task.state)&&!(task.state==="active"&&!previous)){
+        const welcomeBaselined=task.kind==="setup"&&!!this.db.prepare("SELECT 1 FROM pro_welcome_baseline WHERE city_id=? AND recipient=?").get(task.cityId,task.ownerPubkey);
+        if(task.kind==="setup"&&previous?.recipient===task.ownerPubkey&&previous.state==="complete"&&task.state==="active")continue;
+        if(task.kind==="setup"&&(!previous||previous.recipient!==task.ownerPubkey||previous.state!==task.state)&&
+          !(task.state==="active"&&!previous)&&!(task.state==="complete"&&(!welcomeInitialized||welcomeBaselined))){
           const purpose=`pro-setup-${task.state}` as const,submission=`pro-setup:${task.cityId}:${task.state}`;
           const wraps=wrapAlert(proSetupAlert(task.cityName,task.cityId,task.state,adminURL),task.ownerPubkey,secret);
           const result=this.db.prepare("INSERT OR IGNORE INTO delivery (submission,recipient,wrapped,sender_copy,purpose) VALUES (?,?,?,?,?)")
@@ -49,6 +55,7 @@ export class Outbox {
         this.db.prepare("INSERT INTO pro_setup_transition(city_id,kind,recipient,state) VALUES(?,?,?,?) ON CONFLICT(city_id,kind) DO UPDATE SET recipient=excluded.recipient,state=excluded.state")
           .run(task.cityId,task.kind,task.ownerPubkey,task.kind==="setup"?task.state:`payout-update:${task.payoutVersion}:${task.state==="active"?"active":task.state==="blocked"||task.state==="needs-attention"?"attention":"pending"}`);
       }
+      this.db.prepare("INSERT OR IGNORE INTO meta VALUES ('pro-welcome-initialized','1')").run();
       this.db.exec("COMMIT");return queued;
     }catch(error){this.db.exec("ROLLBACK");throw error;}
   }
@@ -76,6 +83,9 @@ export class Outbox {
       if (initialized) for (const publication of publications) {
         const approvalID = publication.approval.event.id;
         if (this.db.prepare("SELECT id FROM live_seen WHERE id=?").get(approvalID)) continue;
+        // A requested plan is not verified payment. Pro has its own entitlement-
+        // and provisioning-backed welcome transition; never send both welcomes.
+        if(publication.revision.city.requestedTier==="paid")continue;
         const recipient = publication.revision.event.pubkey;
         const wraps = wrapAlert(liveAlert(publication.revision, publication.event, adminURL, relay), recipient, secret);
         this.db.prepare("INSERT OR IGNORE INTO delivery (submission,recipient,wrapped,sender_copy,purpose) VALUES (?,?,?,?, 'live')")

@@ -85,11 +85,11 @@ function mepOwnerBrandEligible(resolved:Awaited<ReturnType<typeof resolveProSetu
  return rows.some(row=>{try{return (JSON.parse(row.challenge) as import("../nostr/city-brand").CityBrandChallenge).binding.brandPubkey===brandPubkey;}catch{return false;}});
 }
 
-export type ProSetupNotification = {cityId:string;cityName:string;ownerPubkey:string;kind:"setup";state:ProSetupPreview["setup"]["state"]|"awaiting-review"|"awaiting-publication"|"active";updatedAt:number}|
+export type ProSetupNotification = {cityId:string;cityName:string;ownerPubkey:string;kind:"setup";state:ProSetupPreview["setup"]["state"]|"awaiting-review"|"awaiting-publication"|"active"|"complete";updatedAt:number}|
   {cityId:string;cityName:string;ownerPubkey:string;kind:"payout-update";payoutVersion:number;state:"queued"|"preparing"|"prepared"|"applying"|"verifying"|"unknown"|"needs-attention"|"active"|"blocked";updatedAt:number};
 type SetupNotificationState=Extract<ProSetupNotification,{kind:"setup"}>["state"];
-export function proSetupNotificationState(taskState:ProSetupPreview["setup"]["state"],request:{status:"pending"|"approved"|"active";expiresAt:number;ownerProof:string|null;brandProof:string|null}|undefined,now=Math.floor(Date.now()/1000)):SetupNotificationState{
-  if(request?.status==="active")return "active";
+export function proSetupNotificationState(taskState:ProSetupPreview["setup"]["state"],request:{status:"pending"|"approved"|"active";expiresAt:number;ownerProof:string|null;brandProof:string|null}|undefined,now=Math.floor(Date.now()/1000),complete=false):SetupNotificationState{
+  if(request?.status==="active")return complete?"complete":"active";
   if(request?.status==="approved")return "awaiting-publication";
   if(request?.status==="pending"&&request.expiresAt>now&&request.ownerProof&&request.brandProof)return "awaiting-review";
   return taskState;
@@ -106,7 +106,9 @@ export async function listProSetupNotifications():Promise<ProSetupNotification[]
     const update=updateTable?db.prepare("SELECT payout_version payoutVersion,phase state,updated_at updatedAt FROM rustress_payout_update_task WHERE city=? ORDER BY payout_version DESC LIMIT 1").get(cityId) as {payoutVersion:number;state:Extract<ProSetupNotification,{kind:"payout-update"}>["state"];updatedAt:number}|undefined:undefined;
     try{
       const resolved=await resolveProSetupEvidence(cityId),{task}=ensureSetupTask(resolved);
-      const state=proSetupNotificationState(task.state,request);
+      const complete=request?.status==="active"&&cityProvisioningCapabilities(db,cityId).overall==="active"&&!!task.signer&&
+        await ownerCityProfileNameMatches(task.signer.pubkey,`BitcoinWalk in ${resolved.row.revision.city.cityName}`);
+      const state=proSetupNotificationState(task.state,request,Math.floor(Date.now()/1000),complete);
       rows.push({cityId,cityName:resolved.row.revision.city.cityName,ownerPubkey:resolved.authority.ownerPubkey,kind:"setup",state,updatedAt:request?.expiresAt??task.updatedAt});
       if(update)rows.push({cityId,cityName:resolved.row.revision.city.cityName,ownerPubkey:resolved.authority.ownerPubkey,kind:"payout-update",...update});
     }catch(error){

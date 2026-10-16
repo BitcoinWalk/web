@@ -48,6 +48,7 @@ describe("Pro setup fresh authority", () => {
     expect(proSetupNotificationState("ready-for-proof",{status:"pending",expiresAt:100,ownerProof:"owner",brandProof:"brand"},100)).toBe("ready-for-proof");
     expect(proSetupNotificationState("ready-for-proof",{status:"approved",expiresAt:1,ownerProof:"owner",brandProof:"brand"},100)).toBe("awaiting-publication");
     expect(proSetupNotificationState("ready-for-proof",{status:"active",expiresAt:1,ownerProof:"owner",brandProof:"brand"},100)).toBe("active");
+    expect(proSetupNotificationState("ready-for-proof",{status:"active",expiresAt:1,ownerProof:"owner",brandProof:"brand"},100,true)).toBe("complete");
   });
   it("prepares approved artwork without exposing private authority or claiming activation", async () => {
     vi.spyOn(proSetupDependencies, "snapshot").mockImplementation(deps.snapshot);

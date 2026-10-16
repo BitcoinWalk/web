@@ -121,7 +121,16 @@ async function main() {
         const liveIDs = new Set(live.map(item => `live:${item.approval.event.id}`));
         const replicationStates=new Map(replication!.cities.map(city=>[city.cityId,city.state]));
         const directoryStates=new Map((directory??[]).map(request=>[request.id,`${request.status}:${request.activationState}`]));
-        const proSetupCurrent=new Map((proSetup??[]).map(task=>[task.kind==="setup"?`pro-setup:${task.cityId}:${task.state}`:`payout-update:${task.cityId}:${task.payoutVersion}:${task.state==="active"?"active":task.state==="blocked"||task.state==="needs-attention"?"attention":"pending"}`,task.ownerPubkey]));
+        const proSetupCurrent=new Map<string,string>();
+        for(const task of proSetup??[]){
+          if(task.kind==="setup"){
+            proSetupCurrent.set(`pro-setup:${task.cityId}:${task.state}`,task.ownerPubkey);
+            // Completion was independently verified before this durable row was
+            // created. A temporary profile-relay read failure may project active
+            // again; it must not invalidate the exact retained welcome wrapper.
+            if(task.state==="active"||task.state==="complete")proSetupCurrent.set(`pro-setup:${task.cityId}:complete`,task.ownerPubkey);
+          }else proSetupCurrent.set(`payout-update:${task.cityId}:${task.payoutVersion}:${task.state==="active"?"active":task.state==="blocked"||task.state==="needs-attention"?"attention":"pending"}`,task.ownerPubkey);
+        }
         for (const row of outbox!.due(Math.floor(Date.now()/1000))) {
           if (stopping) break;
           if (row.purpose === "review" && !config.recipients.includes(row.recipient)) { outbox!.state(row, "removed-recipient"); continue; }
