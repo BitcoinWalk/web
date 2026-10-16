@@ -2,7 +2,7 @@ import type {Event} from "nostr-tools";
 import {authorizeProSetup} from "../../../nostr/pro-setup-command";
 import {paymentBody} from "../../../payments/request-body";
 import {approveBrandRequest, cancelBrandRequest, clearProSetupSigner, confirmBrandPublication, listBrandRequests, prepareBrandPublication, prepareBrandRequest, prepareProSetupPreview,
-  reviewBrandRequest, saveProSetupPayout, saveProSetupSigner, setProCommunityVisibility, submitBrandProofs} from "../../../server/pro-setup";
+  reviewBrandRequest, reuseOwnerAsCitySigner, saveProSetupPayout, saveProSetupSigner, setProCommunityVisibility, submitBrandProofs} from "../../../server/pro-setup";
 import {retryManagedProvisioning} from "../../../server/rustress-activation";
 import {listProCityIdentityHealth} from "../../../server/pro-city-identity-health";
 
@@ -12,7 +12,7 @@ const pending = new Set<string>();
 const attempts = new Map<string, number>();
 function publicFailure(message:string):string{
   if(/^(Directory discovery is incomplete|No configured directory transport is available)/.test(message))return "Directory verification is temporarily unavailable. Please wait one minute and retry. No identity, payment or payout was changed.";
-  const safe = /^(An approved|Only the current|A settled|The settled Pro payment|Pro setup|City or organizer|Approved city artwork|BitcoinWalk profile artwork|The approved city photo|Persistent profile|City authority changed|City ownership, approval or entitlement changed|City signer, payout|City identity|Active city identity|Active community activation|No city identity|No relay|Exact city identity|Separate city signer|The separate city signer|Use a separate|Clear the saved|Complete payout|A different city account|Both organizer|Super-admin review|Super-admin publication|Super-admin provisioning|Managed city provisioning|Exact super-admin|Enter a valid|The Lightning|Lightning endpoint|This destination|Use a personal)/.test(message);
+  const safe = /^(An approved|Only the current|A settled|The settled Pro payment|Pro setup|City or organizer|Approved city artwork|BitcoinWalk profile artwork|The approved city photo|Persistent profile|City authority changed|City ownership, approval or entitlement changed|City signer, payout|City identity|Active city identity|Active community activation|No city identity|No relay|Exact city identity|Separate city signer|The separate city signer|Use a separate|The connected owner|Clear the saved|Complete payout|A different city account|Both organizer|Super-admin review|Super-admin publication|Super-admin provisioning|Managed city provisioning|Exact super-admin|Enter a valid|The Lightning|Lightning endpoint|This destination|Use a personal)/.test(message);
   return safe ? message : "Pro setup could not be verified. Retry later; no identity, payment or payout was changed.";
 }
 export async function POST(request: Request) {
@@ -39,6 +39,7 @@ export async function POST(request: Request) {
       if (!brandProof) throw new Error("Separate city signer proof is required.");
       return reply({signer: await saveProSetupSigner(command.cityId, event.pubkey, command, brandProof, origin)});
     }
+    if(command.action==="reuse-owner-city-signer")return reply({signer:await reuseOwnerAsCitySigner(command.cityId,event.pubkey,command)});
     if (command.action === "clear-city-signer") return reply({signer: await clearProSetupSigner(command.cityId, event.pubkey)});
     if (command.action === "prepare-brand-request") return reply({request: await prepareBrandRequest(command.cityId, event.pubkey, origin)});
     if (command.action === "submit-brand-proofs") {

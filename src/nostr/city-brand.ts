@@ -77,7 +77,11 @@ export function createCityBrandChallenge(input: {
     sequence: prior ? prior.sequence + 1 : 0, previous: input.previous?.id ?? "",
     action: input.action, brandPubkey: input.brandPubkey});
   successor(binding, input.previous);
-  if (binding.action !== "revoke" && (!authority.eligible || binding.brandPubkey === authority.ownerPubkey || binding.brandPubkey === SUPER_ADMIN_PUBKEY)) throw new Error("A separate city account and eligible Pro city are required.");
+  // Owner and city identity may intentionally be the same only after the
+  // private setup store has verified the owner's existing public city profile.
+  // This contract still rejects the super-admin and ineligible cities; the
+  // server-side setup task is the admission boundary for the selected key.
+  if (binding.action !== "revoke" && (!authority.eligible || binding.brandPubkey === SUPER_ADMIN_PUBKEY)) throw new Error("An eligible Pro city account is required.");
   return challengeSchema.parse({version: 1, requestId: input.requestId,
     origin: canonicalOrigin(input.origin), issuedAt: input.now, expiresAt: input.now + 900, authority, binding, profile: profileSchema.parse(input.profile)});
 }

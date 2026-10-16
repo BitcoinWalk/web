@@ -42,4 +42,9 @@ describe("private Pro setup commands", () => {
     expect(() => authorizeCitySignerProof(proof, {...save, brandPubkey: getPublicKey(key)}, origin, now)).toThrow();
     expect(() => proSetupTemplate({...save, backupAcknowledged: false} as never, origin, now)).toThrow();
   });
+  it("binds recovery acknowledgement into the existing-owner reuse request",()=>{
+    const reuse={action:"reuse-owner-city-signer" as const,cityId:command.cityId,recoveryAcknowledged:true as const};
+    expect(authorizeProSetup(finalizeEvent(proSetupTemplate(reuse,origin,now),key),origin,now)).toEqual(reuse);
+    expect(()=>proSetupTemplate({...reuse,recoveryAcknowledged:false} as never,origin,now)).toThrow();
+  });
 });

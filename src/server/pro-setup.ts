@@ -21,7 +21,7 @@ import {authorizeCitySignerProof, type ProSetupCommand} from "../nostr/pro-setup
 import {CityBrandStore} from "../directory/city-brand-store";
 import type {EventTemplate} from "nostr-tools";
 import {cityProvisioningCapabilities, type CityProvisioningCapabilities} from "../rustress/provisioning-capabilities";
-import {verifyNip05} from "../nostr/profiles";
+import {parsePublicProfile,profileRelays,verifyNip05} from "../nostr/profiles";
 import {ChatProvisionStore,type ChatVisibilitySurface} from "../chat-provisioning/store";
 import {WalkieTalkieProvisionStore,WALKIE_TALKIE_RELAY} from "../chat-provisioning/walkie-talkie-store";
 import {armadaChatUrl} from "../domain/chat";
@@ -44,12 +44,23 @@ export type ProSetupPreview = {
 };
 
 // Dependencies stay explicit so incomplete reads and owner changes can be tested without networking.
+export async function ownerCityProfileNameMatches(pubkey:string,expectedName:string,relays=profileRelays,read:typeof queryRelayEvents=queryRelayEvents):Promise<boolean>{
+  const requested=new Set([pubkey]);
+  const reads=await Promise.allSettled(relays.map(async relay=>{
+    const events=await read([relay],[0],undefined,{authors:[pubkey],limit:20});
+    const latest=events.filter(event=>parsePublicProfile(event,requested)).sort((a,b)=>b.created_at-a.created_at||a.id.localeCompare(b.id))[0];
+    return latest?parsePublicProfile(latest,requested)?.name===expectedName:false;
+  }));
+  return reads.filter(row=>row.status==="fulfilled"&&row.value).length>=2;
+}
+
 export const proSetupDependencies = {
   ...citySetupEvidence,
   entitlement: (cityId: string):({invoiceId:string;owner:string;legacy?:false}|LegacyProEntitlement)|undefined => {
     const db=getPaymentRuntime().store.db,paid=db.prepare("SELECT invoiceId,owner FROM paid_city_entitlement WHERE cityId=?").get(cityId) as {invoiceId:string;owner:string}|undefined;
     return paid??legacyProEntitlement(db,cityId);
   },
+  ownerCityProfileMatches: ownerCityProfileNameMatches,
 };
 async function resolveProSetupEvidence(cityId: string, deps = proSetupDependencies) {
   const [snapshot, grants] = await Promise.all([deps.snapshot(), deps.grants()]);
@@ -191,7 +202,7 @@ export async function prepareProSetupPreview(cityId: string, actor: string, orig
       {label: "Pro entitlement and city ownership", state: "ready", detail: "Verified against current approval, ownership, moderation and either settled payment or operator-confirmed legacy activation evidence."},
       {label: "City profile artwork", state: "ready", detail: "Prepared from the approved city photo. The avatar uses the larger icon without city lettering."},
       {label: "Personal payout destination", state: payout ? "ready" : "blocked", detail: payout ? payoutActivation.state==="active"&&payoutActivation.activeVersion===payout.version?`Owner-confirmed destination version ${payout.version} is active.`:payoutActivation.state==="pending"?`Destination version ${payout.version} is being verified. Version ${payoutActivation.activeVersion} remains active until it passes.`:payoutActivation.state==="needs-attention"?`Destination version ${payout.version} needs attention. Version ${payoutActivation.activeVersion} remains active.`:`Owner-confirmed destination version ${payout.version} is saved privately. It is not active until provisioning is verified.` : suggestion ? "Your checkout destination was recovered privately. Confirm it again with the current city owner’s signer before activation." : "Add and confirm your personal Lightning address or LNURL-pay destination below."},
-      {label: "Separate city signer", state: task.signer ? "ready" : "blocked", detail: task.signer ? `Expected city signer version ${task.signer.version} is confirmed privately. Its key remains outside BitcoinWalk.` : "Create or connect a recoverable city identity and prove control of its exact public key."},
+      {label: "City signer", state: task.signer ? "ready" : "blocked", detail: task.signer ? `Expected city signer version ${task.signer.version} is confirmed privately. Its key remains outside BitcoinWalk.` : `Create or connect a recoverable city identity, or reuse the owner account when its public profile is already named ${name}.`},
       {label: "NIP-05 identity", state: capabilities.nip05 === "active" ? "ready" : "blocked", detail: capabilities.nip05 === "active" ? `${slug}@bitcoinwalk.org is independently verified against the city signer.` : `Status: ${capabilities.nip05}. ${capabilities.detail}`},
       {label: "Lightning address", state: capabilities.lightning === "active" ? "ready" : "blocked", detail: capabilities.lightning === "active" ? `${slug}@bitcoinwalk.org passed independent LNURL-pay verification.` : `Status: ${capabilities.lightning}. ${capabilities.detail}`},
     ]};
@@ -312,6 +323,18 @@ export async function saveProSetupSigner(cityId: string, actor: string, command:
   const task = store.confirmSigner(cityId, after.authority.entitlementId, after.authority.ownerPubkey, command.brandPubkey,Math.floor(Date.now()/1000),mep&&mepOwnerBrandEligible(after,command.brandPubkey));
   return {cityId, pubkey: task.signer!.pubkey, version: task.signer!.version, state: "confirmed-not-active" as const,
     message: mep?"Transferred city owner and existing public city identity confirmed. No new key or purchase was created; keep its recovery method safe.":"Separate city signer confirmed. This check did not publish, replace or deactivate the city identity; keep its recovery method safe."};
+}
+
+export async function reuseOwnerAsCitySigner(cityId:string,actor:string,command:Extract<ProSetupCommand,{action:"reuse-owner-city-signer"}>,deps=proSetupDependencies){
+  if(command.cityId!==cityId||actor===SUPER_ADMIN_PUBKEY)throw new Error("The connected owner account cannot be used as this city identity.");
+  const before=await resolveProSetupAuthority(cityId,actor,deps),expectedName=`BitcoinWalk in ${before.row.revision.city.cityName}`;
+  if(!await deps.ownerCityProfileMatches(actor,expectedName))throw new Error(`The connected owner profile must already be named exactly “${expectedName}” on at least two public relays.`);
+  const after=await resolveProSetupAuthority(cityId,actor,deps);
+  if(JSON.stringify(before.authority)!==JSON.stringify(after.authority)||before.row.revision.city.cityName!==after.row.revision.city.cityName)
+    throw new Error("City authority changed during signer verification. Reload and try again.");
+  const {store}=ensureSetupTask(after),task=store.confirmSigner(cityId,after.authority.entitlementId,after.authority.ownerPubkey,actor,Math.floor(Date.now()/1000),true);
+  return {cityId,pubkey:task.signer!.pubkey,version:task.signer!.version,state:"confirmed-not-active" as const,
+    message:"Existing BitcoinWalk city identity confirmed. No new signer was created; keep its recovery method safe."};
 }
 
 export async function clearProSetupSigner(cityId: string, actor: string) {

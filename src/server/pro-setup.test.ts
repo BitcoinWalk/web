@@ -11,7 +11,7 @@ vi.mock("../payments/payout-destination-store", () => ({PayoutDestinationStore: 
 }}));
 import {getPaymentRuntime} from "../payments/runtime";
 import {managedBackground} from "./share-image";
-import {clearProSetupSigner, prepareBrandRequest, prepareProSetupPreview, resolveProSetupAuthority, reviewBrandRequest, saveProSetupSigner, proSetupDependencies, proSetupNotificationState} from "./pro-setup";
+import {clearProSetupSigner, ownerCityProfileNameMatches, prepareBrandRequest, prepareProSetupPreview, resolveProSetupAuthority, reviewBrandRequest, reuseOwnerAsCitySigner, saveProSetupSigner, proSetupDependencies, proSetupNotificationState} from "./pro-setup";
 import {citySignerProofTemplate} from "../nostr/pro-setup-command";
 import {ProSetupTaskStore} from "../payments/pro-setup-task-store";
 import {SUPER_ADMIN_PUBKEY} from "../nostr/authority";
@@ -30,10 +30,18 @@ beforeEach(() => {
     INSERT INTO payment_invoice_payout VALUES('private-invoice',1);`);
   vi.mocked(getPaymentRuntime).mockReturnValue({store: {db: database}} as never);
   deps = {snapshot: vi.fn().mockResolvedValue({revisions: [revision], approvals: [approval]}), grants: vi.fn().mockResolvedValue([grant]),
-    discover: vi.fn().mockResolvedValue(null), entitlement: vi.fn().mockReturnValue({invoiceId: "private-invoice", owner}), restrictions: vi.fn().mockResolvedValue(false)};
+    discover: vi.fn().mockResolvedValue(null), entitlement: vi.fn().mockReturnValue({invoiceId: "private-invoice", owner}), restrictions: vi.fn().mockResolvedValue(false),
+    ownerCityProfileMatches:vi.fn().mockResolvedValue(true)};
 });
 afterEach(() => {database.close(); vi.restoreAllMocks(); vi.unstubAllEnvs();});
 describe("Pro setup fresh authority", () => {
+  it("requires the exact signed city profile name from two independent relay reads",async()=>{
+    const secret=generateSecretKey(),pubkey=getPublicKey(secret),created_at=Math.floor(Date.now()/1000),matching=finalizeEvent({kind:0,created_at,tags:[],content:JSON.stringify({display_name:"BitcoinWalk in Radom"})},secret),wrong=finalizeEvent({kind:0,created_at:created_at+1,tags:[],content:JSON.stringify({display_name:"Alice"})},secret);
+    const twoMatches=vi.fn().mockResolvedValue([matching]);
+    expect(await ownerCityProfileNameMatches(pubkey,"BitcoinWalk in Radom",["wss://one.example","wss://two.example"],twoMatches)).toBe(true);
+    const oneMatch=vi.fn().mockImplementation(async(relays:string[])=>relays[0]==="wss://one.example"?[matching]:[wrong]);
+    expect(await ownerCityProfileNameMatches(pubkey,"BitcoinWalk in Radom",["wss://one.example","wss://two.example"],oneMatch)).toBe(false);
+  });
   it("projects organizer action and BitcoinWalk waiting states for Guide",()=>{
     expect(proSetupNotificationState("ready-for-proof",undefined,100)).toBe("ready-for-proof");
     expect(proSetupNotificationState("ready-for-proof",{status:"pending",expiresAt:200,ownerProof:"owner",brandProof:"brand"},100)).toBe("awaiting-review");
@@ -82,6 +90,12 @@ describe("Pro setup fresh authority", () => {
       message:expect.stringContaining("did not publish, replace or deactivate")});
     expect(await clearProSetupSigner(cityId,owner)).toMatchObject({cleared:true,state:"setup-required"});
     expect(JSON.stringify(database.prepare("SELECT * FROM pro_setup_task").get())).not.toContain("nsec");
+  });
+  it("reuses the owner npub only when its public profile already has the exact city name",async()=>{
+    expect(await reuseOwnerAsCitySigner(cityId,owner,{action:"reuse-owner-city-signer",cityId,recoveryAcknowledged:true},deps)).toMatchObject({pubkey:owner,version:1,state:"confirmed-not-active",message:expect.stringContaining("No new signer")});
+    expect(deps.ownerCityProfileMatches).toHaveBeenCalledWith(owner,"BitcoinWalk in Radom");
+    vi.mocked(deps.ownerCityProfileMatches).mockResolvedValue(false);
+    await expect(reuseOwnerAsCitySigner(cityId,owner,{action:"reuse-owner-city-signer",cityId,recoveryAcknowledged:true},deps)).rejects.toThrow("named exactly");
   });
   it("binds the saved signer and exact approved artwork into a private BW-103 request",async()=>{
     vi.spyOn(proSetupDependencies,"snapshot").mockImplementation(deps.snapshot);vi.spyOn(proSetupDependencies,"grants").mockImplementation(deps.grants);vi.spyOn(proSetupDependencies,"discover").mockImplementation(deps.discover);vi.spyOn(proSetupDependencies,"entitlement").mockImplementation(deps.entitlement);vi.spyOn(proSetupDependencies,"restrictions").mockImplementation(deps.restrictions);

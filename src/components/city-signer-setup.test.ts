@@ -4,10 +4,11 @@ import {describe, expect, it, vi} from "vitest";
 import CitySignerSetup, {citySignerConnectionError} from "./city-signer-setup";
 
 describe("CitySignerSetup", () => {
-  it("keeps the city signer separate and requires explicit recovery acknowledgement", () => {
+  it("offers a verified skip path while keeping explicit recovery acknowledgement", () => {
     const html = renderToStaticMarkup(createElement(CitySignerSetup, {cityId: "66f137cb-2ac1-4eef-8358-7dd66b45922f", cityName: "London", actor: "a".repeat(64), saved: {configured: false}, setupReady:false,busy: false, onSaved: vi.fn(),onActivation:vi.fn()}));
-    expect(html).toContain("Separate city signer");
-    expect(html).toContain("never replaces your personal dashboard login");
+    expect(html).toContain("City signer");
+    expect(html).toContain("Skip — use this existing city identity");
+    expect(html).toContain("signed public profile on at least two relays");
     expect(html).toContain("Create new city identity");
     expect(html).toContain("nsec1… or bunker://…");
     expect(html).toContain("never uploads or stores the private key");

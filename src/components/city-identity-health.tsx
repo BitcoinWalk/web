@@ -34,7 +34,7 @@ export function CityIdentityHealthOverview({rows,busy,error,onRecheck,onReview}:
  const pro=rows.filter(row=>row.tier==="pro"),complete=pro.filter(row=>row.status==="complete").length;
  return <section aria-labelledby="city-identity-health-heading" style={{border:"1px solid #d7dce2",borderRadius:"0.65rem",padding:"1rem",margin:"1rem 0"}}>
   <h3 id="city-identity-health-heading" style={{marginTop:0}}>City identity health</h3>
-  <p><strong>{complete} of {pro.length} Pro {pro.length===1?"city":"cities"} complete</strong>. Basic cities are not required to have a separate city identity.</p>
+  <p><strong>{complete} of {pro.length} Pro {pro.length===1?"city":"cities"} complete</strong>. Basic cities are not required to have a verified city identity.</p>
   {!!pro.length&&<ul style={{listStyle:"none",padding:0,display:"grid",gap:"0.75rem"}}>{pro.map(row=><li key={row.cityId} style={{border:"1px solid #d7dce2",borderRadius:"0.5rem",padding:"0.75rem"}}>
    <p style={{marginTop:0}}><strong>{row.cityName}</strong> · Paid Pro city · <Status row={row}/></p>
    <p>{row.availableInEnvironment?"This city can be reviewed in the current environment.":"This paid production city is not present in the staging city directory; its inventory status is still shown here."}</p>

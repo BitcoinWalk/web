@@ -16,7 +16,7 @@ The signed grant is not a partial upgrade. It binds `bitcoinwalk-lifetime-pro-v1
 - the dedicated Pro city relay and Armada/Concord community, alongside the ordinary shared Walkie Talkie channel; and
 - the Overview next-action journey and BitcoinWalk Guide NIP-17 onboarding sequence.
 
-The public city address and private organizer payout destination are deliberately different. The promotion includes the right and workflow to configure both; it never invents or copies a private payout destination. Public LNURL invoice issuance remains disabled until the organizer confirms the destination, connects a recoverable separate city signer, submits both activation proofs, the super-admin publishes the exact city binding, and the provisioning worker independently verifies NIP-05, LNURL-pay and the 79/21 configuration.
+The public city address and private organizer payout destination are deliberately different. The promotion includes the right and workflow to configure both; it never invents or copies a private payout destination. Public LNURL invoice issuance remains disabled until the organizer confirms the destination, connects a recoverable city signer (or reuses an owner account already publicly named **BitcoinWalk in &lt;city&gt;** after two-relay verification), submits both activation proofs, the super-admin publishes the exact city binding, and the provisioning worker independently verifies NIP-05, LNURL-pay and the 79/21 configuration.
 
 ## Preconditions
 
@@ -101,7 +101,7 @@ After the application and Guide workers have reconciled:
 2. Confirm the city is labelled Pro and the plan panel says **Pro access granted by BitcoinWalk**, not **Payment verified**.
 3. Confirm the first unfinished step is **Confirm your payout destination**.
 4. Confirm BitcoinWalk Guide sends the matching encrypted city-scoped NIP-17 message once. The message must contain no destination, proof or secret.
-5. Let the organizer complete the normal owner-controlled sequence: payout confirmation, separate city signer, recovery acknowledgement, activation proofs, super-admin review and publication.
+5. Let the organizer complete the normal owner-controlled sequence: payout confirmation, city signer selection, recovery acknowledgement, activation proofs, super-admin review and publication. The signer may be separate, or the existing owner identity when its signed public profile is already named exactly **BitcoinWalk in &lt;city&gt;** and can be read from at least two profile relays.
 6. Confirm independent read-back reports both NIP-05 and Lightning/LNURL active, and that the public city profile publishes the verified `nip05` and `lud16` values.
 7. Confirm a city Lightning invoice binds the current organizer payout version and 79/21 policy before authorizing any bounded live payment check.
 8. Confirm the dedicated city relay and Armada community are verified, while Walkie Talkie remains independently available on the shared relay.

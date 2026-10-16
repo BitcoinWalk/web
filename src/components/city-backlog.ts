@@ -60,7 +60,7 @@ export function cityWorkflowNextStep(row:CityWorkflowRow):CityWorkflowNextStep|n
  }
  const failed=new Set(row.health?.checks.filter(check=>check.state==="fail").map(check=>check.key)??[]);
  if(failed.has("identity")||failed.has("recovery")){
-  const action=failed.has("identity")&&failed.has("recovery")?"connect the dedicated city signer and confirm its recovery method.":failed.has("identity")?"create or reconnect the exact dedicated city signer.":"confirm the city signer’s protected recovery method.";
+  const action=failed.has("identity")&&failed.has("recovery")?"choose the city signer and confirm its recovery method.":failed.has("identity")?"create or reconnect the city signer, or verify the existing owner city identity.":"confirm the city signer’s protected recovery method.";
   const anchor=failed.has("identity")?"connect-the-city-identity":"confirm-the-recovery-method";
   return {owner:"City host",action,helpHref:`${hostGuide}#${anchor}`};
  }

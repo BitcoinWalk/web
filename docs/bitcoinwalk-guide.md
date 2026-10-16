@@ -11,7 +11,7 @@ without historical messages. Mobile push remains an acceptance item.
 The current source supports an owner-only Pro setup handoff. A signed loopback feed
 re-authorizes the current owner and projects only the city, recipient and workflow
 state. Guide queues one encrypted city-specific `/admin/my-cities` message per state:
-payout confirmation, separate city signer, private activation proofs, waiting for
+payout confirmation, city signer selection (separate or verified existing owner), private activation proofs, waiting for
 review, waiting for publication and verified-profile publication. It preserves the
 exact encrypted event across retry and restart, suppresses a queued state after it
 becomes stale, and notifies a replacement verified owner without reusing the prior
@@ -31,7 +31,7 @@ cannot cause the other to replay.
 | Feed state | Guide purpose | Organizer-facing result |
 | --- | --- | --- |
 | `setup-required` | `pro-setup-setup-required` | Confirm payout. |
-| `payout-confirmed` | `pro-setup-payout-confirmed` | Connect and back up the separate city signer. |
+| `payout-confirmed` | `pro-setup-payout-confirmed` | Connect and back up a city signer, or reuse the owner identity after exact public-profile verification. |
 | `signer-confirmed` | `pro-setup-signer-confirmed` | Confirm payout. |
 | `ready-for-proof` | `pro-setup-ready-for-proof` | Submit both private activation proofs. |
 | `awaiting-review` | `pro-setup-awaiting-review` | Wait for BitcoinWalk review; do not repeat signatures. |

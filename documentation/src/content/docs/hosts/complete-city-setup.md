@@ -40,8 +40,8 @@ After login, **Overview** is the source of truth. Its highlighted **Next require
 2. On **Overview**, select **Continue Pro setup** under the correct city. If BitcoinWalk Guide supplied a setup link, use that exact link.
 3. Select **Verify and preview Pro setup** and check the city name, website and generated artwork.
 4. Confirm the private payout destination. Saving it sends no payment and does not make it public. The current plan sends 79% of city payments to this destination and retains 21% for BitcoinWalk.
-5. Create or reconnect the separate city identity.
-6. Back up its recovery method, check that it can be restored, and select **Verify and save city signer**.
+5. Choose the city identity. Create or reconnect a separate signer, or select **Skip — use this existing city identity** when the connected owner account's signed public profile is already named exactly **BitcoinWalk in &lt;city&gt;**. The skip option verifies that profile on at least two public relays; it does not accept an arbitrary personal account.
+6. Back up or confirm the chosen account's recovery method, check that it can be restored, and save the city signer.
 7. Reconnect the saved city signer if needed, then select **Sign private activation request**. The host account authorizes the city identity, the city signer proves control, and the host account authorizes private submission.
 8. When Overview says **Activation submitted** or **Identity approved**, wait. BitcoinWalk must review, publish and independently verify the binding; repeating earlier steps is not required.
 9. After the verified city address appears in Pro setup, reconnect the exact saved city signer and select **Publish verified city profile**. Wait for successful relay read-back.
@@ -55,7 +55,7 @@ Guide sends at most one encrypted message when the city enters each meaningful s
 | State observed by Guide | Who acts next | What the message asks for |
 | --- | --- | --- |
 | Payment recorded; payout not confirmed | Host | Open the exact city setup and confirm the private payout destination. |
-| Payout confirmed; city signer missing | Host | Create or reconnect a separate recoverable city identity, back it up and verify its `npub`. |
+| Payout confirmed; city signer missing | Host | Create or reconnect a recoverable city identity, or reuse the owner `npub` when it already has the exact **BitcoinWalk in &lt;city&gt;** public profile; confirm recovery and verify the `npub`. |
 | City signer saved; payout missing | Host | Reconnect the personal host account and confirm the payout destination. |
 | Payout and signer ready | Host | Reconnect the exact city signer and submit the host and city-signer activation proofs. |
 | Activation proofs submitted | BitcoinWalk | Review the exact private proofs. The host should wait and must not repeat signatures. |
@@ -68,14 +68,15 @@ A relay acknowledgement means only that an allowed inbox relay accepted the encr
 
 ## Connect the city identity
 
-The host’s personal account remains the dashboard login. The city identity is a separate public Nostr identity such as **BitcoinWalk in Graz**.
+The host account remains the dashboard login. The public city identity is named for the city, such as **BitcoinWalk in Graz**. It may be a separate signer, or the same account when the host already established that exact public identity before Pro setup.
 
 Choose one of these options:
 
 - create a new city identity in the setup page, then save its one-time recovery backup; or
-- reconnect the exact existing city identity from its protected backup or dedicated remote signer.
+- reconnect the exact existing city identity from its protected backup or dedicated remote signer; or
+- if the connected owner `npub` already has the exact signed public profile name **BitcoinWalk in &lt;city&gt;**, confirm its recovery method and select **Skip — use this existing city identity**. BitcoinWalk checks the name independently on at least two public relays before saving it.
 
-Confirm that the connected `npub` is the expected city identity before signing. Do not paste a personal `nsec` into the page, and do not replace an existing city identity merely because setup was interrupted.
+Confirm that the connected `npub` is the expected city identity before signing. The reuse option is unavailable when the profile name is missing, different or cannot be read from two relays; update and publish the profile first, or use a separate signer. Do not paste a personal `nsec` into the page, and do not replace an existing city identity merely because setup was interrupted.
 
 ## Confirm the recovery method
 

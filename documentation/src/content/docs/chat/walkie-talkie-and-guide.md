@@ -17,7 +17,7 @@ Group messages are intended for community conversation. Do not post passwords, i
 
 Guide is a separate private conversation. Guide notifications use NIP-17 encrypted direct messages and never turn the city group into a private-message channel.
 
-Guide currently helps with workflow notifications. For a paid Pro city, it privately names the current next action: confirm the payout destination, connect the separate city signer, submit activation proofs, wait for BitcoinWalk review or publication, and finally publish the verified city profile. The message links to the exact city setup and the [complete city setup procedure](/hosts/complete-city-setup/).
+Guide currently helps with workflow notifications. For a paid Pro city, it privately names the current next action: confirm the payout destination, choose a recoverable city signer (including the verified existing-owner option), submit activation proofs, wait for BitcoinWalk review or publication, and finally publish the verified city profile. The message links to the exact city setup and the [complete city setup procedure](/hosts/complete-city-setup/).
 
 Guide is automated and does not read or answer replies. The dashboard remains the source of truth if its state has advanced since a message was created. A relay acknowledgement proves delivery to the configured inbox, not that a person has read the message.
 

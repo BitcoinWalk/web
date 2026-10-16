@@ -65,8 +65,14 @@ describe("branded city authority contract and private storage", () => {
   it("denies editors, donors and super-admin impersonating owner", () => {
     const {store} = setup();
     for (const actor of [other,brand,admin]) expect(() => store.prepare(actor,authority,origin,brand,"activate",profile)).toThrow("owner");
-    expect(() => store.prepare(owner,authority,origin,owner,"activate",profile)).toThrow("separate");
-    expect(() => store.prepare(owner,{...authority,eligible:false},origin,brand,"activate",profile)).toThrow("eligible");
+    expect(store.prepare(owner,authority,origin,owner,"activate",profile).binding.brandPubkey).toBe(owner);
+    expect(() => setup().store.prepare(owner,{...authority,eligible:false},origin,brand,"activate",profile)).toThrow("eligible");
+  });
+  it("accepts both proof roles from a previously verified owner city identity",()=>{
+    const {store}=setup(),request=store.prepare(owner,authority,origin,owner,"activate",profile);
+    const ownerProof=finalizeEvent(cityBrandProofTemplate(request,"owner"),ownerKey),brandProof=finalizeEvent(cityBrandProofTemplate(request,"brand"),ownerKey);
+    const template=store.review(request.requestId,admin,authority,ownerProof,brandProof);
+    expect(finalizeEvent(template,adminKey)).toBeDefined();
   });
   it("denies foreign or swapped signature roles and unapproved review", () => {
     const {store} = setup(), request = store.prepare(owner,authority,origin,brand,"activate",profile), p = proofs(request);

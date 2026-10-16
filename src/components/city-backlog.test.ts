@@ -65,7 +65,7 @@ describe("cityWorkflowRows",()=>{
   ]};
   const waiting=cityWorkflowRows({managed:[managed("g","Graz","approved")],pending:[],needsChanges:[],health:[health],paidCityIds:new Set(["g"]),paidCities:{}})[0];
   expect(waiting.status).toBe("awaits-change");
-  expect(cityWorkflowNextStep(waiting)).toEqual({owner:"City host",action:"connect the dedicated city signer and confirm its recovery method.",helpHref:"https://docs.bitcoinwalk.org/hosts/complete-city-setup/#connect-the-city-identity"});
+  expect(cityWorkflowNextStep(waiting)).toEqual({owner:"City host",action:"choose the city signer and confirm its recovery method.",helpHref:"https://docs.bitcoinwalk.org/hosts/complete-city-setup/#connect-the-city-identity"});
   expect(cityWorkflowNextStep({...waiting,status:"online"})).toBeNull();
  });
 });

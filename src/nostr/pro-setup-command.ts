@@ -5,6 +5,7 @@ const commandSchema = z.discriminatedUnion("action", [
   z.object({action: z.literal("preview"), cityId: z.uuid()}).strict(),
   z.object({action: z.literal("save-payout"), cityId: z.uuid(), destination: z.string().trim().min(5).max(500)}).strict(),
   z.object({action: z.literal("confirm-city-signer"), cityId: z.uuid(), brandPubkey: z.string().regex(/^[0-9a-f]{64}$/), backupAcknowledged: z.literal(true)}).strict(),
+  z.object({action: z.literal("reuse-owner-city-signer"), cityId: z.uuid(), recoveryAcknowledged: z.literal(true)}).strict(),
   z.object({action: z.literal("clear-city-signer"), cityId: z.uuid()}).strict(),
   z.object({action: z.literal("prepare-brand-request"), cityId: z.uuid()}).strict(),
   z.object({action: z.literal("submit-brand-proofs"), cityId: z.uuid(), requestId: z.uuid()}).strict(),

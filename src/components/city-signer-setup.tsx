@@ -82,6 +82,20 @@ export default function CitySignerSetup({cityId, cityName, actor, saved, activat
     const body = await response.json(); if (!response.ok) throw new Error(body.error || "City signer could not be confirmed.");
     onSaved({configured: true, pubkey: body.signer.pubkey, version: body.signer.version}, body.signer.message);
   });}
+  function reuseOwnerIdentity(){void run(async()=>{
+    if(!acknowledged)throw new Error("Confirm the existing account’s recovery method first.");
+    if(!window.nostr)throw new Error("Connect the existing city account with your browser signer first.");
+    const key=await window.nostr.getPublicKey();
+    if(key!==actor)throw new Error("The browser signer does not match the connected city owner.");
+    const command={action:"reuse-owner-city-signer" as const,cityId,recoveryAcknowledged:true as const},origin=window.location.origin;
+    const event=await signWithBrowserExtension(proSetupTemplate(command,origin));
+    if(event.pubkey!==actor||JSON.stringify(authorizeProSetup(event,origin))!==JSON.stringify(command))throw new Error("Dashboard identity changed while confirming the existing city identity.");
+    const response=await fetch("/api/pro-setup",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({event}),signal:AbortSignal.timeout(60_000)}),body=await response.json();
+    if(!response.ok)throw new Error(body.error||"The existing city identity could not be verified.");
+    signer.current={getPublicKey:()=>window.nostr!.getPublicKey(),signEvent:template=>signWithBrowserExtension(template)};
+    setPubkey(actor);setAcknowledged(false);
+    onSaved({configured:true,pubkey:body.signer.pubkey,version:body.signer.version},body.signer.message);
+  });}
   function clearSaved() {void run(async () => {const command = {action: "clear-city-signer" as const, cityId}, origin = window.location.origin; const event = await signWithBrowserExtension(proSetupTemplate(command, origin)); if (event.pubkey !== actor) throw new Error("Dashboard identity changed."); const response = await fetch("/api/pro-setup", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({event}), signal: AbortSignal.timeout(60_000)}); const body = await response.json(); if (!response.ok) throw new Error(body.error || "Saved signer could not be cleared."); onSaved({configured: false}, body.signer.message); disconnect();});}
   function submitActivation() {void run(async () => {
     if (!signer.current || !saved.pubkey || pubkey !== saved.pubkey) throw new Error("Reconnect the exact saved city signer first.");
@@ -120,12 +134,16 @@ export default function CitySignerSetup({cityId, cityName, actor, saved, activat
   const mismatch = !!saved.pubkey && !!pubkey && saved.pubkey !== pubkey;
   const activationExpired = !!activation && activation.expiresAt * 1000 <= clock;
   return <fieldset disabled={busy || parentBusy}>
-    <legend>Separate city signer</legend>
-    <p>This signer controls the public <strong>BitcoinWalk in {cityName}</strong> identity. It never replaces your personal dashboard login.</p>
+    <legend>City signer</legend>
+    <p>This signer controls the public <strong>BitcoinWalk in {cityName}</strong> identity. Use a separate signer, or reuse the connected owner account when it already has that exact public profile name.</p>
     {saved.configured && saved.pubkey && <p><strong>Expected city identity:</strong> <code title={nip19.npubEncode(saved.pubkey)}>{short(saved.pubkey)}</code> · version {saved.version}</p>}
     {!pubkey ? <>
       {saved.configured&&<div className="city-signer-reuse"><p><strong>Reuse the existing city identity.</strong><br/><small>This city already has a saved, verified identity. Reconnect it; do not create another account.</small></p>{saved.pubkey===actor&&<button type="button" onClick={connectExistingCityAccount}>Use connected city identity</button>}</div>}
-      {!saved.configured && <button type="button" onClick={create}>Create new city identity</button>}
+      {!saved.configured && <><button type="button" onClick={create}>Create new city identity</button>
+        <div className="city-signer-reuse"><p><strong>Already using this account as BitcoinWalk in {cityName}?</strong><br/><small>You can skip creating a separate signer. BitcoinWalk will verify this owner npub’s signed public profile on at least two relays.</small></p>
+          <label><input type="checkbox" checked={acknowledged} onChange={event=>setAcknowledged(event.target.checked)}/> I have confirmed this existing account’s recovery method.</label>
+          <p><button type="button" disabled={!acknowledged} onClick={reuseOwnerIdentity}>Skip — use this existing city identity</button></p>
+        </div></>}
       <p>{saved.configured ? "Reconnect the expected city identity using its remote signer or saved backup:" : "Or connect a city identity kept in a remote signer or load an existing backup:"}</p>
       <label>City private key or bunker signer<input type="password" value={input} onChange={event => setInput(event.target.value)} placeholder="nsec1… or bunker://…" autoComplete="off" spellCheck={false}/></label>
       <input ref={file} type="file" accept=".txt,text/plain" hidden onChange={event => void loadFile(event)}/>
