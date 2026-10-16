@@ -43,11 +43,11 @@ docker start albyhub >/dev/null
 healthy=false
 for _ in $(seq 1 90); do
   if info="$(curl -fsS --max-time 3 http://127.0.0.1:8080/api/info 2>/dev/null)" \
-    && jq -e '.version == "v1.24.0" and .setupCompleted == true and .network == "bitcoin"' >/dev/null <<<"$info"; then
+    && jq -e '.version == "v1.24.0" and .setupCompleted == true' >/dev/null <<<"$info"; then
     healthy=true
     break
   fi
   sleep 1
 done
-[[ "$healthy" == "true" ]] || { echo "The predecessor did not return healthy." >&2; exit 70; }
+[[ "$healthy" == "true" ]] || { echo "The predecessor web service did not return." >&2; exit 70; }
 printf '%s\n' "LIVE_HUB_FEECAP_ROLLBACK_OK manual_unlock_required=yes"

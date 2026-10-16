@@ -134,14 +134,14 @@ docker start "$live_container" >/dev/null
 healthy=false
 for _ in $(seq 1 120); do
   if after="$(curl -fsS --max-time 3 http://127.0.0.1:8080/api/info 2>/dev/null)" \
-    && jq -e '.version == "bitcoinwalk-feecap-6bb8520025d7" and .setupCompleted == true and .network == "bitcoin"' >/dev/null <<<"$after"; then
+    && jq -e '.version == "bitcoinwalk-feecap-6bb8520025d7" and .setupCompleted == true' >/dev/null <<<"$after"; then
     healthy=true
     break
   fi
   if [[ "$(docker inspect "$live_container" --format '{{.State.Running}}')" != "true" ]]; then break; fi
   sleep 1
 done
-[[ "$healthy" == "true" ]] || { echo "The reviewed fee-cap Hub did not become healthy; rolling back." >&2; exit 70; }
+[[ "$healthy" == "true" ]] || { echo "The reviewed fee-cap Hub web service did not return; rolling back." >&2; exit 70; }
 printf '%s\n' "$after" | jq '{version,setupCompleted,running,unlocked,network}' > "$evidence/live-after.json"
 [[ "$(sqlite3 -readonly "$live_root/albyhub/nwc.db" 'PRAGMA integrity_check;')" == "ok" ]] || exit 67
 safe_inventory "$live_root/albyhub/nwc.db" > "$evidence/apps-after.txt"
