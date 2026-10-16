@@ -597,6 +597,36 @@ balances. The package checker rejects stop/start/restart/remove/copy/exec,
 SQLite and decryption operations. Running this audit does not authorize a live
 backup, permission change, migration, service interruption or candidate start.
 
+The approved copy/start/cleanup rehearsal then passed against the real v1.24.0
+state on 16 October. The exported candidate acquired a different local Docker
+configuration digest when imported into the root daemon, so acceptance did not
+trust that engine-local ID alone: SHA-256 values for the Hub binary, migration
+binary, LDK library, release manifest and guarded entrypoint matched byte for
+byte across the original rootless image and the imported root image. Revision
+and false production/start safety labels also matched.
+
+The root-only rehearsal stopped the live container for a clean copy, verified
+SQLite integrity, restarted the public Hub in three seconds, and started the
+copied state under the reviewed candidate on an internal-only Docker network
+with no published port, automatic unlock or payment path. Its health probe ran
+only inside that network namespace. The candidate reported the exact reviewed
+version and retained the same safe aggregate inventory: five applications, two
+isolated applications, 31 permissions, 31 positive budgets and 14 non-renewing
+budgets. Post-start SQLite integrity passed. The candidate container, internal
+network and plaintext rehearsal volume were then removed; only mode-0600,
+root-owned aggregate/startup evidence remains under `/var/backups`.
+
+Two preceding attempts also failed closed and removed their temporary copies.
+The first correctly exposed that a container restart leaves the LDK wallet
+locked when no automatic-unlock password is stored. The second showed that an
+internal Docker network cannot be probed through a host-published port even
+though the candidate server had started; the final probe used only the
+candidate network namespace. The production container is online after the
+rehearsal but requires its normal human password unlock. This proves copied-state
+migration compatibility and rollback isolation; it does not authorize replacing
+the live Hub, funding the payout wallet, or enabling a sender. Encrypted
+off-host backup/restore evidence for initialized production state remains open.
+
 Reviewed official tag v1.24.0, commit
 `d8ef0e70e0d265a8424276daee0a595ac31993c0`:
 
