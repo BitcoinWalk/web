@@ -3,8 +3,9 @@ import {compareEvents,verifyEvent,type Event,type EventTemplate} from "nostr-too
 export type Nip29Destination={relay:string;groupId:string};
 export type Nip29Message={id:string;pubkey:string;content:string;createdAt:number};
 export type Nip29Composer={draft:string;attachment:string};
-export type Nip29CityRoom={id:string;name:string;slug:string;chat:{scope:"global"|"city";nip29:Nip29Destination|null}};
-export type Nip29Room={key:string;label:string;scope:"global"|"city";cityIds:string[];destination:Nip29Destination};
+export type Nip29CityRoom={id:string;name:string;slug:string;avatarUrl?:string;chat:{scope:"global"|"city";nip29:Nip29Destination|null;communities?:{global:Nip29Destination|null;city:Nip29Destination|null}}};
+export type Nip29Room={key:string;label:string;scope:"global"|"city";cityIds:string[];destination:Nip29Destination;avatarUrl?:string};
+export type DashboardNip29Rooms={city:Nip29Room|null;global:Nip29Room|null};
 
 const hex=/^[0-9a-f]{64}$/;
 
@@ -35,6 +36,24 @@ export function uniqueNip29Rooms(cities:Nip29CityRoom[]):Nip29Room[]{
   rooms.set(key,{key,label:city.chat.scope==="global"?"BitcoinWalk Global":city.name,scope:city.chat.scope,cityIds:[city.id],destination});
  }
  return [...rooms.values()].sort((a,b)=>a.label.localeCompare(b.label)||a.key.localeCompare(b.key));
+}
+
+function room(destination:Nip29Destination,label:string,scope:"global"|"city",cityIds:string[],avatarUrl?:string):Nip29Room{
+ return {key:`${destination.relay}\n${destination.groupId}`,label,scope,cityIds,destination,...(avatarUrl?{avatarUrl}:{})};
+}
+
+/** Keep the city and network-wide communities as distinct destinations. The
+ * public directory can expose both even when its legacy `chat.nip29` field
+ * points at only the city's preferred room. */
+export function dashboardNip29Rooms(cities:Nip29CityRoom[],managedCityIds:string[],selectedCity=""):DashboardNip29Rooms{
+ const managed=new Set(managedCityIds),eligible=cities.filter(city=>managed.has(city.id));
+ const city=eligible.find(row=>row.id===selectedCity)??eligible[0]??null;
+ const cityDestination=city?validNip29Destination(city.chat.communities?.city??(city.chat.scope==="city"?city.chat.nip29:null)):null;
+ const globalDestination=cities.map(row=>validNip29Destination(row.chat.communities?.global??(row.chat.scope==="global"?row.chat.nip29:null))).find(Boolean)??null;
+ return {
+  city:city&&cityDestination?room(cityDestination,city.name,"city",[city.id],city.avatarUrl):null,
+  global:globalDestination?room(globalDestination,"BitcoinWalk Global","global",cities.map(row=>row.id)):null,
+ };
 }
 
 function exactTag(event:Event,name:string,value:string){const tags=event.tags.filter(tag=>tag[0]===name);return tags.length===1&&tags[0].length===2&&tags[0][1]===value;}

@@ -1,6 +1,6 @@
 import {finalizeEvent,getPublicKey,type EventTemplate} from "nostr-tools";
 import {describe,expect,it} from "vitest";
-import {mergeNip29Messages,nip29ComposerKey,nip29JoinTemplate,nip29MessageTemplate,nip29RoomName,uniqueNip29Rooms,updateNip29Composer,validNip29Destination} from "./nip29-chat";
+import {dashboardNip29Rooms,mergeNip29Messages,nip29ComposerKey,nip29JoinTemplate,nip29MessageTemplate,nip29RoomName,uniqueNip29Rooms,updateNip29Composer,validNip29Destination} from "./nip29-chat";
 
 const key=new Uint8Array(32).fill(4),pubkey=getPublicKey(key),group="bitcoinwalk-london";
 const signed=(template:EventTemplate)=>finalizeEvent(template,key);
@@ -23,6 +23,16 @@ describe("NIP-29 dashboard chat",()=>{
    expect.objectContaining({label:"BitcoinWalk Global",scope:"global",cityIds:["a","b"]}),
    expect.objectContaining({label:"London",scope:"city",cityIds:["c"]}),
   ]);
+ });
+ it("keeps the selected city and global communities visible as separate dashboard conversations",()=>{
+  const global={relay:"wss://chat.bitcoinwalk.org",groupId:"global"},rye={relay:"wss://rye.bitcoinwalk.org",groupId:"rye"};
+  const rooms=dashboardNip29Rooms([
+   {id:"rye",name:"Rye",slug:"rye",avatarUrl:"https://bitcoinwalk.org/rye.webp",chat:{scope:"city",nip29:rye,communities:{city:rye,global}}},
+   {id:"other",name:"Other",slug:"other",chat:{scope:"global",nip29:global,communities:{city:null,global}}},
+  ],["rye"],"rye");
+  expect(rooms.city).toMatchObject({label:"Rye",scope:"city",avatarUrl:"https://bitcoinwalk.org/rye.webp",destination:{...rye,relay:`${rye.relay}/`}});
+  expect(rooms.global).toMatchObject({label:"BitcoinWalk Global",scope:"global",destination:{...global,relay:`${global.relay}/`}});
+  expect(rooms.city?.key).not.toBe(rooms.global?.key);
  });
  it("uses signed metadata only and builds exact join and message requests",()=>{
   const metadata=signed({kind:39000,created_at:10,tags:[["d",group],["name","chat"]],content:""});
