@@ -95,3 +95,24 @@ After the read, the persistent payout container remained version `0.1.0`, mode
 `disabled`, network `none` and state `running`. Its credential is not mounted
 into that container. This closes the private handoff and non-spending protocol
 readiness gate only; it does not authorize service activation or wallet funding.
+
+## Disabled monitoring repair and fee-cap result — 16 October 2026
+
+The first scheduled backup/monitor run exposed a host-specific systemd boundary:
+any private mount namespace on this rootless Docker installation loses access to
+the user Docker socket. Removing the sandbox was rejected. Release `0.1.1`
+instead removes the timers' Docker dependency: the networkless disabled
+container atomically refreshes a mode-0600 heartbeat, and sandboxed Python 3.12
+tools verify its exact disabled state, SQLite generation/integrity and online
+backup/restore. The service remains read-only, capability-free and Docker
+network `none`. Both systemd units returned success, both timers are active and
+the monitor accepted a fresh owner-only backup.
+
+An authenticated `get_info` call through the exact replacement NWC connection
+then returned `SPONSOR_PAYOUT_NATIVE_FEE_CAP_NOT_ADVERTISED`. The live Hub's
+isolated 100,000-sat lifetime budget is verified, but it is not a per-payment
+fee ceiling. Generic NIP-47 method advertising and the stopped reviewed Hub
+candidate do not satisfy the native fee-safety contract. Payout activation and
+wallet funding therefore remain blocked until the live Hub supplies equivalent
+reviewed fee enforcement or the sender uses another independently verified
+fee-bounded transport.

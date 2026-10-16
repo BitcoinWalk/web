@@ -1,10 +1,8 @@
 #!/usr/bin/env sh
 set -eu
-service=bitcoinwalk-sponsor-payout;version=0.1.0
-root="${BITCOINWALK_SPONSOR_PAYOUT_ROOT:-$HOME/.local/state/bitcoinwalk-sponsor-payout}";last="$root/backups/last-success"
-value=$(docker inspect "$service" --format '{{index .Config.Labels "org.bitcoinwalk.version"}}|{{index .Config.Labels "org.bitcoinwalk.mode"}}|{{.HostConfig.NetworkMode}}|{{.HostConfig.ReadonlyRootfs}}|{{.State.Status}}')
-[ "$value" = "$version|disabled|none|true|running" ]
-docker exec "$service" node /app/verify-sponsor-payout-service.cjs >/dev/null
+root="${BITCOINWALK_SPONSOR_PAYOUT_ROOT:-$HOME/.local/state/bitcoinwalk-sponsor-payout}";last="$root/backups/last-success";bin="$HOME/.local/libexec/bitcoinwalk-sponsor-payout";runtime=/usr/bin/python3
+[ -x "$runtime" ] && [ -f "$bin/state-tool.py" ] || exit 1
+"$runtime" "$bin/state-tool.py" verify-live "$root/state/status.json" "$root/mode" "$root/state/service.sqlite" >/dev/null
 [ -f "$last" ] && [ ! -L "$last" ] || exit 1
 set -- $(cat "$last");[ "$#" -eq 3 ] || exit 1;case "$2" in (*[!0-9a-f]*|'') exit 1;;esac;[ "${#2}" -eq 64 ]
 stamp=$1;day=$(printf '%s' "$stamp"|cut -c1-8);hour=$(printf '%s' "$stamp"|cut -c10-11);minute=$(printf '%s' "$stamp"|cut -c12-13);second=$(printf '%s' "$stamp"|cut -c14-15)

@@ -3,7 +3,7 @@ import {mkdirSync,readFileSync,renameSync,writeFileSync} from "node:fs";
 import {join} from "node:path";
 import {DatabaseSync} from "node:sqlite";
 
-const version="0.1.0";
+const version="0.1.1";
 const stateRoot=process.env.BITCOINWALK_SPONSOR_PAYOUT_STATE??"/var/lib/bitcoinwalk-sponsor-payout";
 const modePath=process.env.BITCOINWALK_SPONSOR_PAYOUT_MODE??"/run/bitcoinwalk-config/sponsor-payout-mode";
 const statusPath=join(stateRoot,"status.json"),databasePath=join(stateRoot,"service.sqlite");
@@ -30,12 +30,12 @@ function initialize(){
 function status(generation:number){return Object.freeze({service:"bitcoinwalk-sponsor-payout",version,mode:"disabled",payoutsEnabled:false,hostInvitationsEnabled:false,credentialLoaded:false,networkAccess:false,restartReconciliation:"blocked-disabled",generation});}
 
 function main(){
- mode();const generation=initialize(),body=status(generation);atomicStatus(body);
+ mode();const generation=initialize(),body=status(generation),heartbeat=()=>{mode();atomicStatus({...body,checkedAt:Math.floor(Date.now()/1000)});};heartbeat();
  const server=createServer((request,response)=>{
   if(request.method!=="GET"||request.url!=="/health"){response.writeHead(404,{"Content-Type":"application/json","Cache-Control":"no-store"});response.end('{"error":"not found"}\n');return;}
   response.writeHead(200,{"Content-Type":"application/json","Cache-Control":"no-store"});response.end(`${JSON.stringify(body)}\n`);
  });
- server.listen(8896,"127.0.0.1");let stopping=false;const stop=()=>{if(stopping)return;stopping=true;server.close(()=>process.exit(0));};process.on("SIGTERM",stop);process.on("SIGINT",stop);
+ server.listen(8896,"127.0.0.1");const timer=setInterval(heartbeat,30_000);timer.unref();let stopping=false;const stop=()=>{if(stopping)return;stopping=true;clearInterval(timer);server.close(()=>process.exit(0));};process.on("SIGTERM",stop);process.on("SIGINT",stop);
 }
 
 try{main();}catch{process.stderr.write("Sponsor payout service refused to start.\n");process.exitCode=1;}

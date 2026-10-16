@@ -1,6 +1,6 @@
 #!/usr/bin/env sh
 set -eu
-service=bitcoinwalk-sponsor-payout;version=0.1.0;image="$service:$version"
+service=bitcoinwalk-sponsor-payout;version=0.1.1;image="$service:$version"
 root="$HOME/.local/state/bitcoinwalk-sponsor-payout";state="$root/state";mode="$root/mode";bin="$HOME/.local/libexec/bitcoinwalk-sponsor-payout";units="$HOME/.config/systemd/user"
 fail(){ printf '%s\n' 'Sponsor payout disabled installation failed.' >&2;exit 1; }
 [ "$(id -u)" -ne 0 ] || fail;[ "$(id -un)" = bitcoinwalk ] || fail
@@ -20,7 +20,7 @@ docker run -d --name "$service" --restart unless-stopped --network none --read-o
  --env NODE_ENV=production "$image" >/dev/null
 i=0;until docker exec "$service" node /app/verify-sponsor-payout-service.cjs >/dev/null 2>&1;do i=$((i+1));[ "$i" -lt 20 ]||fail;sleep 1;done
 [ "$(docker inspect "$service" --format '{{index .Config.Labels "org.bitcoinwalk.version"}}|{{index .Config.Labels "org.bitcoinwalk.mode"}}|{{.HostConfig.NetworkMode}}|{{.HostConfig.ReadonlyRootfs}}|{{.HostConfig.Privileged}}|{{json .HostConfig.CapDrop}}|{{.State.Status}}')" = "$version|disabled|none|true|false|[\"ALL\"]|running" ] || fail
-install -m 700 backup-state.sh monitor-disabled.sh "$bin/";install -m 644 bitcoinwalk-sponsor-payout-backup.service bitcoinwalk-sponsor-payout-backup.timer bitcoinwalk-sponsor-payout-monitor.service bitcoinwalk-sponsor-payout-monitor.timer "$units/"
+install -m 700 backup-state.sh monitor-disabled.sh "$bin/";install -m 600 state-tool.py "$bin/";install -m 644 bitcoinwalk-sponsor-payout-backup.service bitcoinwalk-sponsor-payout-backup.timer bitcoinwalk-sponsor-payout-monitor.service bitcoinwalk-sponsor-payout-monitor.timer "$units/"
 systemctl --user daemon-reload;systemctl --user enable --now bitcoinwalk-sponsor-payout-backup.timer bitcoinwalk-sponsor-payout-monitor.timer >/dev/null
 "$bin/backup-state.sh" >/dev/null;"$bin/monitor-disabled.sh" >/dev/null
 if [ -n "$old" ];then docker rm "$old" >/dev/null;fi
