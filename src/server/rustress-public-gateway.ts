@@ -47,23 +47,30 @@ async function invoiceProvider(path:string,config:Pick<ProvisionConfig,"domain">
 }
 const headers={"Cache-Control":"no-store","Content-Type":"application/json; charset=utf-8"};
 const zapAliasEndpoint="https://getalby.com/.well-known/lnurlp/bitcoinwalk";
+const zapAliasCallback="https://getalby.com/lnurlp/bitcoinwalk/callback";
 const zapAliasSigner="79f00d3f5a19ec806189fcab03c1be4ff81d18ee4f653c88fac41fe03570f432";
-const standaloneDescriptions:Record<string,string>={donate:"Support BitcoinWalk",endo:"Support Endo at BitcoinWalk",guide:"Support BitcoinWalk Guide"};
-async function standaloneZapMetadata(localPart:string,transport:JsonTransport){
+async function standaloneZapMetadata(localPart:string,providerText:string,transport:JsonTransport){
   let response:Response;try{response=await transport(zapAliasEndpoint,{method:"GET",redirect:"error",cache:"no-store",signal:AbortSignal.timeout(5000),headers:{Accept:"application/json"}});}catch{return null;}
   if(!response.ok||!/^application\/json(?:\s*;|$)/i.test(response.headers.get("content-type")??"")){await response.body?.cancel();return null;}
   const reader=response.body?.getReader();if(!reader)return null;const decoder=new TextDecoder();let text="",bytes=0;
   try{for(;;){const part=await reader.read();if(part.done)break;bytes+=part.value.length;if(bytes>65_536)return null;text+=decoder.decode(part.value,{stream:true});}text+=decoder.decode();
-    const value=JSON.parse(text) as Record<string,unknown>,callback=new URL(String(value.callback));
+    const value=JSON.parse(text) as Record<string,unknown>,callback=new URL(String(value.callback)),providerValue=JSON.parse(providerText) as Record<string,unknown>,providerCallback=new URL(String(providerValue.callback));
     if(value.tag!=="payRequest"||value.allowsNostr!==true||value.nostrPubkey!==zapAliasSigner||
       !Number.isSafeInteger(value.minSendable)||!Number.isSafeInteger(value.maxSendable)||Number(value.minSendable)<1||Number(value.maxSendable)<Number(value.minSendable)||
       callback.protocol!=="https:"||callback.hostname!=="getalby.com"||callback.port||callback.username||callback.password||callback.pathname!=="/lnurlp/bitcoinwalk/callback"||callback.hash)
       return null;
-    const description=standaloneDescriptions[localPart];if(!description)return null;
-    return {tag:"payRequest",callback:callback.href,minSendable:value.minSendable,maxSendable:value.maxSendable,
-      metadata:JSON.stringify([["text/identifier",`${localPart}@bitcoinwalk.org`],["text/plain",description]]),
+    const metadata=JSON.parse(String(providerValue.metadata));
+    if(providerValue.tag!=="payRequest"||!Number.isSafeInteger(providerValue.minSendable)||!Number.isSafeInteger(providerValue.maxSendable)||Number(providerValue.minSendable)<1||Number(providerValue.maxSendable)<Number(providerValue.minSendable)||
+      providerCallback.href!==`https://bitcoinwalk.org/lnurlp/${localPart}/callback`||!Array.isArray(metadata)||!metadata.some(row=>Array.isArray(row)&&row[0]==="text/plain"))return null;
+    return {tag:"payRequest",callback:providerCallback.href,minSendable:providerValue.minSendable,maxSendable:providerValue.maxSendable,metadata:providerValue.metadata,
       allowsNostr:true,nostrPubkey:value.nostrPubkey};
   }catch{return null;}finally{await reader.cancel();}
+}
+async function standaloneZapInvoice(search:string,transport:JsonTransport){
+  let response:Response;try{response=await transport(zapAliasCallback+search,{method:"GET",redirect:"error",cache:"no-store",signal:AbortSignal.timeout(10000),headers:{Accept:"application/json"}});}catch{return null;}
+  if(!response.ok||!/^application\/json(?:\s*;|$)/i.test(response.headers.get("content-type")??"")){await response.body?.cancel();return null;}
+  const text=await response.text();if(text.length>65_536)return null;
+  try{const value=JSON.parse(text) as Record<string,unknown>;return typeof value.pr==="string"&&value.pr.toLowerCase().startsWith("lnbc")?text:null;}catch{return null;}
 }
 export async function managedNip05(name:string,deps=dependencies()){
   if(deps.nip05Enabled&&!deps.nip05Enabled())return Response.json({names:{}},{headers:{...headers,"Access-Control-Allow-Origin":"*"}});
@@ -83,10 +90,14 @@ export async function managedLnurl(localPart:string,path:string,search="",deps=d
   const config=city??standalone,allowed=path===`/.well-known/lnurlp/${localPart}`||path===`/lnurlp/${localPart}`||path.startsWith(`/lnurlp/${localPart}/`);
   if(!config||!allowed||search.length>2048||path.includes("..")||!/^\/[A-Za-z0-9._~!$&'()*+,;=:@%/-]+$/.test(path))return Response.json({status:"ERROR",reason:"Address not found"},{status:404,headers});
   if(standalone&&search===""&&(path===`/.well-known/lnurlp/${localPart}`||path===`/lnurlp/${localPart}`)){
-    const metadata=await standaloneZapMetadata(localPart,deps.aliasTransport??fetch);
+    const providerText=await provider(path,config,deps);if(providerText===null)return Response.json({status:"ERROR",reason:"Payment service unavailable"},{status:503,headers});
+    const metadata=await standaloneZapMetadata(localPart,providerText,deps.aliasTransport??fetch);
     return metadata?Response.json(metadata,{headers:{...headers,"Access-Control-Allow-Origin":"*"}}):Response.json({status:"ERROR",reason:"Payment service unavailable"},{status:503,headers});
   }
   const callback=path===`/lnurlp/${localPart}/callback`;
+  if(standalone&&callback&&new URLSearchParams(search).has("nostr")){
+    const text=await standaloneZapInvoice(search,deps.aliasTransport??fetch);return text===null?Response.json({status:"ERROR",reason:"Payment service unavailable"},{status:503,headers}):new Response(text,{headers});
+  }
   const text=await (callback?invoiceProvider(path+search,config,deps):provider(path+search,config,deps));return text===null?Response.json({status:"ERROR",reason:"Payment service unavailable"},{status:503,headers}):new Response(text,{headers});
 }
-export const gatewayTest={activeConfig,publicCapabilityEnabled,loopbackTransport:loopbackVirtualHostRequest,standaloneZapMetadata,invoiceProvider};
+export const gatewayTest={activeConfig,publicCapabilityEnabled,loopbackTransport:loopbackVirtualHostRequest,standaloneZapMetadata,standaloneZapInvoice,invoiceProvider};
