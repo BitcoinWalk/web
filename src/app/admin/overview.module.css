@@ -2,6 +2,10 @@
 .overview>h1,.overview>p{margin:0}
 .eyebrow{color:#6a4a24;font-size:.82rem;font-weight:750;letter-spacing:.08em;text-transform:uppercase}
 .intro{max-width:46rem;font-size:1.08rem;color:#4d555d}
+.overview>section[aria-label="Next required action"]{border:2px solid #f7931a;border-radius:12px;padding:18px;background:#fff8ed}
+.overview>section[aria-label="Next required action"]>p:first-child{margin:0;color:#6a4a24;font-size:.82rem;letter-spacing:.06em;text-transform:uppercase}
+.overview>section[aria-label="Next required action"] article{margin:12px 0 0;padding:0;border:0;background:transparent}
+.overview>section[aria-label="Next required action"] h2{margin:.2rem 0;font-size:1.25rem}
 .actionGrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,230px),1fr));gap:12px;margin:8px 0}
 .actionCard{display:grid;gap:8px;min-height:132px;padding:18px;border:1px solid #dfe3e6;border-radius:10px;background:#fff;color:#20252b!important;text-decoration:none;box-sizing:border-box;-webkit-tap-highlight-color:transparent;transition:transform 150ms ease-out,border-color 150ms ease-out,box-shadow 150ms ease-out}
 .actionCard strong{font-size:1.08rem}.actionCard span{color:#555e67}.actionCard span:last-child{align-self:end;color:#894600;font-weight:700}

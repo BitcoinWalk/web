@@ -11,6 +11,7 @@ import {serverReadRelays} from "../../../lib/server-relay-config";
 import {validatePayoutDestination} from "../../../server/lnurl-pay";
 import {PayoutDestinationStore} from "../../../payments/payout-destination-store";
 import {listProCityIdentityHealth} from "../../../server/pro-city-identity-health";
+import {organizerProNextActions} from "../../../payments/organizer-pro-next-action";
 export const dynamic="force-dynamic",runtime="nodejs";
 export function visibleLogoPacks(statuses:LogoPackStatus[],payments:PaymentView[],actor:string,superAdmin:string){
  const admin=actor===superAdmin,owned=new Set(payments.map(payment=>payment.cityId));
@@ -42,7 +43,7 @@ export async function POST(request:Request){
    case "status":return Response.json({payment:await service.status(body.event.pubkey,command.cityId)},{headers});
    case "list":{
     const payments=service.list(body.event.pubkey,SUPER_ADMIN_PUBKEY),logoPacks=visibleLogoPacks(getLogoCatalog().statuses(),payments,body.event.pubkey,SUPER_ADMIN_PUBKEY);
-    if(body.event.pubkey!==SUPER_ADMIN_PUBKEY)return Response.json({payments,logoPacks},{headers});
+    if(body.event.pubkey!==SUPER_ADMIN_PUBKEY)return Response.json({payments,logoPacks,proSetupActions:organizerProNextActions(runtime.store.db,body.event.pubkey)},{headers});
     try{return Response.json({payments,logoPacks,identityHealth:await listProCityIdentityHealth(body.event.pubkey)},{headers});}
     catch{return Response.json({payments,logoPacks,identityHealth:[],identityHealthError:"City identity health could not be checked. Existing city identities and payments were not changed."},{headers});}
    }

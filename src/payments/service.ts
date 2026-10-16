@@ -1,5 +1,6 @@
 import {DatabaseSync} from "node:sqlite";
 import {createHash,randomUUID} from "node:crypto";
+import {ENTITLEMENT_RECONCILIATION_SCHEMA,ENTITLEMENT_RECONCILIATION_TABLE} from "./canonical-entitlement-reconciliation";
 
 export const PRICE_MSAT=21_000_000;
 export type Invoice={invoice:string;paymentHash:string;amountMsat:number;createdAt:number;expiresAt:number};
@@ -28,11 +29,15 @@ export class PaymentStore {
     phase TEXT NOT NULL,evidenceDigest TEXT,metadataEventId TEXT,verifiedAt INTEGER,activatedAt INTEGER,createdAt INTEGER NOT NULL,updatedAt INTEGER NOT NULL,
     UNIQUE(relay,groupId));
    CREATE TABLE IF NOT EXISTS gift_city_checkout(tokenHash TEXT PRIMARY KEY,cityId TEXT NOT NULL,invoiceId TEXT NOT NULL,createdAt INTEGER NOT NULL);`);
+  this.db.exec(ENTITLEMENT_RECONCILIATION_SCHEMA);
  }
  rows():PaymentRow[]{return this.db.prepare("SELECT * FROM payment_invoice ORDER BY createdAt DESC,rowid DESC").all() as PaymentRow[];}
- forCity(cityId:string):PaymentRow[]{return this.db.prepare("SELECT * FROM payment_invoice WHERE cityId=? ORDER BY createdAt DESC,rowid DESC").all(cityId) as PaymentRow[];}
+ forCity(cityId:string):PaymentRow[]{return this.db.prepare(`SELECT payment_invoice.* FROM payment_invoice
+   LEFT JOIN ${ENTITLEMENT_RECONCILIATION_TABLE} reconciliation ON reconciliation.invoiceId=payment_invoice.id
+   WHERE COALESCE(reconciliation.targetCityId,payment_invoice.cityId)=? ORDER BY payment_invoice.createdAt DESC,payment_invoice.rowid DESC`).all(cityId) as PaymentRow[];}
  entitled(cityId:string):boolean{return !!this.db.prepare("SELECT cityId FROM paid_city_entitlement WHERE cityId=?").get(cityId);}
- view(row:PaymentRow):PaymentView{return {...row,tier:this.entitled(row.cityId)?"paid":"free"};}
+ view(row:PaymentRow):PaymentView{const mapped=this.db.prepare(`SELECT targetCityId,targetRevisionId FROM ${ENTITLEMENT_RECONCILIATION_TABLE} WHERE invoiceId=?`).get(row.id) as {targetCityId:string;targetRevisionId:string}|undefined;
+  const cityId=mapped?.targetCityId??row.cityId;return {...row,...(mapped?{cityId,revisionId:mapped.targetRevisionId}:{}),tier:this.entitled(cityId)?"paid":"free"};}
  settle(row:PaymentRow,settledAt:number,checkedAt:number){
   this.db.exec("BEGIN IMMEDIATE");
   try{
@@ -104,7 +109,7 @@ export class PaymentService {
   }
   return this.store.view(this.store.forCity(cityId)[0]);
  });}
- private giftView(row:PaymentRow):GiftPaymentView{const view=this.store.view(row);return {cityId:row.cityId,cityName:row.cityName,status:row.status,tier:view.tier,
+ private giftView(row:PaymentRow):GiftPaymentView{const view=this.store.view(row);return {cityId:view.cityId,cityName:view.cityName,status:view.status,tier:view.tier,
   ...(row.status==="pending"?{invoice:row.invoice}:{}),expiresAt:row.expiresAt};}
  createGift(tokenHash:string,cityId:string,revisionId:string):Promise<GiftPaymentView>{return this.exclusive(cityId,async()=>{
   if(!/^[a-f0-9]{64}$/.test(tokenHash))throw new Error("Gift checkout token required.");

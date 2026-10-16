@@ -6,13 +6,13 @@ export type ProductionEntitlementExpectation={
   cityId:string;owner:string;revisionId:string;invoiceId:string;amountMsat:number;
 };
 
-type InvoiceRow={id:string;cityId:string;owner:string;cityName:string;revisionId:string;invoice:string;paymentHash:string;
+export type InvoiceRow={id:string;cityId:string;owner:string;cityName:string;revisionId:string;invoice:string;paymentHash:string;
   amountMsat:number;createdAt:number;expiresAt:number;status:string;settledAt:number|null;checkedAt:number|null};
-type EntitlementRow={cityId:string;owner:string;paymentHash:string;invoiceId:string;paidAt:number};
-type InvoicePayoutRow={invoiceId:string;destinationVersion:number};
-type RegistrationRow={city_id:string;revision_id:string;version:number;owner_pubkey:string;normalized:string;endpoint:string;callback:string;
+export type EntitlementRow={cityId:string;owner:string;paymentHash:string;invoiceId:string;paidAt:number};
+export type InvoicePayoutRow={invoiceId:string;destinationVersion:number};
+export type RegistrationRow={city_id:string;revision_id:string;version:number;owner_pubkey:string;normalized:string;endpoint:string;callback:string;
   min_sendable:number;max_sendable:number;owner_event_id:string;owner_event:string;confirmed_at:number};
-type SetupRow={cityId:string;entitlementId:string;originalOwnerPubkey:string;currentOwnerPubkey:string;registrationVersion:number|null;
+export type SetupRow={cityId:string;entitlementId:string;originalOwnerPubkey:string;currentOwnerPubkey:string;registrationVersion:number|null;
   payoutVersion:number|null;brandPubkey:string|null;brandVersion:number;backupAcknowledgedAt:number|null;artworkRevisionId:string|null;
   artworkAvatar:string|null;artworkBanner:string|null;artworkVersion:number;state:string;createdAt:number;updatedAt:number};
 
@@ -23,10 +23,10 @@ const entitlementColumns="cityId,owner,paymentHash,invoiceId,paidAt";
 const registrationColumns="city_id,revision_id,version,owner_pubkey,normalized,endpoint,callback,min_sendable,max_sendable,owner_event_id,owner_event,confirmed_at";
 const setupColumns="cityId,entitlementId,originalOwnerPubkey,currentOwnerPubkey,registrationVersion,payoutVersion,brandPubkey,brandVersion,backupAcknowledgedAt,artworkRevisionId,artworkAvatar,artworkBanner,artworkVersion,state,createdAt,updatedAt";
 
-function table(db:DatabaseSync,name:string){return !!db.prepare("SELECT 1 FROM sqlite_master WHERE type=? AND name=?").get("table",name);}
-function exact<T>(db:DatabaseSync,sql:string,args:Array<string|number|null>):T|null{return (db.prepare(sql).get(...args) as T|undefined)??null;}
+export function table(db:DatabaseSync,name:string){return !!db.prepare("SELECT 1 FROM sqlite_master WHERE type=? AND name=?").get("table",name);}
+export function exact<T>(db:DatabaseSync,sql:string,args:Array<string|number|null>):T|null{return (db.prepare(sql).get(...args) as T|undefined)??null;}
 
-function sourceRows(source:DatabaseSync,expected:ProductionEntitlementExpectation){
+export function settledEntitlementRows(source:DatabaseSync,expected:ProductionEntitlementExpectation){
   for(const name of ["payment_invoice","payment_invoice_payout","paid_city_entitlement","pro_setup_task","registration_payout_version"])
     if(!table(source,name))throw new Error(`Source is missing ${name}.`);
   const invoice=exact<InvoiceRow>(source,`SELECT ${invoiceColumns} FROM payment_invoice WHERE id=? AND cityId=?`,[expected.invoiceId,expected.cityId]);
@@ -58,7 +58,7 @@ function sourceRows(source:DatabaseSync,expected:ProductionEntitlementExpectatio
 }
 
 export function importSettledCityEntitlement(source:DatabaseSync,target:DatabaseSync,expected:ProductionEntitlementExpectation,apply=false){
-  const rows=sourceRows(source,expected);
+  const rows=settledEntitlementRows(source,expected);
   for(const name of ["payment_invoice","payment_invoice_payout","paid_city_entitlement","pro_setup_task","registration_payout_version"])
     if(!table(target,name))throw new Error(`Production is missing ${name}.`);
   const collision={

@@ -3,7 +3,7 @@ title: Complete a city action
 description: Follow the action assigned to a BitcoinWalk host without creating a duplicate city, account or payment.
 ---
 
-The **Cities** screen tells the BitcoinWalk team who must act next. When it says **Next: City host**, the host should complete the named step using the Nostr account that already manages the city.
+The **Overview** screen shows the host's highlighted **Next required action** immediately after login. The **Cities** screen also tells the BitcoinWalk team who must act next. When either screen names the city host, complete that step using the Nostr account that already manages the city.
 
 Do not register the city again, create a replacement host account or pay an invoice again. A recorded Pro upgrade belongs to the existing City ID.
 
@@ -35,12 +35,14 @@ The corrected submission keeps the existing City ID and signed history. If the r
 Use this when the city has already paid or received a gifted Pro upgrade but setup is incomplete.
 
 1. Connect the personal Nostr account that already hosts the city.
-2. Open **City upgrade** for that city. If BitcoinWalk Guide supplied a setup link, use that exact link.
-3. Confirm the private payout destination. Saving it sends no payment and does not make it public.
-4. Create or reconnect the separate city identity.
-5. Back up its recovery method and confirm that the backup can be restored.
-6. Review and sign the requested proofs. Some steps require one proof signature and one authenticated-request signature.
-7. Wait for BitcoinWalk to verify the public profile, NIP-05 and Lightning address.
+2. On **Overview**, select **Continue Pro setup** under the correct city. If BitcoinWalk Guide supplied a setup link, use that exact link.
+3. Select **Verify and preview Pro setup** and check the city name, website and generated artwork.
+4. Confirm the private payout destination. Saving it sends no payment and does not make it public. The current plan sends 79% of city payments to this destination and retains 21% for BitcoinWalk.
+5. Create or reconnect the separate city identity.
+6. Back up its recovery method, check that it can be restored, and select **Verify and save city signer**.
+7. Reconnect the saved city signer if needed, then select **Sign private activation request**. The host account authorizes the city identity, the city signer proves control, and the host account authorizes private submission.
+8. When Overview says **Activation submitted** or **Identity approved**, wait. BitcoinWalk must review, publish and independently verify the binding; repeating earlier steps is not required.
+9. After the verified city address appears in Pro setup, reconnect the exact saved city signer and select **Publish verified city profile**. Wait for successful relay read-back.
 
 Do not pay another checkout invoice when the page says the payment is already recorded.
 
@@ -63,6 +65,6 @@ Only tick the recovery confirmation after the backup has actually been saved and
 
 ## What happens after the host finishes
 
-The row normally changes to **Action required** for the super-admin. The super-admin verifies the host proof, activates the exact city binding and checks the public profile, NIP-05 and Lightning address. The host should not create another identity or repeat a completed signature while that verification is pending.
+Overview normally changes to **Activation submitted**, and the city row changes to **Action required** for the super-admin. The super-admin verifies the host proof, activates the exact city binding and checks the public profile, NIP-05 and Lightning address. The host should not create another identity or repeat a completed signature while that verification is pending.
 
 The city is complete only when its dashboard shows the public activation, NIP-05 and Lightning address as active. If a relay or provider is temporarily unavailable, wait for a recheck rather than replacing valid keys or payment details.

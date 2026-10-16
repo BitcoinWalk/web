@@ -1,0 +1,5 @@
+import {createElement} from "react";import {renderToStaticMarkup} from "react-dom/server";import {describe,expect,it} from "vitest";import {OrganizerProNextActionCards} from "./organizer-pro-next-action";
+describe("organizer Pro overview action",()=>{
+ it("puts the exact Hanover setup action and canonical guide on the overview",()=>{const html=renderToStaticMarkup(createElement(OrganizerProNextActionCards,{actions:[{cityId:"d42123e1-1d01-473b-98e7-846342150eca",cityName:"Hanover",state:"confirm-payout"}]}));expect(html).toContain("Next required action");expect(html).toContain("Hanover: Confirm your payout destination");expect(html).toContain("/admin/upgrade?city=d42123e1-1d01-473b-98e7-846342150eca");expect(html).toContain("docs.bitcoinwalk.org/hosts/complete-city-setup/");});
+ it("does not ask the organizer to act while review is pending",()=>{const html=renderToStaticMarkup(createElement(OrganizerProNextActionCards,{actions:[{cityId:"city",cityName:"Hanover",state:"awaiting-review"}]}));expect(html).toContain("No organizer action is needed");expect(html).not.toContain("Continue Pro setup");});
+});
