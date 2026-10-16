@@ -167,7 +167,7 @@ the explicitly authorized minimal staging payout remain separate gates.
 
 ## Madeira invitation activation candidate
 
-Staging candidate `0.3.393` separates invitation acceptance from payout-sender
+Staging candidate `0.3.394` separates invitation acceptance from payout-sender
 activation. Both the global invitation flag and an exact city UUID allowlist
 must be valid; otherwise host invitations fail closed while ordinary sponsor
 checkout and the super-admin audit remain available. The first deployment
@@ -183,7 +183,7 @@ authorize a payout operation or send a payment. Successful deployment permits
 the Madeira host to create one exact walk invitation and a sponsor to establish
 an immutable 79/21 obligation; paying that obligation remains a later,
 separately signed and explicitly funded gate. The deterministic candidate bundle
-is `bitcoinwalk-madeira-host-sponsor-invitations-0.3.393.tar.gz` with SHA-256
-`27493a31bc2bb34eeda007f15b2495bf1dd1f02d5d6d83908d00b365ce987f2e`;
+is `bitcoinwalk-madeira-host-sponsor-invitations-0.3.394.tar.gz` with SHA-256
+`512905b8a5f012399a63d74275c0bf210181a24a015715250b75bac9f168f2d0`;
 the contained app archive has SHA-256
-`f224acef96d96ef9b899f802dac0588591434fc40f4992a62d12824446f5f8e5`.
+`ed7ecd3847c1ff1083c3435adfdb9a4db9f66bb65078dc0d34daffe092256c9a`.
