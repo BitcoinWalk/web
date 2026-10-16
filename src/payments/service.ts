@@ -4,7 +4,7 @@ import {ENTITLEMENT_RECONCILIATION_SCHEMA,ENTITLEMENT_RECONCILIATION_TABLE} from
 
 export const PRICE_MSAT=21_000_000;
 export type Invoice={invoice:string;paymentHash:string;amountMsat:number;createdAt:number;expiresAt:number};
-export type PaymentRow=Invoice & {id:string;cityId:string;owner:string;cityName:string;revisionId:string;status:"creating"|"creation-uncertain"|"pending"|"expired"|"paid";settledAt:number|null;checkedAt:number|null};
+export type PaymentRow=Invoice & {id:string;cityId:string;owner:string;cityName:string;revisionId:string;status:"creating"|"creation-uncertain"|"pending"|"expired"|"paid";settledAt:number|null;checkedAt:number|null;source?:"checkout-v1"|"admin-pro-promotion-v1"};
 export type PaymentView=PaymentRow & {tier:"free"|"paid"};
 export type GiftPaymentView={cityId:string;cityName:string;status:PaymentRow["status"];tier:"free"|"paid";invoice?:string;expiresAt:number};
 export type PaymentWallet={makeInvoice:(description:string)=>Promise<Invoice>;lookupInvoice:(hash:string)=>Promise<Record<string,unknown>>};
@@ -17,7 +17,8 @@ export class PaymentStore {
   this.db.exec(`PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL; PRAGMA busy_timeout=5000;
    CREATE TABLE IF NOT EXISTS payment_invoice(id TEXT PRIMARY KEY,cityId TEXT NOT NULL,owner TEXT NOT NULL,cityName TEXT NOT NULL,revisionId TEXT NOT NULL,
     invoice TEXT NOT NULL DEFAULT '',paymentHash TEXT UNIQUE,amountMsat INTEGER NOT NULL DEFAULT 21000000,
-    createdAt INTEGER NOT NULL,expiresAt INTEGER NOT NULL DEFAULT 0,status TEXT NOT NULL,settledAt INTEGER,checkedAt INTEGER);
+    createdAt INTEGER NOT NULL,expiresAt INTEGER NOT NULL DEFAULT 0,status TEXT NOT NULL,settledAt INTEGER,checkedAt INTEGER,
+    source TEXT NOT NULL DEFAULT 'checkout-v1');
    CREATE UNIQUE INDEX IF NOT EXISTS payment_one_open_invoice ON payment_invoice(cityId) WHERE status IN ('creating','creation-uncertain','pending');
    CREATE TABLE IF NOT EXISTS payment_invoice_payout(invoiceId TEXT PRIMARY KEY,destinationVersion INTEGER NOT NULL);
    CREATE TABLE IF NOT EXISTS paid_city_entitlement(cityId TEXT PRIMARY KEY,owner TEXT NOT NULL,paymentHash TEXT NOT NULL UNIQUE,invoiceId TEXT NOT NULL,paidAt INTEGER NOT NULL);
@@ -30,6 +31,8 @@ export class PaymentStore {
     UNIQUE(relay,groupId));
    CREATE TABLE IF NOT EXISTS gift_city_checkout(tokenHash TEXT PRIMARY KEY,cityId TEXT NOT NULL,invoiceId TEXT NOT NULL,createdAt INTEGER NOT NULL);`);
   this.db.exec(ENTITLEMENT_RECONCILIATION_SCHEMA);
+  const invoiceColumns=new Set((this.db.prepare("PRAGMA table_info(payment_invoice)").all() as Array<{name:string}>).map(row=>row.name));
+  if(!invoiceColumns.has("source"))this.db.exec("ALTER TABLE payment_invoice ADD COLUMN source TEXT NOT NULL DEFAULT 'checkout-v1'");
  }
  rows():PaymentRow[]{return this.db.prepare("SELECT * FROM payment_invoice ORDER BY createdAt DESC,rowid DESC").all() as PaymentRow[];}
  forCity(cityId:string):PaymentRow[]{return this.db.prepare(`SELECT payment_invoice.* FROM payment_invoice
