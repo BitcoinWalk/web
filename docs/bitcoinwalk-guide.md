@@ -61,11 +61,13 @@ task is still required to accept DM receipt, link selection and restart deduplic
 
 ## Identity and scope
 
-- Display name: BitcoinWalk Guide; metadata marks it as a bot.
+- Name and display name: BitcoinWalk Guide; metadata marks it as a bot.
+- Profile picture: the purple BitcoinWalk admin favicon at
+  `https://bitcoinwalk.org/brand/bitcoinwalk-admin-favicon.png`.
 - Dedicated key generated **on the VPS**, never in the frontend, logs or chat.
-- `guide@bitcoinwalk.org` is reserved as a proposal, NOT a verified NIP-05 claim.
-  Add it only after the legacy domain's well-known endpoint is reviewed and
-  configured for the generated public key. No legacy website changes in this package.
+- `guide@bitcoinwalk.org` is the verified NIP-05 identifier and public Lightning
+  address for the deployed Guide key. The signed profile advertises it through
+  `nip05` and `lud16`; both public endpoints must verify before publication.
 - Notifications only. No AI replies, approvals, relay management, payments, or
   privileges inferred from the recipient list. Existing approval authority is unchanged.
 - Initial recipient is the existing BitcoinWalk super-admin. More recipient

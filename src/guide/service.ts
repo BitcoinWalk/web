@@ -2,7 +2,7 @@ import { readFileSync, lstatSync } from "node:fs";
 import { join } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import { DatabaseSync } from "node:sqlite";
-import { SimplePool, finalizeEvent, type Event } from "nostr-tools";
+import { SimplePool, finalizeEvent, getPublicKey, verifyEvent, type Event } from "nostr-tools";
 import { configSchema, assertBotKey, selectInbox, guideProfile, signTransportAuth } from "./core";
 import { Outbox } from "./outbox";
 import { history, publishIdempotent, readAnyComplete } from "./transport";
@@ -22,6 +22,7 @@ async function main() {
   const config = configSchema.parse(JSON.parse(readFileSync(configPath, "utf8")));
   const dryRun = process.argv.includes("--dry-run");
   const publishProfile = process.argv.includes("--publish-profile");
+  const checkProfile = process.argv.includes("--check-profile");
   const printIdentity = process.argv.includes("--print-identity");
   const checkReplication = process.argv.includes("--check-replication");
   const checkDirectory = process.argv.includes("--check-directory");
@@ -37,8 +38,8 @@ async function main() {
   const retryPurpose=retryReplicationDelivery?process.argv[selectedRetryIndex+3]:undefined;
   if(retryDelivery&&(!retrySubmission||!retryRecipient))throw new Error("Retry requires an exact live submission and recipient.");
   if(retryReplicationDelivery&&(!retrySubmission||!retryRecipient||!retryPurpose))throw new Error("Replication retry requires an exact submission, recipient and purpose.");
-  if([dryRun,publishProfile,printIdentity,checkReplication,checkDirectory,checkProSetup,baselineDirectory,retryDelivery,retryReplicationDelivery].filter(Boolean).length>1)throw new Error("Choose only one Guide operation mode.");
-  if (!dryRun && !publishProfile && !printIdentity && !checkReplication && !checkDirectory && !checkProSetup && !baselineDirectory && !retryDelivery && !retryReplicationDelivery && !config.enabled) throw new Error("Guide is disabled. Complete dry-run and operator review before enabling.");
+  if([dryRun,publishProfile,checkProfile,printIdentity,checkReplication,checkDirectory,checkProSetup,baselineDirectory,retryDelivery,retryReplicationDelivery].filter(Boolean).length>1)throw new Error("Choose only one Guide operation mode.");
+  if (!dryRun && !publishProfile && !checkProfile && !printIdentity && !checkReplication && !checkDirectory && !checkProSetup && !baselineDirectory && !retryDelivery && !retryReplicationDelivery && !config.enabled) throw new Error("Guide is disabled. Complete dry-run and operator review before enabling.");
   let secret: Uint8Array | undefined;
   let outbox: Outbox | undefined;
   if (!dryRun) {
@@ -69,8 +70,21 @@ async function main() {
   process.on("SIGINT", () => { stopping = true; });
   try {
     if (publishProfile && !dryRun) {
-      await Promise.any(pool.publish(config.discoveryRelays, finalizeEvent({kind:0,created_at:Math.floor(Date.now()/1000),tags:[],content:JSON.stringify(guideProfile)}, secret!), {maxWait:10_000}));
-      console.log("BitcoinWalk Guide public bot profile acknowledged. No NIP-05 claim or DM was published.");
+      const profile=finalizeEvent({kind:0,created_at:Math.floor(Date.now()/1000),tags:[],content:JSON.stringify(guideProfile)}, secret!);
+      const outcomes=await Promise.allSettled(config.discoveryRelays.map(relay=>Promise.any(pool.publish([relay],profile,{maxWait:10_000}))));
+      const accepted=outcomes.filter(result=>result.status==="fulfilled").length;
+      if(!accepted)throw new Error("No configured discovery relay acknowledged the Guide profile.");
+      console.log(`BitcoinWalk Guide public profile ${profile.id} acknowledged by ${accepted}/${config.discoveryRelays.length} discovery relays.`);
+      return;
+    }
+    if(checkProfile&&!dryRun){
+      let matches=0;
+      for(const relay of config.discoveryRelays){
+        const events=await pool.querySync([relay],{kinds:[0],authors:[getPublicKey(secret!)],limit:5},{maxWait:10_000});
+        if(events.some(event=>verifyEvent(event)&&event.content===JSON.stringify(guideProfile)))matches++;
+      }
+      if(!matches)throw new Error("The configured discovery relays did not return the exact Guide profile.");
+      console.log(`BitcoinWalk Guide public profile verified on ${matches}/${config.discoveryRelays.length} discovery relays.`);
       return;
     }
     if(retryDelivery||retryReplicationDelivery){

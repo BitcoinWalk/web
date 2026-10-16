@@ -4,9 +4,16 @@ import { z } from "zod";
 import { SUPER_ADMIN_PUBKEY } from "../nostr/authority";
 import { type CityRevision } from "../nostr/city-records";
 
-export const guideProfile = { name: "bitcoinwalk-guide", display_name: "BitcoinWalk Guide", bot: true,
-  about: "BitcoinWalk’s automated assistant for walk notifications and organizer help. Notification-only pilot; replies are not monitored. Never send private keys or payment credentials." };
-// NIP-05 is intentionally absent until the domain actually verifies this key.
+export const guideProfile = {
+  name: "BitcoinWalk Guide",
+  display_name: "BitcoinWalk Guide",
+  picture: "https://bitcoinwalk.org/brand/bitcoinwalk-admin-favicon.png",
+  nip05: "guide@bitcoinwalk.org",
+  lud16: "guide@bitcoinwalk.org",
+  website: "https://bitcoinwalk.org/",
+  bot: true,
+  about: "BitcoinWalk’s automated assistant for walk notifications and organizer help. Notification-only pilot; replies are not monitored. Never send private keys or payment credentials.",
+};
 const key = z.string().regex(/^[0-9a-f]{64}$/);
 const relayURL = z.string().url().refine(value => {
   const u = new URL(value);

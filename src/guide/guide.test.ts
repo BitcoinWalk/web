@@ -45,10 +45,14 @@ describe("BitcoinWalk Guide", () => {
     expect(() => selectInbox([JSON.parse(JSON.stringify({...inbox(["wss://relay.example.com"]),sig:"0".repeat(128)}))],recipient,["wss://relay.example.com/"])).toThrow();
     expect(() => selectInbox([inbox(["ws://localhost:3335", "wss://127.0.0.1"])],recipient,[])).toThrow();
   });
-  it("cannot use the recipient key as the bot and does not falsely claim NIP-05", () => {
+  it("cannot use the recipient key and publishes the verified public identity", () => {
     expect(() => assertBotKey(admin,[recipient])).toThrow();
     expect(assertBotKey(bot,[recipient])).toBe(getPublicKey(bot));
-    expect(guideProfile.bot).toBe(true); expect(guideProfile).not.toHaveProperty("nip05");
+    expect(guideProfile).toMatchObject({
+      name:"BitcoinWalk Guide", display_name:"BitcoinWalk Guide", bot:true,
+      picture:"https://bitcoinwalk.org/brand/bitcoinwalk-admin-favicon.png",
+      nip05:"guide@bitcoinwalk.org", lud16:"guide@bitcoinwalk.org",
+    });
   });
   it("links to an exact revision without treating a paid request as entitlement", () => {
     const item = revision();
