@@ -10,14 +10,15 @@ directly from that receiving wallet rather than adding a receive-and-forward hop
 If it is a different wallet, review the alias/direct-invoice integration before
 activation; do not silently introduce an outgoing payment/fee path.
 
-The accepted direct-alias implementation now also serves
+The accepted no-split alias implementation now also serves
 `guide@bitcoinwalk.org`. Its NIP-05 mapping is the deployed BitcoinWalk Guide
 identity, `npub1nw6chvnj06vwyqywxwz7h749zt92exuem2k0c0grjffr6adnf57quxg4df`.
-Its LNURL-pay discovery keeps the branded identifier and points directly to the
-independently pinned `bitcoinwalk@getalby.com` callback; it does not add a split,
-forwarding wallet, outgoing payment permission or separate balance. The
-published NIP-57 receiver key remains the pinned Alby receiver signer and is
-deliberately distinct from Guide's NIP-05 identity key.
+Its LNURL-pay discovery and ordinary callback stay on `bitcoinwalk.org` so each
+invoice commits to the exact branded metadata, while the private invoice-only
+provider creates the invoice in `bitcoinwalk@getalby.com`. Signed NIP-57 requests
+use the independently pinned Alby receiver callback and signer. Neither path adds
+a split, forwarding wallet, outgoing payment permission or separate balance.
+The NIP-57 receiver signer is deliberately distinct from Guide's NIP-05 key.
 
 ## CMS flow
 
