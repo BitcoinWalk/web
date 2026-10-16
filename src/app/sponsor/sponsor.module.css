@@ -103,6 +103,9 @@
 .confirmation { display: flex; align-items: flex-start; gap: .65rem; margin: 1rem 0; }
 .confirmation input { flex: 0 0 auto; width: auto; margin-top: .25rem; }
 .recoveryDetails { margin: 1.5rem 0; }
+.invitation,.split { margin: 1rem 0; padding: 1rem; border: 1px solid #e7a84d; border-radius: .75rem; background: #fff7e8; }
+.invitation p { margin: .5rem 0; }
+.invitation small { color: #5d5042; }
 
 @media (max-width: 28rem) {
   .package { grid-template-columns: auto minmax(0, 1fr) auto; }

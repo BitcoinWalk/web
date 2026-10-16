@@ -87,3 +87,74 @@ rehearsal. It does not yet close production backup readiness: external
 timer-failure alerting and live wallet/history reconciliation remain required,
 and the rehearsal must be repeated after the wallet is initialized and before
 funds are introduced.
+
+## Initialized production snapshot — 16 October 2026
+
+The append-only receiver now accepts a separate `hub-live-*` namespace. Its
+retention buckets are calculated independently per production image/candidate
+pair, so candidate archives and production archives cannot displace one another.
+The receiver and pruner update passed duplicate refusal, checksum receipt and
+independent-stream retention fixtures before installation; no existing archive
+was modified by the installer.
+
+The previously pinned `.138` ED25519 key was stale after the documented host
+replacement. The current public host key was read through the already
+authenticated management connection and matched
+`SHA256:rV8nNjpNrk6tr0gNdLf1ZsO0tqPTJ8Ad7cdvQTnFcNY`. The protected transport pin
+was replaced atomically, its predecessor was retained locally, strict checking
+remained enabled and the restricted receiver probe passed. No key scan was
+trusted on its own.
+
+With explicit approval, the live v1.24.0 Hub was stopped cleanly and its complete
+initialized Docker volume streamed directly through Zstandard and OpenPGP
+encryption to the pinned offline-held recipient. No plaintext duplicate or
+private decryption key was created on either server. The receiver accepted
+`hub-live-20261016T125224Z-2982a75a63c4-6bb8520025d7.tar.zst.gpg` at 29,793,627
+bytes. Local and receiver copies are mode 0600, owned by their non-root
+`bitcoinwalk` accounts and independently match SHA-256
+`318d3b31a438b952109012ab8d7de0232576afcb0931ad45392264c6c72ac4b6`.
+The public Hub returned after the snapshot and awaits its normal human unlock.
+
+The ciphertext, receiver checksum and a verifier have also been copied to a
+mode-0700 folder on the trusted workstation. The agent has not decrypted or read
+the archive. On 16 October 2026 the key custodian ran that verifier locally with
+the offline-held key. It returned
+`LIVE_RESTORE_REHEARSAL_OK files=8 apps=5 permissions=31
+recovery_artifact_present=no decrypted_material_removed_on_exit=yes`, confirming
+archive path/type safety, SQLite integrity, the expected application and
+permission inventory, absence of a recovery artifact and automatic cleanup of
+all decrypted material. A subsequent inspection found no
+`bitcoinwalk-hub-live-restore.*` directory under `/tmp`. The running Hub had
+already passed its post-snapshot manual unlock and local/public health checks.
+This closes initialized production backup and restore readiness. The agent never
+received the passphrase or private key and never decrypted or read the archive.
+
+## Production fee-cap cutover — 16 October 2026
+
+The reviewed revision `6bb8520025d781f8570ef1a5d134fe545a1586f3ab46cfedd780e15a641cfa84`
+was promoted through a dedicated production wrapper derived from the exact
+rehearsed candidate image. Its entrypoint requires both an explicit production
+start value and an exact revision marker in the mounted state; automatic unlock
+and external wallet-backend environment variables remain forbidden.
+
+The first attempt stopped before touching the live Hub because the package
+checker rejected Docker's extra verification layer. A corrected wrapper then
+started but was automatically rolled back when its health gate incorrectly
+treated the expected locked wallet as a failed web service. The predecessor and
+its state were restored, SQLite integrity and safe application/permission counts
+matched the fenced snapshot, and the temporary copy was removed before retry.
+No payment or payout service was enabled in either attempt.
+
+Package `0.1.3` distinguished web readiness from the post-unlock bitcoin-node
+gate. The final cutover completed in three seconds, retained the stopped
+v1.24.0 predecessor plus a fresh snapshot, and served the exact fee-cap revision
+locally and publicly. After the key custodian performed the normal manual
+unlock, both endpoints reported setup complete, `running=true` and Bitcoin
+mainnet; SQLite integrity passed and the sponsor-payout service remained
+version 0.1.1, disabled, networkless and unfunded. With explicit approval, the
+stopped predecessor and temporary plaintext snapshot were permanently removed.
+The encrypted local, append-only off-host and trusted-workstation backups remain
+retained. Final evidence reported
+`LIVE_HUB_FEECAP_FINALIZED_OK rollback_snapshot_removed=yes
+sponsor_payout_disabled=yes` and a subsequent read-only check confirmed the
+live fee-cap image, database integrity and retained encrypted backup.

@@ -578,6 +578,102 @@ cleanup passed, with no temporary restore directory remaining. External failure
 alerting and post-initialization wallet/history reconciliation remain open. See the
 [backup and key-custody runbook](hub-candidate-backups.md).
 
+### Live Hub migration boundary audit — 16 October 2026
+
+The public Hub reports v1.24.0, setup complete and running on Bitcoin mainnet at
+the private loopback listener `127.0.0.1:8080`. It is not present in the
+`bitcoinwalk` account's rootless Docker namespace: that namespace contains only
+the stopped, reviewed fee-cap candidate. The active listener belongs to the
+root-owned Docker boundary, so the live container identity and persistent mount
+must be established before a real-state rehearsal can be designed.
+
+`inspect-live-hub-boundary.sh` is a root-only, read-only inventory for that
+checkpoint. It first verifies the non-sensitive Hub readiness response, then
+requires exactly one running root-owned container serving port 8080. Its output
+is limited to image identity, start time, restart/network/read-only policy, port
+binding and mount locations. It never prints container environment, labels,
+command arguments, database contents, credentials, recovery material or wallet
+balances. The package checker rejects stop/start/restart/remove/copy/exec,
+SQLite and decryption operations. Running this audit does not authorize a live
+backup, permission change, migration, service interruption or candidate start.
+
+The approved copy/start/cleanup rehearsal then passed against the real v1.24.0
+state on 16 October. The exported candidate acquired a different local Docker
+configuration digest when imported into the root daemon, so acceptance did not
+trust that engine-local ID alone: SHA-256 values for the Hub binary, migration
+binary, LDK library, release manifest and guarded entrypoint matched byte for
+byte across the original rootless image and the imported root image. Revision
+and false production/start safety labels also matched.
+
+The root-only rehearsal stopped the live container for a clean copy, verified
+SQLite integrity, restarted the public Hub in three seconds, and started the
+copied state under the reviewed candidate on an internal-only Docker network
+with no published port, automatic unlock or payment path. Its health probe ran
+only inside that network namespace. The candidate reported the exact reviewed
+version and retained the same safe aggregate inventory: five applications, two
+isolated applications, 31 permissions, 31 positive budgets and 14 non-renewing
+budgets. Post-start SQLite integrity passed. The candidate container, internal
+network and plaintext rehearsal volume were then removed; only mode-0600,
+root-owned aggregate/startup evidence remains under `/var/backups`.
+
+Two preceding attempts also failed closed and removed their temporary copies.
+The first correctly exposed that a container restart leaves the LDK wallet
+locked when no automatic-unlock password is stored. The second showed that an
+internal Docker network cannot be probed through a host-published port even
+though the candidate server had started; the final probe used only the
+candidate network namespace. The production container is online after the
+rehearsal but requires its normal human password unlock. This proves copied-state
+migration compatibility and rollback isolation; it does not authorize replacing
+the live Hub, funding the payout wallet, or enabling a sender. Encrypted
+off-host backup/restore evidence for initialized production state remains open.
+
+The user completed the required manual unlock immediately afterwards. Final
+local and public read-only checks both reported v1.24.0, setup complete,
+`running=true`, Bitcoin mainnet, the LDK backend and SQLite storage. The separate
+sponsor payout service remained version 0.1.1 in disabled mode with Docker
+network `none`; its backup and monitor timers both remained active. No invoice
+or payment was created during this acceptance.
+
+The encrypted initialized-state backup half of that remaining gate is now
+complete. A dedicated production namespace was added to the append-only `.138`
+receiver with retention independent from candidate archives. After updating its
+strict host-key pin from the reviewed authenticated public key, the approved
+sender stopped the Hub cleanly and streamed the whole live volume directly into
+the pinned offline recipient. The accepted 29,793,627-byte ciphertext matches
+SHA-256 `318d3b31…c4b6` locally and off-host. No plaintext duplicate or private
+decryption key was placed on either server. A verified encrypted copy and the
+cleanup-enforcing verifier are present on the trusted workstation. The key
+custodian then completed the local-only restore rehearsal on 16 October. It
+reported eight safe archive entries, five applications, 31 permissions, no
+recovery artifact and automatic removal of all decrypted material. No matching
+temporary restore directory remained under `/tmp`. Together with the already
+accepted post-snapshot manual unlock and local/public Hub health checks, this
+closes the initialized production encrypted off-host backup/restore gate. The
+agent never received the decryption passphrase or private key and never read the
+archive or restored database. This acceptance does not authorize production
+cutover, wallet funding, payout activation or a payment.
+
+### Production fee-cap Hub accepted — 16 October 2026
+
+The exact copied-state candidate revision
+`6bb8520025d781f8570ef1a5d134fe545a1586f3ab46cfedd780e15a641cfa84`
+is now the production Hub behind the existing loopback/public boundary. A
+purpose-built wrapper inherits the exact reviewed candidate layers, changes only
+the guarded production entrypoint and labels, and still refuses automatic unlock
+or an externally configured wallet backend. The final cutover completed in
+three seconds with a stopped predecessor and fresh state snapshot retained until
+human acceptance.
+
+After the normal manual unlock, local and public endpoints reported the exact
+fee-cap revision, setup complete, `running=true` and Bitcoin mainnet. SQLite
+integrity passed. The independent sponsor-payout service remained version 0.1.1,
+disabled, Docker network `none` and unfunded. No invoice or payment was created.
+With explicit user approval the stopped predecessor and temporary plaintext
+rollback snapshot were then permanently removed; the encrypted local and
+append-only off-host production backups remain retained. This closes the
+production-safe fee-cap Hub deployment gate only. Sponsor-payout service
+activation, wallet funding and a funded staging payout remain separate gates.
+
 Reviewed official tag v1.24.0, commit
 `d8ef0e70e0d265a8424276daee0a595ac31993c0`:
 

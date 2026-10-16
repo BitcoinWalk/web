@@ -1,0 +1,11 @@
+[Unit]
+Description=Monitor disabled BitcoinWalk sponsor payout service
+
+[Timer]
+OnBootSec=8m
+OnUnitActiveSec=15m
+RandomizedDelaySec=2m
+Persistent=true
+
+[Install]
+WantedBy=timers.target
