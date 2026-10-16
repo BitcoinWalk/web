@@ -2,10 +2,18 @@ import {compareEvents,verifyEvent,type Event,type EventTemplate} from "nostr-too
 
 export type Nip29Destination={relay:string;groupId:string};
 export type Nip29Message={id:string;pubkey:string;content:string;createdAt:number};
+export type Nip29Composer={draft:string;attachment:string};
 export type Nip29CityRoom={id:string;name:string;slug:string;chat:{scope:"global"|"city";nip29:Nip29Destination|null}};
 export type Nip29Room={key:string;label:string;scope:"global"|"city";cityIds:string[];destination:Nip29Destination};
 
 const hex=/^[0-9a-f]{64}$/;
+
+export function nip29ComposerKey(account:string,roomKey:string){return `${account}\n${roomKey}`;}
+export function updateNip29Composer(current:Record<string,Nip29Composer>,key:string,change:Partial<Nip29Composer>){
+ const previous=current[key]??{draft:"",attachment:""},next={...previous,...change};
+ if(!next.draft&&!next.attachment){const copy={...current};delete copy[key];return copy;}
+ return {...current,[key]:next};
+}
 
 export function validNip29Destination(value:unknown):Nip29Destination|null{
  if(!value||typeof value!=="object")return null;

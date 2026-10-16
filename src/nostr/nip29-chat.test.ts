@@ -1,6 +1,6 @@
 import {finalizeEvent,getPublicKey,type EventTemplate} from "nostr-tools";
 import {describe,expect,it} from "vitest";
-import {mergeNip29Messages,nip29JoinTemplate,nip29MessageTemplate,nip29RoomName,uniqueNip29Rooms,validNip29Destination} from "./nip29-chat";
+import {mergeNip29Messages,nip29ComposerKey,nip29JoinTemplate,nip29MessageTemplate,nip29RoomName,uniqueNip29Rooms,updateNip29Composer,validNip29Destination} from "./nip29-chat";
 
 const key=new Uint8Array(32).fill(4),pubkey=getPublicKey(key),group="bitcoinwalk-london";
 const signed=(template:EventTemplate)=>finalizeEvent(template,key);
@@ -29,5 +29,15 @@ describe("NIP-29 dashboard chat",()=>{
   expect(nip29RoomName([metadata],group,"London")).toBe("chat");
   expect(nip29JoinTemplate(group,12)).toEqual({kind:9021,created_at:12,tags:[["h",group]],content:""});
   expect(nip29MessageTemplate(group," Hi ",13)).toEqual({kind:9,created_at:13,tags:[["h",group]],content:"Hi"});
+ });
+ it("isolates composer text and attachments by account and exact room",()=>{
+  const london=nip29ComposerKey("a".repeat(64),"london"),global=nip29ComposerKey("a".repeat(64),"global"),other=nip29ComposerKey("b".repeat(64),"london");
+  let state=updateNip29Composer({},london,{draft:"London draft"});
+  state=updateNip29Composer(state,global,{attachment:"https://bitcoinwalk.org/global.webp"});
+  state=updateNip29Composer(state,other,{draft:"Other account"});
+  expect(state[london]).toEqual({draft:"London draft",attachment:""});
+  expect(state[global]).toEqual({draft:"",attachment:"https://bitcoinwalk.org/global.webp"});
+  expect(state[other]).toEqual({draft:"Other account",attachment:""});
+  expect(updateNip29Composer(state,london,{draft:""})[london]).toBeUndefined();
  });
 });
