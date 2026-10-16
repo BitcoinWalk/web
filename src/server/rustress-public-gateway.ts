@@ -48,6 +48,7 @@ async function invoiceProvider(path:string,config:Pick<ProvisionConfig,"domain">
 const headers={"Cache-Control":"no-store","Content-Type":"application/json; charset=utf-8"};
 const zapAliasEndpoint="https://getalby.com/.well-known/lnurlp/bitcoinwalk";
 const zapAliasSigner="79f00d3f5a19ec806189fcab03c1be4ff81d18ee4f653c88fac41fe03570f432";
+const standaloneDescriptions:Record<string,string>={donate:"Support BitcoinWalk",endo:"Support Endo at BitcoinWalk",guide:"Support BitcoinWalk Guide"};
 async function standaloneZapMetadata(localPart:string,transport:JsonTransport){
   let response:Response;try{response=await transport(zapAliasEndpoint,{method:"GET",redirect:"error",cache:"no-store",signal:AbortSignal.timeout(5000),headers:{Accept:"application/json"}});}catch{return null;}
   if(!response.ok||!/^application\/json(?:\s*;|$)/i.test(response.headers.get("content-type")??"")){await response.body?.cancel();return null;}
@@ -58,8 +59,9 @@ async function standaloneZapMetadata(localPart:string,transport:JsonTransport){
       !Number.isSafeInteger(value.minSendable)||!Number.isSafeInteger(value.maxSendable)||Number(value.minSendable)<1||Number(value.maxSendable)<Number(value.minSendable)||
       callback.protocol!=="https:"||callback.hostname!=="getalby.com"||callback.port||callback.username||callback.password||callback.pathname!=="/lnurlp/bitcoinwalk/callback"||callback.hash)
       return null;
+    const description=standaloneDescriptions[localPart];if(!description)return null;
     return {tag:"payRequest",callback:callback.href,minSendable:value.minSendable,maxSendable:value.maxSendable,
-      metadata:JSON.stringify([["text/identifier",`${localPart}@bitcoinwalk.org`],["text/plain",localPart==="donate"?"Support BitcoinWalk":"Support Endo at BitcoinWalk"]]),
+      metadata:JSON.stringify([["text/identifier",`${localPart}@bitcoinwalk.org`],["text/plain",description]]),
       allowsNostr:true,nostrPubkey:value.nostrPubkey};
   }catch{return null;}finally{await reader.cancel();}
 }
