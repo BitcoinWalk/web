@@ -22,4 +22,15 @@ describe("organizer events landing view",()=>{
     expect(source.indexOf('aria-label="Filter walks"')).toBeLessThan(source.indexOf("{message&&"));
     expect(source).not.toContain('aria-label="Filter walks by status"');
   });
+  it("edits published walks in a full-screen modal with persistent actions",()=>{
+    const source=readFileSync(new URL("./_screen.tsx",import.meta.url),"utf8");
+    const styles=readFileSync(new URL("./walk-image-editor.module.css",import.meta.url),"utf8");
+    expect(source).toContain('role="dialog" aria-modal="true" aria-labelledby="walk-edit-title"');
+    expect(source).toContain('className={imageStyles.footer}');
+    expect(source).toContain('>Cancel</button><button className={imageStyles.primary}');
+    expect(source).toContain('"Sign and save changes"');
+    expect(source).not.toContain("Edit this published walk</legend><label>Date");
+    expect(styles).toContain("grid-template-rows:auto minmax(0,1fr) auto");
+    expect(styles).toContain("overflow-y:auto;overscroll-behavior:contain");
+  });
 });

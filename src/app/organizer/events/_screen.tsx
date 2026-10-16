@@ -117,6 +117,20 @@ export default function OrganizerEventsPage({canModerate=false}:{canModerate?:bo
   const dashboard=useDashboard();
   useDashboardAutoLoad(load);
   useEffect(()=>()=>clearDashboardAuthorizationScope(authorizationScope),[]);
+  useEffect(()=>{
+    if(!editingId.startsWith("published:"))return;
+    const previous=document.body.style.overflow;
+    document.body.style.overflow="hidden";
+    const close=(event:KeyboardEvent)=>{
+      if(event.key==="Escape"&&!busy&&!editImageUploading){
+        setEditingId("");
+        setEditHeroImageUrl("");
+        setEditContentImageUrl("");
+      }
+    };
+    document.addEventListener("keydown",close);
+    return()=>{document.body.style.overflow=previous;document.removeEventListener("keydown",close);};
+  },[editingId,busy,editImageUploading]);
   async function load() {
     if (lock.current) return;
     const hadData=walks.length>0||hosted.length>0||!!owner;
@@ -286,6 +300,13 @@ export default function OrganizerEventsPage({canModerate=false}:{canModerate?:bo
       const draft=publishedDraft(event,item);
       setEditingId(`published:${event.id}`);setEditDate(draft.localDate);setEditTime(draft.localTime);setEditMeetingPoint({...draft.meetingPoint});setEditHeroImageUrl(calendarImageOverride(event)??"");setEditContentImageUrl(calendarContentImage(event)??"");setEditDescription(event.content);setEditRouteUrl(calendarRoute(event)??"");setMessage("Edit this published walk. Saving will ask you to sign a replacement NIP-52 event.");
     }catch(error){setMessage(error instanceof Error?error.message:"This walk cannot be edited.");}
+  }
+
+  function closePublishedEdit(){
+    if(busy||editImageUploading)return;
+    setEditingId("");
+    setEditHeroImageUrl("");
+    setEditContentImageUrl("");
   }
 
   async function savePublishedEdit(walk:CalendarWalk,item:ManagedCalendarEvent){
@@ -535,6 +556,9 @@ export default function OrganizerEventsPage({canModerate=false}:{canModerate?:bo
   for(const {walk,item} of hosted){
     if(!rows.some(row=>row.key===`event:${item.event.id}`))rows.push({kind:item.status==="past"?"past":"upcoming",key:`event:${item.event.id}`,at:item.start,walk,item,hosted:true});
   }
+  const editingPublishedRow=editingId.startsWith("published:")
+    ? rows.find((row):row is PublishedWalkRow=>(row.kind==="upcoming"||row.kind==="past")&&`published:${row.item.event.id}`===editingId)
+    : undefined;
   const filteredRows=filterWalkRows(rows,walkFilter);
   const cities=groupWalkRows(filteredRows,new Set(["draft","upcoming","past","canceled"]));
   const dataCurrent=dataHealth.state==="ready"||dataHealth.state==="empty";
@@ -590,10 +614,30 @@ export default function OrganizerEventsPage({canModerate=false}:{canModerate?:bo
           {new Intl.DateTimeFormat("en-GB",{dateStyle:"full",timeStyle:"short",timeZone:row.draft.timeZone}).format(new Date(row.at*1000))} ({row.draft.timeZone})<br/>{row.draft.meetingPoint.description}<br/><small>Meeting pin: {row.draft.meetingPoint.latitude.toFixed(6)}, {row.draft.meetingPoint.longitude.toFixed(6)}</small>
           {row.inReview?<><p><label><input type="checkbox" disabled={busy||publishingBlocked||results[row.draft.id]?.status==="published"} checked={selected.has(row.draft.id)} onChange={e=>setSelected(previous=>{const next=new Set(previous);if(e.target.checked)next.add(row.draft.id);else next.delete(row.draft.id);return next;})}/> Select for signing</label> <button type="button" disabled={busy||publishingBlocked} onClick={()=>beginEdit(row.draft)}>Edit walk</button>{reviewing&&plans[row.walk.revision.city.cityId]&&!results[row.draft.id]&&<> <button type="button" disabled={busy||publishingBlocked} onClick={()=>updateSaved({skippedDates:[...new Set([...plans[row.walk.revision.city.cityId].skippedDates,row.draft.id.split(":").at(-1)!])]})}>Skip this draft</button></>}</p>{results[row.draft.id]&&<p role="status">{results[row.draft.id].status}: {results[row.draft.id].detail??""}</p>}</>:<p><button type="button" disabled={busy||publishingBlocked} onClick={()=>{const plan=plans[row.walk.revision.city.cityId];if(plan){review(plan);beginEdit(row.draft);}}}>Edit walk</button> <button type="button" disabled={busy||publishingBlocked} onClick={()=>{const plan=plans[row.walk.revision.city.cityId];if(plan)review(plan);}}>Review for publishing</button></p>}
           {editingId===row.draft.id&&<form onSubmit={event=>{event.preventDefault();saveDraftEdit(row.draft);}}><fieldset disabled={busy}><legend>Edit this walk draft</legend><label>Date <input type="date" required min="2000-01-01" max="2099-12-31" value={editDate} onChange={event=>setEditDate(event.target.value)}/></label><label>Local start time <input type="time" required value={editTime} onChange={event=>setEditTime(event.target.value)}/></label><RichDescriptionEditor value={editDescription} onChange={setEditDescription} disabled={busy}/><label>AllTrails route (optional) <input type="url" value={editRouteUrl} onChange={event=>setEditRouteUrl(event.target.value)} placeholder="https://www.alltrails.com/explore/trail/…"/></label><label>Meeting-point description <input required maxLength={500} value={editMeetingPoint?.description??""} onChange={event=>setEditMeetingPoint(point=>point?{...point,description:event.target.value}:null)}/></label><LocationPicker key={`edit-${row.draft.id}`} cityName={row.walk.revision.city.cityName} onCityNameChange={()=>{}} cityLocked value={editMeetingPoint} onChange={point=>setEditMeetingPoint({...point})}/><button type="submit">Save this draft</button> <button type="button" onClick={()=>setEditingId("")}>Discard changes</button></fieldset></form>}
-        </>:<>{new Intl.DateTimeFormat("en-GB",{dateStyle:"full",timeStyle:"short",...(row.item.timeZone?{timeZone:row.item.timeZone}:{})}).format(new Date(row.at*1000))}{row.item.timeZone?` (${row.item.timeZone})`:""}<br/>{row.item.meetingPoint.description}<br/><a href={publishedHref(row.walk,row.item.event)} target="_blank" rel="noreferrer">Open walk event ↗</a>{row.hosted&&<> — You’re hosting</>}{publishedWalkActions(row)}{discoveryByEvent[row.item.event.id]&&<p role="status">{calendarDiscoverySummary(discoveryByEvent[row.item.event.id],relayConfig.calendarDiscoveryRelays.length)}</p>}{walkModerationDetails(row.walk.revision.city.cityId,row.item.event)}{editingId===`published:${row.item.event.id}`&&<form onSubmit={event=>{event.preventDefault();void savePublishedEdit(row.walk,row.item);}}><fieldset disabled={busy||publishingBlocked}><legend>Edit this published walk</legend><label>Date <input type="date" required min="2000-01-01" max="2099-12-31" value={editDate} onChange={event=>setEditDate(event.target.value)}/></label><label>Local start time <input type="time" required value={editTime} onChange={event=>setEditTime(event.target.value)}/></label><RichDescriptionEditor value={editDescription} onChange={setEditDescription} disabled={busy||publishingBlocked}/><h3>Walk page image</h3><p>Optional. This image appears below the walk description. Choose a JPEG, PNG or WebP file up to 5 MB.</p><label>Upload walk image <input type="file" accept="image/jpeg,image/png,image/webp" disabled={editImageUploading} onChange={event=>{const file=event.target.files?.[0];event.target.value="";if(file)void uploadPublishedWalkImage(file,row.walk.revision.city.cityId);}}/></label>{editImageUploading&&<p role="status">Uploading image…</p>}{editContentImageUrl&&<figure className={imageStyles.preview}><Image src={editContentImageUrl} width={1600} height={900} sizes="(max-width: 720px) 100vw, 720px" unoptimized alt="Walk image preview"/><figcaption><button type="button" onClick={()=>setEditContentImageUrl("")}>Remove image</button></figcaption></figure>}<label>AllTrails route (optional) <input type="url" value={editRouteUrl} onChange={event=>setEditRouteUrl(event.target.value)} placeholder="https://www.alltrails.com/explore/trail/…"/></label><label>Meeting-point description <input required maxLength={500} value={editMeetingPoint?.description??""} onChange={event=>setEditMeetingPoint(point=>point?{...point,description:event.target.value}:null)}/></label><LocationPicker key={`published-edit-${row.item.event.id}`} cityName={row.walk.revision.city.cityName} onCityNameChange={()=>{}} cityLocked value={editMeetingPoint} onChange={point=>setEditMeetingPoint({...point})}/><h3>Sharing image</h3><label>Landscape hero and OG image override (optional) <input type="url" value={editHeroImageUrl} onChange={event=>setEditHeroImageUrl(event.target.value)} placeholder="https://… (.png, .jpg or .webp content)"/></label><p>Leave blank to inherit the city template. This image appears at the top of the page and in social previews.</p><button type="submit" disabled={editImageUploading}>{busy?"Saving…":"Sign and save changes"}</button> <button type="button" onClick={()=>{setEditingId("");setEditHeroImageUrl("");setEditContentImageUrl("");}}>Discard changes</button></fieldset></form>}</>}
+        </>:<>{new Intl.DateTimeFormat("en-GB",{dateStyle:"full",timeStyle:"short",...(row.item.timeZone?{timeZone:row.item.timeZone}:{})}).format(new Date(row.at*1000))}{row.item.timeZone?` (${row.item.timeZone})`:""}<br/>{row.item.meetingPoint.description}<br/><a href={publishedHref(row.walk,row.item.event)} target="_blank" rel="noreferrer">Open walk event ↗</a>{row.hosted&&<> — You’re hosting</>}{publishedWalkActions(row)}{discoveryByEvent[row.item.event.id]&&<p role="status">{calendarDiscoverySummary(discoveryByEvent[row.item.event.id],relayConfig.calendarDiscoveryRelays.length)}</p>}{walkModerationDetails(row.walk.revision.city.cityId,row.item.event)}</>}
       </li>)}</ol></section>)}
       {!!preview.length&&<p><button disabled={busy||publishingBlocked||!!editingId||!preview.some(draft=>selected.has(draft.id)&&results[draft.id]?.status!=="published")} onClick={publishSelected}>Sign and publish selected walks</button></p>}
       {!!Object.keys(plans).length&&<section><h3>Recurring plan controls</h3>{Object.values(plans).map(plan=><p key={plan.cityId}>{walks.find(w=>w.revision.city.cityId===plan.cityId)?.revision.city.cityName} — {planSummary(plan)} <button disabled={busy||publishingBlocked} onClick={()=>review(plan)}>Review missing dates</button></p>)}</section>}
     </section>}
+    {editingPublishedRow&&<div className={imageStyles.backdrop} role="presentation" onMouseDown={event=>{if(event.target===event.currentTarget)closePublishedEdit();}}>
+      <form className={imageStyles.modal} role="dialog" aria-modal="true" aria-labelledby="walk-edit-title" onSubmit={event=>{event.preventDefault();void savePublishedEdit(editingPublishedRow.walk,editingPublishedRow.item);}}>
+        <header className={imageStyles.header}>
+          <div><span className={imageStyles.eyebrow}>Published walk</span><h2 id="walk-edit-title">Edit {editingPublishedRow.walk.revision.city.cityName} walk</h2><p>Update the public walk, then sign its replacement event.</p></div>
+          <button className={imageStyles.close} autoFocus type="button" disabled={busy||editImageUploading} onClick={closePublishedEdit} aria-label="Close walk editor">×</button>
+        </header>
+        <div className={imageStyles.body}>
+          {message&&<p className={imageStyles.status} role="status">{message}</p>}
+          <fieldset className={imageStyles.fields} disabled={busy||publishingBlocked}>
+            <legend>Edit this published walk</legend>
+            <div className={imageStyles.dateTime}><label>Date <input type="date" required min="2000-01-01" max="2099-12-31" value={editDate} onChange={event=>setEditDate(event.target.value)}/></label><label>Local start time <input type="time" required value={editTime} onChange={event=>setEditTime(event.target.value)}/></label></div>
+            <section className={imageStyles.section} aria-labelledby="walk-description-heading"><h3 id="walk-description-heading">Walk details</h3><RichDescriptionEditor value={editDescription} onChange={setEditDescription} disabled={busy||publishingBlocked}/><label>AllTrails route (optional) <input type="url" value={editRouteUrl} onChange={event=>setEditRouteUrl(event.target.value)} placeholder="https://www.alltrails.com/explore/trail/…"/></label></section>
+            <section className={imageStyles.section} aria-labelledby="walk-page-image-heading"><h3 id="walk-page-image-heading">Walk page image</h3><p>Optional. This image appears below the walk description. Choose a JPEG, PNG or WebP file up to 5 MB.</p><label>Upload walk image <input type="file" accept="image/jpeg,image/png,image/webp" disabled={editImageUploading} onChange={event=>{const file=event.target.files?.[0];event.target.value="";if(file)void uploadPublishedWalkImage(file,editingPublishedRow.walk.revision.city.cityId);}}/></label>{editImageUploading&&<p role="status">Uploading image…</p>}{editContentImageUrl&&<figure className={imageStyles.preview}><Image src={editContentImageUrl} width={1600} height={900} sizes="(max-width: 720px) 100vw, 720px" unoptimized alt="Walk image preview"/><figcaption><button type="button" onClick={()=>setEditContentImageUrl("")}>Remove image</button></figcaption></figure>}</section>
+            <section className={imageStyles.section} aria-labelledby="walk-meeting-point-heading"><h3 id="walk-meeting-point-heading">Meeting point</h3><label>Meeting-point description <input required maxLength={500} value={editMeetingPoint?.description??""} onChange={event=>setEditMeetingPoint(point=>point?{...point,description:event.target.value}:null)}/></label><LocationPicker key={`published-edit-${editingPublishedRow.item.event.id}`} cityName={editingPublishedRow.walk.revision.city.cityName} onCityNameChange={()=>{}} cityLocked value={editMeetingPoint} onChange={point=>setEditMeetingPoint({...point})}/></section>
+            <section className={imageStyles.section} aria-labelledby="walk-sharing-image-heading"><h3 id="walk-sharing-image-heading">Sharing image</h3><label>Landscape hero and OG image override (optional) <input type="url" value={editHeroImageUrl} onChange={event=>setEditHeroImageUrl(event.target.value)} placeholder="https://… (.png, .jpg or .webp content)"/></label><p>Leave blank to inherit the city template. This image appears at the top of the page and in social previews.</p></section>
+          </fieldset>
+        </div>
+        <footer className={imageStyles.footer}><button type="button" disabled={busy||editImageUploading} onClick={closePublishedEdit}>Cancel</button><button className={imageStyles.primary} type="submit" disabled={busy||publishingBlocked||editImageUploading}>{busy?"Saving…":"Sign and save changes"}</button></footer>
+      </form>
+    </div>}
   </main>;
 }
