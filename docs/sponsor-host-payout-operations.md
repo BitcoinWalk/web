@@ -164,3 +164,26 @@ both identify `app-staging-0.3.390`.
 Deployment did not enable the payout flag, mount the payout credential, fund
 the isolated wallet or send a payment. Interactive signed-flow acceptance and
 the explicitly authorized minimal staging payout remain separate gates.
+
+## Madeira invitation activation candidate
+
+Staging candidate `0.3.393` separates invitation acceptance from payout-sender
+activation. Both the global invitation flag and an exact city UUID allowlist
+must be valid; otherwise host invitations fail closed while ordinary sponsor
+checkout and the super-admin audit remain available. The first deployment
+allowlist contains only Madeira (`83f15504-9fca-4d59-a0f6-616a559510df`). The
+same scope is rechecked when a private link is previewed and again immediately
+before an invoice is created, so an older or forged link for another city
+cannot acquire host-payout policy.
+
+The deployment package changes only the staging app release and its two
+invitation environment settings. It neither contacts the payout host nor reads,
+mounts or enables the sponsor-payout credential. It does not fund a wallet,
+authorize a payout operation or send a payment. Successful deployment permits
+the Madeira host to create one exact walk invitation and a sponsor to establish
+an immutable 79/21 obligation; paying that obligation remains a later,
+separately signed and explicitly funded gate. The deterministic candidate bundle
+is `bitcoinwalk-madeira-host-sponsor-invitations-0.3.393.tar.gz` with SHA-256
+`27493a31bc2bb34eeda007f15b2495bf1dd1f02d5d6d83908d00b365ce987f2e`;
+the contained app archive has SHA-256
+`f224acef96d96ef9b899f802dac0588591434fc40f4992a62d12824446f5f8e5`.

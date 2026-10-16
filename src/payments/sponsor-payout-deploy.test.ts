@@ -18,3 +18,7 @@ describe("disabled sponsor payout deployment",()=>{
   expect(install).toContain("bitcoinwalk-sponsor-payout-backup.timer");expect(install).toContain("bitcoinwalk-sponsor-payout-monitor.timer");expect(install).not.toContain("BITCOINWALK_SPONSOR_HOST_PAYOUT_ENABLED");
  });
 });
+
+describe("Madeira-only staging invitation activation",()=>{
+ it("cannot activate another city or the payout sender",()=>{const script=readFileSync("deploy/enable-madeira-host-sponsor-invitations-0.3.393.sh","utf8");expect(script).toContain("BITCOINWALK_SPONSOR_HOST_PAYOUT_ENABLED=1");expect(script).toContain("BITCOINWALK_SPONSOR_HOST_PAYOUT_CITY_IDS=$madeira");expect(script).toContain("83f15504-9fca-4d59-a0f6-616a559510df");expect(script).not.toMatch(/NWC|pay_invoice|SPONSOR_PAYOUT_MODE|213\.232\.235\.240/);expect(script).toContain("payout sender remains disabled");});
+});

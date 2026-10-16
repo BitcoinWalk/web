@@ -8,6 +8,7 @@ import {sponsorshipCatalog} from "./sponsor-catalog";
 import {SponsorInvitationStore} from "./sponsor-invitation-store";
 import {isApprovedPaymentDatabase} from "../lib/app-storage";
 import {eligibleSponsorHostCities} from "../server/sponsor-invitation-eligibility";
+import {sponsorHostPayoutScope} from "./sponsor-host-payout-scope";
 
 type PaymentRuntime={service:PaymentService;sponsors:SponsorService;sponsorInvitations:SponsorInvitationStore;store:PaymentStore;timer:NodeJS.Timeout};
 const runtimeKey=Symbol.for("bitcoinwalk.payment-runtime");
@@ -32,9 +33,10 @@ export function getPaymentRuntime():PaymentRuntime{
  if(process.env.NODE_ENV==="production"&&!isApprovedPaymentDatabase(database))throw new Error("Application database must be inside an approved app state directory");
  mkdirSync(dirname(database),{recursive:true,mode:0o700});
  const store=new PaymentStore(database),sponsorInvitations=new SponsorInvitationStore(store.db);
+ const sponsorScope=sponsorHostPayoutScope();
  const wallet=new NwcWallet(required("BITCOINWALK_NWC_URL")),service=new PaymentService(store,wallet,(city,revision)=>verifyPurchasableCity([sourceRelay()],city,revision),undefined,
-  (city,revision)=>verifyGiftableCity([sourceRelay()],city,revision)),sponsors=new SponsorService(store.db,wallet,sponsorshipCatalog,undefined,sponsorInvitations,process.env.BITCOINWALK_SPONSOR_HOST_PAYOUT_ENABLED==="1",
-   async invitation=>(await eligibleSponsorHostCities(store.db,invitation.hostPubkey)).some(city=>city.id===invitation.cityId&&city.payoutVersion===invitation.payoutVersion));
+  (city,revision)=>verifyGiftableCity([sourceRelay()],city,revision)),sponsors=new SponsorService(store.db,wallet,sponsorshipCatalog,undefined,sponsorInvitations,sponsorScope.enabled,
+   async invitation=>sponsorScope.cityIds.has(invitation.cityId)&&(await eligibleSponsorHostCities(store.db,invitation.hostPubkey)).some(city=>city.id===invitation.cityId&&city.payoutVersion===invitation.payoutVersion));
  let busy=false;
  const reconcile=async()=>{if(busy)return;busy=true;try{await service.reconcile();await sponsors.reconcile();}catch{console.warn("Payment reconciliation deferred; durable state was retained.");}finally{busy=false;}};
  const timer=setInterval(()=>void reconcile(),15_000);timer.unref();
