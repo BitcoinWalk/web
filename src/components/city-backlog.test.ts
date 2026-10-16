@@ -29,6 +29,10 @@ describe("cityWorkflowRows",()=>{
  expect(row).toMatchObject({status:"offline",online:false});
   expect(cityWorkflowActions(row)).toEqual(["view-decision"]);
  });
+ it("does not resurrect a deleted city from retained service health inventory",()=>{
+  const health={cityId:"gone",cityName:"Deleted city",slug:"deleted-city",availableInEnvironment:true,tier:"pro" as const,status:"complete" as const,checks:[],checkedAt:1};
+  expect(cityWorkflowRows({managed:[],pending:[],needsChanges:[],health:[health],paidCityIds:new Set(["gone"]),paidCities:{},excludedCityIds:new Set(["gone"])})).toEqual([]);
+ });
  it("exposes only valid actions for each workflow state",()=>{
   const awaiting={revision:revision("w","Waiting"),rejection:{event:{id:"d".repeat(64)},approval:{cityId:"w",cityRevisionId:"a".repeat(64),status:"rejected"}}} as NeedsChangesCity;
   const pending=cityWorkflowRows({managed:[],pending:[revision("p","Pending")],needsChanges:[],health:[],paidCityIds:new Set(),paidCities:{}})[0];

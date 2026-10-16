@@ -51,4 +51,10 @@ describe("city backlog controls",()=>{
   expect(page).toContain("disabled={busy||!directoryCurrent}");
   expect(page).toContain("city status and deletion actions remain available");
  });
+ it("excludes signed deletions from retained service inventory rows",()=>{
+  const page=source();
+  expect(page).toContain("deleted:deletedCityIds(directory.approvals)");
+  expect(page).toContain("setDeletedIds(snapshot.deleted)");
+  expect(page).toContain("excludedCityIds:deletedIds");
+ });
 });
