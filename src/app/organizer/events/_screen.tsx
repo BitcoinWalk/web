@@ -37,6 +37,8 @@ import {isSuperAdmin} from "../../../nostr/authority";
 import sponsorStyles from "../../admin/sponsors/sponsors.module.css";
 import AdminDataStatus,{resolvedAdminDataState,type AdminDataHealth} from "../../../components/admin-data-status";
 import imageStyles from "./walk-image-editor.module.css";
+import CityFinder from "../../../components/city-finder";
+import {AdminButton,AdminFeedback} from "../../../components/admin-ui";
 
 const LocationPicker = dynamic(() => import("../../../components/location-picker"), { ssr: false });
 const authorizationScope="walks";
@@ -46,6 +48,13 @@ type WalkListRow=
   | {kind:"upcoming"|"past";key:string;at:number;walk:CalendarWalk;item:ManagedCalendarEvent;hosted:boolean}
   | {kind:"canceled";key:string;at:number;walk:CalendarWalk;deletion:Event;targetId:string};
 type PublishedWalkRow=Extract<WalkListRow,{kind:"upcoming"|"past"}>;
+type AddWalkStep="details"|"schedule"|"preview"|"sign";
+const addWalkSteps:readonly {id:AddWalkStep;label:string}[]=[
+  {id:"details",label:"Details"},
+  {id:"schedule",label:"Schedule"},
+  {id:"preview",label:"Preview"},
+  {id:"sign",label:"Sign"},
+];
 
 export default function OrganizerEventsPage({canModerate=false}:{canModerate?:boolean}={}) {
   const [hosted,setHosted]=useState<HostedWalk[]>([]);
@@ -55,6 +64,7 @@ export default function OrganizerEventsPage({canModerate=false}:{canModerate?:bo
   const [canceledByCity,setCanceledByCity]=useState<Record<string,Event[]>>({});
   const [cityId, setCityId] = useState("");
   const [showForm, setShowForm] = useState(false);
+  const [addWalkStep,setAddWalkStep]=useState<AddWalkStep>("details");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [dataHealth,setDataHealth]=useState<AdminDataHealth>({state:"loading",message:"Loading walk permissions, schedules and hosting assignments…"});
@@ -118,11 +128,16 @@ export default function OrganizerEventsPage({canModerate=false}:{canModerate?:bo
   useDashboardAutoLoad(load);
   useEffect(()=>()=>clearDashboardAuthorizationScope(authorizationScope),[]);
   useEffect(()=>{
-    if(!editingId.startsWith("published:"))return;
+    const sync=()=>{const value=new URL(window.location.href).searchParams.get("view");if(value==="next"||value==="upcoming"||value==="past"||value==="all")setWalkFilter(value);};
+    sync();window.addEventListener("popstate",sync);return()=>window.removeEventListener("popstate",sync);
+  },[]);
+  useEffect(()=>{
+    if(!editingId.startsWith("published:")&&!showForm)return;
     const previous=document.body.style.overflow;
     document.body.style.overflow="hidden";
     const close=(event:KeyboardEvent)=>{
       if(event.key==="Escape"&&!busy&&!editImageUploading){
+        if(showForm){setShowForm(false);return;}
         setEditingId("");
         setEditHeroImageUrl("");
         setEditContentImageUrl("");
@@ -130,7 +145,7 @@ export default function OrganizerEventsPage({canModerate=false}:{canModerate?:bo
     };
     document.addEventListener("keydown",close);
     return()=>{document.body.style.overflow=previous;document.removeEventListener("keydown",close);};
-  },[editingId,busy,editImageUploading]);
+  },[editingId,showForm,busy,editImageUploading]);
   async function load() {
     if (lock.current) return;
     const hadData=walks.length>0||hosted.length>0||!!owner;
@@ -203,6 +218,7 @@ export default function OrganizerEventsPage({canModerate=false}:{canModerate?:bo
       const drafts = upcomingDrafts(plan);
       const result=reconcile(plan.cityId,drafts,plan.timeZone);
       setShowForm(true);
+      setAddWalkStep("preview");
       setCityId(plan.cityId); setMeetingPoint({ ...plan.meetingPoint }); setFrequency(plan.frequency);
       setWalkDescription(plan.description??walks.find(w=>w.revision.city.cityId===plan.cityId)?.revision.city.description??"");setRouteUrl(plan.routeUrl??"");
       setWeekday(plan.weekday); setFirstDate(plan.firstDate); setLocalTime(plan.localTime); seriesId.current = plan.seriesId;
@@ -219,6 +235,7 @@ export default function OrganizerEventsPage({canModerate=false}:{canModerate?:bo
     setPlans(previous => ({ ...previous, [plan.cityId]: plan }));
     setPreview(result.missing); setSelected(new Set(result.missing.map(d=>d.id))); setResults({}); setEditingId(""); setReviewing(true);
     setCoverage({ planned: drafts.length, published: result.covered.length, missing: result.missing.length });
+    setAddWalkStep("preview");
     setMessage(plan.paused ? "Plan paused in this browser. No published events were changed." : `Saved in this browser. ${reconciliationMessage(result)}`);
   }
 
@@ -252,9 +269,8 @@ export default function OrganizerEventsPage({canModerate=false}:{canModerate?:bo
       if(publishingAccess!=="active")throw new Error(publishingAccessNotice(publishingAccess));
       const city = walks.find(walk => walk.revision.city.cityId === cityId)?.revision.city;
       if (!city) throw new Error("Choose your city first.");
-      const form = new FormData(event.currentTarget);
       if (!seriesId.current) seriesId.current = crypto.randomUUID();
-      const occurrences = scheduleOccurrences({ seriesId: seriesId.current, firstDate: String(form.get("firstDate")), localTime: String(form.get("localTime")), timeZone: cityTimeZone(city.meetingPoint), weekday, frequency,
+      const occurrences = scheduleOccurrences({ seriesId: seriesId.current, firstDate, localTime, timeZone: cityTimeZone(city.meetingPoint), weekday, frequency,
         count: frequency === "once" ? 1 : DEFAULT_OCCURRENCES, durationMinutes: 60 });
       if(!walkDescription.trim())throw new Error("Add a walk description.");const route=optionalAllTrailsRoute(routeUrl);
       const located=withEventMeetingPoint(occurrences, meetingPoint).map(item=>({...item,description:walkDescription.trim(),routeUrl:route}));
@@ -262,6 +278,7 @@ export default function OrganizerEventsPage({canModerate=false}:{canModerate?:bo
       setPreview(result.missing); setSelected(new Set(result.missing.map(d=>d.id))); setResults({});
       setCoverage({ planned: located.length, published: result.covered.length, missing: result.missing.length });
       setMessage(reconciliationMessage(result));
+      setAddWalkStep("preview");
     } catch (error) { setMessage(error instanceof Error ? error.message : "Check schedule details."); }
   }
 
@@ -498,10 +515,37 @@ export default function OrganizerEventsPage({canModerate=false}:{canModerate?:bo
   function openForm(){
     if(publishingAccess!=="active"){setMessage(publishingAccessNotice(publishingAccess));return;}
     setShowForm(true);
+    setAddWalkStep(preview.length?"preview":"details");
     if(walks.length===1&&!cityId){
       const city=walks[0].revision.city;
       setCityId(city.cityId);setMeetingPoint({...city.meetingPoint});setWalkDescription(city.description);setRouteUrl("");
     }
+  }
+
+  function closeAddWalk(){if(busy)return;setShowForm(false);}
+
+  function selectCreateCity(nextId:string){
+    const city=walks.find(w=>w.revision.city.cityId===nextId)?.revision.city;
+    const saved=plans[nextId];
+    if(saved){review(saved);return true;}
+    setCityId(nextId);setMeetingPoint(city?{...city.meetingPoint}:null);setWalkDescription(city?.description??"");setRouteUrl("");
+    setPreview([]);setCoverage(null);setSelected(new Set());setResults({});signedRetries.current={};seriesId.current="";
+    setFirstDate("");setLocalTime("10:00");setFrequency("weekly");setWeekday(DEFAULT_WEEKDAY);setReviewing(false);setMessage("");
+    return true;
+  }
+
+  function continueFromDetails(){
+    if(!cityId){setMessage("Choose a city before continuing.");return;}
+    if(!walkDescription.trim()){setMessage("Add a walk description before continuing.");return;}
+    if(!meetingPoint?.description.trim()){setMessage("Add a meeting-point description before continuing.");return;}
+    setMessage("");setAddWalkStep("schedule");
+  }
+
+  function chooseWalkFilter(value:WalkListFilter){
+    setWalkFilter(value);
+    const url=new URL(window.location.href);
+    if(value==="all")url.searchParams.delete("view");else url.searchParams.set("view",value);
+    window.history.pushState({},"",`${url.pathname}${url.search}${url.hash}`);
   }
 
   function planSummary(plan:RecurringPlan){
@@ -566,44 +610,30 @@ export default function OrganizerEventsPage({canModerate=false}:{canModerate?:bo
 
   return <main>
     <div className={sponsorStyles.toolbar}>
-      <div className={sponsorStyles.statusToggle} role="group" aria-label="Filter walks">{(["all","next","upcoming","past"] as WalkListFilter[]).map(value=><button key={value} type="button" aria-pressed={walkFilter===value} disabled={busy} onClick={()=>setWalkFilter(value)}>{value==="all"?"All":value==="next"?"Next Walk":value[0].toUpperCase()+value.slice(1)}</button>)}</div>
-      <button type="button" disabled={busy} onClick={load}>{busy?"Loading walks…":"Refresh"}</button>
+      <div className={sponsorStyles.statusToggle} role="group" aria-label="Filter walks">{(["all","next","upcoming","past"] as WalkListFilter[]).map(value=><button key={value} type="button" aria-pressed={walkFilter===value} disabled={busy} onClick={()=>chooseWalkFilter(value)}>{value==="all"?"All":value==="next"?"Next Walk":value[0].toUpperCase()+value.slice(1)}</button>)}</div>
+      <AdminButton type="button" disabled={busy} onClick={load}>{busy?"Loading walks…":"Refresh"}</AdminButton>
     </div>
     <AdminDataStatus health={dataHealth} busy={busy} onRetry={()=>void load()} scope="Walks" hideWhenReady/>
     {message&&<p role="status">{message}</p>}
     {hostingError&&<p role="alert">Hosting assignments could not be loaded: {hostingError}</p>}
-    {!!owner && !!walks.length && <><button disabled={busy||publishingBlocked} onClick={openForm}>+ Add a walk</button>{publishingNotice&&<p role={publishingAccess==="suspended"?"alert":"status"}>{publishingNotice}</p>}</>}
-    {showForm && <section><h2>Add a walk</h2><button disabled={busy} onClick={()=>setShowForm(false)}>Close form</button>
-    <p><strong>Organizer-owned NIP-52 publishing.</strong> Each checked occurrence is signed by your connected identity, verified independently on the BitcoinWalk relay, then copied unchanged to the configured public discovery relays. BitcoinWalk never receives your private key.</p>
-    <p>Recurring plans are saved in this browser only, separately for each organizer and city. They are not synced or backed up. Reconnecting recalculates eight future drafts, including after missed weeks. Nothing is published automatically: every occurrence requires an explicit signer approval.</p>
-    <label>City <select disabled={busy} value={cityId} onChange={e => {
-      const selected = walks.find(w => w.revision.city.cityId === e.target.value)?.revision.city;
-      const saved = plans[e.target.value];
-      if (saved) { review(saved); return; }
-      setCityId(e.target.value); setMeetingPoint(selected ? { ...selected.meetingPoint } : null);setWalkDescription(selected?.description??"");setRouteUrl(""); setPreview([]); setCoverage(null); setSelected(new Set()); setResults({}); signedRetries.current={}; seriesId.current = ""; setFirstDate(""); setLocalTime("10:00"); setFrequency("weekly"); setWeekday(DEFAULT_WEEKDAY); setReviewing(false);
-    }}><option value="">Select your city</option>{walks.filter(w=>showCityInPicker(w.revision.city.cityName)).map(w => <option key={w.revision.city.cityId} value={w.revision.city.cityId}>{w.revision.city.cityName}</option>)}</select></label>
-    {cityId && <form ref={scheduleForm} onSubmit={makePreview} onChange={() => { setPreview([]); setCoverage(null); setReviewing(false); }}>
-      <fieldset disabled={busy} style={{ display: "grid", gap: "1rem" }}>
-        <legend>Occurrence schedule</legend>
-        <label>Repeat <select value={frequency} onChange={e => setFrequency(e.target.value as WalkSchedule["frequency"])}><option value="once">Does not repeat</option><option value="weekly">Every week</option><option value="fortnightly">Every two weeks</option></select></label>
-        {frequency !== "once" && <label>Weekday <select value={weekday} onChange={e => setWeekday(Number(e.target.value))}>{WEEKDAYS.map((day, index) => <option key={day} value={index}>{day}</option>)}</select></label>}
-        <label>{frequency === "once" ? "Walk date" : "Start on or after"} <input type="date" name="firstDate" min="2000-01-01" max="2099-12-31" value={firstDate} onChange={e => setFirstDate(e.target.value)} required /></label>
-        <label>Start time <input type="time" name="localTime" value={localTime} onChange={e => setLocalTime(e.target.value)} required /></label>
-        <RichDescriptionEditor value={walkDescription} onChange={value=>{setWalkDescription(value);setPreview([]);setCoverage(null);}} disabled={busy}/>
-        <label>AllTrails route (optional) <input type="url" value={routeUrl} onChange={event=>{setRouteUrl(event.target.value);setPreview([]);setCoverage(null);}} placeholder="https://www.alltrails.com/explore/trail/…"/></label>
-        <p>All times are local to {walks.find(w => w.revision.city.cityId === cityId)?.revision.city.cityName}.</p>
-        <h2>Meeting point for this walk</h2>
-        <p>Starts from the city&apos;s default. Changing it here does not change the city profile.{frequency !== "once" && " This location will be copied into each occurrence in this new series."}</p>
-        <label>Meeting-point description <input name="meetingDescription" value={meetingPoint?.description ?? ""} maxLength={500} required placeholder="e.g. Outside the cafe entrance" onChange={e => { setMeetingPoint(point => point ? { ...point, description: e.target.value } : null); setPreview([]); setCoverage(null); }} /></label>
-        <LocationPicker key={cityId} cityName={walks.find(w => w.revision.city.cityId === cityId)?.revision.city.cityName ?? ""} onCityNameChange={() => {}} cityLocked value={meetingPoint} onChange={point => { if (!busy) { setMeetingPoint({ ...point }); setPreview([]); setCoverage(null); } }} />
-        {frequency !== "once" && <p>Saturday is selected by default. The preview shows the next {DEFAULT_OCCURRENCES} occurrences.</p>}
-        <button type="submit">Preview occurrences — no publication</button>
-        {coverage && <p role="status"><strong>{coverage.published} of {coverage.planned} planned walk dates already scheduled. {coverage.missing === 0 ? "No new walks need publishing; nothing was signed." : `${coverage.missing} new walk date${coverage.missing === 1 ? "" : "s"} ready to review below.`}</strong></p>}
-        {frequency !== "once" && <button type="button" onClick={savePlan}>Save recurring plan in this browser</button>}
-      </fieldset>
-    </form>}
-    {cityId && plans[cityId] && <section><h2>Saved plan controls</h2><button disabled={busy||publishingBlocked} onClick={() => review(plans[cityId])}>Refresh / review saved drafts</button> <button disabled={busy||publishingBlocked} onClick={() => updateSaved({ paused: !plans[cityId].paused })}>{plans[cityId].paused ? "Resume" : "Pause"} recurring drafts</button><p>These controls use the saved plan, not unsaved form edits. Pausing does not cancel published walks.</p></section>}
-    </section>}
+    {!!owner && !!walks.length && <><AdminButton variant="primary" disabled={busy||publishingBlocked} onClick={openForm}>+ Add a walk</AdminButton>{publishingNotice&&<p role={publishingAccess==="suspended"?"alert":"status"}>{publishingNotice}</p>}</>}
+    {showForm&&<div className={imageStyles.backdrop} role="presentation" onMouseDown={event=>{if(event.target===event.currentTarget)closeAddWalk();}}>
+      <section className={imageStyles.modal} role="dialog" aria-modal="true" aria-labelledby="walk-create-title">
+        <header className={imageStyles.header}><div><span className={imageStyles.eyebrow}>New walk</span><h2 id="walk-create-title">Add a walk</h2><p>{walks.find(w=>w.revision.city.cityId===cityId)?.revision.city.cityName??"Choose a city, then prepare the walk."}</p></div><button className={imageStyles.close} type="button" disabled={busy} onClick={closeAddWalk} aria-label="Close walk creator">×</button></header>
+        <nav className={imageStyles.steps} aria-label="Add a walk progress">{addWalkSteps.map((item,index)=>{const current=addWalkSteps.findIndex(step=>step.id===addWalkStep);return <button key={item.id} type="button" disabled={index>current} aria-current={addWalkStep===item.id?"step":undefined} data-complete={current>index} onClick={()=>setAddWalkStep(item.id)}><span>{index+1}</span>{item.label}</button>;})}</nav>
+        <div className={imageStyles.body}>
+          {message&&<AdminFeedback className={imageStyles.workflowStatus}>{message}</AdminFeedback>}
+          {addWalkStep==="details"&&<fieldset className={imageStyles.fields} disabled={busy}><legend>Walk details</legend>
+            <CityFinder items={walks.filter(w=>showCityInPicker(w.revision.city.cityName)).map(w=>({id:w.revision.city.cityId,name:w.revision.city.cityName,meta:`/${w.revision.city.slug}`,keywords:[w.revision.city.slug,w.revision.city.cityId]}))} value={cityId} onChange={selectCreateCity} disabled={busy} label="City" placeholder="Find a city…"/>
+            {cityId&&<><section className={imageStyles.section}><h3>Description</h3><p>The city description is used as a starting point. Changes here apply only to this walk.</p><RichDescriptionEditor value={walkDescription} onChange={value=>{setWalkDescription(value);setPreview([]);setCoverage(null);}} disabled={busy}/><label>AllTrails route (optional) <input type="url" value={routeUrl} onChange={event=>{setRouteUrl(event.target.value);setPreview([]);setCoverage(null);}} placeholder="https://www.alltrails.com/explore/trail/…"/></label></section><section className={imageStyles.section}><h3>Meeting point</h3><p>Starts from the city default. Changing it here does not change the city profile.</p><label>Meeting-point description <input value={meetingPoint?.description??""} maxLength={500} required placeholder="e.g. Outside the cafe entrance" onChange={event=>{setMeetingPoint(point=>point?{...point,description:event.target.value}:null);setPreview([]);setCoverage(null);}}/></label><LocationPicker key={cityId} cityName={walks.find(w=>w.revision.city.cityId===cityId)?.revision.city.cityName??""} onCityNameChange={()=>{}} cityLocked value={meetingPoint} onChange={point=>{setMeetingPoint({...point});setPreview([]);setCoverage(null);}}/></section></>}
+          </fieldset>}
+          {addWalkStep==="schedule"&&<form id="add-walk-schedule" ref={scheduleForm} onSubmit={makePreview} onChange={()=>{setPreview([]);setCoverage(null);setReviewing(false);}}><fieldset className={imageStyles.fields} disabled={busy}><legend>Walk schedule</legend><section className={imageStyles.section}><h3>Schedule</h3><p>Times use the city&apos;s local time zone. Every occurrence is reviewed and signed before publication.</p><label>Repeat <select value={frequency} onChange={event=>setFrequency(event.target.value as WalkSchedule["frequency"])}><option value="once">Does not repeat</option><option value="weekly">Every week</option><option value="fortnightly">Every two weeks</option></select></label>{frequency!=="once"&&<label>Weekday <select value={weekday} onChange={event=>setWeekday(Number(event.target.value))}>{WEEKDAYS.map((day,index)=><option key={day} value={index}>{day}</option>)}</select></label>}<div className={imageStyles.dateTime}><label>{frequency==="once"?"Walk date":"Start on or after"} <input type="date" min="2000-01-01" max="2099-12-31" value={firstDate} onChange={event=>setFirstDate(event.target.value)} required/></label><label>Start time <input type="time" value={localTime} onChange={event=>setLocalTime(event.target.value)} required/></label></div>{frequency!=="once"&&<p>The preview prepares the next {DEFAULT_OCCURRENCES} dates. Recurrence remains browser-local and never publishes automatically.</p>}</section>{frequency!=="once"&&<section className={imageStyles.section}><h3>Browser-local plan</h3><p>Optional. Save this schedule on this device so future missing dates can be prepared again.</p><AdminButton type="button" onClick={savePlan}>Save recurring plan on this device</AdminButton></section>}</fieldset></form>}
+          {addWalkStep==="preview"&&<div className={imageStyles.workflowContent}><h3>Review occurrences</h3>{coverage&&<AdminFeedback tone={coverage.missing?"info":"success"}>{coverage.published} of {coverage.planned} planned dates are already scheduled. {coverage.missing?`${coverage.missing} new date${coverage.missing===1?"":"s"} can be signed.`:"Nothing new needs publishing."}</AdminFeedback>}{!preview.length?<p>No new occurrences are ready to publish. Go back to adjust the schedule.</p>:<ol className={imageStyles.occurrences}>{preview.map(draft=><li key={draft.id}><label><input type="checkbox" disabled={busy||publishingBlocked||results[draft.id]?.status==="published"} checked={selected.has(draft.id)} onChange={event=>setSelected(previous=>{const next=new Set(previous);if(event.target.checked)next.add(draft.id);else next.delete(draft.id);return next;})}/><span><strong>{new Intl.DateTimeFormat("en-GB",{dateStyle:"full",timeStyle:"short",timeZone:draft.timeZone}).format(new Date(draft.start*1000))}</strong><small>{draft.meetingPoint.description}</small></span></label></li>)}</ol>}</div>}
+          {addWalkStep==="sign"&&<div className={imageStyles.workflowContent}><h3>Sign and publish</h3><p>You will approve each selected occurrence with your connected Nostr signer. BitcoinWalk never receives your private key.</p><ul className={imageStyles.signingList}>{preview.filter(draft=>selected.has(draft.id)).map(draft=><li key={draft.id}><span>{new Intl.DateTimeFormat("en-GB",{dateStyle:"medium",timeStyle:"short",timeZone:draft.timeZone}).format(new Date(draft.start*1000))}</span><strong data-status={results[draft.id]?.status??"ready"}>{results[draft.id]?.status??"Ready"}</strong>{results[draft.id]?.detail&&<small>{results[draft.id]?.detail}</small>}</li>)}</ul></div>}
+        </div>
+        <footer className={imageStyles.footer}><AdminButton type="button" disabled={busy} onClick={closeAddWalk}>{preview.length?"Save for later":"Cancel"}</AdminButton><span className={imageStyles.footerSpacer}/>{addWalkStep!=="details"&&<AdminButton type="button" disabled={busy} onClick={()=>setAddWalkStep(addWalkStep==="schedule"?"details":addWalkStep==="preview"?"schedule":"preview")}>Back</AdminButton>}{addWalkStep==="details"&&<AdminButton className={imageStyles.primary} variant="primary" type="button" disabled={busy||!cityId} onClick={continueFromDetails}>Continue to schedule</AdminButton>}{addWalkStep==="schedule"&&<AdminButton className={imageStyles.primary} variant="primary" type="submit" form="add-walk-schedule" disabled={busy}>Preview occurrences</AdminButton>}{addWalkStep==="preview"&&<AdminButton className={imageStyles.primary} variant="primary" type="button" disabled={busy||!preview.some(draft=>selected.has(draft.id)&&results[draft.id]?.status!=="published")} onClick={()=>setAddWalkStep("sign")}>Continue to sign</AdminButton>}{addWalkStep==="sign"&&<AdminButton className={imageStyles.primary} variant="primary" type="button" disabled={busy||publishingBlocked||!!editingId||!preview.some(draft=>selected.has(draft.id)&&results[draft.id]?.status!=="published")} onClick={()=>void publishSelected()}>{busy?"Publishing…":"Sign and publish selected"}</AdminButton>}</footer>
+      </section>
+    </div>}
     {!!owner&&<section>
       {draftWarnings.map(warning=><p role="alert" key={warning}>{warning}</p>)}
       {!rows.length&&<p>No walks found. Choose + Add a walk to prepare one.</p>}
