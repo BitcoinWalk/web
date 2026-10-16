@@ -653,6 +653,27 @@ agent never received the decryption passphrase or private key and never read the
 archive or restored database. This acceptance does not authorize production
 cutover, wallet funding, payout activation or a payment.
 
+### Production fee-cap Hub accepted — 16 October 2026
+
+The exact copied-state candidate revision
+`6bb8520025d781f8570ef1a5d134fe545a1586f3ab46cfedd780e15a641cfa84`
+is now the production Hub behind the existing loopback/public boundary. A
+purpose-built wrapper inherits the exact reviewed candidate layers, changes only
+the guarded production entrypoint and labels, and still refuses automatic unlock
+or an externally configured wallet backend. The final cutover completed in
+three seconds with a stopped predecessor and fresh state snapshot retained until
+human acceptance.
+
+After the normal manual unlock, local and public endpoints reported the exact
+fee-cap revision, setup complete, `running=true` and Bitcoin mainnet. SQLite
+integrity passed. The independent sponsor-payout service remained version 0.1.1,
+disabled, Docker network `none` and unfunded. No invoice or payment was created.
+With explicit user approval the stopped predecessor and temporary plaintext
+rollback snapshot were then permanently removed; the encrypted local and
+append-only off-host production backups remain retained. This closes the
+production-safe fee-cap Hub deployment gate only. Sponsor-payout service
+activation, wallet funding and a funded staging payout remain separate gates.
+
 Reviewed official tag v1.24.0, commit
 `d8ef0e70e0d265a8424276daee0a595ac31993c0`:
 

@@ -128,3 +128,33 @@ all decrypted material. A subsequent inspection found no
 already passed its post-snapshot manual unlock and local/public health checks.
 This closes initialized production backup and restore readiness. The agent never
 received the passphrase or private key and never decrypted or read the archive.
+
+## Production fee-cap cutover — 16 October 2026
+
+The reviewed revision `6bb8520025d781f8570ef1a5d134fe545a1586f3ab46cfedd780e15a641cfa84`
+was promoted through a dedicated production wrapper derived from the exact
+rehearsed candidate image. Its entrypoint requires both an explicit production
+start value and an exact revision marker in the mounted state; automatic unlock
+and external wallet-backend environment variables remain forbidden.
+
+The first attempt stopped before touching the live Hub because the package
+checker rejected Docker's extra verification layer. A corrected wrapper then
+started but was automatically rolled back when its health gate incorrectly
+treated the expected locked wallet as a failed web service. The predecessor and
+its state were restored, SQLite integrity and safe application/permission counts
+matched the fenced snapshot, and the temporary copy was removed before retry.
+No payment or payout service was enabled in either attempt.
+
+Package `0.1.3` distinguished web readiness from the post-unlock bitcoin-node
+gate. The final cutover completed in three seconds, retained the stopped
+v1.24.0 predecessor plus a fresh snapshot, and served the exact fee-cap revision
+locally and publicly. After the key custodian performed the normal manual
+unlock, both endpoints reported setup complete, `running=true` and Bitcoin
+mainnet; SQLite integrity passed and the sponsor-payout service remained
+version 0.1.1, disabled, networkless and unfunded. With explicit approval, the
+stopped predecessor and temporary plaintext snapshot were permanently removed.
+The encrypted local, append-only off-host and trusted-workstation backups remain
+retained. Final evidence reported
+`LIVE_HUB_FEECAP_FINALIZED_OK rollback_snapshot_removed=yes
+sponsor_payout_disabled=yes` and a subsequent read-only check confirmed the
+live fee-cap image, database integrity and retained encrypted backup.

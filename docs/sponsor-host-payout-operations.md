@@ -46,12 +46,11 @@ Do not change the mode file or set
    shell history, logs or a deployment archive;
 2. authenticated inventory and protocol evidence for the exact isolated Alby
    connection, including the 100,000-sat non-renewing lifetime cap;
-3. native fee-ceiling evidence from the deployed Hub version;
-4. encrypted off-host journal backup/restore and complete outgoing-wallet
+3. encrypted off-host journal backup/restore and complete outgoing-wallet
    history reconciliation after restart;
-5. a maximum-seven-day signed operation restricted to reviewed staging cities;
-6. an explicitly approved, minimally funded staging payout; and
-7. proof that normal city zaps, sponsorship checkout and super-admin sponsor
+4. a maximum-seven-day signed operation restricted to reviewed staging cities;
+5. an explicitly approved, minimally funded staging payout; and
+6. proof that normal city zaps, sponsorship checkout and super-admin sponsor
    invitations remain unchanged.
 
 The wallet remains unfunded until the user separately authorizes a transfer.
@@ -116,3 +115,19 @@ candidate do not satisfy the native fee-safety contract. Payout activation and
 wallet funding therefore remain blocked until the live Hub supplies equivalent
 reviewed fee enforcement or the sender uses another independently verified
 fee-bounded transport.
+
+## Production fee-cap Hub checkpoint — 16 October 2026
+
+The reviewed fee-cap Hub revision is now live in production. Its exact binary
+and migration artifacts had already matched the isolated candidate byte for
+byte; copied initialized state, rollback, encrypted backup and custodian-only
+restore rehearsals passed before cutover. The final production transition took
+three seconds. After manual unlock, local and public checks reported the exact
+fee-cap revision running on Bitcoin mainnet and SQLite integrity passed.
+
+The stopped predecessor and temporary plaintext rollback snapshot were removed
+only after explicit user approval. Encrypted local and off-host backups remain.
+The sponsor-payout service is still version 0.1.1, disabled, networkless and
+unfunded, and no invoice or payment was created. This supplies the reviewed
+native fee-ceiling path that was previously an open activation gate; it does not
+activate the sender or authorize funding or a payout.
