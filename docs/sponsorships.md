@@ -173,4 +173,25 @@ the existing signed assignment protocol. The standalone Precedence section was r
 
 The invitation section copies a public `/sponsor?city=…` link, or the general
 sponsorship page when no city is selected. It does not send a DM or create a
-signed invitation. Verified organizer invitations remain BW-92.
+signed invitation. These existing super-admin links are BitcoinWalk invitations:
+the whole sponsorship payment follows the current platform checkout and no host
+payout is created.
+
+## Planned Pro host invitations
+
+BW-92 will add a separate, signed **Invite a sponsor** path for eligible Pro
+hosts. If a sponsor accepts and pays through that exact invitation, 79% of the
+sponsorship payment is owed to the host destination version bound at checkout
+and BitcoinWalk retains 21%. The checkout must show that allocation before it
+creates an invoice. Super-admin invitations remain explicitly platform-originated
+and create no host payout.
+
+This is not implemented by appending an inviter to the public URL. Invitation
+origin, current host authority, Pro entitlement, city or walk scope, expiry,
+revocation and the private payout-destination version must be verified and stored
+with the order. Settlement must create the host obligation atomically and at
+most once. The existing Rustress 79/21 path is intentionally a city-zap rail with
+different invoice limits and settlement evidence; it cannot be reused for the
+21k–69k sponsorship packages without a separately reviewed sponsorship payout
+extension. Until that extension is accepted, the product must not display a host
+invitation button or promise a host share.
