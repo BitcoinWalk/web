@@ -627,6 +627,13 @@ migration compatibility and rollback isolation; it does not authorize replacing
 the live Hub, funding the payout wallet, or enabling a sender. Encrypted
 off-host backup/restore evidence for initialized production state remains open.
 
+The user completed the required manual unlock immediately afterwards. Final
+local and public read-only checks both reported v1.24.0, setup complete,
+`running=true`, Bitcoin mainnet, the LDK backend and SQLite storage. The separate
+sponsor payout service remained version 0.1.1 in disabled mode with Docker
+network `none`; its backup and monitor timers both remained active. No invoice
+or payment was created during this acceptance.
+
 Reviewed official tag v1.24.0, commit
 `d8ef0e70e0d265a8424276daee0a595ac31993c0`:
 
