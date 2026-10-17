@@ -1,7 +1,7 @@
 import {describe,expect,it} from "vitest";
 import type {ApprovalRecord,CityRevision} from "../nostr/city-records";
 import {ARCHIVE_NOTE,DELETE_CITY_NOTE} from "../nostr/moderation";
-import {adminCityRequests,FINAL_REJECTION_PREFIX,visibleDecisionNote} from "./admin-city-requests";
+import {adminCityRequests,FINAL_REJECTION_PREFIX,isSilentActiveOverride,SILENT_ACTIVE_OVERRIDE_NOTE,visibleDecisionNote} from "./admin-city-requests";
 
 const revision=(cityId:string,name:string,time:number):CityRevision=>({event:{id:String(time).padStart(64,"0"),pubkey:"a".repeat(64),created_at:time} as CityRevision["event"],city:{cityId,cityName:name,slug:name.toLowerCase(),startAt:"2027-01-01T12:00:00.000Z",description:"Walk",meetingPoint:{description:"Square",latitude:1,longitude:2}}});
 const decision=(row:CityRevision,status:"approved"|"rejected"|"revoked",time:number,note?:string):ApprovalRecord=>({event:{id:String(time).padStart(64,"f"),created_at:time} as ApprovalRecord["event"],approval:{cityId:row.city.cityId,cityRevisionId:row.event.id,status,note}});
@@ -15,4 +15,5 @@ describe("admin city request inventory",()=>{
  it("keeps an established city marked as a pending revision",()=>{const old=revision("66666666-6666-4666-8666-666666666666","London",1),edit={...revision(old.city.cityId,"London",2),event:{...revision(old.city.cityId,"London",2).event,tags:[["e",old.event.id,"","previous"]]}};expect(adminCityRequests([old,edit],[decision(old,"approved",3)])[0]).toMatchObject({status:"pending",established:true,revision:{event:{id:edit.event.id}}});});
  it("omits a city after the latest signed decision permanently deletes it",()=>{const removed=revision("77777777-7777-4777-8777-777777777777","Removed",1);expect(adminCityRequests([removed],[decision(removed,"approved",2),decision(removed,"revoked",3,DELETE_CITY_NOTE)])).toEqual([]);});
  it("removes the protocol marker from reviewer-facing copy",()=>expect(visibleDecisionNote(FINAL_REJECTION_PREFIX+"Not a real city request")).toBe("Not a real city request"));
+ it("lets a newer signed super-admin override activate the exact rejected revision",()=>{const row=revision("88888888-8888-4888-8888-888888888888","Override",1),changes=decision(row,"rejected",2,"Change the photo"),active=decision(row,"approved",3,SILENT_ACTIVE_OVERRIDE_NOTE);expect(adminCityRequests([row],[changes,active])[0]).toMatchObject({status:"accepted",decision:active});expect(isSilentActiveOverride(active.approval.note)).toBe(true);expect(visibleDecisionNote(active.approval.note)).toContain("Activated as-is");});
 });

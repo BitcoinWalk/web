@@ -4,6 +4,7 @@ import {queryDirectoryRecords,type ApprovalRecord,type CityRevision} from "../no
 import {managedCities} from "../nostr/moderation";
 import {getPaymentRuntime} from "../payments/runtime";
 import {RelayProvisionStore,type RelayProvisionTask} from "../relay-provisioning/store";
+import {isSilentActiveOverride} from "../domain/admin-city-requests";
 
 type DirectorySnapshot={revisions:CityRevision[];approvals:ApprovalRecord[]};
 type PaymentAccess={entitled:(cityId:string)=>boolean;db:ConstructorParameters<typeof RelayProvisionStore>[0]};
@@ -13,7 +14,7 @@ export function queueApprovedPaidCityRelays(payment:PaymentAccess,snapshot:Direc
  const queue=new RelayProvisionStore(payment.db),tasks:RelayProvisionTask[]=[];
  for(const row of managedCities(snapshot.revisions,snapshot.approvals)){
   const city=row.revision.city,approval=row.decision.approval;
-  if(row.state!=="approved"||!payment.entitled(city.cityId)||directoryConfig.paidCities[city.cityId]?.subdomainReady)continue;
+  if(row.state!=="approved"||isSilentActiveOverride(approval.note)||!payment.entitled(city.cityId)||directoryConfig.paidCities[city.cityId]?.subdomainReady)continue;
   tasks.push(queue.enqueue({cityId:city.cityId,revisionId:row.revision.event.id,slug:approval.slug??city.slug,cityName:city.cityName,approvalEventId:row.decision.event.id}));
  }
  return tasks;

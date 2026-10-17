@@ -26,10 +26,10 @@ import {announcePendingRequestCount} from "../../components/pending-request-coun
 import {createSponsorshipRevision,latestSponsorships,querySponsorships,sponsorshipKey} from "../../nostr/sponsorships";
 import CityFinder from "../../components/city-finder";
 import {provisionWalkieTalkieCity} from "../../lib/walkie-talkie-provision-client";
-import {adminCityRequests,FINAL_REJECTION_PREFIX,visibleDecisionNote,type AdminCityRequestStatus} from "../../domain/admin-city-requests";
+import {adminCityRequests,FINAL_REJECTION_PREFIX,isSilentActiveOverride,SILENT_ACTIVE_OVERRIDE_NOTE,visibleDecisionNote,type AdminCityRequestStatus} from "../../domain/admin-city-requests";
 import workspaceStyles from "../../components/requests-screen.module.css";
 
-type Submission = { eventId: string; initialEventIds: string[]; author: string; cityId: string; slug: string; cityName: string; startAt: string; meetingPoint: string; city: CityDocument; previous?: string; previousCity?:CityDocument; paid:boolean; registered:boolean; established:boolean; status:AdminCityRequestStatus; decisionNote?:string; decidedAt?:number };
+type Submission = { eventId: string; initialEventIds: string[]; author: string; cityId: string; slug: string; cityName: string; startAt: string; meetingPoint: string; city: CityDocument; previous?: string; previousCity?:CityDocument; paid:boolean; registered:boolean; established:boolean; status:AdminCityRequestStatus; silentActivation:boolean; decisionNote?:string; decidedAt?:number };
 type State = { message: string; tone: "info" | "error" | "success"; approvedWalk?: { href: string; name: string } };
 type ImageState={status:"idle"|"waiting"|"working"|"ready"|"error";message:string};
 type ActivationState=CityActivationResult["checks"];
@@ -149,6 +149,7 @@ export default function SubmissionApprovals() {
         registered:grants.some(record=>record.grant.cityId===city.cityId),
         established,
         status,
+        silentActivation:isSilentActiveOverride(decision?.approval.note),
         decisionNote:visibleDecisionNote(decision?.approval.note),
         decidedAt:decision?.event.created_at,
       });});
@@ -164,7 +165,7 @@ export default function SubmissionApprovals() {
     } finally {setBusy(false);}
   }
 
-  async function decide(submission: Submission, action: "accept" | "changes" | "reject") {
+  async function decide(submission: Submission, action: "accept" | "changes" | "reject" | "activate") {
     if (busy) return;
     if (relayConfig.writeRelays.length === 0) {
       setState({ message: "Configure the BitcoinWalk relay before publishing a decision.", tone: "error" });
@@ -174,23 +175,26 @@ export default function SubmissionApprovals() {
     try {
       const pubkey = await getBrowserExtensionPubkey();
       if (!isSuperAdmin(pubkey)) throw new Error("This Nostr identity is not the BitcoinWalk super-admin.");
+      const silentActivation=action==="activate";
       // A retained grant can exist after an interrupted approval. Until a city
       // has an approved revision it must still finish all new-city steps.
-      if(submission.status!=="pending")throw new Error("This request already has a signed decision. Refresh before taking another action.");
-      const status=action==="accept"?"approved" as const:"rejected" as const;
+      if(silentActivation&&submission.status!=="needs-changes")throw new Error("Only a city awaiting changes can be activated as-is.");
+      if(!silentActivation&&submission.status!=="pending")throw new Error("This request already has a signed decision. Refresh before taking another action.");
+      if(silentActivation&&!window.confirm(`Set ${submission.cityName} to Active using its exact current signed revision?\n\nThis dismisses Needs changes. It does not notify the organizer, change city fields, create permissions, provision services or run activation tasks.`))throw new Error("Activation cancelled. No decision was signed.");
+      const status=action==="accept"||silentActivation?"approved" as const:"rejected" as const;
       const initialRequest=!submission.established;
       const rejectionNote=rejectionNotes[submission.eventId]?.trim()??"";
       if(status==="rejected"&&!rejectionNote)throw new Error("Add a clear reason so the host knows what to correct.");
       if(action==="reject"&&!window.confirm(`Reject the ${submission.registered?"revision":"application"} for ${submission.cityName}?\n\nThis is a final rejection, not a request for corrections. Signed history is retained.`))throw new Error("Rejection cancelled. No decision was signed.");
-      let initialHero=heroImages[submission.eventId]?.trim();
-      const approvedSlug=(slugs[submission.eventId]??(initialRequest?registrationSlug(submission.cityName):submission.slug)).trim();
-      const approvedAliases=cityAliases(aliases[submission.eventId]??submission.city.aliases??[],submission.cityName);
-      if(status==="approved"&&approvedAliases.length>20)throw new Error("Use no more than 20 alternative city names.");
-      if(status==="approved"&&approvedAliases.some(alias=>alias.length>100))throw new Error("Each alternative city name must be 100 characters or fewer.");
-      if(status==="approved"&&initialRequest&&!initialHero)throw new Error("Choose the initial landscape image before approving this city.");
-      if(status==="approved"&&initialHero){try{new URL(initialHero);}catch{throw new Error("Enter a valid HTTPS image URL before approving.");}if(!initialHero.startsWith("https://"))throw new Error("The initial image must use HTTPS.");}
-      if(status==="approved"&&initialHero&&!initialHero.includes("/api/media/files/")){setState({message:"Approve importing the landscape into protected BitcoinWalk storage…",tone:"info"});initialHero=(await importCityImageURL(submission.cityId,initialHero)).url;}
-      if (status === "approved") {
+      let initialHero=(silentActivation?submission.city.heroImageUrl:heroImages[submission.eventId])?.trim();
+      const approvedSlug=(silentActivation?submission.city.slug:slugs[submission.eventId]??(initialRequest?registrationSlug(submission.cityName):submission.slug)).trim();
+      const approvedAliases=silentActivation?(submission.city.aliases??[]):cityAliases(aliases[submission.eventId]??submission.city.aliases??[],submission.cityName);
+      if(status==="approved"&&!silentActivation&&approvedAliases.length>20)throw new Error("Use no more than 20 alternative city names.");
+      if(status==="approved"&&!silentActivation&&approvedAliases.some(alias=>alias.length>100))throw new Error("Each alternative city name must be 100 characters or fewer.");
+      if(status==="approved"&&!silentActivation&&initialRequest&&!initialHero)throw new Error("Choose the initial landscape image before approving this city.");
+      if(status==="approved"&&!silentActivation&&initialHero){try{new URL(initialHero);}catch{throw new Error("Enter a valid HTTPS image URL before approving.");}if(!initialHero.startsWith("https://"))throw new Error("The initial image must use HTTPS.");}
+      if(status==="approved"&&!silentActivation&&initialHero&&!initialHero.includes("/api/media/files/")){setState({message:"Approve importing the landscape into protected BitcoinWalk storage…",tone:"info"});initialHero=(await importCityImageURL(submission.cityId,initialHero)).url;}
+      if (status === "approved"&&!silentActivation) {
         const existing = (await queryAuthorizations(relayConfig.readRelays)).find(r => r.grant.cityId === submission.cityId);
         if (!existing && !submission.initialEventIds.length) throw new Error("This new-city submission has no signed first walk. Reject it and ask the city host to submit again.");
         if (!existing) {
@@ -203,7 +207,7 @@ export default function SubmissionApprovals() {
         }
       }
       let sponsorMessage="";
-      if(status==="approved"&&initialRequest){
+      if(status==="approved"&&!silentActivation&&initialRequest){
         const invite=inviteSponsors[submission.eventId]??true;
         const key=`city:${submission.cityId}`,existing=latestSponsorships(await querySponsorships(relayConfig.readRelays)).find(row=>sponsorshipKey(row.sponsorship.scope)===key);
         const desired=invite?"empty" as const:"hidden" as const,change=!existing&&invite||!!existing&&["empty","hidden"].includes(existing.sponsorship.mode)&&existing.sponsorship.mode!==desired;
@@ -214,20 +218,21 @@ export default function SubmissionApprovals() {
           await publishVerifiedEvent(invitation,relayConfig.writeRelays,1,authenticateWithBrowserExtension);sponsorMessage=invite?" Sponsor invitation enabled.":" Sponsor invitation disabled.";
         }else if(existing)sponsorMessage=` Existing ${existing.sponsorship.mode} sponsorship setting preserved.`;
       }
-      setState({ message: "Final step: sign the city decision…", tone: "info" });
+      setState({ message: silentActivation?"Sign the super-admin Active override…":"Final step: sign the city decision…", tone: "info" });
       const signed = await signWithBrowserExtension(createApprovalEvent({
         cityId: submission.cityId,
         cityRevisionId: submission.eventId,
         ...(submission.initialEventIds.length===1?{initialEventId:submission.initialEventIds[0]}:submission.initialEventIds.length?{initialEventIds:submission.initialEventIds}:{}),
         ...(initialHero?{heroImageUrl:initialHero}:{}),
         ...(status==="approved"?{slug:approvedSlug,aliases:approvedAliases}:{}),
+        ...(silentActivation?{note:SILENT_ACTIVE_OVERRIDE_NOTE}:{}),
         ...(status==="rejected"?{note:action==="reject"?FINAL_REJECTION_PREFIX+rejectionNote:rejectionNote}:{}),
         status,
       }));
       if (signed.pubkey !== pubkey) throw new Error("Signer identity changed; decision cancelled.");
       const publication = await publishVerifiedEvent(signed, relayConfig.writeRelays, 1, authenticateWithBrowserExtension);
       let discoveryMessage="";
-      if (status === "approved" && submission.initialEventIds.length) {
+      if (status === "approved" && !silentActivation && submission.initialEventIds.length) {
         const events = await queryCalendarEvents(relayConfig.readRelays, { ids: submission.initialEventIds });
         const approval=submission.initialEventIds.length===1?{cityId:submission.cityId,cityRevisionId:submission.eventId,initialEventId:submission.initialEventIds[0],status:"approved" as const}:{cityId:submission.cityId,cityRevisionId:submission.eventId,initialEventIds:submission.initialEventIds,status:"approved" as const};
         const walk = { revision: { event: { id: submission.eventId, pubkey: submission.author } as Event, city: submission.city }, approval: { event: signed, approval } };
@@ -236,7 +241,7 @@ export default function SubmissionApprovals() {
         const results=await Promise.all(released.map(event=>publishCalendarDiscoveryEvent(event,relayConfig.calendarDiscoveryRelays)));
         discoveryMessage=` ${released.length} walk${released.length===1?"":"s"} released. ${calendarDiscoverySummary(results[0],relayConfig.calendarDiscoveryRelays.length)}`;
       }
-      if(status==="approved"){
+      if(status==="approved"&&!silentActivation){
         let activation=pendingActivation(submission.paid);setActivationStates(current=>({...current,[submission.eventId]:activation}));
         try{activation=(await completeCityActivation(signed)).checks;setActivationStates(current=>({...current,[submission.eventId]:activation}));}
         catch(error){const message=error instanceof Error?error.message:"Activation status could not be checked.";activation=failedActivation(message,submission.paid);setActivationStates(current=>({...current,[submission.eventId]:activation}));}
@@ -251,9 +256,10 @@ export default function SubmissionApprovals() {
         }
       }
       const nextStatus:AdminCityRequestStatus=status==="approved"?"accepted":action==="reject"?"rejected":"needs-changes";
-      setSubmissions(items=>{const next=items.map(item=>item.eventId===submission.eventId?{...item,status:nextStatus,decisionNote:rejectionNote,decidedAt:signed.created_at}:item);announcePendingRequestCount(next.filter(item=>item.status==="pending").length);return next;});
+      const decisionNote=silentActivation?visibleDecisionNote(SILENT_ACTIVE_OVERRIDE_NOTE):rejectionNote;
+      setSubmissions(items=>{const next=items.map(item=>item.eventId===submission.eventId?{...item,status:nextStatus,silentActivation,decisionNote,decidedAt:signed.created_at}:item);announcePendingRequestCount(next.filter(item=>item.status==="pending").length);return next;});
       setState({
-        message: `${action === "accept" ? "Accepted" : action==="changes"?"Changes requested":"Rejected"} on ${publication.accepted.length} BitcoinWalk relay(s).${sponsorMessage}${discoveryMessage}`,
+        message: `${silentActivation?"Set Active as-is":action === "accept" ? "Accepted" : action==="changes"?"Changes requested":"Rejected"} on ${publication.accepted.length} BitcoinWalk relay(s).${sponsorMessage}${discoveryMessage}`,
         tone: "success",
         ...(status === "approved" ? { approvedWalk: { href: `/${encodeURIComponent(approvedSlug)}`, name: submission.cityName } } : {}),
       });
@@ -304,9 +310,10 @@ export default function SubmissionApprovals() {
           <section className="request-modal__panel request-modal__settings"><h3>Public settings</h3><label>Public URL <span className="request-url-field"><span>bitcoinwalk.org/</span><input required minLength={2} maxLength={63} pattern="[a-z0-9]+(?:-[a-z0-9]+)*" disabled={selectedSubmission.status!=="pending"} value={slugs[selectedSubmission.eventId]??(selectedSubmission.registered?selectedSubmission.slug:registrationSlug(selectedSubmission.cityName))} onChange={event=>setSlugs(current=>({...current,[selectedSubmission.eventId]:event.target.value.toLowerCase()}))}/></span></label><label>Alternative city names <input maxLength={2020} disabled={selectedSubmission.status!=="pending"} value={aliases[selectedSubmission.eventId]??(selectedSubmission.city.aliases??[]).join(", ")} onChange={event=>setAliases(current=>({...current,[selectedSubmission.eventId]:event.target.value}))} placeholder="One or more names, separated by commas"/></label></section>
           {!selectedSubmission.registered&&<section className="request-modal__panel"><h3>City image</h3><label>Landscape image URL <input type="url" disabled={selectedSubmission.status!=="pending"} placeholder="https://…" value={heroImages[selectedSubmission.eventId]??""} onChange={event=>{setHeroImages(images=>({...images,[selectedSubmission.eventId]:event.target.value}));setImageStates(current=>({...current,[selectedSubmission.eventId]:{status:"idle",message:"The image will be validated and stored during approval."}}));}}/></label>{selectedSubmission.status==="pending"&&<div className="request-modal__image-actions"><button disabled={busy} type="button" onClick={()=>generateLandscape(selectedSubmission)}>{imageStates[selectedSubmission.eventId]?.status==="waiting"||imageStates[selectedSubmission.eventId]?.status==="working"?"Generating…":"Generate image"}</button><button disabled={busy||!heroImages[selectedSubmission.eventId]?.trim()||heroImages[selectedSubmission.eventId]?.includes("/api/media/files/")} type="button" onClick={()=>importLandscape(selectedSubmission)}>Store image now</button></div>}{imageStates[selectedSubmission.eventId]?.message&&<p role={imageStates[selectedSubmission.eventId]?.status==="error"?"alert":"status"}>{imageStates[selectedSubmission.eventId].message}</p>}{heroImages[selectedSubmission.eventId]&&<Image unoptimized className="request-modal__hero" src={heroImages[selectedSubmission.eventId]} width={1200} height={630} alt={`Selected landscape for ${selectedSubmission.cityName}`}/>}<label className="inline-checkbox"><input type="checkbox" checked={inviteSponsors[selectedSubmission.eventId]??true} disabled={busy||selectedSubmission.status!=="pending"} onChange={event=>setInviteSponsors(current=>({...current,[selectedSubmission.eventId]:event.target.checked}))}/> Show sponsor invitation</label></section>}
           {selectedSubmission.status!=="pending"&&<section className="request-modal__decision"><h3>{statusLabels[selectedSubmission.status]}</h3><p>{selectedSubmission.decisionNote||(selectedSubmission.status==="accepted"?"This city request was accepted.":"No reviewer note was provided.")}</p>{selectedSubmission.decidedAt&&<small>Signed {new Date(selectedSubmission.decidedAt*1000).toLocaleString()}</small>}</section>}
-          {(selectedSubmission.status==="accepted"||activationStates[selectedSubmission.eventId])&&<section className="request-modal__panel"><h3>Activation checklist</h3><ul className="request-activation-list" aria-label={`Activation checklist for ${selectedSubmission.cityName}`}>{(Object.entries(activationStates[selectedSubmission.eventId]??initialActivation(selectedSubmission)) as Array<[keyof ActivationState,ActivationState[keyof ActivationState]]>).map(([key,check])=><li key={key}><span aria-hidden="true">{check.status==="green"?"🟢":check.status==="red"?"🔴":check.status==="na"?"⚪":"🟠"}</span><span><strong>{activationLabels[key]}</strong><small>{check.message}{check.url&&<> <a href={check.url} target="_blank" rel="noreferrer">Preview</a></>}</small></span></li>)}</ul></section>}
+          {(!selectedSubmission.silentActivation&&(selectedSubmission.status==="accepted"||activationStates[selectedSubmission.eventId]))&&<section className="request-modal__panel"><h3>Activation checklist</h3><ul className="request-activation-list" aria-label={`Activation checklist for ${selectedSubmission.cityName}`}>{(Object.entries(activationStates[selectedSubmission.eventId]??initialActivation(selectedSubmission)) as Array<[keyof ActivationState,ActivationState[keyof ActivationState]]>).map(([key,check])=><li key={key}><span aria-hidden="true">{check.status==="green"?"🟢":check.status==="red"?"🔴":check.status==="na"?"⚪":"🟠"}</span><span><strong>{activationLabels[key]}</strong><small>{check.message}{check.url&&<> <a href={check.url} target="_blank" rel="noreferrer">Preview</a></>}</small></span></li>)}</ul></section>}
         </div>
         {selectedSubmission.status==="pending"&&<footer className="request-modal__footer"><label>Reviewer note <textarea maxLength={500} value={rejectionNotes[selectedSubmission.eventId]??""} onChange={event=>setRejectionNotes(current=>({...current,[selectedSubmission.eventId]:event.target.value}))} placeholder="Required when asking for changes or rejecting."/></label><div className="request-decision-actions"><button className="request-action request-action--reject" disabled={busy} type="button" onClick={()=>decide(selectedSubmission,"reject")}>Reject</button><button className="request-action request-action--changes" disabled={busy} type="button" onClick={()=>decide(selectedSubmission,"changes")}>Need changes</button><button className="request-action request-action--accept" disabled={busy||!!selectedSubmission.previous&&!selectedSubmission.previousCity||!selectedSubmission.registered&&(!selectedSubmission.initialEventIds.length||!heroImages[selectedSubmission.eventId]?.trim())} type="button" onClick={()=>decide(selectedSubmission,"accept")}>{busy?"Working…":"Accept"}</button></div><small>Need changes lets the host correct and resubmit. Reject is a final decision for this application.</small></footer>}
+        {selectedSubmission.status==="needs-changes"&&<footer className="request-modal__footer"><div><strong>Super-admin override</strong><p>Dismiss Needs changes and approve this exact signed revision. No organizer message, field edit, permission, service provisioning or activation task will be created.</p></div><div className="request-decision-actions"><button className="request-action request-action--accept" disabled={busy} type="button" onClick={()=>decide(selectedSubmission,"activate")}>{busy?"Working…":"Set Active as-is"}</button></div></footer>}
       </section>
     </div>}
   </section>;

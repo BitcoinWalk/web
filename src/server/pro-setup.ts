@@ -27,6 +27,7 @@ import {WalkieTalkieProvisionStore,WALKIE_TALKIE_RELAY} from "../chat-provisioni
 import {armadaChatUrl} from "../domain/chat";
 import {cityOwnerPubkey} from "../domain/city";
 import {legacyProEntitlement,type LegacyProEntitlement} from "../payments/legacy-pro-entitlement";
+import {isSilentActiveOverride} from "../domain/admin-city-requests";
 
 /** This preflight cannot publish, create invoices, assign identities or activate payments. */
 export type ProSetupPreview = {
@@ -105,7 +106,9 @@ export async function listProSetupNotifications():Promise<ProSetupNotification[]
       {status:"pending"|"approved"|"active";expiresAt:number;ownerProof:string|null;brandProof:string|null}|undefined;
     const update=updateTable?db.prepare("SELECT payout_version payoutVersion,phase state,updated_at updatedAt FROM rustress_payout_update_task WHERE city=? ORDER BY payout_version DESC LIMIT 1").get(cityId) as {payoutVersion:number;state:Extract<ProSetupNotification,{kind:"payout-update"}>["state"];updatedAt:number}|undefined:undefined;
     try{
-      const resolved=await resolveProSetupEvidence(cityId),{task}=ensureSetupTask(resolved);
+      const resolved=await resolveProSetupEvidence(cityId);
+      if(isSilentActiveOverride(resolved.row.decision.approval.note))continue;
+      const {task}=ensureSetupTask(resolved);
       const state=proSetupNotificationState(task.state,request);
       rows.push({cityId,cityName:resolved.row.revision.city.cityName,ownerPubkey:resolved.authority.ownerPubkey,kind:"setup",state,updatedAt:request?.expiresAt??task.updatedAt});
       if(update)rows.push({cityId,cityName:resolved.row.revision.city.cityName,ownerPubkey:resolved.authority.ownerPubkey,kind:"payout-update",...update});

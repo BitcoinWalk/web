@@ -3,6 +3,7 @@ import {DatabaseSync} from "node:sqlite";
 import {pendingCityRevisions,type ApprovalRecord,type CityRevision} from "../nostr/city-records";
 import {managedCities} from "../nostr/moderation";
 import {cityLogoTemplateVersion} from "./city-logo-renderer";
+import {isSilentActiveOverride} from "../domain/admin-city-requests";
 
 const maxAttempts = 8;
 export type LogoApprovalSnapshot = {revisions: CityRevision[]; approvals: ApprovalRecord[]};
@@ -24,7 +25,7 @@ function keyFor(candidate: Omit<LogoCandidate, "jobKey" | "approvalId" | "decisi
 }
 
 export function approvedLogoCandidates(snapshot: LogoApprovalSnapshot): LogoCandidate[] {
-  return managedCities(snapshot.revisions, snapshot.approvals).filter(row => row.state === "approved").map(row => {
+  return managedCities(snapshot.revisions, snapshot.approvals).filter(row => row.state === "approved" && !isSilentActiveOverride(row.decision.approval.note)).map(row => {
     const city = row.revision.city;
     const candidate = {
       cityId: city.cityId,
@@ -70,13 +71,13 @@ export class LogoJobStore {
   rows(): LogoJob[] { return this.db.prepare("SELECT * FROM city_logo_job ORDER BY createdAt,jobKey").all() as LogoJob[]; }
   get(jobKey: string): LogoJob | null { return (this.db.prepare("SELECT * FROM city_logo_job WHERE jobKey=?").get(jobKey) as LogoJob | undefined) ?? null; }
 
-  reconcile(candidates: LogoCandidate[], now: number): void {
+  reconcile(candidates: LogoCandidate[], now: number, preservedCityIds: ReadonlySet<string> = new Set()): void {
     const current = new Map(candidates.map(candidate => [candidate.cityId, candidate]));
     const eligible = candidates;
     this.db.exec("BEGIN IMMEDIATE");
     try {
       for (const row of this.rows()) {
-        if (current.get(row.cityId)?.jobKey !== row.jobKey && row.state !== "obsolete") {
+        if (!preservedCityIds.has(row.cityId) && current.get(row.cityId)?.jobKey !== row.jobKey && row.state !== "obsolete") {
           this.db.prepare("UPDATE city_logo_job SET state='obsolete',leaseUntil=NULL,leaseToken=NULL,updatedAt=? WHERE jobKey=?").run(now, row.jobKey);
         }
       }
@@ -139,7 +140,8 @@ export class LogoJobService {
   ) {}
   async reconcile(): Promise<void> {
     const snapshot = await this.readSnapshot();
-    this.store.reconcile(approvedLogoCandidates(snapshot), this.now());
+    const preserved=new Set(managedCities(snapshot.revisions,snapshot.approvals).filter(row=>row.state==="approved"&&isSilentActiveOverride(row.decision.approval.note)).map(row=>row.revision.city.cityId));
+    this.store.reconcile(approvedLogoCandidates(snapshot), this.now(), preserved);
   }
   async preparePending(cityId:string,revisionId:string,slug:string):Promise<LogoCandidate>{
     if(this.busy)throw new Error("Logo generation is busy. Try again shortly.");

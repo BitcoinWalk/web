@@ -9,6 +9,7 @@ import { createInitialCalendarProposal } from "../nostr/calendar-event";
 import { Outbox } from "./outbox";
 import { type CityRevision, parseCityRevision, pendingCityRevisions } from "../nostr/city-records";
 import {verifiedLivePublications} from "./live";
+import {SILENT_ACTIVE_OVERRIDE_NOTE} from "../domain/admin-city-requests";
 
 const bot = generateSecretKey(), admin = generateSecretKey(), organizer = generateSecretKey();
 const recipient = getPublicKey(admin);
@@ -81,6 +82,12 @@ describe("BitcoinWalk Guide", () => {
     const revoked={event:finalizeEvent({kind:30304,created_at:102,content:"",tags:[]},admin),approval:{cityId:city.cityId,cityRevisionId:item.event.id,status:"revoked" as const}};
     expect(verifiedLivePublications([item],[approved],[event])).toHaveLength(1);
     expect(verifiedLivePublications([item],[approved,revoked],[event])).toEqual([]);
+  });
+  it("does not notify an organizer when a super-admin silently activates a needs-changes revision",()=>{
+    const item=revision(),event=finalizeEvent(createInitialCalendarProposal(city,"America/Chicago"),organizer);
+    const changes={event:finalizeEvent({kind:30304,created_at:101,content:"",tags:[]},admin),approval:{cityId:city.cityId,cityRevisionId:item.event.id,status:"rejected" as const,note:"Change the photo"}};
+    const override={event:finalizeEvent({kind:30304,created_at:102,content:"",tags:[]},admin),approval:{cityId:city.cityId,cityRevisionId:item.event.id,initialEventId:event.id,status:"approved" as const,note:SILENT_ACTIVE_OVERRIDE_NOTE}};
+    expect(verifiedLivePublications([item],[changes,override],[event])).toEqual([]);
   });
   it("rejects arbitrary review-link hosts and insecure relay configuration", () => {
     const config = {sourceRelay:"wss://relay.bitcoinwalk.org",discoveryRelays:["wss://relay.example.com"],allowedInboxRelays:["wss://relay.example.com"],recipients:[recipient],adminURL:"https://app-staging.bitcoinwalk.org/admin"};

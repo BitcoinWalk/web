@@ -3,6 +3,7 @@ import type {ApprovalRecord,CityRevision} from "../nostr/city-records";
 import {archivedCityIds,deletedCityIds} from "../nostr/moderation";
 
 export const FINAL_REJECTION_PREFIX="REJECT_APPLICATION: ";
+export const SILENT_ACTIVE_OVERRIDE_NOTE="SUPER_ADMIN_ACTIVE_OVERRIDE: approve the exact current revision without organizer notification or provisioning";
 
 export type AdminCityRequestStatus="pending"|"accepted"|"needs-changes"|"rejected"|"archived";
 export type AdminCityRequest={revision:CityRevision;decision?:ApprovalRecord;status:AdminCityRequestStatus;established:boolean};
@@ -11,7 +12,12 @@ export function isFinalApplicationRejection(note?:string):boolean{
  return note?.startsWith(FINAL_REJECTION_PREFIX)??false;
 }
 
+export function isSilentActiveOverride(note?:string):boolean{
+ return note===SILENT_ACTIVE_OVERRIDE_NOTE;
+}
+
 export function visibleDecisionNote(note?:string):string{
+ if(isSilentActiveOverride(note))return "Activated as-is by the super-admin. No organizer resubmission was required.";
  return isFinalApplicationRejection(note)?note!.slice(FINAL_REJECTION_PREFIX.length):note??"";
 }
 

@@ -4,6 +4,7 @@ import {finalizeEvent} from "nostr-tools";
 import {parseApprovalRecord, type ApprovalRecord, type CityRevision} from "../nostr/city-records";
 import {SUPER_ADMIN_PUBKEY} from "../nostr/authority";
 import {LogoJobService, LogoJobStore, approvedLogoCandidates,pendingLogoCandidate,type LogoApprovalSnapshot} from "./approval-worker";
+import {SILENT_ACTIVE_OVERRIDE_NOTE} from "../domain/admin-city-requests";
 
 const warsawId = "032d98ea-f5da-4826-95bd-c4cf9286716e";
 const barcelonaId = "d336673e-f18e-415c-b501-70d7bf19a32b";
@@ -56,6 +57,7 @@ describe("verified approval to durable logo job", () => {
     expect(approvedLogoCandidates(snapshot([], [approval()]))).toEqual([]);
     expect(approvedLogoCandidates(snapshot([revision()], [approval(warsawId, approvalId, "f".repeat(64))]))).toEqual([]);
     expect(approvedLogoCandidates(snapshot([revision()], [approval(warsawId, approvalId, revisionId, "revoked")]))).toEqual([]);
+    expect(approvedLogoCandidates(snapshot([revision()], [{...approval(),approval:{...approval().approval,note:SILENT_ACTIVE_OVERRIDE_NOTE}}]))).toEqual([]);
   });
 
   it("uses the approved revision identity, localized name and template in the idempotency key", () => {
@@ -108,6 +110,13 @@ describe("verified approval to durable logo job", () => {
     setSnapshot(snapshot([city], [approval(otherId, "f".repeat(64), city.event.id, "approved", now)]));
     await service.reconcile();
     expect(store.rows()[0]).toMatchObject({cityId: otherId, state: "queued", attempts: 0});
+  });
+
+  it("preserves an existing logo job without creating one for a silent Active override",async()=>{
+    const {service,store,setSnapshot}=setup();
+    await service.reconcile();expect(store.rows()).toHaveLength(1);
+    setSnapshot(snapshot([revision()],[{...approval(),approval:{...approval().approval,note:SILENT_ACTIVE_OVERRIDE_NOTE}}]));
+    await service.reconcile();expect(store.rows()).toHaveLength(1);expect(store.rows()[0].state).toBe("queued");
   });
 
   it("drains a bounded serial batch so a historical rollout does not wait one minute per city", async () => {
