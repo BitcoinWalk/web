@@ -28,7 +28,7 @@ import {adminCityRequests,createSilentActiveOverrideDecision} from "../domain/ad
 import {createCityUpdateEvent} from "../nostr/city-event";
 import {editedCity} from "../nostr/organizer-edit";
 import {cityAliases} from "../domain/city";
-import {importCityImageURL} from "../lib/media-client";
+import {importCityImageURL,isManagedImageURL,uploadCityImage} from "../lib/media-client";
 
 type CityOgAsset={label:string;url:string};
 
@@ -54,6 +54,7 @@ export default function CityModeration(){
  const [publicUrls,setPublicUrls]=useState<Record<string,string>>({});
  const [publicAliases,setPublicAliases]=useState<Record<string,string>>({});
  const [editingRow,setEditingRow]=useState<ManagedCity|null>(null);
+ const [editImageUploading,setEditImageUploading]=useState(false);
  const [editDescription,setEditDescription]=useState(""),[editAliases,setEditAliases]=useState(""),[editMeeting,setEditMeeting]=useState(""),[editHero,setEditHero]=useState("");
  const [editLatitude,setEditLatitude]=useState(""),[editLongitude,setEditLongitude]=useState("");
  const [editAssets,setEditAssets]=useState<CityOgAsset[]>([]),[editAssetsMessage,setEditAssetsMessage]=useState("");
@@ -187,7 +188,7 @@ export default function CityModeration(){
   const readback=await records(),saved=readback.rows.find(item=>item.revision.city.cityId===city.cityId);if(saved?.decision.event.id!==signed.id)throw new Error("URL change acknowledged but current state was not confirmed. Reload before retrying.");
   setPublicUrls(value=>({...value,[city.cityId]:slug}));setPublicAliases(value=>({...value,[city.cityId]:aliases.join(", ")}));await reload(city.cityId);setSelectedId(city.cityId);setMessage(`${city.cityName}: canonical URL is now /${slug}. Previous spellings remain redirects.`);
  });}
- function closeCityEditor(){if(busy)return;setEditingRow(null);setEditAssets([]);setEditAssetsMessage("");}
+ function closeCityEditor(){if(busy||editImageUploading)return;setEditingRow(null);setEditAssets([]);setEditAssetsMessage("");}
  function openCityEditor(row:ManagedCity){
   const city=row.revision.city;
   setEditingRow(row);setEditDescription(city.description);setEditAliases((city.aliases??[]).join("\n"));setEditMeeting(city.meetingPoint.description);setEditHero(city.heroImageUrl??"");setEditLatitude(String(city.meetingPoint.latitude));setEditLongitude(String(city.meetingPoint.longitude));setEditAssets([]);setEditAssetsMessage("Loading the current city and walk OG assets…");
@@ -197,13 +198,19 @@ export default function CityModeration(){
    const unique=[...new Map(assets.map(asset=>[asset.url,asset])).values()];setEditAssets(unique);setEditAssetsMessage(unique.length?`${unique.length} current OG asset${unique.length===1?"":"s"} loaded.`:results.every(result=>result.status==="rejected")?"Current OG assets could not be loaded.":"No generated OG assets are currently available for this city.");
   });
  }
+ async function uploadCityHero(file:File){
+  if(!editingRow||busy||editImageUploading)return;setEditImageUploading(true);setMessage("Approve the city hero upload in your signer…");
+  try{await admin();const result=await uploadCityImage(editingRow.revision.city.cityId,file);await admin();setEditHero(result.url);setMessage("City hero uploaded and ready. Sign and submit the revision to apply it.");}
+  catch(error){setMessage(error instanceof Error?error.message:"Could not upload the city hero.");}
+  finally{setEditImageUploading(false);}
+ }
  async function submitCityEdit(event:FormEvent<HTMLFormElement>){event.preventDefault();const row=editingRow;if(!row)return;await run(async()=>{
   const latest=await current(row),city=latest.revision.city,latitude=Number(editLatitude),longitude=Number(editLongitude),aliases=cityAliases(editAliases,city.cityName);
   if(!Number.isFinite(latitude)||latitude < -90||latitude > 90)throw new Error("Enter a latitude between -90 and 90.");
   if(!Number.isFinite(longitude)||longitude < -180||longitude > 180)throw new Error("Enter a longitude between -180 and 180.");
   if(aliases.length>20)throw new Error("Use no more than 20 alternative city names.");
   let heroImageUrl=editHero.trim()||undefined;
-  if(heroImageUrl&&heroImageUrl!==city.heroImageUrl){setMessage("Approve importing the new city hero into protected BitcoinWalk storage…");heroImageUrl=(await importCityImageURL(city.cityId,heroImageUrl)).url;}
+  if(heroImageUrl&&heroImageUrl!==city.heroImageUrl&&!isManagedImageURL(heroImageUrl)){setMessage("Approve importing the new city hero into protected BitcoinWalk storage…");heroImageUrl=(await importCityImageURL(city.cityId,heroImageUrl)).url;}
   const candidate=editedCity(city,{startAt:city.startAt,description:editDescription,meetingPoint:{description:editMeeting,latitude,longitude},heroImageUrl,aliases:aliases.length?aliases:undefined});
   setMessage("Approve the city revision in your signer…");const signed=await signWithBrowserExtension(createCityUpdateEvent(candidate,latest.revision.event.id));
   if(!isSuperAdmin(signed.pubkey))throw new Error("Signer identity changed. Select the BitcoinWalk super-admin and retry.");
@@ -252,24 +259,27 @@ export default function CityModeration(){
   <p role="status">{message}</p>
   {editingRow&&<div className={styles.editBackdrop} role="presentation" onMouseDown={event=>{if(event.target===event.currentTarget)closeCityEditor();}}>
    <section className={styles.editModal} role="dialog" aria-modal="true" aria-labelledby="city-edit-title">
-    <header className={styles.editHeader}><div><span className={styles.editEyebrow}>City profile</span><h2 id="city-edit-title">Edit {editingRow.revision.city.cityName}</h2><p>Submit a signed revision, then approve it separately in Requests.</p></div><button autoFocus type="button" disabled={busy} onClick={closeCityEditor} aria-label="Close city editor">×</button></header>
+    <header className={styles.editHeader}><div><span className={styles.editEyebrow}>City profile</span><h2 id="city-edit-title">Edit {editingRow.revision.city.cityName}</h2><p>Submit a signed revision, then approve it separately in Requests.</p></div><button autoFocus type="button" disabled={busy||editImageUploading} onClick={closeCityEditor} aria-label="Close city editor">×</button></header>
     <form onSubmit={submitCityEdit}>
-     <div className={styles.editBody}>
+     <fieldset disabled={busy||editImageUploading} style={{border:0,padding:0,margin:0,minWidth:0}}><div className={styles.editBody}>
       <section className={styles.editFields} aria-label="City details">
        <label>Description<textarea required maxLength={5000} value={editDescription} onChange={event=>setEditDescription(event.target.value)}/></label>
        <label>Alternative city names<textarea maxLength={2020} value={editAliases} onChange={event=>setEditAliases(event.target.value)} placeholder="One name per line"/></label>
        <label>Default meeting point<input required maxLength={500} value={editMeeting} onChange={event=>setEditMeeting(event.target.value)}/></label>
        <div className={styles.coordinateFields}><label>Latitude<input required type="number" min="-90" max="90" step="any" value={editLatitude} onChange={event=>setEditLatitude(event.target.value)}/></label><label>Longitude<input required type="number" min="-180" max="180" step="any" value={editLongitude} onChange={event=>setEditLongitude(event.target.value)}/></label></div>
-       <label>Hero image URL<input type="url" value={editHero} onChange={event=>setEditHero(event.target.value)} placeholder="https://… (.png, .jpg or .webp)"/></label>
-       <p className={styles.editHelp}>Use a public HTTPS JPEG, PNG or WebP up to 10 MB. BitcoinWalk imports it as a protected 1536 × 1024 WebP after you sign.</p>
+       <label>Upload hero image<input type="file" accept="image/jpeg,image/png,image/webp" onChange={event=>{const file=event.target.files?.[0];event.target.value="";if(file)void uploadCityHero(file);}}/></label>
+       {editImageUploading&&<p role="status">Uploading image…</p>}
+       <p className={styles.editHelp}>Accepted files: JPEG, PNG or WebP up to 5 MB. BitcoinWalk verifies and normalizes the file before it can be saved.</p>
+       <label>Or use a hero image URL<input type="url" value={editHero} onChange={event=>setEditHero(event.target.value)} placeholder="https://… (.png, .jpg or .webp)"/></label>
+       <p className={styles.editHelp}>Public HTTPS image URLs may be up to 10 MB and are imported as a protected 1536 × 1024 WebP after you sign.</p>
        {editHero&&<figure className={styles.heroPreview}><img src={editHero} alt={`Proposed hero for ${editingRow.revision.city.cityName}`} referrerPolicy="no-referrer"/><figcaption>Proposed hero image</figcaption></figure>}
       </section>
       <aside className={styles.assetPanel}><div className={styles.assetHeading}><h3>Current OG assets</h3><a href={`/${encodeURIComponent(editingRow.decision.approval.slug??editingRow.revision.city.slug)}`} target="_blank" rel="noreferrer">Open public city <span aria-hidden="true">↗</span></a></div><p>{editAssetsMessage}</p>
        <div className={styles.assetGrid}>{editAssets.map(asset=><figure key={asset.url}><img src={asset.url} alt={asset.label} referrerPolicy="no-referrer"/><figcaption><strong>{asset.label}</strong><a href={asset.url} target="_blank" rel="noreferrer">Open full size <span aria-hidden="true">↗</span></a></figcaption></figure>)}</div>
        {!editAssets.length&&editingRow.revision.city.heroImageUrl&&<figure><img src={editingRow.revision.city.heroImageUrl} alt={`Current hero for ${editingRow.revision.city.cityName}`} referrerPolicy="no-referrer"/><figcaption><strong>Current stored hero</strong></figcaption></figure>}
       </aside>
-     </div>
-     <footer className={styles.editFooter}><button type="button" disabled={busy} onClick={closeCityEditor}>Cancel</button><button className={styles.primaryAction} type="submit" disabled={busy}>{busy?"Working…":"Sign and submit revision"}</button></footer>
+     </div></fieldset>
+     <footer className={styles.editFooter}><button type="button" disabled={busy||editImageUploading} onClick={closeCityEditor}>Cancel</button><button className={styles.primaryAction} type="submit" disabled={busy||editImageUploading}>{editImageUploading?"Uploading…":busy?"Working…":"Sign and submit revision"}</button></footer>
     </form>
    </section>
   </div>}

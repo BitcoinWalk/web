@@ -53,7 +53,9 @@ describe("city backlog controls",()=>{
   const page=source();
   expect(page).toContain(">Edit city</button>");
   expect(page).not.toContain(">Open city</button>");
-  expect(page).toContain("Hero image URL");
+ expect(page).toContain("hero image URL");
+ expect(page).toContain("Upload hero image");
+ expect(page).toContain("uploadCityImage");
   expect(page).toContain("Current OG assets");
   expect(page).toContain('fetch("/api/cities"');
   expect(page).toContain('fetch("/api/events"');

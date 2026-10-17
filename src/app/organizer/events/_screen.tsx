@@ -25,7 +25,7 @@ import { eventPageHref, managedCalendarEvents, type ManagedCalendarEvent } from 
 import { reconcileOccurrences } from "../../../domain/recurrence-reconciliation";
 import { assertExactSigned,createOrganizerCancellation } from "../../../nostr/moderation";
 import {filterWalkRows,groupWalkRows,type WalkListFilter} from "../../../domain/walk-list";
-import {importCityImageURL,uploadWalkImage} from "../../../lib/media-client";
+import {importCityImageURL,isManagedImageURL,uploadWalkImage} from "../../../lib/media-client";
 import {RichDescriptionEditor} from "../../../components/rich-description";
 import {calendarRoute} from "../../../nostr/calendar-records";
 import {optionalAllTrailsRoute} from "../../../domain/walk-route";
@@ -342,7 +342,7 @@ export default function OrganizerEventsPage({canModerate=false}:{canModerate?:bo
       const photoUrl=editHeroImageUrl.trim();
       if(photoUrl){try{if(!photoUrl.startsWith("https://"))throw new Error();new URL(photoUrl);}catch{throw new Error("Use a valid HTTPS landscape image URL.");}}
       let imageOverride:string|undefined;
-      if(photoUrl){if(/^https:\/\/(?:app-staging\.)?bitcoinwalk\.org\/api\/media\/files\/[0-9a-f]{64}\.webp$/.test(photoUrl))imageOverride=photoUrl;else{setMessage("Approve importing this sharing image into protected BitcoinWalk storage…");imageOverride=(await importCityImageURL(walk.revision.city.cityId,photoUrl)).url;}}
+      if(photoUrl){if(isManagedImageURL(photoUrl))imageOverride=photoUrl;else{setMessage("Approve importing this sharing image into protected BitcoinWalk storage…");imageOverride=(await importCityImageURL(walk.revision.city.cityId,photoUrl)).url;}}
       const template=createOrganizerCalendarEvent(walk,{...updated,...(imageOverride?{heroImageUrl:imageOverride}:{}),...(editContentImageUrl?{contentImageUrl:editContentImageUrl}:{})});
       setMessage("Approve the replacement walk event in your signer…");
       const signed=await signWithBrowserExtension(template);
@@ -359,9 +359,9 @@ export default function OrganizerEventsPage({canModerate=false}:{canModerate?:bo
     finally{lock.current=false;setBusy(false);}
   }
 
-  async function uploadPublishedWalkImage(file:File,city:string){
-    if(editImageUploading||busy)return;setEditImageUploading(true);setMessage("Approve this optional walk image upload in your signer…");
-    try{const result=await uploadWalkImage(city,file);if(await getBrowserExtensionPubkey()!==owner)throw new Error("Signer identity changed. Reconnect before saving.");setEditContentImageUrl(result.url);setMessage("Walk image uploaded. Sign and save the walk to display it below the description.");}
+  async function uploadPublishedWalkImage(file:File,city:string,target:"content"|"hero"="content"){
+    if(editImageUploading||busy)return;setEditImageUploading(true);setMessage(`Approve the walk ${target==="hero"?"hero":"page image"} upload in your signer…`);
+    try{const result=await uploadWalkImage(city,file);if(await getBrowserExtensionPubkey()!==owner)throw new Error("Signer identity changed. Reconnect before saving.");if(target==="hero")setEditHeroImageUrl(result.url);else setEditContentImageUrl(result.url);setMessage(target==="hero"?"Walk hero uploaded. Sign and save to use it at the top of the page and in social previews.":"Walk image uploaded. Sign and save the walk to display it below the description.");}
     catch(error){setMessage(error instanceof Error?error.message:"Could not upload the walk image.");}
     finally{setEditImageUploading(false);}
   }
@@ -663,7 +663,7 @@ export default function OrganizerEventsPage({canModerate=false}:{canModerate?:bo
             <section className={imageStyles.section} aria-labelledby="walk-description-heading"><h3 id="walk-description-heading">Walk details</h3><RichDescriptionEditor value={editDescription} onChange={setEditDescription} disabled={busy||publishingBlocked}/><label>AllTrails route (optional) <input type="url" value={editRouteUrl} onChange={event=>setEditRouteUrl(event.target.value)} placeholder="https://www.alltrails.com/explore/trail/…"/></label></section>
             <section className={imageStyles.section} aria-labelledby="walk-page-image-heading"><h3 id="walk-page-image-heading">Walk page image</h3><p>Optional. This image appears below the walk description. Choose a JPEG, PNG or WebP file up to 5 MB.</p><label>Upload walk image <input type="file" accept="image/jpeg,image/png,image/webp" disabled={editImageUploading} onChange={event=>{const file=event.target.files?.[0];event.target.value="";if(file)void uploadPublishedWalkImage(file,editingPublishedRow.walk.revision.city.cityId);}}/></label>{editImageUploading&&<p role="status">Uploading image…</p>}{editContentImageUrl&&<figure className={imageStyles.preview}><Image src={editContentImageUrl} width={1600} height={900} sizes="(max-width: 720px) 100vw, 720px" unoptimized alt="Walk image preview"/><figcaption><button type="button" onClick={()=>setEditContentImageUrl("")}>Remove image</button></figcaption></figure>}</section>
             <section className={imageStyles.section} aria-labelledby="walk-meeting-point-heading"><h3 id="walk-meeting-point-heading">Meeting point</h3><label>Meeting-point description <input required maxLength={500} value={editMeetingPoint?.description??""} onChange={event=>setEditMeetingPoint(point=>point?{...point,description:event.target.value}:null)}/></label><LocationPicker key={`published-edit-${editingPublishedRow.item.event.id}`} cityName={editingPublishedRow.walk.revision.city.cityName} onCityNameChange={()=>{}} cityLocked value={editMeetingPoint} onChange={point=>setEditMeetingPoint({...point})}/></section>
-            <section className={imageStyles.section} aria-labelledby="walk-sharing-image-heading"><h3 id="walk-sharing-image-heading">Sharing image</h3><label>Landscape hero and OG image override (optional) <input type="url" value={editHeroImageUrl} onChange={event=>setEditHeroImageUrl(event.target.value)} placeholder="https://… (.png, .jpg or .webp content)"/></label><p>Leave blank to inherit the city template. This image appears at the top of the page and in social previews.</p></section>
+            <section className={imageStyles.section} aria-labelledby="walk-sharing-image-heading"><h3 id="walk-sharing-image-heading">Hero and sharing image</h3><p>Optional. Upload a JPEG, PNG or WebP up to 5 MB. BitcoinWalk verifies and normalizes the file before it can be saved.</p><label>Upload hero image <input type="file" accept="image/jpeg,image/png,image/webp" disabled={editImageUploading} onChange={event=>{const file=event.target.files?.[0];event.target.value="";if(file)void uploadPublishedWalkImage(file,editingPublishedRow.walk.revision.city.cityId,"hero");}}/></label>{editHeroImageUrl&&<figure className={imageStyles.preview}><Image src={editHeroImageUrl} width={1600} height={900} sizes="(max-width: 720px) 100vw, 720px" unoptimized alt="Walk hero image preview"/><figcaption><button type="button" onClick={()=>setEditHeroImageUrl("")}>Use city hero instead</button></figcaption></figure>}<p><strong>Or use an image URL</strong></p><label>Landscape hero and OG image override <input type="url" value={editHeroImageUrl} onChange={event=>setEditHeroImageUrl(event.target.value)} placeholder="https://… (.png, .jpg or .webp content)"/></label><p>Leave blank to inherit the city template. This image appears at the top of the page and in social previews.</p></section>
           </fieldset>
         </div>
         <footer className={imageStyles.footer}><button type="button" disabled={busy||editImageUploading} onClick={closePublishedEdit}>Cancel</button><button className={imageStyles.primary} type="submit" disabled={busy||publishingBlocked||editImageUploading}>{busy?"Saving…":"Sign and save changes"}</button></footer>

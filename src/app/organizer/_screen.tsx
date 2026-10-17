@@ -15,7 +15,7 @@ import { archivedCityIds, deletedCityIds } from "../../nostr/moderation";
 import { correctableRejectedCityRevisions, editableCityRevisions, editedCity } from "../../nostr/organizer-edit";
 import { authenticateWithBrowserExtension, getBrowserExtensionPubkey, signWithBrowserExtension } from "../../nostr/signer";
 import { publishVerifiedEvent } from "../../nostr/relay";
-import {importCityImageURL} from "../../lib/media-client";
+import {importCityImageURL,isManagedImageURL,uploadCityImage} from "../../lib/media-client";
 import {cityAliases} from "../../domain/city";
 import {organizerDirectorySnapshot} from "../../nostr/dashboard-snapshot";
 import {organizerCityInventory,type OrganizerCityInventoryItem} from "../../domain/organizer-city-inventory";
@@ -47,12 +47,21 @@ export default function OrganizerPage() {
   const [message,setMessage] = useState("Connect your host account to load cities you can edit.");
   const [submitted,setSubmitted] = useState(false);
   const [submittedImageUrl,setSubmittedImageUrl]=useState("");
+  const [heroImageInput,setHeroImageInput]=useState("");
+  const [imageUploading,setImageUploading]=useState(false);
   const [workspaceTab,setWorkspaceTab]=useState<WorkspaceTab>("profile");
 
   useEffect(()=>{if(window.location.hash!=="#pro-city-services")return;let active=true;queueMicrotask(()=>{if(active)setWorkspaceTab("pro");});return()=>{active=false;};},[]);
 
   function select(revision: CityRevision|null) {
-    setBase(revision); setPin(revision?.city.meetingPoint ?? null); setSubmitted(false);setSubmittedImageUrl("");
+    setBase(revision); setPin(revision?.city.meetingPoint ?? null); setSubmitted(false);setSubmittedImageUrl("");setHeroImageInput(revision?.city.heroImageUrl??"");
+  }
+
+  async function uploadHero(file:File){
+    if(!base||imageUploading||busy)return;setImageUploading(true);setMessage("Approve the city hero upload in your signer…");
+    try{const result=await uploadCityImage(base.city.cityId,file);if(await getBrowserExtensionPubkey()!==identity)throw new Error("Signer identity changed. Reconnect before submitting.");setHeroImageInput(result.url);setMessage("City hero uploaded and ready. Submit the city profile to send it for approval.");}
+    catch(error){setMessage(error instanceof Error?error.message:"Could not upload the city hero.");}
+    finally{setImageUploading(false);}
   }
 
   const dashboard=useDashboard();
@@ -93,9 +102,9 @@ export default function OrganizerPage() {
     setMessage("Preparing your city changes…");
     try {
       if (!relayConfig.writeRelays.length) throw new Error("No write relay configured.");
-      const requestedImage=String(form.get("heroImageUrl")).trim();
+      const requestedImage=heroImageInput.trim();
       let heroImageUrl=base.city.heroImageUrl;
-      if(requestedImage&&requestedImage!==base.city.heroImageUrl){setMessage("Approve importing the new city-template image into protected BitcoinWalk storage…");heroImageUrl=(await importCityImageURL(base.city.cityId,requestedImage)).url;}
+      if(requestedImage&&requestedImage!==base.city.heroImageUrl){if(isManagedImageURL(requestedImage))heroImageUrl=requestedImage;else{setMessage("Approve importing the new city-template image into protected BitcoinWalk storage…");heroImageUrl=(await importCityImageURL(base.city.cityId,requestedImage)).url;}}
       else if(!requestedImage)heroImageUrl=undefined;
       const aliases=cityAliases(String(form.get("aliases")),base.city.cityName);
       if(aliases.length>20)throw new Error("Use no more than 20 alternative city names.");
@@ -179,10 +188,10 @@ export default function OrganizerPage() {
             <section className={styles.profilePanel} aria-labelledby="city-profile-heading" hidden={workspaceTab!=="profile"}>
               <div className={styles.panelHeading}><div><p className={styles.eyebrow}>{selectedCity.correctable?"Correction":"Public information"}</p><h3 id="city-profile-heading">{selectedCity.correctable?"City correction":"City profile"}</h3><p>{selectedCity.correctable?"Only this replacement can be reviewed. It stays private until approved.":"Edit the description, hero image and default meeting point shown across your city and walks."}</p></div></div>
               <form className={styles.editorForm} key={base.event.id} onSubmit={submit}>
-                <fieldset disabled={busy || submitted}>
+                <fieldset disabled={busy || submitted || imageUploading}>
                   <div className={styles.formSection}><div className={styles.formSectionHeading}><span>1</span><div><h4>About the city</h4><p>Give visitors a clear reason to join your BitcoinWalk.</p></div></div><label>City description<textarea name="description" defaultValue={base.city.description} maxLength={5000} required/></label></div>
                   <div className={styles.formSection}><div className={styles.formSectionHeading}><span>2</span><div><h4>Meeting point</h4><p>Set the default location inherited by new walks.</p></div></div><LocationPicker cityName={base.city.cityName} onCityNameChange={()=>{}} cityLocked value={pin} onChange={value=>{if(!lock.current&&!submitted)setPin(value);}}/><label>Meeting-point description<input name="meetingDescription" defaultValue={base.city.meetingPoint.description} maxLength={500} required/></label></div>
-                  <div className={styles.formSection}><div className={styles.formSectionHeading}><span>3</span><div><h4>City image</h4><p>This landscape becomes the default for future walks.</p></div></div>{base.city.heroImageUrl&&<Image unoptimized className={styles.heroPreview} src={base.city.heroImageUrl} alt={`Current ${base.city.cityName} city landscape`} width={1200} height={525} referrerPolicy="no-referrer"/>}<label>Landscape image URL<input name="heroImageUrl" type="url" defaultValue={base.city.heroImageUrl??""} placeholder="https://…"/></label><small>A new image is copied into protected BitcoinWalk storage and changes publicly only after approval.</small></div>
+                  <div className={styles.formSection}><div className={styles.formSectionHeading}><span>3</span><div><h4>City image</h4><p>This landscape becomes the default for future walks.</p></div></div>{heroImageInput&&<Image unoptimized className={styles.heroPreview} src={heroImageInput} alt={`Selected ${base.city.cityName} city landscape`} width={1200} height={525} referrerPolicy="no-referrer"/>}<label>Upload landscape image<input type="file" accept="image/jpeg,image/png,image/webp" onChange={event=>{const file=event.target.files?.[0];event.target.value="";if(file)void uploadHero(file);}}/></label>{imageUploading&&<p role="status">Uploading image…</p>}<p><strong>Or use an image URL</strong></p><label>Landscape image URL<input type="url" value={heroImageInput} onChange={event=>setHeroImageInput(event.target.value)} placeholder="https://…"/></label><small>Accepted files: JPEG, PNG or WebP up to 5 MB. The file is decoded, normalized and copied into protected BitcoinWalk storage. It changes publicly only after approval.</small></div>
                   <details className={styles.advanced}><summary>Alternative names and technical details</summary><div><label>Alternative city names<textarea name="aliases" defaultValue={(base.city.aliases??[]).join("\n")} maxLength={2020} placeholder={base.city.cityName==="Warszawa"?"Warsaw\nWarschau\nVarsovia":"One name per line"}/></label><p>Add localized or conventional spellings, one per line. They improve search without changing the public URL.</p><dl><div><dt>City ID</dt><dd><code>{base.city.cityId}</code></dd></div><div><dt>Revision</dt><dd><code>{base.event.id}</code></dd></div><div><dt>Status</dt><dd>{submitted?"New edit submitted":status}</dd></div></dl></div></details>
                   <div className={styles.formFooter}><p>Changes are signed by your connected account and sent for review. Walk schedules are managed separately in <Link href="/admin/walks">Walks</Link>.</p><button className={styles.primaryAction} type="submit">{submitted?"Submitted":busy?"Submitting…":selectedCity.correctable?"Submit correction":"Submit for approval"}</button></div>
                 </fieldset>

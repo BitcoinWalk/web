@@ -13,7 +13,7 @@ export async function POST(request:Request){
  try{
   const declared=Number(request.headers.get("content-length")||0);if(declared>5.5*1024*1024)return Response.json({error:"Walk images must be 5 MB or smaller."},{status:413});
   const form=await request.formData(),raw=form.get("event"),file=form.get("file");if(typeof raw!=="string"||!(file instanceof File))return Response.json({error:"Signed image upload required."},{status:401});
-  const event=JSON.parse(raw) as Event,command=parseMediaRequest(event);if(!command||command.action!=="upload-walk-image")return Response.json({error:"Invalid or expired image authorization."},{status:401});
+  const event=JSON.parse(raw) as Event,command=parseMediaRequest(event);if(!command||(command.action!=="upload-city-image"&&command.action!=="upload-walk-image"))return Response.json({error:"Invalid or expired image authorization."},{status:401});
   const grant=await queryCityAuthorization(serverReadRelays(),command.cityId);if(!isSuperAdmin(event.pubkey)&&(!grant||!canEditCity(event.pubkey,grant.grant)))return Response.json({error:"This identity cannot manage images for that city."},{status:403});
   if(file.size!==command.bytes||file.type!==command.mime||file.size>5*1024*1024)return Response.json({error:"The selected file does not match the signed upload."},{status:400});
   const bytes=Buffer.from(await file.arrayBuffer()),hash=createHash("sha256").update(bytes).digest("hex");if(hash!==command.sha256)return Response.json({error:"The selected file changed before upload."},{status:400});
