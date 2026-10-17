@@ -63,11 +63,19 @@ BitcoinWalk Guide, BitcoinWalk Global and Organizers. City and Global use the
 standard first-use NIP-29 join request. The organizer room is pre-authorized from
 the current signed owner roster, so eligible organizers can open it immediately;
 arbitrary join requests are never treated as organizer authority. Super-admin
-reconciliation creates `bitcoinwalk-organizers` as private, restricted and closed,
+reconciliation under **Hosts → Organizer chat** creates `bitcoinwalk-organizers`
+as private, restricted and closed,
 adds current owners plus BitcoinWalk Guide and BitcoinWalk HQ, removes superseded
 owners and requires exact relay-signed metadata and roster read-back. Private
 NIP-29 access control is not end-to-end encryption. Guide remains an honest
 notification-only NIP-17 destination until BW-128 adds compatible inbound DMs.
+
+Organizer-room creation and membership belong under **Hosts**, because access
+follows signed city ownership. **Monitoring → Communities** remains the home for
+city-channel health and links back to the organizer management surface. Run the
+same idempotent organizer-room reconciliation after city approval, ownership
+transfer, archive or permanent removal so newly eligible owners are added and
+former owners are removed.
 
 After provisioning a real paid relay/group, use **Monitoring → Communities** to
 verify signed public/open NIP-29 metadata and then activate the exact destination
