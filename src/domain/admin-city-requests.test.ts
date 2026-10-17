@@ -1,7 +1,7 @@
 import {describe,expect,it} from "vitest";
 import type {ApprovalRecord,CityRevision} from "../nostr/city-records";
 import {ARCHIVE_NOTE,DELETE_CITY_NOTE} from "../nostr/moderation";
-import {adminCityRequests,FINAL_REJECTION_PREFIX,isSilentActiveOverride,SILENT_ACTIVE_OVERRIDE_NOTE,visibleDecisionNote} from "./admin-city-requests";
+import {adminCityRequests,createSilentActiveOverrideDecision,FINAL_REJECTION_PREFIX,isSilentActiveOverride,SILENT_ACTIVE_OVERRIDE_NOTE,visibleDecisionNote} from "./admin-city-requests";
 
 const revision=(cityId:string,name:string,time:number):CityRevision=>({event:{id:String(time).padStart(64,"0"),pubkey:"a".repeat(64),created_at:time} as CityRevision["event"],city:{cityId,cityName:name,slug:name.toLowerCase(),startAt:"2027-01-01T12:00:00.000Z",description:"Walk",meetingPoint:{description:"Square",latitude:1,longitude:2}}});
 const decision=(row:CityRevision,status:"approved"|"rejected"|"revoked",time:number,note?:string):ApprovalRecord=>({event:{id:String(time).padStart(64,"f"),created_at:time} as ApprovalRecord["event"],approval:{cityId:row.city.cityId,cityRevisionId:row.event.id,status,note}});
@@ -16,4 +16,5 @@ describe("admin city request inventory",()=>{
  it("omits a city after the latest signed decision permanently deletes it",()=>{const removed=revision("77777777-7777-4777-8777-777777777777","Removed",1);expect(adminCityRequests([removed],[decision(removed,"approved",2),decision(removed,"revoked",3,DELETE_CITY_NOTE)])).toEqual([]);});
  it("removes the protocol marker from reviewer-facing copy",()=>expect(visibleDecisionNote(FINAL_REJECTION_PREFIX+"Not a real city request")).toBe("Not a real city request"));
  it("lets a newer signed super-admin override activate the exact rejected revision",()=>{const row=revision("88888888-8888-4888-8888-888888888888","Override",1),changes=decision(row,"rejected",2,"Change the photo"),active=decision(row,"approved",3,SILENT_ACTIVE_OVERRIDE_NOTE);expect(adminCityRequests([row],[changes,active])[0]).toMatchObject({status:"accepted",decision:active});expect(isSilentActiveOverride(active.approval.note)).toBe(true);expect(visibleDecisionNote(active.approval.note)).toContain("Activated as-is");});
+ it("builds the silent override from only the exact rejected revision",()=>{const row=revision("99999999-9999-4999-8999-999999999999","Exact",1),rejection=decision(row,"rejected",2,"Change it"),content=JSON.parse(createSilentActiveOverrideDecision({revision:row,rejection}).content);expect(content).toMatchObject({cityId:row.city.cityId,cityRevisionId:row.event.id,status:"approved",slug:row.city.slug,note:SILENT_ACTIVE_OVERRIDE_NOTE});expect(()=>createSilentActiveOverrideDecision({revision:row,rejection:{...rejection,approval:{...rejection.approval,cityRevisionId:"f".repeat(64)}}})).toThrow("no longer matches");});
 });

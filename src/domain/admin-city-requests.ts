@@ -1,6 +1,9 @@
 import {compareEvents} from "nostr-tools";
 import type {ApprovalRecord,CityRevision} from "../nostr/city-records";
 import {archivedCityIds,deletedCityIds} from "../nostr/moderation";
+import type {NeedsChangesCity} from "../nostr/moderation";
+import {createApprovalEvent} from "../nostr/city-event";
+import type {EventTemplate} from "nostr-tools";
 
 export const FINAL_REJECTION_PREFIX="REJECT_APPLICATION: ";
 export const SILENT_ACTIVE_OVERRIDE_NOTE="SUPER_ADMIN_ACTIVE_OVERRIDE: approve the exact current revision without organizer notification or provisioning";
@@ -19,6 +22,14 @@ export function isSilentActiveOverride(note?:string):boolean{
 export function visibleDecisionNote(note?:string):string{
  if(isSilentActiveOverride(note))return "Activated as-is by the super-admin. No organizer resubmission was required.";
  return isFinalApplicationRejection(note)?note!.slice(FINAL_REJECTION_PREFIX.length):note??"";
+}
+
+/** Approve the exact rejected revision without manufacturing any setup state.
+ * The marker lets notification and provisioning consumers preserve silence. */
+export function createSilentActiveOverrideDecision(row:NeedsChangesCity):EventTemplate{
+ const city=row.revision.city,initial=(row.revision.event.tags??[]).filter(tag=>tag[0]==="e"&&tag[3]==="initial-walk").map(tag=>tag[1]);
+ if(row.rejection.approval.cityId!==city.cityId||row.rejection.approval.cityRevisionId!==row.revision.event.id||!['rejected','revoked'].includes(row.rejection.approval.status))throw new Error("Needs changes decision no longer matches this city revision.");
+ return createApprovalEvent({cityId:city.cityId,cityRevisionId:row.revision.event.id,status:"approved",note:SILENT_ACTIVE_OVERRIDE_NOTE,slug:city.slug,aliases:city.aliases??[],...(city.heroImageUrl?{heroImageUrl:city.heroImageUrl}:{}),...(initial.length===1?{initialEventId:initial[0]}:initial.length?{initialEventIds:initial}:{})});
 }
 
 /** One current application row per city. Exact revision decisions determine the

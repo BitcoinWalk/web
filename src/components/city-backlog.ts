@@ -7,7 +7,7 @@ import {visibleDecisionNote} from "../domain/admin-city-requests";
 export type CityWorkflowStatus="action-required"|"awaits-change"|"online"|"offline";
 export type CityRelayType="shared"|"dedicated"|"migrated";
 export type CityTypeFilter="all"|"basic"|"pro-managed"|"pro-own";
-export type CityWorkflowAction="open-record"|"open-public"|"review-request"|"view-decision"|"manage-pro"|"set-online"|"set-offline"|"archive"|"delete";
+export type CityWorkflowAction="open-record"|"open-public"|"review-request"|"activate-as-is"|"view-decision"|"manage-pro"|"set-online"|"set-offline"|"archive"|"delete";
 export type CityWorkflowRow={
   cityId:string;cityName:string;slug:string;status:CityWorkflowStatus;online:boolean;
   tier:"basic"|"paid"|"test";relay:CityRelayType;source:"managed"|"pending"|"awaits-change"|"inventory";
@@ -74,7 +74,7 @@ export function cityWorkflowNextStep(row:CityWorkflowRow):CityWorkflowNextStep|n
 
 export function cityWorkflowActions(row:CityWorkflowRow):CityWorkflowAction[]{
  if(row.source==="pending")return ["review-request"];
- if(row.source==="awaits-change")return ["review-request",...(row.tier==="basic"?["archive" as const]:[])];
+ if(row.source==="awaits-change")return ["activate-as-is","review-request",...(row.tier==="basic"?["archive" as const]:[])];
  if(row.managed){
   const actions:CityWorkflowAction[]=["open-record"];
   if(row.online)actions.push("open-public");

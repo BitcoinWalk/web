@@ -43,7 +43,7 @@ describe("cityWorkflowRows",()=>{
   const paid=cityWorkflowRows({managed:[managed("x","Paid","approved")],pending:[],needsChanges:[],health:[],paidCityIds:new Set(["x"]),paidCities:{}})[0];
   const test=cityWorkflowRows({managed:[managed("t","Test","disapproved")],pending:[],needsChanges:[],health:[{cityId:"t",cityName:"Test",slug:"test",availableInEnvironment:true,tier:"pilot",status:"action-required",checks:[],checkedAt:1}],paidCityIds:new Set(),paidCities:{}})[0];
   expect(cityWorkflowActions(pending)).toEqual(["review-request"]);
-  expect(cityWorkflowActions(waiting)).toEqual(["review-request","archive"]);
+  expect(cityWorkflowActions(waiting)).toEqual(["activate-as-is","review-request","archive"]);
   expect(cityWorkflowActions(online)).toEqual(["open-record","open-public","set-offline"]);
   expect(cityWorkflowActions(offline)).toEqual(["open-record","set-online","delete"]);
   expect(cityWorkflowActions(archived)).toEqual(["open-record","set-online","delete"]);

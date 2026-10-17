@@ -24,7 +24,7 @@ import {cityMatchesType,cityRelayLabel,cityWorkflowActions,cityWorkflowLabel,cit
 import CityActionsMenu from "./city-actions-menu";
 import CopyValue from "./copy-value";
 import styles from "./city-moderation.module.css";
-import {adminCityRequests} from "../domain/admin-city-requests";
+import {adminCityRequests,createSilentActiveOverrideDecision} from "../domain/admin-city-requests";
 import {createCityUpdateEvent} from "../nostr/city-event";
 import {editedCity} from "../nostr/organizer-edit";
 import {cityAliases} from "../domain/city";
@@ -135,6 +135,19 @@ export default function CityModeration(){
   const readback=await queryDirectoryRecords(relayConfig.writeRelays);if(!archivedCityIds(readback.approvals).has(city.cityId))throw new Error("Archive acknowledged but relay read-back failed. Reload before retrying.");
   await reload();setMessage(`${city.cityName} archived. Signed history remains and no infrastructure was deleted.`);
  });}
+ async function activateAwaitingCity(row:NeedsChangesCity){await run(async()=>{
+  const city=row.revision.city,latest=(await records()).needsChanges.find(item=>item.revision.event.id===row.revision.event.id&&item.rejection.event.id===row.rejection.event.id);
+  if(!latest)throw new Error("This Needs changes decision changed. Reload before activating it.");
+  if(!window.confirm(`Set ${city.cityName} to Active using its exact current signed revision?\n\nThis dismisses Needs changes. It does not notify the organizer, change city fields, create permissions, provision services or run activation tasks.`)){setMessage("Cancelled. No decision was signed.");return;}
+  const template=createSilentActiveOverrideDecision(latest);setMessage("Approve the exact Active override in your signer…");
+  const signed=await signWithBrowserExtension(template);assertExactSigned(signed,template);await admin();
+  const currentRequest=(await records()).needsChanges.find(item=>item.revision.event.id===row.revision.event.id&&item.rejection.event.id===row.rejection.event.id);
+  if(!currentRequest)throw new Error("This Needs changes decision changed while signing. Nothing was published.");
+  await publishVerifiedEvent(signed,relayConfig.writeRelays,1,authenticateWithBrowserExtension);
+  const readback=await records(),active=readback.rows.find(item=>item.revision.event.id===row.revision.event.id&&item.decision.event.id===signed.id&&item.state==="approved");
+  if(!active)throw new Error("Override was acknowledged but Active relay read-back failed. Reload before retrying.");
+  setSelectedId(city.cityId);await reload(city.cityId);setMessage(`${city.cityName} is Active as-is. No organizer notification or setup operation was created.`);
+ });}
  async function deleteOfflineCity(row:ManagedCity){
   const city=row.revision.city;
   const confirmation=`DELETE ${city.slug}`;
@@ -209,6 +222,7 @@ export default function CityModeration(){
   if(action==="open-record")return <button {...menuItem} disabled={busy} onClick={()=>openCityEditor(item.managed!)}>Edit city</button>;
   if(action==="open-public"){const href=item.health&&!item.health.availableInEnvironment?`https://bitcoinwalk.org/${item.slug}`:`/${item.slug}`;return <a {...menuItem} href={href} target="_blank" rel="noreferrer">Open public page <span aria-hidden="true">↗</span></a>;}
   if(action==="review-request"){const id=item.pending?.event.id??item.needsChanges?.revision.event.id;return <Link {...menuItem} href={`/admin/requests#submission-${id}`}>{item.source==="pending"?"Review application":"Review requested changes"}</Link>;}
+  if(action==="activate-as-is")return <button {...menuItem} disabled={busy||!directoryCurrent} onClick={()=>activateAwaitingCity(item.needsChanges!)}>Set Active as-is</button>;
   if(action==="view-decision")return <Link {...menuItem} href={`/admin/requests#submission-${item.rejected!.event.id}`}>View final decision</Link>;
   if(action==="manage-pro")return <Link {...menuItem} href="/admin/requests#post-approval-follow-ups">Review Pro follow-up</Link>;
   if(action==="set-online")return <button {...menuItem} disabled={busy||!directoryCurrent} onClick={()=>decide(item.managed!,"approve")}>Restore online</button>;
@@ -227,7 +241,11 @@ export default function CityModeration(){
    <div className={styles.row}><div className={styles.identity}><span className={styles.dot} data-online={item.online} role="img" aria-label={item.online?"Online":"Offline"}/><div><strong>{item.cityName}</strong><small>/{item.slug} · <CopyValue label={`${item.cityName} city ID`} value={item.cityId}/></small></div></div>
    <div className={styles.badges}><span className={styles.badge} data-status={item.status}>{cityWorkflowLabel(item.status)}</span><span className={styles.badge}>{item.tier==="paid"?"Paid":item.tier==="test"?"Test":"Basic"}</span><span className={styles.badge}>{cityRelayLabel(item.relay)}</span></div>
    <CityActionsMenu cityName={item.cityName}>{cityWorkflowActions(item).map(action=><span className={styles.actionMenuItem} key={action}>{cityAction(item,action)}</span>)}</CityActionsMenu></div>
-   {nextStep&&<aside className={styles.nextStep} aria-label={`Next action for ${item.cityName}`}><span className={styles.nextStepMark} aria-hidden="true">→</span><p><strong>Next: {nextStep.owner}</strong> — {nextStep.action}{nextStep.helpHref&&<> <a href={nextStep.helpHref} target="_blank" rel="noreferrer">View host instructions <span aria-hidden="true">↗</span></a></>}</p></aside>}
+   {nextStep&&<aside className={styles.nextStep} aria-label={`Next action for ${item.cityName}`}>
+    <span className={styles.nextStepMark} aria-hidden="true">→</span>
+    <p><strong>Next: {nextStep.owner}</strong> — {nextStep.action}{nextStep.helpHref&&<> <a href={nextStep.helpHref} target="_blank" rel="noreferrer">View host instructions <span aria-hidden="true">↗</span></a></>}</p>
+    {item.source==="awaits-change"&&item.needsChanges&&<button className={styles.nextStepAction} disabled={busy||!directoryCurrent} onClick={()=>activateAwaitingCity(item.needsChanges!)}>Set Active as-is</button>}
+   </aside>}
   </li>}):<li className={styles.empty}>No cities match these filters.</li>}</ol>
   {!!identityHealthError&&<p role="alert">{identityHealthError}</p>}
   {!!needsChanges.length&&<details className={styles.bulk}><summary><strong>Archive eligible Awaits change test cities ({needsChanges.length})</strong></summary><p>This cleanup retains signed history and never deletes infrastructure. Paid or relay-backed cities are blocked.</p><button disabled={busy||!directoryCurrent||!paymentInventoryReady} onClick={archiveRejectedTests}>Archive eligible requests</button>{!paymentInventoryReady&&<p>Payment inventory must load before this action is enabled.</p>}</details>}

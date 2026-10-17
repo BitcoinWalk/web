@@ -12,6 +12,9 @@ describe("awaits-change cleanup",()=>{
   expect(page).toContain("createNeedsChangesArchiveDecision(latest)");
   expect(page).toContain("archivedCityIds(readback.approvals).has(row.revision.city.cityId)");
  });
+ it("shows the silent Active override directly on each Awaits change city",()=>{
+  const page=source();expect(page).toContain("createSilentActiveOverrideDecision(latest)");expect(page).toContain(">Set Active as-is</button>");expect(page).toContain("No organizer notification or setup operation was created.");expect(page).toContain('item.source==="awaits-change"');
+ });
 });
 
 describe("city backlog controls",()=>{
