@@ -46,14 +46,20 @@ function room(destination:Nip29Destination,label:string,scope:"global"|"city",ci
  * public directory can expose both even when its legacy `chat.nip29` field
  * points at only the city's preferred room. */
 export function dashboardNip29Rooms(cities:Nip29CityRoom[],managedCityIds:string[],selectedCity=""):DashboardNip29Rooms{
- const managed=new Set(managedCityIds),eligible=cities.filter(city=>managed.has(city.id));
- const city=eligible.find(row=>row.id===selectedCity)??eligible[0]??null;
- const cityDestination=city?validNip29Destination(city.chat.communities?.city??(city.chat.scope==="city"?city.chat.nip29:null)):null;
+ const cityRooms=dashboardNip29CityRooms(cities,managedCityIds),city=cityRooms.find(row=>row.cityIds.includes(selectedCity))??cityRooms[0]??null;
  const globalDestination=cities.map(row=>validNip29Destination(row.chat.communities?.global??(row.chat.scope==="global"?row.chat.nip29:null))).find(Boolean)??null;
  return {
-  city:city&&cityDestination?room(cityDestination,city.name,"city",[city.id],city.avatarUrl):null,
+  city,
   global:globalDestination?room(globalDestination,"BitcoinWalk Global","global",cities.map(row=>row.id)):null,
  };
+}
+
+export function dashboardNip29CityRooms(cities:Nip29CityRoom[],managedCityIds:string[]):Nip29Room[]{
+ const managed=new Set(managedCityIds);
+ return cities.filter(city=>managed.has(city.id)).flatMap(city=>{
+  const destination=validNip29Destination(city.chat.communities?.city??(city.chat.scope==="city"?city.chat.nip29:null));
+  return destination?[room(destination,city.name,"city",[city.id],city.avatarUrl)]:[];
+ }).sort((a,b)=>a.label.localeCompare(b.label)||a.key.localeCompare(b.key));
 }
 
 function exactTag(event:Event,name:string,value:string){const tags=event.tags.filter(tag=>tag[0]===name);return tags.length===1&&tags[0].length===2&&tags[0][1]===value;}
