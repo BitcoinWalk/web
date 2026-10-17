@@ -1,5 +1,5 @@
 import {describe,expect,it} from "vitest";
-import {classifyCityIdentityTier,managedCityProfileMatches,summarizeCityIdentityHealth,type CityIdentityHealthEvidence} from "./pro-city-identity-health";
+import {classifyCityIdentityTier,managedCityProfileMatches,provisioningStatusCityId,summarizeCityIdentityHealth,type CityIdentityHealthEvidence} from "./pro-city-identity-health";
 
 const base=(overrides:Partial<CityIdentityHealthEvidence>={}):CityIdentityHealthEvidence=>({
  cityId:"11111111-1111-4111-8111-111111111111",cityName:"Madeira",slug:"madeira",availableInEnvironment:true,tier:"pro",checkedAt:100,
@@ -13,6 +13,11 @@ describe("Pro city identity health",()=>{
   expect(classifyCityIdentityTier({operatorConfirmed:true,settled:false,hasSetup:false,hasActiveBinding:false,staging:true})).toBe("pro");
   expect(classifyCityIdentityTier({operatorConfirmed:false,settled:true,hasSetup:true,hasActiveBinding:true,staging:true})).toBe("pilot");
   expect(classifyCityIdentityTier({operatorConfirmed:false,settled:true,hasSetup:true,hasActiveBinding:true,staging:false})).toBe("pro");
+ });
+ it("reads a canonical Madeira city's completed services from its retained provisioning identity",()=>{
+  expect(provisioningStatusCityId("83f15504-9fca-4d59-a0f6-616a559510df",["madeira"])).toBe("ca20993a-5b7f-443e-931e-8dbaa61d05fe");
+  expect(provisioningStatusCityId("ca2f9905-fb4d-4948-a12c-c792b28ec7c8",["london"])).toBe("ca2f9905-fb4d-4948-a12c-c792b28ec7c8");
+  expect(provisioningStatusCityId("11111111-1111-4111-8111-111111111111",["unknown"])).toBe("11111111-1111-4111-8111-111111111111");
  });
  it("marks complete identity evidence without making future city publishing a blocker",()=>{
   const row=summarizeCityIdentityHealth(base());

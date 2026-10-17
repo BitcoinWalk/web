@@ -30,6 +30,15 @@ export function classifyCityIdentityTier(input:{operatorConfirmed:boolean;settle
   return "basic";
 }
 
+/** A reviewed legacy Pro service can predate the canonical production city
+ * record. Keep health reads attached to that durable provisioning record while
+ * every public/admin action continues to use the current city ID. */
+export function provisioningStatusCityId(cityId:string,slugs:string[]):string{
+  if(directoryConfig.paidCities[cityId])return cityId;
+  const configured=configuredPaidCity(cityId,slugs);
+  return Object.entries(directoryConfig.paidCities).find(([,value])=>value===configured)?.[0]??cityId;
+}
+
 const check=(key:CityIdentityHealthCheck["key"],label:string,state:IdentityHealthCheckState,detail:string):CityIdentityHealthCheck=>({key,label,state,detail});
 export function summarizeCityIdentityHealth(input:CityIdentityHealthEvidence):CityIdentityHealth{
   if(input.tier==="basic")return {cityId:input.cityId,cityName:input.cityName,slug:input.slug,availableInEnvironment:input.availableInEnvironment,tier:"basic",status:"not-applicable",checkedAt:input.checkedAt,checks:[
@@ -96,24 +105,24 @@ export async function listProCityIdentityHealth(actor:string):Promise<CityIdenti
   const settled=new Set(table(db,"paid_city_entitlement")?(db.prepare("SELECT cityId FROM paid_city_entitlement").all() as {cityId:string}[]).map(row=>row.cityId):[]);
   const setupIds=new Set(table(db,"pro_setup_task")?(db.prepare("SELECT cityId FROM pro_setup_task").all() as {cityId:string}[]).map(row=>row.cityId):[]);
   const activeIds=new Set(table(db,"city_brand_request")?(db.prepare("SELECT DISTINCT city_id AS cityId FROM city_brand_request WHERE status='active'").all() as {cityId:string}[]).map(row=>row.cityId):[]);
-  const live=cities.map(row=>{const city=row.revision.city,slug=row.decision.approval.slug??city.slug,aliases=row.decision.approval.aliases??city.aliases??[];return {cityId:city.cityId,cityName:city.cityName,slug,availableInEnvironment:true,operator:configuredPaidCity(city.cityId,[slug,city.slug,...aliases])};});
+  const live=cities.map(row=>{const city=row.revision.city,slug=row.decision.approval.slug??city.slug,aliases=row.decision.approval.aliases??city.aliases??[],slugs=[slug,city.slug,...aliases];return {cityId:city.cityId,cityName:city.cityName,slug,availableInEnvironment:true,operator:configuredPaidCity(city.cityId,slugs),provisioningCityId:provisioningStatusCityId(city.cityId,slugs)};});
   const covered=new Set(Object.entries(directoryConfig.paidCities).filter(([,configured])=>live.some(city=>city.operator===configured)).map(([cityId])=>cityId));
-  const definitions=[...live,...Object.entries(directoryConfig.paidCities).filter(([cityId])=>!covered.has(cityId)).map(([cityId,configured])=>({cityId,cityName:configured.cityName??configured.slug,slug:configured.slug,availableInEnvironment:false,operator:configured}))];
+  const definitions=[...live,...Object.entries(directoryConfig.paidCities).filter(([cityId])=>!covered.has(cityId)).map(([cityId,configured])=>({cityId,cityName:configured.cityName??configured.slug,slug:configured.slug,availableInEnvironment:false,operator:configured,provisioningCityId:cityId}))];
   const identityDefinitions=definitions.filter(city=>!!city.operator||settled.has(city.cityId)||setupIds.has(city.cityId)||activeIds.has(city.cityId));
   const active=new Map(identityDefinitions.map(city=>[city.cityId,activeBrand(db,city.cityId)]));
   const ids=identityDefinitions.map(city=>city.cityId),brands=[...new Set([...active.values()].map(value=>value?.challenge.binding.brandPubkey).filter((value):value is string=>!!value))];
   const bindingRelays=serverReadRelays(),bindingReads=ids.length?await Promise.all(bindingRelays.map(async relay=>{try{const events=await queryRelayEvents([relay],[30312],undefined,{authors:[SUPER_ADMIN_PUBKEY],"#i":ids,limit:500});return {relay,events,error:events.length>=500};}catch{return {relay,events:[] as Event[],error:true};}})):[];
   const publicProfileReads=brands.length?await Promise.all(profileRelays.map(async relay=>{try{return {relay,events:await queryRelayEvents([relay],[0],undefined,{authors:brands,limit:Math.min(500,Math.max(100,brands.length*5))}),error:false};}catch{return {relay,events:[] as Event[],error:true};}})):[];
   return Promise.all(definitions.map(async city=>{
-    const {cityId,cityName,slug,availableInEnvironment}=city,task=setupIds.has(cityId)?setupTask(db,cityId):null,current=active.get(cityId)??null;
+    const {cityId,cityName,slug,availableInEnvironment,provisioningCityId}=city,task=setupIds.has(cityId)?setupTask(db,cityId):null,current=active.get(cityId)??null;
     const staging=process.env.BITCOINWALK_PAYMENT_APP_ORIGIN?.includes("app-staging.bitcoinwalk.org")??false;
     const tier=classifyCityIdentityTier({operatorConfirmed:!!city.operator,settled:settled.has(cityId),hasSetup:!!task,hasActiveBinding:!!current,staging});
     let binding:CityIdentityHealthEvidence["binding"]="fail";
     if(current){if(!bindingRelays.length||bindingReads.some(read=>read.error))binding="unknown";else binding=bindingReads.every(read=>resolveCityBrand(read.events.filter(event=>event.tags.some(tag=>tag[0]==="i"&&tag[1]===cityId)),cityId)?.event.id===current.eventId)?"pass":"fail";}
     const brand=current?.challenge.binding.brandPubkey??task?.signer?.pubkey,identifier=`${slug}@bitcoinwalk.org`,profiles:ProfileEvidence={reachable:0,matching:0,nip05:0,lightning:0};
     if(brand)for(const read of publicProfileReads){if(read.error)continue;profiles.reachable++;const profile=latestProfile(read.events,brand);if(managedCityProfileMatches(profile,current,cityName))profiles.matching++;if(profile?.nip05===identifier)profiles.nip05++;if(profile?.lnurl===identifier)profiles.lightning++;}
-    const capabilities=tier!=="basic"?cityProvisioningCapabilities(db,cityId):{overall:"setup-required",nip05:"setup-required",lightning:"setup-required",retryable:false,detail:"Not applicable."} as CityProvisioningCapabilities;
-    const activation=table(db,"rustress_activation_task")?db.prepare("SELECT updated_at FROM rustress_activation_task WHERE city=?").get(cityId) as {updated_at:number}|undefined:undefined;
+    const capabilities=tier!=="basic"?cityProvisioningCapabilities(db,provisioningCityId):{overall:"setup-required",nip05:"setup-required",lightning:"setup-required",retryable:false,detail:"Not applicable."} as CityProvisioningCapabilities;
+    const activation=table(db,"rustress_activation_task")?db.prepare("SELECT updated_at FROM rustress_activation_task WHERE city=?").get(provisioningCityId) as {updated_at:number}|undefined:undefined;
     const nip05Verified=!!brand&&capabilities.nip05==="active"&&await verifyNip05(brand,identifier);
     return summarizeCityIdentityHealth({cityId,cityName,slug,availableInEnvironment,tier,checkedAt,task,active:current,binding,profile:profiles,capabilities,nip05Verified,activationUpdatedAt:activation?.updated_at});
   }));
