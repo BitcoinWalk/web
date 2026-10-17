@@ -45,7 +45,7 @@ aliases remain healthy and Zooid does not restart or receive traffic.
 The app uses one conversation list rather than separate chat products. A regular
 participant sees the verified city room, BitcoinWalk Global and their direct
 conversations. An eligible organizer additionally sees the role-gated
-**BitcoinWalk Guides** room containing the current active-city organizers,
+**BitcoinWalk Organizers** room containing the current active-city organizers,
 BitcoinWalk Guide and the BitcoinWalk HQ account. NIP-17 Guide notifications and
 other direct messages appear in the same list as direct conversations.
 
@@ -63,7 +63,7 @@ BitcoinWalk Guide, BitcoinWalk Global and Organizers. City and Global use the
 standard first-use NIP-29 join request. The organizer room is pre-authorized from
 the current signed owner roster, so eligible organizers can open it immediately;
 arbitrary join requests are never treated as organizer authority. Super-admin
-reconciliation creates `bitcoinwalk-guides` as private, restricted and closed,
+reconciliation creates `bitcoinwalk-organizers` as private, restricted and closed,
 adds current owners plus BitcoinWalk Guide and BitcoinWalk HQ, removes superseded
 owners and requires exact relay-signed metadata and roster read-back. Private
 NIP-29 access control is not end-to-end encryption. Guide remains an honest

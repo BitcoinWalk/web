@@ -9,8 +9,8 @@ import {isSuperAdmin} from "../../../../nostr/authority";
 import {chatProvisionRequest,type ChatProvisionAction} from "../../../../nostr/chat-provision-request";
 import {publishVerifiedEvent} from "../../../../nostr/relay";
 import {authenticateWithBrowserExtension,getBrowserExtensionPubkey,signWithBrowserExtension} from "../../../../nostr/signer";
-import {ORGANIZER_GUIDES_DESTINATION} from "../../../../nostr/nip29-chat";
-import {organizerGuidesMembers,organizerGuidesMetadataTemplate,organizerGuidesRosterPlan,verifiedOrganizerGuidesMetadata} from "../../../../nostr/organizer-guides";
+import {ORGANIZER_ROOM_DESTINATION} from "../../../../nostr/nip29-chat";
+import {organizerRoomMembers,organizerRoomMetadataTemplate,organizerRoomRosterPlan,verifiedOrganizerRoomMetadata} from "../../../../nostr/organizer-guides";
 import styles from "../monitoring.module.css";
 
 type City={cityId:string;cityName:string;slug:string;tier:"basic"|"pro";organizerPubkey:string;guidePubkey:string;avatarUrl:string};
@@ -22,7 +22,7 @@ const WALKIE_TALKIE_RELAY="wss://chat.bitcoinwalk.org/";
 const COMMUNITY_POOL=new SimplePool();
 function relayFor(city:City){void city;return WALKIE_TALKIE_RELAY;}
 function createGroupTemplate(groupId:string):EventTemplate{return {kind:9007,created_at:Math.floor(Date.now()/1000),tags:[["h",groupId],["client","bitcoinwalk.org"]],content:"Create the public, open-join BitcoinWalk city community."};}
-function createOrganizerGroupTemplate():EventTemplate{return {kind:9007,created_at:Math.floor(Date.now()/1000),tags:[["h",ORGANIZER_GUIDES_DESTINATION.groupId],["client","bitcoinwalk.org"]],content:"Create the private BitcoinWalk organizer room."};}
+function createOrganizerGroupTemplate():EventTemplate{return {kind:9007,created_at:Math.floor(Date.now()/1000),tags:[["h",ORGANIZER_ROOM_DESTINATION.groupId],["client","bitcoinwalk.org"]],content:"Create the private BitcoinWalk organizer room."};}
 function metadataTemplate(city:City,groupId:string):EventTemplate{return {kind:9002,created_at:Math.floor(Date.now()/1000),tags:[["h",groupId],["name",`BitcoinWalk ${city.cityName}`],["about",`The open community for BitcoinWalk ${city.cityName}. Anyone can join; only members can read messages.`],["picture",city.avatarUrl],["open"],["client","bitcoinwalk.org"]],content:"Configure the BitcoinWalk city community."};}
 function addMemberTemplate(groupId:string,pubkey:string):EventTemplate{return {kind:9000,created_at:Math.floor(Date.now()/1000),tags:[["h",groupId],["p",pubkey],["client","bitcoinwalk.org"]],content:"Add a founding BitcoinWalk city community member."};}
 function removeMemberTemplate(groupId:string,pubkey:string):EventTemplate{return {kind:9001,created_at:Math.floor(Date.now()/1000),tags:[["h",groupId],["p",pubkey],["client","bitcoinwalk.org"]],content:"Remove a former BitcoinWalk organizer from the private organizer room."};}
@@ -64,19 +64,19 @@ export default function CommunityChatsPage(){
   if(lock.current||!cities.length)return;lock.current=true;setBusy(true);
   try{
    const actor=await getBrowserExtensionPubkey();if(actor!==dashboard.pubkey||!isSuperAdmin(actor))throw new Error("Connect the BitcoinWalk super-admin identity.");
-   const {relay,groupId}=ORGANIZER_GUIDES_DESTINATION,desired=organizerGuidesMembers(cities,actor);
+   const {relay,groupId}=ORGANIZER_ROOM_DESTINATION,desired=organizerRoomMembers(cities,actor);
    setGuidesMessage("Preparing the private organizer room and its current signed-owner roster…");
    if(!await groupExists(relay,groupId))await signedPublish(createOrganizerGroupTemplate(),actor,relay);
-   await signedPublish(organizerGuidesMetadataTemplate(),actor,relay);
-   let membership=await roster(relay,groupId),currentMembers=membership.tags.filter(tag=>tag[0]==="p").map(tag=>tag[1]),plan=organizerGuidesRosterPlan(currentMembers,desired);
+   await signedPublish(organizerRoomMetadataTemplate(),actor,relay);
+   let membership=await roster(relay,groupId),currentMembers=membership.tags.filter(tag=>tag[0]==="p").map(tag=>tag[1]),plan=organizerRoomRosterPlan(currentMembers,desired);
    for(const pubkey of plan.add)if(pubkey!==actor)await signedPublish(addMemberTemplate(groupId,pubkey),actor,relay);
    for(const pubkey of plan.remove)if(pubkey!==actor)await signedPublish(removeMemberTemplate(groupId,pubkey),actor,relay);
-   membership=await roster(relay,groupId);currentMembers=membership.tags.filter(tag=>tag[0]==="p").map(tag=>tag[1]);plan=organizerGuidesRosterPlan(currentMembers,desired);
+   membership=await roster(relay,groupId);currentMembers=membership.tags.filter(tag=>tag[0]==="p").map(tag=>tag[1]);plan=organizerRoomRosterPlan(currentMembers,desired);
    if(plan.add.length||plan.remove.length)throw new Error("The relay-signed organizer roster did not match the current city owners.");
    const infoUrl=new URL(relay);infoUrl.protocol="https:";const infoResponse=await fetch(infoUrl,{headers:{Accept:"application/nostr+json"},cache:"no-store",signal:AbortSignal.timeout(5000)}),info=await infoResponse.json() as {self?:unknown};
    if(!infoResponse.ok||typeof info.self!=="string")throw new Error("The organizer-room relay identity could not be verified.");
    const metadata=await COMMUNITY_POOL.querySync([relay],{kinds:[39000],"#d":[groupId],limit:5},{maxWait:9000});
-   if(!verifiedOrganizerGuidesMetadata(metadata,info.self))throw new Error("The organizer room is not yet private, restricted and closed.");
+   if(!verifiedOrganizerRoomMetadata(metadata,info.self))throw new Error("The organizer room is not yet private, restricted and closed.");
    setGuidesMessage(`Ready for ${desired.length-2} current organizer ${desired.length-2===1?"account":"accounts"}, BitcoinWalk Guide and BitcoinWalk HQ. Former owners were removed.`);
   }catch(error){setGuidesMessage(error instanceof Error?error.message:"The organizer room could not be reconciled.");}finally{lock.current=false;setBusy(false);}
  }
@@ -89,9 +89,9 @@ export default function CommunityChatsPage(){
   <button type="button" disabled={busy} onClick={load}>{busy?"Working…":"Refresh"}</button>
   <p role="status" aria-live="polite">{message}</p>
   <section>
-   <h2>BitcoinWalk Guides</h2>
+   <h2>BitcoinWalk Organizers</h2>
    <p>A private, members-only NIP-29 room suggested to every current city organizer. Membership follows signed city ownership and includes BitcoinWalk Guide and BitcoinWalk HQ. It is not end-to-end encrypted; never share keys, recovery files or payout details there.</p>
-   <p><span className={styles.groupAvatar} aria-hidden="true">BW</span><br/><strong>BitcoinWalk Guides</strong><br/><code>{ORGANIZER_GUIDES_DESTINATION.groupId}</code></p>
+   <p><span className={styles.groupAvatar} aria-hidden="true">BW</span><br/><strong>BitcoinWalk Organizers</strong><br/><code>{ORGANIZER_ROOM_DESTINATION.groupId}</code></p>
    <button type="button" disabled={busy||!cities.length} onClick={()=>void reconcileGuides()}>Sign and reconcile organizer room</button>
    <p role="status" aria-live="polite">{guidesMessage}</p>
   </section>

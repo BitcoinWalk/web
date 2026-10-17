@@ -7,7 +7,7 @@ export type Nip29CityRoom={id:string;name:string;slug:string;avatarUrl?:string;c
 export type Nip29Room={key:string;label:string;scope:"global"|"city"|"organizers";cityIds:string[];destination:Nip29Destination;avatarUrl?:string};
 export type DashboardNip29Rooms={city:Nip29Room|null;global:Nip29Room|null;organizers:Nip29Room|null};
 
-export const ORGANIZER_GUIDES_DESTINATION:Nip29Destination={relay:"wss://chat.bitcoinwalk.org/",groupId:"bitcoinwalk-guides"};
+export const ORGANIZER_ROOM_DESTINATION:Nip29Destination={relay:"wss://chat.bitcoinwalk.org/",groupId:"bitcoinwalk-organizers"};
 export const GUIDE_CONVERSATION_KEY="bitcoinwalk-guide";
 
 const hex=/^[0-9a-f]{64}$/;
@@ -54,7 +54,7 @@ export function dashboardNip29Rooms(cities:Nip29CityRoom[],managedCityIds:string
  return {
   city,
   global:globalDestination?room(globalDestination,"BitcoinWalk Global","global",cities.map(row=>row.id)):null,
-  organizers:organizerEligible?room(ORGANIZER_GUIDES_DESTINATION,"BitcoinWalk Guides","organizers",managedCityIds):null,
+  organizers:organizerEligible?room(ORGANIZER_ROOM_DESTINATION,"BitcoinWalk Organizers","organizers",managedCityIds):null,
  };
 }
 
