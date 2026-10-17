@@ -74,6 +74,12 @@ export function nip29RoomName(events:Event[],groupId:string,fallback:string):str
  return name&&name.length<=80?name:fallback;
 }
 
+export function nip29ParticipantCount(events:Event[],groupId:string):number|null{
+ const membership=events.filter(event=>event.kind===39002&&verifyEvent(event)&&exactTag(event,"d",groupId)).sort(compareEvents)[0];
+ if(!membership)return null;
+ return new Set(membership.tags.filter(tag=>tag[0]==="p"&&tag.length>=2&&hex.test(tag[1])).map(tag=>tag[1])).size;
+}
+
 export function mergeNip29Messages(current:Nip29Message[],events:Event[],groupId:string,now=Math.floor(Date.now()/1000)):Nip29Message[]{
  const rows=new Map(current.map(row=>[row.id,row]));
  for(const event of events){

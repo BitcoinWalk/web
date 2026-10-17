@@ -1,6 +1,6 @@
 import {finalizeEvent,getPublicKey,type EventTemplate} from "nostr-tools";
 import {describe,expect,it} from "vitest";
-import {dashboardNip29CityRooms,dashboardNip29Rooms,mergeNip29Messages,nip29ComposerKey,nip29JoinTemplate,nip29MessageTemplate,nip29RoomName,uniqueNip29Rooms,updateNip29Composer,validNip29Destination} from "./nip29-chat";
+import {dashboardNip29CityRooms,dashboardNip29Rooms,mergeNip29Messages,nip29ComposerKey,nip29JoinTemplate,nip29MessageTemplate,nip29ParticipantCount,nip29RoomName,uniqueNip29Rooms,updateNip29Composer,validNip29Destination} from "./nip29-chat";
 
 const key=new Uint8Array(32).fill(4),pubkey=getPublicKey(key),group="bitcoinwalk-london";
 const signed=(template:EventTemplate)=>finalizeEvent(template,key);
@@ -45,7 +45,12 @@ describe("NIP-29 dashboard chat",()=>{
   const metadata=signed({kind:39000,created_at:10,tags:[["d",group],["name","chat"]],content:""});
   expect(nip29RoomName([metadata],group,"London")).toBe("chat");
   expect(nip29JoinTemplate(group,12)).toEqual({kind:9021,created_at:12,tags:[["h",group]],content:""});
-  expect(nip29MessageTemplate(group," Hi ",13)).toEqual({kind:9,created_at:13,tags:[["h",group]],content:"Hi"});
+ expect(nip29MessageTemplate(group," Hi ",13)).toEqual({kind:9,created_at:13,tags:[["h",group]],content:"Hi"});
+ });
+ it("counts unique participants from the latest valid signed membership record",()=>{
+  const first="11".repeat(32),second="22".repeat(32),old=signed({kind:39002,created_at:10,tags:[["d",group],["p",first]],content:""}),latest=signed({kind:39002,created_at:11,tags:[["d",group],["p",first],["p",first,"admin"],["p",second],["p","invalid"]],content:""});
+  expect(nip29ParticipantCount([old,latest],group)).toBe(2);
+  expect(nip29ParticipantCount([latest],"other")).toBeNull();
  });
  it("isolates composer text and attachments by account and exact room",()=>{
   const london=nip29ComposerKey("a".repeat(64),"london"),global=nip29ComposerKey("a".repeat(64),"global"),other=nip29ComposerKey("b".repeat(64),"london");
