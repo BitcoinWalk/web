@@ -58,6 +58,17 @@ BW-133 establishes that shared safety boundary, BW-145 provisions and reconciles
 the organizer room, BW-125 carries the same destination model into mobile, and
 BW-128 supplies standard direct-message interoperability.
 
+Every current signed city owner sees four suggested avatars in Chats: their City,
+BitcoinWalk Guide, BitcoinWalk Global and Organizers. City and Global use the
+standard first-use NIP-29 join request. The organizer room is pre-authorized from
+the current signed owner roster, so eligible organizers can open it immediately;
+arbitrary join requests are never treated as organizer authority. Super-admin
+reconciliation creates `bitcoinwalk-guides` as private, restricted and closed,
+adds current owners plus BitcoinWalk Guide and BitcoinWalk HQ, removes superseded
+owners and requires exact relay-signed metadata and roster read-back. Private
+NIP-29 access control is not end-to-end encryption. Guide remains an honest
+notification-only NIP-17 destination until BW-128 adds compatible inbound DMs.
+
 After provisioning a real paid relay/group, use **Monitoring → Communities** to
 verify signed public/open NIP-29 metadata and then activate the exact destination
 with a second super-admin signature. Do not place paid destinations in source

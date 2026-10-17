@@ -32,11 +32,14 @@ describe("NIP-29 dashboard chat",()=>{
   ],["rye"],"rye");
   expect(rooms.city).toMatchObject({label:"Rye",scope:"city",avatarUrl:"https://bitcoinwalk.org/rye.webp",destination:{...rye,relay:`${rye.relay}/`}});
   expect(rooms.global).toMatchObject({label:"BitcoinWalk Global",scope:"global",destination:{...global,relay:`${global.relay}/`}});
+  expect(rooms.organizers).toMatchObject({label:"BitcoinWalk Guides",scope:"organizers",destination:{relay:"wss://chat.bitcoinwalk.org/",groupId:"bitcoinwalk-guides"}});
   expect(rooms.city?.key).not.toBe(rooms.global?.key);
+  expect(dashboardNip29Rooms([],[],"",false).organizers).toBeNull();
   expect(dashboardNip29CityRooms([
    {id:"rye",name:"Rye",slug:"rye",chat:{scope:"city",nip29:rye,communities:{city:rye,global}}},
    {id:"hanover",name:"Hanover",slug:"hanover",chat:{scope:"city",nip29:{relay:"wss://hanover.bitcoinwalk.org",groupId:"hanover"},communities:{city:{relay:"wss://hanover.bitcoinwalk.org",groupId:"hanover"},global}}},
   ],["rye","hanover"]).map(row=>row.label)).toEqual(["Hanover","Rye"]);
+  expect(dashboardNip29Rooms([],[],"").organizers).toBeNull();
  });
  it("uses signed metadata only and builds exact join and message requests",()=>{
   const metadata=signed({kind:39000,created_at:10,tags:[["d",group],["name","chat"]],content:""});

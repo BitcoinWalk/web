@@ -4,8 +4,11 @@ export type Nip29Destination={relay:string;groupId:string};
 export type Nip29Message={id:string;pubkey:string;content:string;createdAt:number};
 export type Nip29Composer={draft:string;attachment:string};
 export type Nip29CityRoom={id:string;name:string;slug:string;avatarUrl?:string;chat:{scope:"global"|"city";nip29:Nip29Destination|null;communities?:{global:Nip29Destination|null;city:Nip29Destination|null}}};
-export type Nip29Room={key:string;label:string;scope:"global"|"city";cityIds:string[];destination:Nip29Destination;avatarUrl?:string};
-export type DashboardNip29Rooms={city:Nip29Room|null;global:Nip29Room|null};
+export type Nip29Room={key:string;label:string;scope:"global"|"city"|"organizers";cityIds:string[];destination:Nip29Destination;avatarUrl?:string};
+export type DashboardNip29Rooms={city:Nip29Room|null;global:Nip29Room|null;organizers:Nip29Room|null};
+
+export const ORGANIZER_GUIDES_DESTINATION:Nip29Destination={relay:"wss://chat.bitcoinwalk.org/",groupId:"bitcoinwalk-guides"};
+export const GUIDE_CONVERSATION_KEY="bitcoinwalk-guide";
 
 const hex=/^[0-9a-f]{64}$/;
 
@@ -38,19 +41,20 @@ export function uniqueNip29Rooms(cities:Nip29CityRoom[]):Nip29Room[]{
  return [...rooms.values()].sort((a,b)=>a.label.localeCompare(b.label)||a.key.localeCompare(b.key));
 }
 
-function room(destination:Nip29Destination,label:string,scope:"global"|"city",cityIds:string[],avatarUrl?:string):Nip29Room{
+function room(destination:Nip29Destination,label:string,scope:"global"|"city"|"organizers",cityIds:string[],avatarUrl?:string):Nip29Room{
  return {key:`${destination.relay}\n${destination.groupId}`,label,scope,cityIds,destination,...(avatarUrl?{avatarUrl}:{})};
 }
 
 /** Keep the city and network-wide communities as distinct destinations. The
  * public directory can expose both even when its legacy `chat.nip29` field
  * points at only the city's preferred room. */
-export function dashboardNip29Rooms(cities:Nip29CityRoom[],managedCityIds:string[],selectedCity=""):DashboardNip29Rooms{
+export function dashboardNip29Rooms(cities:Nip29CityRoom[],managedCityIds:string[],selectedCity="",organizerEligible=managedCityIds.length>0):DashboardNip29Rooms{
  const cityRooms=dashboardNip29CityRooms(cities,managedCityIds),city=cityRooms.find(row=>row.cityIds.includes(selectedCity))??cityRooms[0]??null;
  const globalDestination=cities.map(row=>validNip29Destination(row.chat.communities?.global??(row.chat.scope==="global"?row.chat.nip29:null))).find(Boolean)??null;
  return {
   city,
   global:globalDestination?room(globalDestination,"BitcoinWalk Global","global",cities.map(row=>row.id)):null,
+  organizers:organizerEligible?room(ORGANIZER_GUIDES_DESTINATION,"BitcoinWalk Guides","organizers",managedCityIds):null,
  };
 }
 
