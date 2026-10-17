@@ -14,7 +14,7 @@ test "$(sha256sum "$artifact" | cut -d' ' -f1)" = a8ee6c72a76c69dbf1841446d6b840
 test "$(sha256sum "$target" | cut -d' ' -f1)" = c58dfaea95c441972bd03d3406ccd5d81c1f1ea0e146e68355aa232f22567920
 test "$(sha256sum "$config" | cut -d' ' -f1)" = 3c02c4a926384f840464a6e1881b22ac0785f037d683519140bedb95c66f403f
 test "$(sha256sum "$unit" | cut -d' ' -f1)" = 4525f663b348437c3230dc274fd6f975d76dd6fde2ba1295bc6a84a529583719
-test "$(curl -fsS --max-time 10 http://127.0.0.1:3338/api/healthz)" = '{"status":"ok","app":"bitcoinwalk-web","release":"app-staging-0.3.420"}'
+test "$(curl -fsS --max-time 10 http://127.0.0.1:3338/api/healthz)" = '{"status":"ok","app":"bitcoinwalk-web","release":"app-staging-0.3.422"}'
 
 backup=$(mktemp -d /var/backups/bitcoinwalk-guide-hosts-0.3.418.XXXXXX)
 chmod 0700 "$backup"
