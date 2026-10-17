@@ -1,11 +1,12 @@
 import { DatabaseSync } from "node:sqlite";
 import type { ApprovalRecord, CityRevision } from "../nostr/city-records";
 import type { Event } from "nostr-tools";
-import { approvalAlert, directoryAlert, liveAlert, payoutUpdateAlert, proSetupAlert, replicationAlert, wrapAlert, type ProSetupAlertState } from "./core";
+import { approvalAlert, directoryAlert, liveAlert, organizerChatInvitation, payoutUpdateAlert, proSetupAlert, replicationAlert, wrapAlert, type ProSetupAlertState } from "./core";
 import type {GuideDirectoryRequest} from "./directory";
 import type {GuideProSetupTask} from "./pro-setup";
+import type {GuideOrganizerChatHost} from "./organizer-chat";
 
-export type Delivery = { submission: string; recipient: string; wrapped: string; attempts: number; next_attempt: number; state: string; purpose: "review" | "live" | "replication-degraded" | "replication-recovered"|"directory-invitation"|"directory-active"|"directory-failed"|`pro-setup-${ProSetupAlertState}`|"payout-update-pending"|"payout-update-active"|"payout-update-attention" };
+export type Delivery = { submission: string; recipient: string; wrapped: string; attempts: number; next_attempt: number; state: string; purpose: "review" | "live" | "replication-degraded" | "replication-recovered"|"directory-invitation"|"directory-active"|"directory-failed"|`pro-setup-${ProSetupAlertState}`|"payout-update-pending"|"payout-update-active"|"payout-update-attention"|"organizer-chat-invitation" };
 export type ReplicationCityStatus={cityId:string;destination:string;state:"healthy"|"pending"|"degraded";counts:Record<string,number>};
 export type ReplicationRecipient={recipient:string;cityName:string};
 export type LivePublication = { revision: CityRevision; approval: ApprovalRecord; event: Event };
@@ -28,6 +29,18 @@ export class Outbox {
     this.db.exec(`CREATE TABLE IF NOT EXISTS pro_setup_transition (city_id TEXT NOT NULL, kind TEXT NOT NULL, recipient TEXT NOT NULL, state TEXT NOT NULL, PRIMARY KEY(city_id,kind));
       INSERT OR IGNORE INTO pro_setup_transition(city_id,kind,recipient,state)
       SELECT city_id,CASE WHEN state LIKE 'payout-update:%' THEN 'payout-update' ELSE 'setup' END,recipient,state FROM pro_setup_state;`);
+  }
+  ingestOrganizerChat(hosts:GuideOrganizerChatHost[],secret:Uint8Array,chatURL:string):number{
+    this.db.exec("BEGIN IMMEDIATE");
+    try{
+      let queued=0;
+      for(const host of hosts){
+        const wraps=wrapAlert(organizerChatInvitation(host.cityNames,chatURL),host.ownerPubkey,secret);
+        const result=this.db.prepare("INSERT OR IGNORE INTO delivery (submission,recipient,wrapped,sender_copy,purpose) VALUES ('organizer-chat:v1',?,?,?,'organizer-chat-invitation')")
+          .run(host.ownerPubkey,JSON.stringify(wraps.recipient),JSON.stringify(wraps.sender));queued+=Number(result.changes);
+      }
+      this.db.exec("COMMIT");return queued;
+    }catch(error){this.db.exec("ROLLBACK");throw error;}
   }
   ingestProSetup(tasks:GuideProSetupTask[],secret:Uint8Array,adminURL:string):number{
     this.db.exec("BEGIN IMMEDIATE");

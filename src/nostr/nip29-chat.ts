@@ -54,7 +54,7 @@ export function dashboardNip29Rooms(cities:Nip29CityRoom[],managedCityIds:string
  return {
   city,
   global:globalDestination?room(globalDestination,"BitcoinWalk Global","global",cities.map(row=>row.id)):null,
-  organizers:organizerEligible?room(ORGANIZER_ROOM_DESTINATION,"BitcoinWalk Organizers","organizers",managedCityIds):null,
+  organizers:organizerEligible?room(ORGANIZER_ROOM_DESTINATION,"BitcoinWalk Hosts","organizers",managedCityIds):null,
  };
 }
 

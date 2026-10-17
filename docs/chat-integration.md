@@ -45,7 +45,7 @@ aliases remain healthy and Zooid does not restart or receive traffic.
 The app uses one conversation list rather than separate chat products. A regular
 participant sees the verified city room, BitcoinWalk Global and their direct
 conversations. An eligible organizer additionally sees the role-gated
-**BitcoinWalk Organizers** room containing the current active-city organizers,
+**BitcoinWalk Hosts** room containing the current active-city hosts,
 BitcoinWalk Guide and the BitcoinWalk HQ account. NIP-17 Guide notifications and
 other direct messages appear in the same list as direct conversations.
 
@@ -59,7 +59,7 @@ the organizer room, BW-125 carries the same destination model into mobile, and
 BW-128 supplies standard direct-message interoperability.
 
 Every current signed city owner sees four suggested avatars in Chats: their City,
-BitcoinWalk Guide, BitcoinWalk Global and Organizers. City and Global use the
+BitcoinWalk Guide, BitcoinWalk Global and Hosts. City and Global use the
 standard first-use NIP-29 join request. The organizer room is pre-authorized from
 the current signed owner roster, so eligible organizers can open it immediately;
 arbitrary join requests are never treated as organizer authority. Super-admin
@@ -69,6 +69,12 @@ adds current owners plus BitcoinWalk Guide and BitcoinWalk HQ, removes supersede
 owners and requires exact relay-signed metadata and roster read-back. Private
 NIP-29 access control is not end-to-end encryption. Guide remains an honest
 notification-only NIP-17 destination until BW-128 adds compatible inbound DMs.
+
+The Guide sends each current owner one durable NIP-17 onboarding message after
+the roster is reconciled. Its stable `https://bitcoinwalk.org/chat/hosts` link
+falls back to the web dashboard today and is suitable for a future Walkie Talkie
+App/Universal Link without changing historical invitations. A Guide message
+never grants membership; the signed NIP-29 roster remains authoritative.
 
 Organizer-room creation and membership belong under **Hosts**, because access
 follows signed city ownership. **Monitoring → Communities** remains the home for

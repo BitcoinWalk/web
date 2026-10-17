@@ -10,6 +10,7 @@ import {managedCities} from "../../../../nostr/moderation";
 import {latestCityGrants} from "../../../../nostr/editor-management";
 import {serverReadRelays} from "../../../../lib/server-relay-config";
 import {SUPER_ADMIN_PUBKEY} from "../../../../nostr/authority";
+import {cityOwnerPubkey} from "../../../../domain/city";
 
 export const dynamic="force-dynamic",runtime="nodejs";
 const response=(body:unknown,status=200)=>Response.json(body,{status,headers:{"Cache-Control":"no-store"}});
@@ -22,7 +23,7 @@ async function eligible():Promise<EligibleCity[]>{
  return Promise.all(managedCities(revisions,approvals).filter(row=>row.state==="approved").map(async row=>{
   const cityId=row.revision.city.cityId,slug=row.decision.approval.slug??row.revision.city.slug;
   const entitlement=db.prepare("SELECT invoiceId FROM paid_city_entitlement WHERE cityId=?").get(cityId) as {invoiceId:string}|undefined;
-  const tier:ChatProvisionTier=entitlement?"pro":"basic",bindingId=entitlement?.invoiceId??row.decision.event.id,organizerPubkey=grants.get(cityId)?.creatorPubkey??row.revision.event.pubkey;
+  const tier:ChatProvisionTier=entitlement?"pro":"basic",bindingId=entitlement?.invoiceId??row.decision.event.id,grant=grants.get(cityId),organizerPubkey=grant?cityOwnerPubkey(grant):row.revision.event.pubkey;
   if(!/^[0-9a-f]{64}$/.test(organizerPubkey))throw new Error(`The current city host for ${row.revision.city.cityName} could not be verified.`);
   return {cityId,cityName:row.revision.city.cityName,slug,tier,organizerPubkey,guidePubkey,authority:{tier,bindingId,relay:WALKIE_TALKIE_RELAY}};
  })).then(rows=>rows.sort((a,b)=>a.cityName.localeCompare(b.cityName)));

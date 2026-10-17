@@ -11,7 +11,7 @@ export function organizerRoomMembers(cities:OrganizerGuideCity[],hqPubkey:string
 }
 
 export function organizerRoomMetadataTemplate(now=Math.floor(Date.now()/1000)):EventTemplate{
- return {kind:9002,created_at:now,tags:[["h",ORGANIZER_ROOM_DESTINATION.groupId],["name","BitcoinWalk Organizers"],["about","A private room for current BitcoinWalk city organizers, BitcoinWalk Guide and BitcoinWalk HQ."],["picture","https://bitcoinwalk.org/brand/bitcoinwalk-icon.png"],["private"],["restricted"],["closed"],["supported_kinds","9"]],content:"Configure the private BitcoinWalk organizer room."};
+ return {kind:9002,created_at:now,tags:[["h",ORGANIZER_ROOM_DESTINATION.groupId],["name","BitcoinWalk Hosts"],["about","A private room for current BitcoinWalk city hosts, BitcoinWalk Guide and BitcoinWalk HQ."],["picture","https://bitcoinwalk.org/brand/bitcoinwalk-icon.png"],["private"],["restricted"],["closed"],["supported_kinds","9"]],content:"Configure the private BitcoinWalk Hosts room."};
 }
 
 export function organizerRoomRosterPlan(current:string[],desired:string[]){
@@ -21,5 +21,5 @@ export function organizerRoomRosterPlan(current:string[],desired:string[]){
 
 function oneTag(event:Event,name:string,value?:string){const tags=event.tags.filter(tag=>tag[0]===name);return tags.length===1&&(value===undefined?tags[0].length===1:tags[0].length===2&&tags[0][1]===value);}
 export function verifiedOrganizerRoomMetadata(events:Event[],relayPubkey:string){
- return events.some(event=>event.kind===39000&&verifyEvent(event)&&event.pubkey===relayPubkey&&oneTag(event,"d",ORGANIZER_ROOM_DESTINATION.groupId)&&oneTag(event,"name","BitcoinWalk Organizers")&&oneTag(event,"private")&&oneTag(event,"restricted")&&oneTag(event,"closed"));
+ return events.some(event=>event.kind===39000&&verifyEvent(event)&&event.pubkey===relayPubkey&&oneTag(event,"d",ORGANIZER_ROOM_DESTINATION.groupId)&&oneTag(event,"name","BitcoinWalk Hosts")&&oneTag(event,"private")&&oneTag(event,"restricted")&&oneTag(event,"closed"));
 }

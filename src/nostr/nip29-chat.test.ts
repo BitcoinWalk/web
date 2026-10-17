@@ -32,7 +32,7 @@ describe("NIP-29 dashboard chat",()=>{
   ],["rye"],"rye");
   expect(rooms.city).toMatchObject({label:"Rye",scope:"city",avatarUrl:"https://bitcoinwalk.org/rye.webp",destination:{...rye,relay:`${rye.relay}/`}});
   expect(rooms.global).toMatchObject({label:"BitcoinWalk Global",scope:"global",destination:{...global,relay:`${global.relay}/`}});
-  expect(rooms.organizers).toMatchObject({label:"BitcoinWalk Organizers",scope:"organizers",destination:{relay:"wss://chat.bitcoinwalk.org/",groupId:"bitcoinwalk-organizers"}});
+  expect(rooms.organizers).toMatchObject({label:"BitcoinWalk Hosts",scope:"organizers",destination:{relay:"wss://chat.bitcoinwalk.org/",groupId:"bitcoinwalk-organizers"}});
   expect(rooms.city?.key).not.toBe(rooms.global?.key);
   expect(dashboardNip29Rooms([],[],"",false).organizers).toBeNull();
   expect(dashboardNip29CityRooms([

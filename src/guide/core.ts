@@ -40,6 +40,8 @@ export const configSchema = z.object({
   directoryAdminURL:z.string().url().refine(value=>new URL(value).href==="https://bitcoinwalk.org/admin").optional(),
   proSetupStatusURL:z.string().url().refine(value=>{const u=new URL(value);return (u.href==="http://127.0.0.1:3345/api/pro-setup-notifications"||u.href==="http://127.0.0.1:3338/api/pro-setup-notifications")&&!u.username&&!u.password&&!u.hash&&!u.search;}).optional(),
   proSetupAdminURL:z.string().url().refine(value=>{const u=new URL(value);return u.protocol==="https:"&&["bitcoinwalk.org","app-staging.bitcoinwalk.org"].includes(u.hostname)&&["/admin/my-cities","/admin/upgrade"].includes(u.pathname)&&!u.port&&!u.search&&!u.hash&&!u.username&&!u.password;}).optional(),
+  organizerChatStatusURL:z.string().url().refine(value=>{const u=new URL(value);return (u.href==="http://127.0.0.1:3345/api/organizer-chat-invitations"||u.href==="http://127.0.0.1:3338/api/organizer-chat-invitations")&&!u.username&&!u.password&&!u.hash&&!u.search;}).optional(),
+  organizerChatURL:z.string().url().refine(value=>{const u=new URL(value);return u.protocol==="https:"&&["bitcoinwalk.org","app-staging.bitcoinwalk.org"].includes(u.hostname)&&u.pathname==="/chat/hosts"&&!u.search&&!u.hash&&!u.port&&!u.username&&!u.password;}).optional(),
   enabled: z.boolean().default(false),
 });
 export type GuideConfig = z.infer<typeof configSchema>;
@@ -104,6 +106,11 @@ export function payoutUpdateAlert(cityName:string,cityId:string,state:"pending"|
  if(state==="active")return `Your new payout destination for BitcoinWalk in ${city} is now active! ⚡\n\nPayments will now be sent to your new destination. Everything is set up, so there’s nothing else you need to do.\n\nThis is an automated message from BitcoinWalk Guide. Replies aren’t monitored.`;
  if(state==="attention")return `Your payout destination update for BitcoinWalk in ${city} needs attention.\n\nThe previous destination is still active; no funds were redirected to an unverified replacement. Review the update here: ${url.href}\n\nBitcoinWalk Guide is automated; replies are not monitored. Never share your private key.`;
  return `Your payout destination update for BitcoinWalk in ${city} was saved.\n\nThe previous destination remains active while BitcoinWalk verifies the replacement. You can follow its status here: ${url.href}\n\nBitcoinWalk Guide is automated; replies are not monitored. Never share your private key.`;
+}
+
+export function organizerChatInvitation(cityNames:string[],chatURL:string):string{
+ const cities=cityNames.map(value=>value.replace(/[\p{C}\p{Z}]+/gu," ").trim()).filter(Boolean).join(", ");
+ return `You’re invited to BitcoinWalk Hosts.\n\nThis private group connects the current verified hosts of BitcoinWalk cities. Your access follows your city ownership${cities?` (${cities})`:""}; it is removed automatically after an ownership transfer.\n\nOpen the Hosts chat: ${chatURL}\n\nThe room uses NIP-29 and is not end-to-end encrypted. Never share private keys, recovery files or payout credentials. BitcoinWalk Guide is automated; replies are not monitored.`;
 }
 
 export function selectInbox(events: Event[], recipient: string, allowed: string[], now = Math.floor(Date.now()/1000)): string[] {

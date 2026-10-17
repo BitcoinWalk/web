@@ -14,6 +14,7 @@ import {verifiedLivePublications} from "./live";
 import {exactLiveDeliveryForRetry, exactReplicationDeliveryForRetry, type PersistedDelivery} from "./operator";
 import {readGuideDirectoryRequests} from "./directory";
 import {readGuideProSetupTasks} from "./pro-setup";
+import {readGuideOrganizerChatHosts} from "./organizer-chat";
 
 async function main() {
   process.umask(0o077);
@@ -27,6 +28,7 @@ async function main() {
   const checkReplication = process.argv.includes("--check-replication");
   const checkDirectory = process.argv.includes("--check-directory");
   const checkProSetup = process.argv.includes("--check-pro-setup");
+  const checkOrganizerChat = process.argv.includes("--check-organizer-chat");
   const baselineDirectory = process.argv.includes("--baseline-directory");
   const retryIndex=process.argv.indexOf("--retry-delivery");
   const retryDelivery=retryIndex!==-1;
@@ -38,8 +40,8 @@ async function main() {
   const retryPurpose=retryReplicationDelivery?process.argv[selectedRetryIndex+3]:undefined;
   if(retryDelivery&&(!retrySubmission||!retryRecipient))throw new Error("Retry requires an exact live submission and recipient.");
   if(retryReplicationDelivery&&(!retrySubmission||!retryRecipient||!retryPurpose))throw new Error("Replication retry requires an exact submission, recipient and purpose.");
-  if([dryRun,publishProfile,checkProfile,printIdentity,checkReplication,checkDirectory,checkProSetup,baselineDirectory,retryDelivery,retryReplicationDelivery].filter(Boolean).length>1)throw new Error("Choose only one Guide operation mode.");
-  if (!dryRun && !publishProfile && !checkProfile && !printIdentity && !checkReplication && !checkDirectory && !checkProSetup && !baselineDirectory && !retryDelivery && !retryReplicationDelivery && !config.enabled) throw new Error("Guide is disabled. Complete dry-run and operator review before enabling.");
+  if([dryRun,publishProfile,checkProfile,printIdentity,checkReplication,checkDirectory,checkProSetup,checkOrganizerChat,baselineDirectory,retryDelivery,retryReplicationDelivery].filter(Boolean).length>1)throw new Error("Choose only one Guide operation mode.");
+  if (!dryRun && !publishProfile && !checkProfile && !printIdentity && !checkReplication && !checkDirectory && !checkProSetup && !checkOrganizerChat && !baselineDirectory && !retryDelivery && !retryReplicationDelivery && !config.enabled) throw new Error("Guide is disabled. Complete dry-run and operator review before enabling.");
   let secret: Uint8Array | undefined;
   let outbox: Outbox | undefined;
   if (!dryRun) {
@@ -57,6 +59,7 @@ async function main() {
     if(checkReplication){const report=await readGuideReplicationStatus(secret);console.log(`Guide replication authorization passed: ${report.state}; ${report.cities.length} city row(s).`);secret.fill(0);return;}
     if(checkDirectory){if(!config.directoryStatusURL)throw new Error("Directory status URL is absent.");try{const rows=await readGuideDirectoryRequests(secret,config.directoryStatusURL);console.log(`Guide directory authorization passed; ${rows.length} request row(s).`);secret.fill(0);return;}catch(error){console.error(`Guide directory authorization failed: ${error instanceof Error?error.message:"unknown failure"}`);secret.fill(0);process.exitCode=1;return;}}
     if(checkProSetup){if(!config.proSetupStatusURL)throw new Error("Pro setup status URL is absent.");try{const rows=await readGuideProSetupTasks(secret,config.proSetupStatusURL);console.log(`Guide Pro setup authorization passed; ${rows.length} actionable task row(s).`);secret.fill(0);return;}catch(error){console.error(`Guide Pro setup authorization failed: ${error instanceof Error?error.message:"unknown failure"}`);secret.fill(0);process.exitCode=1;return;}}
+    if(checkOrganizerChat){if(!config.organizerChatStatusURL)throw new Error("Host invitation status URL is absent.");try{const rows=await readGuideOrganizerChatHosts(secret,config.organizerChatStatusURL);console.log(`Guide host invitation authorization passed; ${rows.length} current host(s).`);secret.fill(0);return;}catch(error){console.error(`Guide host invitation authorization failed: ${error instanceof Error?error.message:"unknown failure"}`);secret.fill(0);process.exitCode=1;return;}}
     if(baselineDirectory){if(!config.directoryStatusURL||!config.directoryAdminURL)throw new Error("Directory notification configuration is absent.");const box=new Outbox(join(state,"guide.sqlite"));try{box.bind(bot,config.sourceRelay);const rows=await readGuideDirectoryRequests(secret,config.directoryStatusURL),queued=box.ingestDirectory(rows,secret,config.directoryAdminURL);if(queued!==0)throw new Error("Historical directory baseline unexpectedly queued a message.");console.log(`Guide directory baseline accepted; ${rows.length} existing request row(s), zero historical messages queued.`);}finally{box.close();secret.fill(0);}return;}
     if(!retryDelivery&&!retryReplicationDelivery){
       outbox = new Outbox(join(state, "guide.sqlite"));
@@ -116,6 +119,7 @@ async function main() {
         const replication=dryRun?undefined:await readGuideReplicationStatus(secret!);
         const directory=dryRun||!config.directoryStatusURL||!config.directoryAdminURL?undefined:await readGuideDirectoryRequests(secret!,config.directoryStatusURL);
         const proSetup=dryRun||!config.proSetupStatusURL||!config.proSetupAdminURL?undefined:await readGuideProSetupTasks(secret!,config.proSetupStatusURL);
+        const organizerChat=dryRun||!config.organizerChatStatusURL||!config.organizerChatURL?undefined:await readGuideOrganizerChatHosts(secret!,config.organizerChatStatusURL);
         const replicationOrganizers=new Map(managedCities(revisions,decisions).filter(city=>city.state==="approved").map(city=>[city.revision.city.cityId,{recipient:city.revision.event.pubkey,cityName:city.revision.city.cityName}]));
         if (dryRun) {
           for (const recipient of config.recipients) {
@@ -129,19 +133,21 @@ async function main() {
           + outbox!.ingestLive(live, secret!, config.adminURL, config.sourceRelay)
           + outbox!.ingestReplication(replication!.cities,replicationOrganizers,secret!)
           + (directory?outbox!.ingestDirectory(directory,secret!,config.directoryAdminURL!):0)
-          + (proSetup?outbox!.ingestProSetup(proSetup,secret!,config.proSetupAdminURL!):0);
+          + (proSetup?outbox!.ingestProSetup(proSetup,secret!,config.proSetupAdminURL!):0)
+          + (organizerChat?outbox!.ingestOrganizerChat(organizerChat,secret!,config.organizerChatURL!):0);
         console.log(`Scan complete; ${queued} new recipient notification(s) queued.`);
         const pendingIDs = new Set(pending.map(r => r.event.id));
         const liveIDs = new Set(live.map(item => `live:${item.approval.event.id}`));
         const replicationStates=new Map(replication!.cities.map(city=>[city.cityId,city.state]));
         const directoryStates=new Map((directory??[]).map(request=>[request.id,`${request.status}:${request.activationState}`]));
         const proSetupCurrent=new Map((proSetup??[]).map(task=>[task.kind==="setup"?`pro-setup:${task.cityId}:${task.state}`:`payout-update:${task.cityId}:${task.payoutVersion}:${task.state==="active"?"active":task.state==="blocked"||task.state==="needs-attention"?"attention":"pending"}`,task.ownerPubkey]));
+        const organizerChatHosts=new Set((organizerChat??[]).map(host=>host.ownerPubkey));
         for (const row of outbox!.due(Math.floor(Date.now()/1000))) {
           if (stopping) break;
           if (row.purpose === "review" && !config.recipients.includes(row.recipient)) { outbox!.state(row, "removed-recipient"); continue; }
           const replicationCity=row.submission.startsWith("replication:")?row.submission.split(":")[1]:"";
           const directoryMatch=/^directory:([0-9a-f-]{36}):(directory-(?:invitation|active|failed))$/.exec(row.submission),directoryState=directoryMatch?directoryStates.get(directoryMatch[1]):undefined;
-          const current=row.purpose.startsWith("pro-setup-")||row.purpose.startsWith("payout-update-")?proSetupCurrent.get(row.submission)===row.recipient:row.purpose==="replication-degraded"?replicationStates.get(replicationCity)==="degraded":row.purpose==="replication-recovered"?replicationStates.get(replicationCity)==="healthy":row.purpose==="directory-invitation"?directoryState?.startsWith("awaiting-owner:")===true:row.purpose==="directory-active"?directoryState?.endsWith(":active")===true:row.purpose==="directory-failed"?directoryState?.endsWith(":failed")===true:row.purpose==="review"?pendingIDs.has(row.submission):liveIDs.has(row.submission);
+          const current=row.purpose==="organizer-chat-invitation"?organizerChatHosts.has(row.recipient):row.purpose.startsWith("pro-setup-")||row.purpose.startsWith("payout-update-")?proSetupCurrent.get(row.submission)===row.recipient:row.purpose==="replication-degraded"?replicationStates.get(replicationCity)==="degraded":row.purpose==="replication-recovered"?replicationStates.get(replicationCity)==="healthy":row.purpose==="directory-invitation"?directoryState?.startsWith("awaiting-owner:")===true:row.purpose==="directory-active"?directoryState?.endsWith(":active")===true:row.purpose==="directory-failed"?directoryState?.endsWith(":failed")===true:row.purpose==="review"?pendingIDs.has(row.submission):liveIDs.has(row.submission);
           if(!current){outbox!.state(row,"obsolete");continue;}
           let relays:string[];
           try {
