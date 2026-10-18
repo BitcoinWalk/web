@@ -158,7 +158,10 @@ activation may re-enter verification only through that explicit signed retry:
 the app first revalidates its stored authority, requires the provider's exact
 applied configuration and independently checks both public endpoints. Changed
 evidence remains blocked and an exact applied configuration is never written a
-second time.
+second time. A completed payout-version transition may leave the original
+activation proof in the historical row; recovery therefore treats that proof as
+historical only after fresh authority reconstructs the exact saved configuration
+and the provider independently returns its exact applied digest.
 
 The prepared managed tunnel forwards `.138` loopback `127.0.0.1:18895` only to
 `.240` loopback `127.0.0.1:8895`, using a dedicated key that permits that single

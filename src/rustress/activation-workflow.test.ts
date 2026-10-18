@@ -36,13 +36,14 @@ describe("durable managed city activation",()=>{
   it("recovers a falsely blocked exact applied activation without another provider write",async()=>{
     const f=fixture();await f.workflow.enqueue("request");
     expect(await f.workflow.run(reserved.cityId)).toMatchObject({state:"active"});
-    f.db.prepare("UPDATE rustress_activation_task SET phase='blocked',nip05='needs-attention',lnurl='needs-attention'").run();
+    f.db.prepare("UPDATE rustress_activation_task SET phase='blocked',nip05='needs-attention',lnurl='needs-attention',proof=?").run("f".repeat(64));
     expect(await f.workflow.retry(reserved.cityId)).toMatchObject({state:"active",nip05:"active",lnurl:"active"});
     expect(f.provider.apply).toHaveBeenCalledTimes(1);expect(f.provider.status).toHaveBeenCalledTimes(3);
   });
   it("keeps recovery blocked when the saved authority is no longer exact",async()=>{
     const f=fixture();await f.workflow.enqueue("request");
-    f.resolve.mockResolvedValue({...f.evidence,proofHash:"f".repeat(64)});
+    const changedReserved={...reserved,payoutVersion:3},changedActivation=createCityActivation(changedReserved);
+    f.resolve.mockResolvedValue({...f.evidence,reserved:changedReserved,activation:changedActivation,proofHash:"f".repeat(64)});
     expect(await f.workflow.run(reserved.cityId)).toMatchObject({state:"blocked"});
     expect(await f.workflow.retry(reserved.cityId)).toMatchObject({state:"blocked"});
     expect(f.provider.prepare).not.toHaveBeenCalled();expect(f.provider.apply).not.toHaveBeenCalled();
