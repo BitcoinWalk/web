@@ -22,10 +22,10 @@ const WALKIE_TALKIE_RELAY="wss://chat.bitcoinwalk.org/";
 const COMMUNITY_POOL=new SimplePool();
 function relayFor(city:City){void city;return WALKIE_TALKIE_RELAY;}
 function communityStatus(row:Row|undefined):{tone:CommunityTone;label:string;detail:string}{
- if(!row)return {tone:"neutral",label:"Not set up",detail:"No Walkie Talkie channel has been registered yet."};
+ if(!row)return {tone:"amber",label:"Assistance required",detail:"Automatic setup did not complete. Resume this city from the saved approval."};
  if(row.phase==="active")return {tone:"green",label:"Active",detail:"Available on public walk pages."};
- if(row.phase==="verified")return {tone:"amber",label:"Ready to activate",detail:"Verified successfully; final activation remains."};
- if(row.phase==="candidate")return {tone:"neutral",label:"Setup started",detail:"The channel still needs independent verification."};
+ if(row.phase==="verified")return {tone:"amber",label:"Ready to finish",detail:"Automatic setup reached verification but did not complete activation."};
+ if(row.phase==="candidate")return {tone:"amber",label:"Setup paused",detail:"Automatic setup started but did not complete verification."};
  return {tone:"red",label:"Needs attention",detail:"The saved channel evidence needs to be reconciled."};
 }
 function createGroupTemplate(groupId:string):EventTemplate{return {kind:9007,created_at:Math.floor(Date.now()/1000),tags:[["h",groupId],["client","bitcoinwalk.org"]],content:"Create the public, open-join BitcoinWalk city community."};}
@@ -60,15 +60,13 @@ export default function CommunityChatsPage(){
   if(!activated.row||activated.row.phase!=="active")throw new Error(`${city.cityName} did not become active.`);
   return activated.row;
  }
- async function provisionCities(targets:City[]){
-  if(lock.current||!targets.length)return;lock.current=true;setBusy(true);setRolloutProgress("");
-  let completed=0,currentName="";
+ async function assistCity(city:City){
+  if(lock.current||rows.find(row=>row.cityId===city.cityId)?.phase==="active")return;lock.current=true;setBusy(true);setRolloutProgress("");
   try{
    const actor=await getBrowserExtensionPubkey();if(actor!==dashboard.pubkey||!isSuperAdmin(actor))throw new Error("Connect the BitcoinWalk super-admin identity.");
-   const known=new Map(rows.map(row=>[row.cityId,row]));
-   for(const city of targets){currentName=city.cityName;setRolloutProgress(`Provisioning ${completed+1} of ${targets.length}: ${city.cityName}. Approve the requested signatures in your signer.`);const active=await provisionCity(city,known.get(city.cityId),actor);known.set(city.cityId,active);setRows([...known.values()]);completed++;}
-   const success=`${completed} ${completed===1?"city community is":"city communities are"} active.`;setMessage(success);setRolloutProgress(success);
-  }catch(error){const detail=error instanceof Error?error.message:"Provisioning stopped.";const failure=`Provisioning paused after ${completed} ${completed===1?"city":"cities"}${currentName?` while working on ${currentName}`:""}. ${detail} Completed channels remain active; run the remaining setup again to continue.`;setMessage(failure);setRolloutProgress(failure);}finally{lock.current=false;setBusy(false);}
+   setRolloutProgress(`Resuming automatic setup for ${city.cityName}. Approve the requested signatures in your signer.`);const active=await provisionCity(city,rows.find(row=>row.cityId===city.cityId),actor);setRows(value=>[...value.filter(row=>row.cityId!==city.cityId),active]);
+   const success=`${city.cityName} community is active. No further assistance is required.`;setMessage(success);setRolloutProgress(success);
+  }catch(error){const detail=error instanceof Error?error.message:"Setup could not resume.";const failure=`${city.cityName} still needs assistance. ${detail} Any completed step remains saved; retry this city to continue.`;setMessage(failure);setRolloutProgress(failure);}finally{lock.current=false;setBusy(false);}
  }
  function chooseCity(id:string){const row=rows.find(value=>value.cityId===id),city=cities.find(value=>value.cityId===id);setCityId(id);setGroupId(row?.groupId??(city?`bitcoinwalk-${city.slug}`:""));setActionMessage("");}
  const mayVerify=!current||current.phase==="candidate"||current.phase==="needs-attention";
@@ -81,18 +79,15 @@ export default function CommunityChatsPage(){
   <section><h2>Organizer chat</h2><p>The private cross-city organizer room is managed with host access, not relay monitoring.</p><p><Link href="/admin/organizers?tab=chat">Open Hosts → Organizer chat →</Link></p></section>
   <section>
    <div className={styles.sectionHeading}>
-    <div><h2>All city communities</h2><p>Every approved Basic and Pro city gets its own NIP-29 Walkie Talkie group. Neutral cards are waiting for setup; red is reserved for a channel that needs intervention.</p></div>
+    <div><h2>All city communities</h2><p>New city channels are created automatically during approval. This page monitors the result and asks for super-admin assistance only when that workflow stops.</p></div>
     <div className={styles.summary} aria-label="City community status summary">
      <span data-rag="green">{cities.filter(city=>rows.find(row=>row.cityId===city.cityId)?.phase==="active").length} active</span>
-     <span data-rag="amber">{cities.filter(city=>rows.find(row=>row.cityId===city.cityId)?.phase==="verified").length} ready to activate</span>
-     <span>{cities.filter(city=>!rows.some(row=>row.cityId===city.cityId)).length} not set up</span>
-     {rows.some(row=>row.phase==="needs-attention"&&cities.some(city=>city.cityId===row.cityId))&&<span data-rag="red">{rows.filter(row=>row.phase==="needs-attention"&&cities.some(city=>city.cityId===row.cityId)).length} need attention</span>}
+     {!!remainingCities.length&&<span data-rag={remainingCities.some(city=>rows.find(row=>row.cityId===city.cityId)?.phase==="needs-attention")?"red":"amber"}>{remainingCities.length} need assistance</span>}
     </div>
    </div>
-   {!!cities.length&&(remainingCities.length?<div className={styles.communityAction}>
-    <div><strong>{remainingCities.length} {remainingCities.length===1?"city needs":"cities need"} a Walkie Talkie channel</strong><p>BitcoinWalk will set up every remaining city in order. Completed cards turn green immediately.</p></div>
-    <button type="button" disabled={busy} onClick={()=>void provisionCities(remainingCities)}>{busy?"Provisioning…":`Sign and provision all ${remainingCities.length}`}</button>
-   </div>:<p className={styles.communityComplete}><strong>All city communities are active.</strong> No setup action is required.</p>)}
+   {!!cities.length&&(remainingCities.length?<div className={styles.communityAttention} role="alert">
+    <strong>Super-admin assistance required</strong><p>{remainingCities.length} {remainingCities.length===1?"city's automatic setup has":"cities' automatic setup has"} not completed. Resume only the affected city below; active channels are unchanged.</p>
+   </div>:<p className={styles.communityComplete}><strong>Automation is healthy.</strong> All approved city communities are active. New approvals will appear here automatically.</p>)}
    {rolloutProgress&&<p role="status" aria-live="polite"><strong>{rolloutProgress}</strong></p>}
    {!cities.length?<p>No approved city communities.</p>:<div className={styles.communityGrid}>{displayCities.map(city=>{const row=rows.find(value=>value.cityId===city.cityId),status=communityStatus(row),isActive=row?.phase==="active";return <article key={city.cityId} className={`${styles.card} ${styles.communityCard}`} data-rag={status.tone}>
     <header>
@@ -101,7 +96,7 @@ export default function CommunityChatsPage(){
     </header>
     <p>{status.detail}</p>
     <dl><div><dt>Relay</dt><dd><code>{relayFor(city)}</code></dd></div>{row&&<div><dt>Channel</dt><dd><code>{row.groupId}</code></dd></div>}</dl>
-    {!isActive&&<button className={styles.cardAction} type="button" disabled={busy} onClick={()=>void provisionCities([city])}>{busy?"Working…":row?.phase==="needs-attention"?`Retry ${city.cityName}`:`Provision ${city.cityName}`}</button>}
+    {!isActive&&<button className={styles.cardAction} type="button" disabled={busy} onClick={()=>void assistCity(city)}>{busy?"Working…":`Resume setup for ${city.cityName}`}</button>}
    </article>;})}</div>}
   </section>
   {cities.length>0&&<details className={styles.advancedPanel}>
