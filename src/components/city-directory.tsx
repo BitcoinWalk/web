@@ -1,6 +1,5 @@
 "use client";
 import dynamic from "next/dynamic";
-import localFont from "next/font/local";
 import Image from "next/image";
 import Link from "next/link";
 import {useEffect,useState} from "react";
@@ -14,11 +13,9 @@ import {DEFAULT_HOME_PAGE,HOME_PAGE_ID,type ContentPage} from "../domain/content
 import {latestContentPages,queryContentRevisions} from "../nostr/content-records";
 import {filterHomeSponsoredWalks,type HomeSponsoredWalk} from "../domain/home-sponsored-walks";
 import {heroObjectPosition} from "../domain/hero-presentation";
-import {cityLockupSize} from "../domain/city-lockup";
 import {isLuganoPlanBConference} from "../domain/share-campaign";
 import SponsoredWalks from "./sponsored-walks";
 import styles from "./city-directory.module.css";
-const cityLogoFont=localFont({src:"../../design/city-logo-templates/v1/fonts/Ubuntu-BoldItalic.ttf",weight:"700",style:"italic",display:"swap"});
 const DirectoryMap=dynamic(()=>import("./directory-map"),{ssr:false,loading:()=> <p>Loading map…</p>});
 export const compactHomepageBrand=(scrollY:number)=>scrollY>72;
 function Photo({src,alt}:{src?:string;alt:string}) {
@@ -30,18 +27,18 @@ function Photo({src,alt}:{src?:string;alt:string}) {
 function Card({row}:{row:DirectoryCity}) {
   const {city}=row;
   const luganoPlanB=isLuganoPlanBConference(city.slug,[city.heroImageUrl]);
-  return <a className={styles.card} href={row.href} aria-label={`Open BitcoinWalk ${city.cityName}`}>
+  return <article className={styles.card}>
     <div className={styles.cardMedia} data-campaign={luganoPlanB?"lugano-planb":undefined}>
       <Photo key={city.heroImageUrl} src={luganoPlanB?"/brand/campaigns/lugano-planb-background.webp":directoryImage(city.heroImageUrl)} alt={`BitcoinWalk in ${city.cityName}`}/>
       {luganoPlanB&&<Image className={styles.campaignLogo} src="/brand/campaigns/lugano-planb-forum-2026.png" width={408} height={225} alt="Plan ₿ Forum — Lugano, October 23–24, 2026"/>}
-      <div className={styles.cardShade} aria-hidden="true"/>
-      <div className={`${styles.cityLockup} ${cityLogoFont.className}`} data-size={cityLockupSize(city.cityName)} aria-hidden="true">
-        <span className={styles.citySymbol}><Image src="/brand/bitcoinwalk-horizontal-white.png" width={2000} height={368} alt=""/></span>
-        <span>{city.cityName.toLocaleUpperCase(city.locale??"en")}</span>
-      </div>
-      <div className={styles.cityMeta}><span>{row.tier==="paid"?"Pro city":"Community city"}</span><span>{row.hasUpcomingWalk?new Intl.DateTimeFormat(undefined,{dateStyle:"medium"}).format(new Date(city.startAt)):"Explore the city"}</span></div>
     </div>
-  </a>;
+    <div className={styles.content}><p className={styles.eyebrow}>{row.tier==="paid"?"Dedicated city relay":"Community walk"}</p>
+      <h3><a href={row.href}>BitcoinWalk {city.cityName}</a></h3>
+      <p>{row.hasUpcomingWalk?new Intl.DateTimeFormat(undefined,{dateStyle:"medium",timeStyle:"short"}).format(new Date(city.startAt)):"No upcoming walk scheduled."}</p>
+      <p>{city.meetingPoint.description}</p>
+      <a className={styles.link} href={row.href}>View walk →</a>
+    </div>
+  </article>;
 }
 export default function CityDirectory({sponsoredWalks=[]}:{sponsoredWalks?:HomeSponsoredWalk[]}) {
   const [rows,setRows]=useState<DirectoryCity[]>([]);

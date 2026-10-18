@@ -13,12 +13,12 @@ lettering. The pack now contains twelve PNGs. Existing ten-file v1–v1.2 packs
 remain readable and checksum-valid while the approval worker queues a v1.3
 successor.
 
-The homepage city directory is now an alphabetical, responsive photographic
-mosaic. Each full-card link uses the approved hero crop, a bounded contrast
-gradient and the same symbol/city lockup. Short, medium and long display sizes
-scale the complete lockup together, keeping names such as Augsburg, Manchester,
-Szydłowiec and Warszawa inside the card. The visible card is intentionally
-compact; accessible link labels retain the complete mixed-case city name.
+These lockups are intended for the Walkie Talkie app home screen, where cities
+will appear alphabetically in a scrollable photographic mosaic. Each app tile
+uses the approved hero crop and the matching symbol/city lockup. The public
+bitcoinwalk.org city directory remains unchanged. The Walkie Talkie client must
+scale the complete lockup uniformly so names such as Augsburg, Manchester,
+Szydłowiec and Warszawa stay inside the tile without stretching the lettering.
 
 ## Current agreed scope — 3 October 2026
 
