@@ -1,6 +1,6 @@
 # BitcoinWalk delivery backlog
 
-Last reviewed: 17 October 2026
+Last reviewed: 18 October 2026
 Preproduction housekeeping: 2–3 October 2026. See `preproduction-review-2026-10-02.md`
 and `development-handover.md` for current evidence and operating context.
 Tracking rule: keep this file current whenever an item changes status, scope, dependency, or verification result. The file is the maintained source; a separate Plan task is not automatically synchronized.
@@ -49,7 +49,8 @@ BW-78 is not in the executable queue: its own scope says no implementation is pl
 3. BW-127 private Marmot groups only after BW-125 and BW-128 interoperability is stable.
 4. Organizer-owned infrastructure: BW-97 verification → BW-98 mirrors → BW-62 appliance package → BW-29 owner-node transfer → BW-63 independent operation → BW-64 portable private chat → BW-65 sustainable self-host entitlements.
 5. BW-67 conversational Guide only after BW-112 and BW-128; then BW-30 merchandise if a separate commerce/fulfilment design exists.
-6. BW-34 personal profile rebranding remains last because it is optional and no longer needed for Pro city identity reuse.
+6. BW-146 multilingual BitcoinWalk: begin with English/Spanish public discovery and onboarding, then expand translated surfaces after the language-selection foundation is accepted.
+7. BW-34 personal profile rebranding remains last because it is optional and no longer needed for Pro city identity reuse.
 
 ### 4. Held outside the execution queue
 
@@ -65,6 +66,12 @@ BW-78 is not in the executable queue: its own scope says no implementation is pl
 | **BW-10** | Blocked | The named external clients provide a supported discovery/import path and consent where required. |
 
 Every unfinished BW item appears once in the lanes above. Detailed historical evidence remains in its original section below; when a detail conflicts with this execution queue, this reconciled order and the newest dated evidence control.
+
+## Multilingual product — 18 October 2026
+
+| ID | Stage | Item | Status | Scope / acceptance |
+|---|---:|---|---|---|
+| BW-146 | 1, 3, 4, 5, 10 | Multilingual BitcoinWalk with automatic language selection | ○ Future | Start with English and Spanish public discovery, city/walk pages and onboarding; extend the same translation catalogue and saved preference to dashboard, documentation and Guide message templates in later slices. Language resolution: explicit localized URL, then saved user choice, then the browser's ordered supported languages (`Accept-Language` on the first server request; `navigator.languages` as a client fallback), then English. Match regional Spanish preferences such as `es-ES`, `es-MX` and `es-AR` to available Spanish; skip unsupported preferences and continue through the list. Provide an always-accessible language switcher using native names (English / Español), remember explicit choices and preserve the current city/walk and form state when switching. Country/IP location may provide an optional suggestion only; never force a language from a country, city, GPS permission or VPN location. Use stable localized public URLs, correct HTML language, canonical/hreflang metadata and locale-safe caching; preserve existing shared city/event links without redirect loops. Translate product copy through reviewed catalogues with English fallback, plurals and locale-aware dates/numbers while retaining the walk's city timezone. Keep organizer-authored descriptions and signed Nostr events intact; any later translated-content view must be clearly labelled and preserve access to the original. Guide uses a known saved language or English, never an inferred language from an npub or city alone. Acceptance covers first-visit Spanish, regional variants, unsupported/missing browser preferences, explicit overrides and return visits, travellers/VPNs, direct localized links, no locale cache leakage, mobile text expansion, missing translations, timezone correctness and unchanged signed content. No implementation or deployment is authorized by this future item. Detection references: [MDN Accept-Language](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Accept-Language) and [navigator.languages](https://developer.mozilla.org/en-US/docs/Web/API/Navigator/languages). |
 
 ## Admin UX optimisation — 14 October 2026
 
