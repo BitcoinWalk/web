@@ -3,7 +3,7 @@ import {mkdir, mkdtemp, readFile, rm, symlink, writeFile} from "node:fs/promises
 import {tmpdir} from "node:os";
 import {join} from "node:path";
 import {afterEach, describe, expect, it, vi} from "vitest";
-import {cityLogoVariants} from "./inkscape-source";
+import {historicalCityLogoVariants} from "./inkscape-source";
 import {runLogoRenderer, validateGeneratedJobArtifact} from "./job-runner";
 import type {LogoJob} from "./approval-worker";
 
@@ -19,7 +19,7 @@ async function fixture() {
   const root = await mkdtemp(join(tmpdir(), "bw-logo-job-")); roots.push(root);
   const artifact = join(root, ".jobs", job.jobKey, job.slug); await mkdir(artifact, {recursive: true});
   const files = [];
-  for (const variant of cityLogoVariants) {
+  for (const variant of historicalCityLogoVariants) {
     const name = `${job.slug}-${variant}.png`, data = Buffer.from(variant); await writeFile(join(artifact, name), data);
     files.push({name, label: variant, background: variant.endsWith("on-black") ? "dark" : "light", width: 100, height: 100, sha256: hash(data), transparent: true});
   }
@@ -37,12 +37,12 @@ describe("durable logo artifact runner", () => {
   });
   it("rejects identity and checksum tampering", async () => {
     const {artifact} = await fixture();
-    const path = join(artifact, `${job.slug}-${cityLogoVariants[0]}.png`); await writeFile(path, "tampered");
+    const path = join(artifact, `${job.slug}-${historicalCityLogoVariants[0]}.png`); await writeFile(path, "tampered");
     await expect(validateGeneratedJobArtifact(job, artifact)).rejects.toThrow("checksum");
   });
   it("rejects symlinked generated files", async () => {
     const {artifact} = await fixture();
-    const path = join(artifact, `${job.slug}-${cityLogoVariants[0]}.png`); const target = `${path}.target`;
+    const path = join(artifact, `${job.slug}-${historicalCityLogoVariants[0]}.png`); const target = `${path}.target`;
     const data = await readFile(path); await writeFile(target, data); await rm(path); await symlink(target, path);
     await expect(validateGeneratedJobArtifact(job, artifact)).rejects.toThrow("regular file");
   });

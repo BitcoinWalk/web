@@ -4,7 +4,7 @@ import {lstat, mkdir, readFile} from "node:fs/promises";
 import {join, resolve} from "node:path";
 import {promisify} from "node:util";
 import {z} from "zod";
-import {cityLogoVariants} from "./inkscape-source";
+import {cityLogoVariants,historicalCityLogoVariants} from "./inkscape-source";
 import type {LogoJob} from "./approval-worker";
 
 const executeFile = promisify(execFile);
@@ -12,11 +12,11 @@ const digest = z.string().regex(/^[a-f0-9]{64}$/);
 export const logoManifestSchema = z.object({
   version: z.literal(1), cityId: z.uuid(), slug: z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/),
   cityName: z.string().min(1).max(64), locale: z.string().min(2).max(35),
-  source: z.literal("bitcoinwalk:city-logo-renderer"), templateVersion: z.enum(["city-logo-inkscape-v1", "city-logo-inkscape-v1.1", "city-logo-inkscape-v1.2"]),
+  source: z.literal("bitcoinwalk:city-logo-renderer"), templateVersion: z.enum(["city-logo-inkscape-v1", "city-logo-inkscape-v1.1", "city-logo-inkscape-v1.2", "city-logo-inkscape-v1.3"]),
   files: z.array(z.object({
     name: z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*\.png$/), label: z.string(), background: z.enum(["light", "dark"]),
     width: z.number().int().positive().max(2000), height: z.number().int().positive().max(1000), sha256: digest, transparent: z.literal(true),
-  }).strict()).length(cityLogoVariants.length),
+  }).strict()).min(historicalCityLogoVariants.length).max(cityLogoVariants.length),
   archive: z.object({name: z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*-logos\.zip$/), sha256: digest}).strict(),
 }).strict();
 export type LogoManifest = z.infer<typeof logoManifestSchema>;
@@ -28,7 +28,8 @@ export async function validateGeneratedJobArtifact(job: LogoJob, artifactPath: s
   if (manifest.cityId !== job.cityId || manifest.slug !== job.slug || manifest.cityName !== job.cityName || manifest.locale !== job.locale || manifest.templateVersion !== job.templateVersion) {
     throw new Error("Generated logo identity does not match its durable job");
   }
-  const expected = new Set(cityLogoVariants.map(variant => `${job.slug}-${variant}.png`));
+  const variants = job.templateVersion === "city-logo-inkscape-v1.3" ? cityLogoVariants : historicalCityLogoVariants;
+  const expected = new Set(variants.map(variant => `${job.slug}-${variant}.png`));
   if (new Set(manifest.files.map(file => file.name)).size !== expected.size || manifest.files.some(file => !expected.delete(file.name)) || expected.size) {
     throw new Error("Generated logo pack is incomplete");
   }

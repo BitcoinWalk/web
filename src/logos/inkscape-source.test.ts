@@ -3,7 +3,7 @@ import {
   buildInkscapeEditableSvg,
   buildInkscapeReferenceSvg,
   cityLogoEditableLayouts,
-  cityLogoVariants,
+  historicalCityLogoVariants,
   parseInkscapeSourceManifest,
 } from "./inkscape-source";
 
@@ -71,7 +71,7 @@ describe("Inkscape city-logo source migration", () => {
   });
 
   it("defines a reviewed editable text region for every approved layout", () => {
-    expect(Object.keys(cityLogoEditableLayouts).sort()).toEqual([...cityLogoVariants].sort());
+    expect(Object.keys(cityLogoEditableLayouts).sort()).toEqual([...historicalCityLogoVariants].sort());
     for (const layout of Object.values(cityLogoEditableLayouts)) {
       expect(layout.cityText.width).toBeGreaterThan(0);
       expect(layout.cityText.height).toBeGreaterThan(0);

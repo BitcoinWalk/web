@@ -3,10 +3,10 @@ import {mkdir, readFile, rename, rm, writeFile} from "node:fs/promises";
 import {join, resolve} from "node:path";
 import sharp from "sharp";
 import {z} from "zod";
-import {buildInkscapeEditableSvg, cityLogoEditableLayouts, cityLogoVariants} from "./inkscape-source.ts";
+import {buildInkscapeEditableSvg, cityLockupVariants, cityLogoEditableLayouts, historicalCityLogoVariants} from "./inkscape-source.ts";
 import {correctHistoricalLogoSource} from "./source-artifact.ts";
 
-export const cityLogoTemplateVersion = "city-logo-inkscape-v1.2";
+export const cityLogoTemplateVersion = "city-logo-inkscape-v1.3";
 const sourceSlug = "szydlowiec";
 const safeSlug = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const safeArchiveName = /^[a-z0-9][a-z0-9.-]{0,199}$/;
@@ -161,6 +161,30 @@ export function buildDeterministicZip(files: Array<{name: string; data: Buffer}>
 
 function sha256(data: Buffer) { return createHash("sha256").update(data).digest("hex"); }
 
+async function renderCityLockup(label: string, variant: (typeof cityLockupVariants)[number], font: Buffer): Promise<Buffer> {
+  const reversed = variant.endsWith("on-black");
+  const master = await sharp(reversed
+    ? join(process.cwd(), "public/brand/bitcoinwalk-horizontal-white.png")
+    : join(process.cwd(), "public/brand/bitcoinwalk-horizontal.png"))
+    .ensureAlpha().png().toBuffer();
+  const metadata = await sharp(master).metadata();
+  const sourceHeight = metadata.height!;
+  const symbolWidth = sourceHeight + 1;
+  const symbol = await sharp(master).extract({left: 0, top: 0, width: symbolWidth, height: sourceHeight})
+    .resize({height: 368}).png().toBuffer();
+  const measured = await measureText(label, 320, font);
+  const gap = 43;
+  const naturalWidth = Math.ceil(369 + gap + measured.width + 18);
+  const scale = Math.min(1, 2000 / naturalWidth);
+  if (320 * scale < 120) throw new Error("City name cannot fit safely; manual review is required");
+  const fill = reversed ? "#FFFFFF" : "#22251E";
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${naturalWidth}" height="368"><style>@font-face{font-family:UbuntuPinned;src:url(data:font/ttf;base64,${font.toString("base64")}) format("truetype");font-style:italic;font-weight:700}</style><text x="${369 + gap}" y="304" font-family="UbuntuPinned" font-size="320" font-style="italic" font-weight="700" fill="${fill}">${xml(label)}</text></svg>`;
+  const lockup = await sharp({create: {width: naturalWidth, height: 368, channels: 4, background: {r: 0, g: 0, b: 0, alpha: 0}}})
+    .composite([{input: symbol, left: 0, top: 0}, {input: Buffer.from(svg), left: 0, top: 0}])
+    .png({compressionLevel: 9, adaptiveFiltering: false, palette: false}).toBuffer();
+  return scale < 1 ? sharp(lockup).resize({width: 2000}).png({compressionLevel: 9, adaptiveFiltering: false, palette: false}).toBuffer() : lockup;
+}
+
 export async function renderCityLogoPack(value: unknown, outputRoot: string) {
   const request = parseCityLogoRenderRequest(value);
   const projectRoot = process.cwd();
@@ -178,7 +202,7 @@ export async function renderCityLogoPack(value: unknown, outputRoot: string) {
   try {
     const rendered: Array<{name: string; data: Buffer}> = [];
     const files = [];
-    for (const variant of cityLogoVariants) {
+    for (const variant of historicalCityLogoVariants) {
       const sourceFile = sourceManifest.files.find((file: {name: string}) => file.name === `${sourceSlug}-${variant}.png`);
       if (!sourceFile) throw new Error(`Missing pinned source variant: ${variant}`);
       const historicalPng = await readFile(join(evidenceRoot, sourceSlug, sourceFile.name));
@@ -197,6 +221,16 @@ export async function renderCityLogoPack(value: unknown, outputRoot: string) {
       const metadata = await sharp(output).metadata();
       const stats = await sharp(output).ensureAlpha().stats();
       if (metadata.width !== sourceFile.width || metadata.height !== sourceFile.height || stats.channels[3].min !== 0) throw new Error(`Rendered ${variant} failed transparent geometry validation`);
+      const name = `${request.slug}-${variant}.png`;
+      await writeFile(join(temporary, name), output, {flag: "wx"});
+      rendered.push({name, data: output});
+      files.push({name, label: variant.replaceAll("-", " "), background: variant.endsWith("on-black") ? "dark" : "light", width: metadata.width, height: metadata.height, sha256: sha256(output), transparent: true});
+    }
+    for (const variant of cityLockupVariants) {
+      const output = await renderCityLockup(label, variant, font);
+      const metadata = await sharp(output).metadata();
+      const stats = await sharp(output).ensureAlpha().stats();
+      if (!metadata.width || metadata.width > 2000 || !metadata.height || metadata.height > 368 || stats.channels[3].min !== 0) throw new Error(`Rendered ${variant} failed transparent geometry validation`);
       const name = `${request.slug}-${variant}.png`;
       await writeFile(join(temporary, name), output, {flag: "wx"});
       rendered.push({name, data: output});

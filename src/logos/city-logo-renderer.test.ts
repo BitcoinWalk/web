@@ -29,7 +29,7 @@ describe("city-logo renderer input", () => {
       locale: "pl-PL",
     });
     expect(request.cityName).toBe("Szydłowiec");
-    expect(request.templateVersion).toBe("city-logo-inkscape-v1.2");
+    expect(request.templateVersion).toBe("city-logo-inkscape-v1.3");
     expect(() => parseCityLogoRenderRequest({...request, slug: "../escape"})).toThrow();
     expect(() => parseCityLogoRenderRequest({...request, cityName: "x".repeat(65)})).toThrow();
     expect(() => parseCityLogoRenderRequest({...request, locale: "not_a_locale"})).toThrow();
@@ -70,7 +70,7 @@ describe("deterministic city-logo publication", () => {
     expect(() => buildDeterministicZip([{name: "../escape", data: Buffer.alloc(0)}])).toThrow();
   });
 
-  it("renders ten transparent PNGs, a manifest and a stable archive atomically", async () => {
+  it("renders twelve transparent PNGs, including city lockups, and a stable archive atomically", async () => {
     const first = await temporaryRoot();
     const second = await temporaryRoot();
     const request = {
@@ -81,11 +81,15 @@ describe("deterministic city-logo publication", () => {
     };
     const one = await renderCityLogoPack(request, first);
     const two = await renderCityLogoPack(request, second);
-    expect(one.files).toHaveLength(10);
-    expect(one.templateVersion).toBe("city-logo-inkscape-v1.2");
+    expect(one.files).toHaveLength(12);
+    expect(one.templateVersion).toBe("city-logo-inkscape-v1.3");
     expect(one.source).toBe("bitcoinwalk:city-logo-renderer");
     expect(two.archive.sha256).toBe(one.archive.sha256);
     expect(one.files.every(file => file.transparent)).toBe(true);
+    const lockup=one.files.find(file=>file.name.endsWith("-city-lockup-on-black.png"));
+    expect(lockup).toMatchObject({background:"dark",transparent:true});
+    expect(lockup!.width).toBeLessThanOrEqual(2000);
+    expect(lockup!.height).toBeLessThanOrEqual(368);
     const corrected=await sharp(join(first,request.slug,`${request.slug}-bitcoinwalk-on-black.png`)).ensureAlpha().extract({left:293,top:0,width:189,height:1}).raw().toBuffer({resolveWithObject:true});
     for(let offset=3;offset<corrected.data.length;offset+=corrected.info.channels) expect(corrected.data[offset]).toBe(0);
     const brand=await sharp(join(first,request.slug,`${request.slug}-bitcoinwalk-on-black.png`)).ensureAlpha().extract({left:180,top:100,width:420,height:320}).raw().toBuffer({resolveWithObject:true});
@@ -109,8 +113,8 @@ describe("deterministic city-logo publication", () => {
       slug,
       locale: "pl-PL",
     }, root);
-    expect(manifest.files).toHaveLength(10);
-    expect(manifest.files.every(file => file.transparent && file.width <= 1895 && file.height <= 631)).toBe(true);
+    expect(manifest.files).toHaveLength(12);
+    expect(manifest.files.every(file => file.transparent && file.width <= 2000 && file.height <= 631)).toBe(true);
   }, 30_000);
 
   it("leaves no published directory when validation fails", async () => {

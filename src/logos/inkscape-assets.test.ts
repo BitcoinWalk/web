@@ -2,7 +2,7 @@ import {readFile} from "node:fs/promises";
 import {join} from "node:path";
 import sharp from "sharp";
 import {describe, expect, it} from "vitest";
-import {cityLogoEditableLayouts, cityLogoVariants} from "./inkscape-source";
+import {cityLogoEditableLayouts, historicalCityLogoVariants} from "./inkscape-source";
 
 const pilots = [
   {slug: "warszawa", city: "WARSZAWA"},
@@ -11,7 +11,7 @@ const pilots = [
 ] as const;
 
 describe("versioned Inkscape pilot masters", () => {
-  it.each(pilots.flatMap(pilot => cityLogoVariants.map(variant => ({...pilot, variant}))))(
+  it.each(pilots.flatMap(pilot => historicalCityLogoVariants.map(variant => ({...pilot, variant}))))(
     "$slug/$variant preserves approved artwork and exposes one editable city label",
     async ({slug, city, variant}) => {
       const svgPath = join(process.cwd(), "design", "city-logo-templates", "v1", "editable-masters", slug, `${variant}.svg`);

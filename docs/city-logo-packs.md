@@ -1,5 +1,25 @@
 # Automated city logo packs: implementation plan (BW-82)
 
+## City mosaic lockups — 18 October 2026
+
+Template `city-logo-inkscape-v1.3` adds two transparent horizontal lockups to
+every newly reconciled pack: `city-lockup-on-black` and
+`city-lockup-on-white`. Each uses the exact BitcoinWalk symbol crop from the
+approved horizontal master followed by the approved city name in uppercase
+Ubuntu Bold Italic. Symbol height, type height and the intervening gap retain
+the proportions of `bitcoinwalk-horizontal-white.png`; longer names reduce the
+entire lockup uniformly rather than stretching or independently shrinking the
+lettering. The pack now contains twelve PNGs. Existing ten-file v1–v1.2 packs
+remain readable and checksum-valid while the approval worker queues a v1.3
+successor.
+
+The homepage city directory is now an alphabetical, responsive photographic
+mosaic. Each full-card link uses the approved hero crop, a bounded contrast
+gradient and the same symbol/city lockup. Short, medium and long display sizes
+scale the complete lockup together, keeping names such as Augsburg, Manchester,
+Szydłowiec and Warszawa inside the card. The visible card is intentionally
+compact; accessible link labels retain the complete mixed-case city name.
+
 ## Current agreed scope — 3 October 2026
 
 This section supersedes the manual ZIP workflow below. The user will not supply
@@ -158,7 +178,7 @@ uniformly until it fits the reviewed region. Horizontal scaling and SVG
 `textLength` are not used. A name that cannot fit at the approved minimum fails
 for manual review rather than clipping or stretching.
 
-The renderer writes ten transparent PNGs, a deterministic stored ZIP and a
+The v1.2 renderer writes ten transparent PNGs, a deterministic stored ZIP and a
 SHA-256 manifest into a temporary sibling directory, validates dimensions and
 alpha, then publishes with one rename. A rejected name leaves no partial pack.
 ZIP ordering, timestamps and metadata are fixed, so the same approved input and

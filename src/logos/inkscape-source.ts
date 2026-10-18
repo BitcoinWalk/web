@@ -1,6 +1,6 @@
 import {z} from "zod";
 
-export const cityLogoVariants = [
+export const historicalCityLogoVariants = [
   "bitcoinwalk-vertical-on-black",
   "bitcoinwalk-on-black",
   "bitcoinwalk-horizontal-on-black",
@@ -12,6 +12,13 @@ export const cityLogoVariants = [
   "satsman-on-white",
   "satsman-vertical-on-white",
 ] as const;
+
+export const cityLockupVariants = [
+  "city-lockup-on-black",
+  "city-lockup-on-white",
+] as const;
+
+export const cityLogoVariants = [...historicalCityLogoVariants, ...cityLockupVariants] as const;
 
 export type CityLogoVariant = (typeof cityLogoVariants)[number];
 
@@ -30,7 +37,7 @@ type EditableLayout = {
 // These measurements are taken from the three approved pilot-city layouts.
 // The city label is the only variable element; the approved brand pixels stay
 // locked and are never redrawn by the generator.
-export const cityLogoEditableLayouts: Record<CityLogoVariant, EditableLayout> = {
+export const cityLogoEditableLayouts: Record<(typeof historicalCityLogoVariants)[number], EditableLayout> = {
   "bitcoinwalk-horizontal-on-black": {
     cityText: {x: 1106.5, y: 304, width: 359, height: 47, baseline: 350, fontSize: 64},
     erase: {x: 820, y: 299, width: 575, height: 1000, fill: null},
@@ -76,10 +83,10 @@ export const cityLogoEditableLayouts: Record<CityLogoVariant, EditableLayout> = 
 const sha256 = z.string().regex(/^[a-f0-9]{64}$/);
 const safeName = z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/);
 const dimension = z.number().int().positive().max(16000);
-const variant = z.enum(cityLogoVariants);
+const historicalVariant = z.enum(historicalCityLogoVariants);
 
 const sourceFile = z.object({
-  variant,
+  variant: historicalVariant,
   svg: z.string().regex(/^[a-z0-9-]+\.svg$/),
   sourcePng: z.string().regex(/^[a-z0-9-]+\.png$/),
   sourceSha256: sha256,
@@ -94,7 +101,7 @@ const manifest = z.object({
   cityName: z.string().trim().min(1).max(100),
   slug: safeName,
   source: z.url().refine(value => new URL(value).protocol === "https:", "Source must use HTTPS"),
-  files: z.array(sourceFile).length(cityLogoVariants.length),
+  files: z.array(sourceFile).length(historicalCityLogoVariants.length),
 }).strict();
 
 export type InkscapeSourceManifest = z.infer<typeof manifest>;
@@ -102,7 +109,7 @@ export type InkscapeSourceManifest = z.infer<typeof manifest>;
 export function parseInkscapeSourceManifest(value: unknown): InkscapeSourceManifest {
   const parsed = manifest.parse(value);
   const variants = parsed.files.map(file => file.variant);
-  if (new Set(variants).size !== cityLogoVariants.length || cityLogoVariants.some(name => !variants.includes(name))) {
+  if (new Set(variants).size !== historicalCityLogoVariants.length || historicalCityLogoVariants.some(name => !variants.includes(name))) {
     throw new Error("Inkscape source manifest must contain each logo variant exactly once");
   }
   for (const file of parsed.files) {
@@ -116,7 +123,7 @@ const referenceInput = z.object({
   cityId: z.uuid(),
   cityName: z.string().trim().min(1).max(100),
   slug: safeName,
-  variant,
+  variant: historicalVariant,
   width: dimension,
   height: dimension,
   sourcePng: z.string().regex(/^[a-z0-9-]+\.png$/),

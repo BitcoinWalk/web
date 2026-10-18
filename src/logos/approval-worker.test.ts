@@ -66,7 +66,7 @@ describe("verified approval to durable logo job", () => {
     const renamed = approvedLogoCandidates(snapshot([revision(warsawId, "e".repeat(64), "Warszawa Centrum")], [approval(warsawId, "f".repeat(64), "e".repeat(64))]))[0];
     expect(first.jobKey).toBe(duplicate.jobKey);
     expect(first.jobKey).not.toBe(renamed.jobKey);
-    expect(first).toMatchObject({cityId: warsawId, revisionId, cityName: "Warszawa", locale: "pl-PL", templateVersion: "city-logo-inkscape-v1.2"});
+    expect(first).toMatchObject({cityId: warsawId, revisionId, cityName: "Warszawa", locale: "pl-PL", templateVersion: "city-logo-inkscape-v1.3"});
   });
 
   it("prepares an exact pending new-city logo pack without creating an approved job",async()=>{
