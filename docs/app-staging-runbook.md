@@ -63,6 +63,32 @@ release, take the same environment lock, restore only the previous app symlink a
 release environment, then restart/check health. Never restore payment data for a
 code rollback, remove version reservations, or bypass guards for routine releases.
 
+### Accepted reconciliation — 18 October 2026
+
+App `0.3.445` merges both conflicting `0.3.444` releases (`29cc75f` and
+`26ca868`) at source `78f034f66dfe9cea967a456310114b1c4f3423a7`.
+The profile subscription/retry fix and Pro/Guide/reviewed payout-provider changes
+are retained together. The full suite passed 1,948 tests, including 10 executable
+deployment-guard tests; lint had no errors and type checking passed. Both
+environment packages passed standalone smoke checks. CI run `39164304489` passed
+after documentation-only ID reconciliation and inherited package-check updates
+at `b7b5341`; those follow-ups do not change the deployed application or helpers.
+
+- Staging digest: `a83de7c7cc9001ff83a5fa41adace56928597ae05aa368cdefb4c6b08432b69f`.
+  Evidence: `/home/bitcoinwalk/backups/app-staging-deploy.ECmcMZ`.
+- Production digest: `628a9e8c4e952421a89b4a2e54a9df5e61f316581458571051977f025f73cbf7`.
+  Evidence: `/home/bitcoinwalk/backups/app-production-deploy.kZPrau`, including
+  the online SQLite backup and exact prior application target.
+- Previous helper backup: `/home/bitcoinwalk/backups/app-deploy-guards.Tkceds`.
+
+Both live activations used the installed guard and a recorded expected-current
+path. Public HTTPS health, Guide configuration, city-management page and deployed
+profile/payout code were checked. Browser staging login rendered successfully;
+authenticated signer workflows were not exercised in this release session.
+Negative guard tests use disposable fixtures, not attempted production rollbacks.
+No payout worker, financial authority, relay service or Guide notification worker
+was deployed, and no payment or organizer message was sent by these checks.
+
 ## Configuration boundaries
 
 Browser `NEXT_PUBLIC_*` values are embedded at build time. Staging application
