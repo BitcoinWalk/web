@@ -9,6 +9,15 @@ import {validateOutgoingInvoice} from "../rustress/outgoing-invoice";
 
 export type ValidatedPayoutDestination = {normalized: string; endpoint: string; callback: string; minSendable: number; maxSendable: number;
   probe?:{amountMsat:number;payment:"verified";nip57:"verified"|"unverified"|"not-advertised"}};
+export type ReviewedPayoutProvider="wallet-of-satoshi-v1";
+const reviewedCallbackProviders=new Map([
+  ["https://walletofsatoshi.com",{origin:"https://livingroomofsatoshi.com",pathPrefix:"/api/v1/lnurl/payreq/",policy:"wallet-of-satoshi-v1" as const}],
+]);
+export function reviewedPayoutProvider(endpoint:URL,callback:URL):ReviewedPayoutProvider|null|undefined{
+  if(callback.origin===endpoint.origin)return null;
+  const reviewed=reviewedCallbackProviders.get(endpoint.origin);
+  return reviewed&&callback.origin===reviewed.origin&&callback.pathname.startsWith(reviewed.pathPrefix)&&callback.pathname.length>reviewed.pathPrefix.length?reviewed.policy:undefined;
+}
 function publicAddress(address: string) {
   if (isIP(address) === 4) {
     const p = address.split(".").map(Number), [a, b, c] = p;

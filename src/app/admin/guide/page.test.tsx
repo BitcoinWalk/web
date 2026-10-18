@@ -1,4 +1,6 @@
 import {describe,expect,it,vi} from "vitest";
+import {createElement} from "react";
+import {renderToStaticMarkup} from "react-dom/server";
 
 const mocks=vi.hoisted(()=>({redirect:vi.fn(()=>{throw new Error("NEXT_REDIRECT");})}));
 vi.mock("next/navigation",()=>({redirect:mocks.redirect}));

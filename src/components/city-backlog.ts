@@ -7,7 +7,7 @@ import {visibleDecisionNote} from "../domain/admin-city-requests";
 export type CityWorkflowStatus="action-required"|"awaits-change"|"online"|"offline";
 export type CityRelayType="shared"|"dedicated"|"migrated";
 export type CityTypeFilter="all"|"basic"|"pro-managed"|"pro-own";
-export type CityWorkflowAction="open-record"|"open-public"|"review-request"|"activate-as-is"|"view-decision"|"manage-pro"|"set-online"|"set-offline"|"archive"|"delete";
+export type CityWorkflowAction="open-record"|"open-public"|"review-request"|"activate-as-is"|"view-decision"|"activate-pro"|"manage-pro"|"set-online"|"set-offline"|"archive"|"delete";
 export type CityWorkflowRow={
   cityId:string;cityName:string;slug:string;status:CityWorkflowStatus;online:boolean;
   tier:"basic"|"paid"|"test";relay:CityRelayType;source:"managed"|"pending"|"awaits-change"|"inventory";

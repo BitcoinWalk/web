@@ -51,13 +51,38 @@ export default function ProSetupScreen({enabled}: {enabled: boolean}) {
 }
 export function ProCitySetup({enabled,cityId,active=true,onClose}:{enabled:boolean;cityId:string;active?:boolean;onClose?():void}){
   const {pubkey,cities}=useDashboard();
-  useEffect(()=>{if(window.location.hash!=="#pro-city-services")return;const frame=requestAnimationFrame(()=>document.getElementById("pro-city-services")?.scrollIntoView({block:"start"}));return()=>cancelAnimationFrame(frame);},[cityId]);
-  return <ProSetupForm key={`${pubkey}:${cityId}`} enabled={enabled} actor={pubkey} cities={cities} fixedCityId={cityId} embedded interactive={active}/>;
+  const mounted=useSyncExternalStore(()=>()=>{},()=>true,()=>false),dialog=useRef<HTMLElement>(null),previousFocus=useRef<HTMLElement|null>(null);
+  useEffect(()=>{
+    if(!active)return;
+    previousFocus.current=document.activeElement instanceof HTMLElement?document.activeElement:null;
+    const previousOverflow=document.body.style.overflow;
+    document.body.style.overflow="hidden";
+    const frame=requestAnimationFrame(()=>dialog.current?.focus());
+    function keydown(event:KeyboardEvent){
+      if(event.key==="Escape"){event.preventDefault();onClose?.();return;}
+      if(event.key!=="Tab"||!dialog.current)return;
+      const controls=Array.from(dialog.current.querySelectorAll<HTMLElement>('button:not([disabled]),a[href],input:not([disabled]),textarea:not([disabled]),select:not([disabled]),[tabindex]:not([tabindex="-1"])')).filter(node=>node.offsetParent!==null);
+      if(!controls.length){event.preventDefault();dialog.current.focus();return;}
+      const first=controls[0],last=controls[controls.length-1];
+      if(event.shiftKey&&document.activeElement===first){event.preventDefault();last.focus();}
+      else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first.focus();}
+    }
+    document.addEventListener("keydown",keydown);
+    return()=>{cancelAnimationFrame(frame);document.removeEventListener("keydown",keydown);document.body.style.overflow=previousOverflow;previousFocus.current?.focus();};
+  },[active,onClose]);
+  if(!mounted||!active)return null;
+  return createPortal(<div className={styles.modalBackdrop} onMouseDown={event=>{if(event.target===event.currentTarget)onClose?.();}}>
+    <section ref={dialog} className={styles.modal} role="dialog" aria-modal="true" aria-labelledby="pro-setup-dialog-title" tabIndex={-1}>
+      <header className={styles.modalHeader}><div><p className={styles.eyebrow}>Your city</p><h2 id="pro-setup-dialog-title">Pro city services</h2></div><button className={styles.modalClose} type="button" aria-label="Close Pro services" onClick={onClose}>×</button></header>
+      <div className={styles.modalBody}><ProSetupForm key={`${pubkey}:${cityId}`} enabled={enabled} actor={pubkey} cities={cities} fixedCityId={cityId} embedded modal onExit={onClose}/></div>
+    </section>
+  </div>,document.body);
 }
-function ProSetupForm({enabled, actor, cities, fixedCityId="", embedded=false,interactive=true}: {enabled: boolean; actor: string; cities: Array<{id: string; name: string}>;fixedCityId?:string;embedded?:boolean;interactive?:boolean}) {
+function ProSetupForm({enabled, actor, cities, fixedCityId="", embedded=false,modal=false,onExit}: {enabled: boolean; actor: string; cities: Array<{id: string; name: string}>;fixedCityId?:string;embedded?:boolean;modal?:boolean;onExit?():void}) {
   const [cityId, setCityId] = useState(fixedCityId), [preview, setPreview] = useState<ProSetupPreview | null>(null);
   const [busy, setBusy] = useState(false), [message, setMessage] = useState(""), [destination, setDestination] = useState(""), [payoutMessage,setPayoutMessage]=useState("");
   const [payoutValidation,setPayoutValidation]=useState<{amountMsat:number;payment:"verified";nip57:"verified"|"unverified"|"not-advertised"}|null>(null);
+  const [selectedStep,setSelectedStep]=useState<1|2|3|null>(null);
   const inFlight = useRef(false);
   const deepLinkApplied = useRef(false);
   useEffect(()=>{
@@ -117,7 +142,7 @@ function ProSetupForm({enabled, actor, cities, fixedCityId="", embedded=false,in
     }catch(error){setMessage(error instanceof Error?error.message:`${label} visibility was not changed.`);}
     finally{inFlight.current=false;setBusy(false);}
   }
-  const journey=preview?proSetupJourney(preview):null,manage=journey?.mode==="manage";
+  const journey=preview?proSetupJourney(preview):null,manage=journey?.mode==="manage",setupComplete=journey?.mode==="complete";
   const savedDestination=preview?.payout.destination?.trim()??"",destinationChanged=destination.trim()!==savedDestination;
   const payoutState=preview?.payout.activation?.state??"not-active";
   const payoutStatus=payoutState==="active"?"Active":payoutState==="pending"?"Verifying":payoutState==="needs-attention"?"Needs attention":preview?.payout.configured?"Saved":"Not set";
@@ -137,7 +162,7 @@ function ProSetupForm({enabled, actor, cities, fixedCityId="", embedded=false,in
       {!embedded&&<button type="button" onClick={() => void prepare()} disabled={busy || !cityId || !actor}>{busy ? "Preparing…" : "Verify and preview Pro setup"}</button>}
       <p className={styles.privateCheck}><ShieldIcon/>{embedded?"This private status check is read-only and is never published to Nostr.":"Your signer confirms a private, read-only request. It is not published to Nostr."}</p>
       {message && <p className={styles.message} role="alert">{message}</p>}
-      {embedded&&!preview&&interactive&&<button className={styles.retry} type="button" onClick={()=>void prepare()} disabled={busy||!cityId||!actor}>{busy?"Waiting for signer…":message?"Retry Pro services":"Verify and load Pro services"}</button>}
+      {embedded&&!preview&&<button className={styles.retry} type="button" onClick={()=>void prepare()} disabled={busy||!cityId||!actor}>{busy?"Waiting for signer…":message?"Retry Pro services":"Verify and load Pro services"}</button>}
       {preview && <section aria-label="Prepared city profile">
         {setupComplete&&journey?<section className={styles.completeState} aria-label="Pro setup complete">
           <span className={styles.completeIcon} aria-hidden="true">✓</span>

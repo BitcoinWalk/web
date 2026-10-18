@@ -6,7 +6,7 @@ import {queryRelayEvents} from "../nostr/city-records";
 import {managedCities} from "../nostr/moderation";
 import {parsePublicProfile, profileRelays, verifyNip05, type PublicProfile} from "../nostr/profiles";
 import {serverReadRelays} from "../lib/server-relay-config";
-import {configuredPaidCityEntry,directoryConfig} from "../lib/directory-config";
+import {configuredPaidCity,configuredPaidCityEntry,directoryConfig} from "../lib/directory-config";
 import {getPaymentRuntime} from "../payments/runtime";
 import type {ProSetupTask} from "../payments/pro-setup-task-store";
 import {cityProvisioningCapabilities, type CityProvisioningCapabilities} from "../rustress/provisioning-capabilities";
@@ -115,9 +115,9 @@ export async function listProCityIdentityHealth(actor:string):Promise<CityIdenti
   const settled=new Set(table(db,"paid_city_entitlement")?(db.prepare("SELECT cityId FROM paid_city_entitlement").all() as {cityId:string}[]).map(row=>row.cityId):[]);
   const setupIds=new Set(table(db,"pro_setup_task")?(db.prepare("SELECT cityId FROM pro_setup_task").all() as {cityId:string}[]).map(row=>row.cityId):[]);
   const activeIds=new Set(table(db,"city_brand_request")?(db.prepare("SELECT DISTINCT city_id AS cityId FROM city_brand_request WHERE status='active'").all() as {cityId:string}[]).map(row=>row.cityId):[]);
-  const live=cities.map(row=>{const city=row.revision.city,slug=row.decision.approval.slug??city.slug,aliases=row.decision.approval.aliases??city.aliases??[],slugs=[slug,city.slug,...aliases];return {cityId:city.cityId,cityName:city.cityName,slug,availableInEnvironment:true,operator:configuredPaidCity(city.cityId,slugs),provisioningCityId:provisioningStatusCityId(city.cityId,slugs)};});
-  const covered=new Set(Object.entries(directoryConfig.paidCities).filter(([,configured])=>live.some(city=>city.operator===configured)).map(([cityId])=>cityId));
-  const definitions=[...live,...Object.entries(directoryConfig.paidCities).filter(([cityId])=>!covered.has(cityId)).map(([cityId,configured])=>({cityId,cityName:configured.cityName??configured.slug,slug:configured.slug,availableInEnvironment:false,operator:configured,provisioningCityId:cityId}))];
+  const live=cities.map(row=>{const city=row.revision.city,slug=row.decision.approval.slug??city.slug,aliases=row.decision.approval.aliases??city.aliases??[],operatorEntry=configuredPaidCityEntry(city.cityId,[slug,city.slug,...aliases]);return {cityId:city.cityId,cityName:city.cityName,slug,availableInEnvironment:true,operator:operatorEntry?.city,operatorCityId:operatorEntry?.cityId};});
+  const covered=new Set(live.map(city=>city.operatorCityId).filter((cityId):cityId is string=>!!cityId));
+  const definitions=[...live,...Object.entries(directoryConfig.paidCities).filter(([cityId])=>!covered.has(cityId)).map(([cityId,configured])=>({cityId,cityName:configured.cityName??configured.slug,slug:configured.slug,availableInEnvironment:false,operator:configured,operatorCityId:cityId}))];
   const identityDefinitions=definitions.filter(city=>!!city.operator||settled.has(city.cityId)||setupIds.has(city.cityId)||activeIds.has(city.cityId));
   const active=new Map(identityDefinitions.map(city=>[city.cityId,activeBrand(db,city.cityId)]));
   const requests=new Map(identityDefinitions.map(city=>[city.cityId,latestBrandRequest(db,city.cityId)]));
@@ -126,13 +126,13 @@ export async function listProCityIdentityHealth(actor:string):Promise<CityIdenti
   const publicProfileReads=brands.length?await Promise.all(profileRelays.map(async relay=>{try{return {relay,events:await queryRelayEvents([relay],[0],undefined,{authors:brands,limit:Math.min(500,Math.max(100,brands.length*5))}),error:false};}catch{return {relay,events:[] as Event[],error:true};}})):[];
   const publicOrigin=process.env.BITCOINWALK_PUBLIC_ORIGIN?.trim()||"https://bitcoinwalk.org";
   return Promise.all(definitions.map(async city=>{
-    const {cityId,cityName,slug,availableInEnvironment,provisioningCityId}=city,task=setupIds.has(cityId)?setupTask(db,cityId):null,current=active.get(cityId)??null;
+    const {cityId,cityName,slug,availableInEnvironment}=city,provisioningCityId=city.operatorCityId??cityId,task=setupIds.has(cityId)?setupTask(db,cityId):null,current=active.get(cityId)??null,request=requests.get(cityId)??null;
     const staging=process.env.BITCOINWALK_PAYMENT_APP_ORIGIN?.includes("app-staging.bitcoinwalk.org")??false;
     const tier=classifyCityIdentityTier({operatorConfirmed:!!city.operator,settled:settled.has(cityId),hasSetup:!!task,hasActiveBinding:!!current,staging});
     let binding:CityIdentityHealthEvidence["binding"]="fail";
     if(current){if(!bindingRelays.length||bindingReads.some(read=>read.error))binding="unknown";else binding=bindingReads.every(read=>resolveCityBrand(read.events.filter(event=>event.tags.some(tag=>tag[0]==="i"&&tag[1]===cityId)),cityId)?.event.id===current.eventId)?"pass":"fail";}
-    const brand=current?.challenge.binding.brandPubkey??task?.signer?.pubkey,identifier=`${slug}@bitcoinwalk.org`,profiles:ProfileEvidence={reachable:0,matching:0,nip05:0,lightning:0};
-    if(brand)for(const read of publicProfileReads){if(read.error)continue;profiles.reachable++;const profile=latestProfile(read.events,brand);if(managedCityProfileMatches(profile,current,cityName))profiles.matching++;if(profile?.nip05===identifier)profiles.nip05++;if(profile?.lnurl===identifier)profiles.lightning++;}
+    const brand=current?.challenge.binding.brandPubkey??request?.brandPubkey??task?.signer?.pubkey,identifier=`${slug}@bitcoinwalk.org`,profiles:ProfileEvidence={reachable:0,matching:0,nip05:0,lightning:0};
+    if(brand)for(const read of publicProfileReads){if(read.error)continue;profiles.reachable++;const profile=latestProfile(read.events,brand);if(managedCityProfileMatches(profile,current,cityName,`${publicOrigin}/${slug}`))profiles.matching++;if(profile?.nip05===identifier)profiles.nip05++;if(profile?.lnurl===identifier)profiles.lightning++;}
     const capabilities=tier!=="basic"?cityProvisioningCapabilities(db,provisioningCityId):{overall:"setup-required",nip05:"setup-required",lightning:"setup-required",retryable:false,detail:"Not applicable."} as CityProvisioningCapabilities;
     const activation=table(db,"rustress_activation_task")?db.prepare("SELECT updated_at FROM rustress_activation_task WHERE city=?").get(provisioningCityId) as {updated_at:number}|undefined:undefined;
     const nip05Verified=!!brand&&capabilities.nip05==="active"&&await verifyNip05(brand,identifier);

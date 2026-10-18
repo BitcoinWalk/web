@@ -4,7 +4,7 @@ export type Nip29Destination={relay:string;groupId:string};
 export type Nip29Message={id:string;pubkey:string;content:string;createdAt:number};
 export type Nip29Composer={draft:string;attachment:string};
 export type Nip29CityRoom={id:string;name:string;slug:string;avatarUrl?:string;chat:{scope:"global"|"city";nip29:Nip29Destination|null;communities?:{global:Nip29Destination|null;city:Nip29Destination|null}}};
-export type Nip29Room={key:string;label:string;scope:"global"|"city"|"organizers";cityIds:string[];destination:Nip29Destination;avatarUrl?:string};
+export type Nip29Room={key:string;label:string;scope:"global"|"city"|"organizers"|"hosts";cityIds:string[];destination:Nip29Destination;avatarUrl?:string};
 export type DashboardNip29Rooms={city:Nip29Room|null;global:Nip29Room|null;organizers:Nip29Room|null};
 
 export const ORGANIZER_ROOM_DESTINATION:Nip29Destination={relay:"wss://chat.bitcoinwalk.org/",groupId:"bitcoinwalk-organizers"};

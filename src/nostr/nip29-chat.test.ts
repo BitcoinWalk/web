@@ -1,6 +1,6 @@
 import {finalizeEvent,getPublicKey,type EventTemplate} from "nostr-tools";
 import {describe,expect,it} from "vitest";
-import {dashboardNip29CityRooms,dashboardNip29Rooms,mergeNip29Messages,nip29ComposerKey,nip29JoinTemplate,nip29MessageTemplate,nip29ParticipantCount,nip29RoomName,uniqueNip29Rooms,updateNip29Composer,validNip29Destination} from "./nip29-chat";
+import {configuredNip29Room,dashboardNip29CityRooms,dashboardNip29Rooms,mergeNip29Messages,nip29ComposerKey,nip29JoinTemplate,nip29MessageTemplate,nip29ParticipantCount,nip29RoomName,uniqueNip29Rooms,updateNip29Composer,validNip29Destination} from "./nip29-chat";
 
 const key=new Uint8Array(32).fill(4),pubkey=getPublicKey(key),group="bitcoinwalk-london";
 const signed=(template:EventTemplate)=>finalizeEvent(template,key);
