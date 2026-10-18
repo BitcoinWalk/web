@@ -358,6 +358,7 @@ export async function saveProSetupPayout(cityId: string, actor: string, destinat
   let update:"not-required"|"queued"|"deferred"="not-required";
   if(process.env.BITCOINWALK_RUSTRESS_MANAGED_ENABLED==="1")try{update=await (await import("./rustress-activation")).queueManagedPayoutUpdate(cityId)?"queued":"not-required";}catch{update="deferred";}
   return {cityId: saved.cityId, version: saved.version, destination: saved.normalized, confirmedAt: saved.confirmedAt,
+    validation:validated.probe??{amountMsat:Math.ceil(validated.minSendable/1000)*1000,payment:"verified" as const,nip57:"not-advertised" as const},
     state: update==="not-required"?"saved-not-active" as const:"saved-pending-update" as const,update,
     message: update==="queued"?"Destination saved. The existing payout remains active until the replacement is independently verified.":
       update==="deferred"?"Destination saved. The existing payout remains active; automatic replacement will retry safely.":

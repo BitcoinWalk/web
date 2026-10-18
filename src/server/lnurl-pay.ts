@@ -1,10 +1,14 @@
 import {bech32} from "@scure/base";
+import {createHash} from "node:crypto";
 import {lookup} from "node:dns/promises";
 import {request as httpsRequest} from "node:https";
 import {isIP} from "node:net";
+import {decode} from "bolt11";
+import {finalizeEvent,generateSecretKey,nip57} from "nostr-tools";
 import {validateOutgoingInvoice} from "../rustress/outgoing-invoice";
 
-export type ValidatedPayoutDestination = {normalized: string; endpoint: string; callback: string; minSendable: number; maxSendable: number};
+export type ValidatedPayoutDestination = {normalized: string; endpoint: string; callback: string; minSendable: number; maxSendable: number;
+  probe?:{amountMsat:number;payment:"verified";nip57:"verified"|"unverified"|"not-advertised"}};
 function publicAddress(address: string) {
   if (isIP(address) === 4) {
     const p = address.split(".").map(Number), [a, b, c] = p;
@@ -63,6 +67,15 @@ export function normalizePayoutDestination(value: string) {
   if (!domain.includes(".") || isIP(domain) || domain.split(".").some(label => !/^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(label))) throw new Error("Enter a valid Lightning address domain.");
   return {normalized: `${match[1]}@${domain}`, endpoint: `https://${domain}/.well-known/lnurlp/${encodeURIComponent(match[1])}`};
 }
+function validateZapProbeInvoice(request:string,zapRequest:string,amountMsat:number,now:number){
+  try{
+    const invoice=decode(request),tags=(name:string)=>invoice.tags.filter(tag=>tag.tagName===name),hash=invoice.tagsObject.payment_hash;
+    if(!invoice.complete||invoice.network?.bech32!=="bc"||invoice.millisatoshis!==String(amountMsat)||typeof hash!=="string"||!/^[0-9a-f]{64}$/.test(hash)||
+      tags("payment_hash").length!==1||tags("purpose_commit_hash").length!==1||tags("description").length!==0||tags("expire_time").length>1||
+      invoice.tagsObject.purpose_commit_hash!==createHash("sha256").update(zapRequest,"utf8").digest("hex")||!Number.isSafeInteger(invoice.timestamp)||
+      invoice.timestamp!>now+60||!Number.isSafeInteger(invoice.timeExpireDate)||invoice.timeExpireDate!<=now+30||invoice.timeExpireDate!-invoice.timestamp!>86400)throw new Error();
+  }catch{throw new Error("Zap invoice failed validation");}
+}
 export async function validatePayoutDestination(value: string, options: {blockedDomains?: string[]; fetchJson?: typeof json; resolveHost?: typeof publicHost} = {}): Promise<ValidatedPayoutDestination> {
   const parsed = normalizePayoutDestination(value), endpoint = safeUrl(parsed.endpoint);
   const blocked = new Set(["bitcoinwalk.org", ...(options.blockedDomains ?? [])].map(item => item.toLowerCase()));
@@ -84,5 +97,17 @@ export async function validatePayoutDestination(value: string, options: {blocked
     if(!invoice||invoice.status==="ERROR"||typeof invoice.pr!=="string")throw new Error();
     validateOutgoingInvoice(invoice.pr,{amountMsat:String(probeAmount),minMsat:String(min),maxMsat:String(max),network:"bc",metadata:body.metadata},Math.floor(Date.now()/1000));
   }catch{throw new Error("This destination returned an unverifiable payout invoice. Use a different Lightning address.");}
-  return {normalized: parsed.normalized, endpoint: endpoint.href, callback: callback.href, minSendable: min, maxSendable: max};
+  let nip57Status:"verified"|"unverified"|"not-advertised"="not-advertised";
+  if(body.allowsNostr===true&&typeof body.nostrPubkey==="string"&&/^[0-9a-f]{64}$/.test(body.nostrPubkey)){
+    try{
+      const request=finalizeEvent({kind:9734,created_at:Math.floor(Date.now()/1000),content:"",tags:[["relays","wss://relay.damus.io"],["amount",String(probeAmount)],["p",body.nostrPubkey]]},generateSecretKey()),raw=JSON.stringify(request);
+      if(nip57.validateZapRequest(raw)!==null)throw new Error();
+      const zapProbe=new URL(callback);zapProbe.searchParams.set("amount",String(probeAmount));zapProbe.searchParams.set("nostr",raw);
+      const zapInvoice=await (options.fetchJson??json)(zapProbe) as Record<string,unknown>;
+      if(!zapInvoice||zapInvoice.status==="ERROR"||typeof zapInvoice.pr!=="string")throw new Error();
+      validateZapProbeInvoice(zapInvoice.pr,raw,probeAmount,Math.floor(Date.now()/1000));nip57Status="verified";
+    }catch{nip57Status="unverified";}
+  }
+  return {normalized: parsed.normalized, endpoint: endpoint.href, callback: callback.href, minSendable: min, maxSendable: max,
+    probe:{amountMsat:probeAmount,payment:"verified",nip57:nip57Status}};
 }

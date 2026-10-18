@@ -13,6 +13,7 @@ describe("private payout destination validation", () => {
   it("normalizes Lightning-address domains and validates LNURL-pay metadata without sending money", async () => {
     const transport=options(),result = await validatePayoutDestination("Alice@WALLET.Example", transport);
     expect(result).toMatchObject({normalized: "Alice@wallet.example", endpoint: "https://wallet.example/.well-known/lnurlp/Alice", callback: "https://wallet.example/pay", minSendable: 1000});
+    expect(result.probe).toEqual({amountMsat:1000,payment:"verified",nip57:"not-advertised"});
     expect(transport.fetchJson).toHaveBeenCalledTimes(2);expect(String(transport.fetchJson.mock.calls[1][0])).toBe("https://wallet.example/pay?amount=1000");
   });
   it("decodes genuine bech32 LNURLs and rejects lookalikes", () => {
@@ -30,5 +31,17 @@ describe("private payout destination validation", () => {
   it("rejects a provider whose invoice does not commit to its advertised metadata",async()=>{
     const transport=options();transport.fetchJson.mockReset().mockResolvedValueOnce(endpoint).mockResolvedValueOnce(invoice("different metadata"));
     await expect(validatePayoutDestination("alice@wallet.example",transport)).rejects.toThrow("unverifiable payout invoice");
+  });
+  it("verifies an advertised NIP-57 zap invoice without paying it",async()=>{
+    const provider="cd".repeat(32),advertised={...endpoint,allowsNostr:true,nostrPubkey:provider},fetchJson=vi.fn().mockImplementation(async(url:URL)=>{
+      if(url.pathname.includes(".well-known"))return advertised;
+      const raw=url.searchParams.get("nostr");return raw?invoice(raw):invoice();
+    });
+    await expect(validatePayoutDestination("alice@wallet.example",{fetchJson,resolveHost:vi.fn().mockResolvedValue("203.0.114.1")})).resolves.toMatchObject({probe:{payment:"verified",nip57:"verified"}});
+    expect(fetchJson).toHaveBeenCalledTimes(3);
+  });
+  it("keeps an ordinary payout address valid when advertised NIP-57 support is broken",async()=>{
+    const advertised={...endpoint,allowsNostr:true,nostrPubkey:"cd".repeat(32)},fetchJson=vi.fn().mockResolvedValueOnce(advertised).mockResolvedValueOnce(invoice()).mockResolvedValueOnce({status:"ERROR"});
+    await expect(validatePayoutDestination("alice@wallet.example",{fetchJson,resolveHost:vi.fn().mockResolvedValue("203.0.114.1")})).resolves.toMatchObject({probe:{payment:"verified",nip57:"unverified"}});
   });
 });

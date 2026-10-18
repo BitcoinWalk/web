@@ -46,6 +46,7 @@ export function ProCitySetup({enabled,cityId,active=true}:{enabled:boolean;cityI
 function ProSetupForm({enabled, actor, cities, fixedCityId="", embedded=false,interactive=true}: {enabled: boolean; actor: string; cities: Array<{id: string; name: string}>;fixedCityId?:string;embedded?:boolean;interactive?:boolean}) {
   const [cityId, setCityId] = useState(fixedCityId), [preview, setPreview] = useState<ProSetupPreview | null>(null);
   const [busy, setBusy] = useState(false), [message, setMessage] = useState(""), [destination, setDestination] = useState(""), [payoutMessage,setPayoutMessage]=useState("");
+  const [payoutValidation,setPayoutValidation]=useState<{amountMsat:number;payment:"verified";nip57:"verified"|"unverified"|"not-advertised"}|null>(null);
   const inFlight = useRef(false);
   const deepLinkApplied = useRef(false);
   useEffect(()=>{
@@ -71,7 +72,7 @@ function ProSetupForm({enabled, actor, cities, fixedCityId="", embedded=false,in
         body: JSON.stringify({event}), signal: AbortSignal.timeout(60_000)});
       const body = await response.json();
       if (!response.ok) throw new Error(body.error || "Pro setup could not be prepared.");
-      setPreview(body.preview); setDestination(body.preview.payout.destination ?? body.preview.payout.suggestedDestination ?? ""); setPayoutMessage(""); setMessage("Pro services loaded.");
+      setPreview(body.preview); setDestination(body.preview.payout.destination ?? body.preview.payout.suggestedDestination ?? ""); setPayoutMessage(""); setPayoutValidation(null); setMessage("Pro services loaded.");
     } catch (error) {setMessage(error instanceof Error ? error.message : "Preparation failed; no account or payment was changed.");}
     finally {inFlight.current = false; setBusy(false);}
   },[actor,cityId,embedded]);
@@ -87,7 +88,7 @@ function ProSetupForm({enabled, actor, cities, fixedCityId="", embedded=false,in
       setPreview(value => value ? {...value, payout: {configured: true, destination: body.payout.destination, version: body.payout.version,
         ...(body.payout.update==="not-required"&&value.payout.activation?{activation:value.payout.activation}:body.payout.update!=="not-required"?{activation:{activeVersion:value.payout.activation?.activeVersion,pendingVersion:body.payout.version,state:"pending"}}:{})},
         steps: value.steps.map(step => step.label === "Personal payout destination" ? {...step, state: "ready", detail: body.payout.update==="queued"?`Destination version ${body.payout.version} is being verified. The current destination remains active until it passes.`:`Owner-confirmed destination version ${body.payout.version} is saved privately. It is not active until provisioning is verified.`} : step)} : value);
-      setDestination(body.payout.destination); setPayoutMessage(body.payout.message); setMessage(body.payout.message);
+      setDestination(body.payout.destination); setPayoutValidation(body.payout.validation); setPayoutMessage(body.payout.message); setMessage(body.payout.message);
     } catch (error) {const note=error instanceof Error ? error.message : "Destination was not saved.";setPayoutMessage(note);setMessage(note);}
     finally {inFlight.current = false; setBusy(false);}
   }
@@ -158,11 +159,12 @@ function ProSetupForm({enabled, actor, cities, fixedCityId="", embedded=false,in
           <div className={styles.payoutHeader}><span className={styles.payoutIcon}><BoltIcon/></span><span><strong>Host payout destination</strong><small>Receives your 79% share of city payments</small></span><span className={styles.payoutState} data-state={payoutState}>{payoutStatus}</span></div>
           {preview.payout.configured&&<div className={styles.currentPayout}><span>Current saved destination</span><strong>{preview.payout.destination}</strong><small>Version {preview.payout.version}{preview.payout.activation?.activeVersion?` · active version ${preview.payout.activation.activeVersion}`:""}</small></div>}
           <label>{preview.payout.configured?"New Lightning address or LNURL-pay":"Lightning address or LNURL-pay"}
-            <input value={destination} onChange={event => {setDestination(event.target.value);setPayoutMessage("");}} placeholder="you@example.com or lnurl1…" autoComplete="off" spellCheck={false}/>
+            <input value={destination} onChange={event => {setDestination(event.target.value);setPayoutMessage("");setPayoutValidation(null);}} placeholder="you@example.com or lnurl1…" autoComplete="off" spellCheck={false}/>
           </label>
           <p className={styles.payoutHelp}>BitcoinWalk validates the endpoint without sending funds. The current destination stays active until the signed replacement passes provider and public read-back checks. BitcoinWalk retains 21%.</p>
           {!preview.payout.configured && preview.payout.suggestedDestination && <p><strong>Recovered from your Pro checkout:</strong> {preview.payout.suggestedDestination}. Confirm it below with the current city owner’s signer; checkout alone cannot activate it.</p>}
           <div className={styles.payoutActions}><button type="button" onClick={() => void savePayout()} disabled={busy || !destination.trim() || (preview.payout.configured&&!destinationChanged)}>{busy ? "Validating…" : preview.payout.configured ? "Verify and update payout" : "Verify and save payout"}</button>{preview.payout.configured&&!destinationChanged&&<small>Enter a different destination to update it.</small>}</div>
+          {payoutValidation&&<div className={styles.validationResult} aria-label="Payout validation result"><strong>✓ Lightning receive check passed</strong><span>The provider issued a valid, unpaid {payoutValidation.amountMsat/1000}-sat mainnet invoice with the correct amount, expiry and metadata commitment.</span><small>{payoutValidation.nip57==="verified"?"NIP-57 zap invoice verified (unpaid).":payoutValidation.nip57==="unverified"?"The provider advertises NIP-57, but its zap invoice could not be verified. Ordinary Lightning payouts remain valid.":"NIP-57 zap support is not advertised. Ordinary Lightning payouts remain valid."}</small></div>}
           {payoutMessage&&<p className={styles.payoutFeedback} role="status" aria-live="polite">{payoutMessage}</p>}
         </fieldset>}
         {journey&&(journey.target==="signer"||manage)&&<div className={styles.section} id={`pro-signer-${cityId}`}><CitySignerSetup cityId={preview.cityId} cityName={preview.cityName} actor={actor} saved={preview.signer} activation={preview.activation} profile={preview.profile}
