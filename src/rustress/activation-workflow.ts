@@ -47,6 +47,17 @@ export class ActivationWorkflow {
       this.db.exec("COMMIT");return this.status(activation.cityId);
     }catch(error){this.db.exec("ROLLBACK");throw error;}
   }
+  /** Explicit operator recovery for a fail-closed activation. Re-entering the
+   * normal state machine is safe because run() first revalidates the stored
+   * authority and then requires an exact provider receipt before exposing
+   * either public capability. */
+  async retry(cityId:string){
+    const row=this.row(cityId);if(!row||row.phase==="active")return this.status(cityId);
+    const now=this.now(),reset=this.db.prepare("UPDATE rustress_activation_task SET phase='unknown',lease=NULL,until=0,updated_at=? WHERE city=? AND (lease IS NULL OR until<=?)")
+      .run(now,cityId,now);
+    if(!reset.changes)return this.status(cityId);
+    return this.run(cityId);
+  }
   async run(cityId:string){
     const lease=randomUUID(),now=this.now(),claim=this.db.prepare("UPDATE rustress_activation_task SET lease=?,until=? WHERE city=? AND (lease IS NULL OR until<=?)")
       .run(lease,now+120_000,cityId,now);

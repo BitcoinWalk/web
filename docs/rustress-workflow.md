@@ -153,7 +153,12 @@ one successful check never makes the other green. CMS states are **Setup
 required**, **Provisioning**, **Active** and **Needs attention**. Organizers see
 read-only capability status in Pro setup. The super-admin has a signed **Check /
 retry provisioning** control; retry reconciles stored/provider state and cannot
-replace changed evidence or create another purchase invoice.
+replace changed evidence or create another purchase invoice. A fail-closed
+activation may re-enter verification only through that explicit signed retry:
+the app first revalidates its stored authority, requires the provider's exact
+applied configuration and independently checks both public endpoints. Changed
+evidence remains blocked and an exact applied configuration is never written a
+second time.
 
 The prepared managed tunnel forwards `.138` loopback `127.0.0.1:18895` only to
 `.240` loopback `127.0.0.1:8895`, using a dedicated key that permits that single

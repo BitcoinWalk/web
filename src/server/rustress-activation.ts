@@ -174,6 +174,7 @@ function managedProvisioningCityId(service:NonNullable<ReturnType<typeof runtime
 export async function retryManagedProvisioning(city:string,actor:string){
   if(actor!==SUPER_ADMIN_PUBKEY)throw new Error("Super-admin provisioning recovery required.");
   const service=runtime();if(!service)throw new Error("Managed city provisioning is not enabled.");const managedCity=managedProvisioningCityId(service,city);if(!service.allow.has(managedCity))throw new Error("Managed city provisioning is not enabled.");
-  await reconcileCity(service,managedCity);const update=service.payoutUpdates.status(managedCity);if(update&&update.state!=="active")await service.payoutUpdates.retry(managedCity);
+  await reconcileCity(service,managedCity);const activation=service.activation.status(managedCity);if(activation&&activation.state!=="active")await service.activation.retry(managedCity);
+  const update=service.payoutUpdates.status(managedCity);if(update&&update.state!=="active")await service.payoutUpdates.retry(managedCity);
   return {reservation:service.reservation.status(managedCity),activation:service.activation.status(managedCity),payoutUpdate:service.payoutUpdates.status(managedCity),activationEnabled:service.activationEnabled};
 }
