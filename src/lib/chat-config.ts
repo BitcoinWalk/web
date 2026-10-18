@@ -15,5 +15,5 @@ export const chatConfig: ChatConfig = {
 // The dashboard presents the product-facing name “Hosts”.
 export const hostsChatConfig = {
   relay: "wss://chat.bitcoinwalk.org",
-  groupId: "9e8d282f27d9c9cd",
+  groupId: "bitcoinwalk-organizers",
 };
