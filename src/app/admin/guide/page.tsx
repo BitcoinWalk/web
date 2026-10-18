@@ -1,1 +1,2 @@
-export default function GuidePage(){return <main><h1>BitcoinWalk Guide</h1><p>Your private conversation with BitcoinWalk Guide will appear here.</p></main>;}
+import DashboardRedirect from "../../../components/dashboard-redirect";
+export default function GuidePage(){return <DashboardRedirect from="/admin/guide"/>;}

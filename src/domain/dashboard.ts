@@ -8,7 +8,6 @@ export const dashboardItems=[
  {href:"/admin/walks",label:"Walks",access:"walks"},
  {href:"/admin/sponsor",label:"Sponsorships",access:"connected"},
  {href:"/admin/chat",label:"Chat",access:"connected"},
- {href:"/admin/guide",label:"Guide",access:"connected"},
  {href:"/admin/organizers",label:"Hosts",access:"admin"},
  {href:"/admin/content",label:"Content",access:"admin"},
  {href:"/admin/directory",label:"City relay setup",access:"relay"},
@@ -55,5 +54,5 @@ export function dashboardHomeActions(role:DashboardRole,capabilities:DashboardCa
   {href:"/start",label:"Start a BitcoinWalk",description:"Apply to organize BitcoinWalk in your city."},
  ];
 }
-export const legacyDashboardRoutes:Record<string,string>={"/organizer":"/admin/walks","/organizer/events":"/admin/walks","/organizer/invitations":"/admin/accept-invitation","/organizer/team":"/admin/walks","/admin/calendar":"/admin/walks","/admin/hosting":"/admin/walks","/admin/approvals":"/admin/requests","/admin/moderation":"/admin/walks?tab=moderation","/admin/editors":"/admin/organizers?tab=editors","/admin/invitations":"/admin/organizers?tab=invitations"};
+export const legacyDashboardRoutes:Record<string,string>={"/organizer":"/admin/walks","/organizer/events":"/admin/walks","/organizer/invitations":"/admin/accept-invitation","/organizer/team":"/admin/walks","/admin/calendar":"/admin/walks","/admin/hosting":"/admin/walks","/admin/approvals":"/admin/requests","/admin/moderation":"/admin/walks?tab=moderation","/admin/editors":"/admin/organizers?tab=editors","/admin/invitations":"/admin/organizers?tab=invitations","/admin/guide":"/admin/chat?room=guide"};
 export function legacyDashboardHref(path:string,search="",hash=""){const target=legacyDashboardRoutes[path];if(!target)throw new Error("Unknown legacy dashboard route");return target+(search?target.includes("?")?`&${search.slice(1)}`:search:"")+hash;}
