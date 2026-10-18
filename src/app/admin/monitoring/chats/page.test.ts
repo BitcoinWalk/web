@@ -16,12 +16,13 @@ describe("city community administration", () => {
     expect(page).toContain('tone:"neutral",label:"Not set up"');
     expect(page).toContain('tone:"red",label:"Needs attention"');
     expect(page).toContain("red is reserved for a channel that needs intervention");
-    expect(page).toContain("All approved city channels");
-    expect(page).toContain(
-      "Sign and provision ${missingCities.length} remaining",
-    );
-    expect(page).toContain("retry to resume with the remaining cities");
-    expect(page).toContain('row.cityId===city.cityId)?.phase!=="active"');
+    expect(page).toContain("Select all shown");
+    expect(page).toContain("All statuses ({cities.length})");
+    expect(page).toContain("Sign and provision ${selectedCityIds.length} selected");
+    expect(page).toContain("completed cities turn green and leave the selection");
+    expect(page).toContain("retry to continue with those still selected");
+    expect(page).toContain("data-selected={checked?");
+    expect(page).toContain("disabled={busy||isActive}");
     expect(page).toContain("<CityFinder");
     expect(page).toContain("Search all approved cities…");
     expect(page).toContain('"Pro":"Basic"} · shared Walkie Talkie');
