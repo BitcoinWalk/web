@@ -8,6 +8,15 @@ function normalize(value:unknown):CapabilityState{return ["setup-required","prov
 /** Read-only CMS projection. Missing tables and records are setup state, never
  * proof that a provider action failed or that a capability is active. */
 export function cityProvisioningCapabilities(db:DatabaseSync,cityId:string):CityProvisioningCapabilities{
+  // A completed activation is the durable public-service receipt. Older
+  // deployments may already have removed their temporary reservation work row;
+  // do not reopen those verified services merely because that queue row is gone.
+  if(table(db,"rustress_activation_task")){
+    const retained=db.prepare("SELECT phase,nip05,lnurl FROM rustress_activation_task WHERE city=?").get(cityId) as {phase:string;nip05:string;lnurl:string}|undefined;
+    if(retained?.phase==="active"&&normalize(retained.nip05)==="active"&&normalize(retained.lnurl)==="active")return {
+      overall:"active",nip05:"active",lightning:"active",retryable:false,detail:"NIP-05 and the Lightning address passed independent public verification.",
+    };
+  }
   if(!table(db,"rustress_managed_reservation_task"))return {overall:"setup-required",nip05:"setup-required",lightning:"setup-required",retryable:false,
     detail:"Managed city address provisioning has not started."};
   const reservation=db.prepare("SELECT phase FROM rustress_managed_reservation_task WHERE city=?").get(cityId) as {phase:string}|undefined;
