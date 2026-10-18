@@ -13,11 +13,14 @@ lettering. The pack now contains twelve PNGs. Existing ten-file v1–v1.2 packs
 remain readable and checksum-valid while the approval worker queues a v1.3
 successor.
 
-These lockups are intended for the Walkie Talkie app home screen, where cities
-will appear alphabetically in a scrollable photographic mosaic. Each app tile
-uses the approved hero crop and the matching symbol/city lockup. The public
-bitcoinwalk.org city directory remains unchanged. The Walkie Talkie client must
-scale the complete lockup uniformly so names such as Augsburg, Manchester,
+These lockups are used by the Walkie Talkie app home screen, where every
+provisioned city appears alphabetically in a contained, scrollable photographic
+mosaic. Each app tile uses the approved hero crop and the matching symbol/city
+lockup. Selecting a tile opens the existing NIP-29 membership check and join
+flow; `?city=<slug>` deep-links directly to the same city conversation. Guide,
+Global and Hosts remain direct destinations above the mosaic. The public
+bitcoinwalk.org city directory remains unchanged. The Walkie Talkie client
+scales the complete lockup uniformly so names such as Augsburg, Manchester,
 Szydłowiec and Warszawa stay inside the tile without stretching the lettering.
 
 ## Current agreed scope — 3 October 2026

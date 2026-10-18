@@ -17,6 +17,7 @@ export type PublicCityDirectoryItem = {
   aliases: string[];
   canonicalUrl: string;
   avatarUrl: string;
+  heroImageUrl: string;
   chat: {
     scope: "global" | "city";
     url: string | null;
@@ -68,6 +69,7 @@ export async function loadPublicCityDirectory(now = Date.now()): Promise<PublicC
       aliases,
       canonicalUrl: `${origin}/${encodeURIComponent(city.slug)}`,
       avatarUrl,
+      heroImageUrl: walk.approval?.approval?.heroImageUrl || city.heroImageUrl || avatarUrl,
       chat: {
         scope: chat.scope,
         url: chat.url,

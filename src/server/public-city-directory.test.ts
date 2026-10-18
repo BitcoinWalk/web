@@ -17,7 +17,7 @@ vi.mock("./share-preview", () => ({
 import { loadPublicCityDirectory } from "./public-city-directory";
 
 function row(cityId: string, cityName: string, slug: string, aliases: string[] = []) {
-  return { revision: { city: { cityId, cityName, slug, aliases } } };
+  return { revision: { city: { cityId, cityName, slug, aliases, heroImageUrl: `https://images.example/${slug}.webp` } } };
 }
 
 describe("public city directory", () => {
@@ -37,6 +37,7 @@ describe("public city directory", () => {
       slug: "madeira",
       canonicalUrl: "https://bitcoinwalk.org/madeira",
       avatarUrl: `https://bitcoinwalk.org/api/og/files/${"a".repeat(64)}.jpg`,
+      heroImageUrl: "https://images.example/madeira.webp",
       chat: {
         scope: "city",
         url: null,
