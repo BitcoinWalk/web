@@ -61,7 +61,7 @@ export async function verifyNip05(pubkey:string,identifier:string):Promise<boole
 
 const cache=new Map<string,{profile:PublicProfile; time:number}>();
 /** Read only: never signs, authenticates or publishes to profile relays. */
-export function watchPublicProfiles(keys:string[], update:(key:string,profile:PublicProfile)=>void):()=>void {
+function fetchPublicProfiles(keys:string[], update:(key:string,profile:PublicProfile)=>void):()=>void {
   let active=true;
   const requested=new Set(keys.filter(k=>/^[0-9a-f]{64}$/.test(k)).slice(0,100));
   const missing:string[]=[];
@@ -92,4 +92,30 @@ export function watchPublicProfiles(keys:string[], update:(key:string,profile:Pu
     onclose:()=>{clearTimeout(timer);close();},
   });
   return ()=>{active=false;clearTimeout(timer);close();};
+}
+
+export type ProfileLoadState="loading"|"ready"|"unavailable";
+type ProfileListener={update:(key:string,profile:PublicProfile)=>void;status?:(key:string,state:ProfileLoadState)=>void};
+const subscriptions=new Map<string,{listeners:Set<ProfileListener>;state:ProfileLoadState;stop:()=>void;retry:()=>void}>();
+export function retryPublicProfile(key:string):void {subscriptions.get(key)?.retry();}
+/** Share in-flight results across surfaces and retry missing metadata once. */
+export function watchPublicProfiles(keys:string[],update:ProfileListener["update"],status?:ProfileListener["status"]):()=>void {
+ const listener:ProfileListener={update,status};
+ const requested=[...new Set(keys.filter(key=>/^[0-9a-f]{64}$/.test(key)))].slice(0,100);
+ for(const key of requested){
+  const existing=subscriptions.get(key);
+  if(existing){existing.listeners.add(listener);queueMicrotask(()=>{if(!existing.listeners.has(listener))return;const hit=cache.get(key);if(hit)update(key,hit.profile);status?.(key,existing.state);});continue;}
+  const listeners=new Set([listener]);let disposed=false,received=false,attempt=0;
+  let cancel=()=>{};let timer:ReturnType<typeof setTimeout>|undefined;
+  const entry={listeners,state:"loading" as ProfileLoadState,stop:()=>{disposed=true;cancel();clearTimeout(timer);},retry:()=>{cancel();clearTimeout(timer);received=false;attempt=0;run();}};
+  subscriptions.set(key,entry);
+  const run=()=>{
+   if(disposed)return;
+   attempt++;entry.state="loading";for(const item of listeners)item.status?.(key,"loading");
+   cancel=fetchPublicProfiles([key],(id,profile)=>{if(disposed)return;received=true;entry.state="ready";for(const item of listeners){item.update(id,profile);item.status?.(id,"ready");}});
+   timer=setTimeout(()=>{if(disposed||received)return;cancel();if(attempt<2)run();else {entry.state="unavailable";for(const item of listeners)item.status?.(key,"unavailable");}},7000);
+  };
+  queueMicrotask(run);
+ }
+ return()=>{for(const key of requested){const entry=subscriptions.get(key);if(!entry)continue;entry.listeners.delete(listener);if(!entry.listeners.size){entry.stop();subscriptions.delete(key);}}};
 }

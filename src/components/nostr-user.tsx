@@ -2,7 +2,7 @@
 
 import {useEffect,useState} from "react";
 import {nip19} from "nostr-tools";
-import {verifyNip05,watchPublicProfiles,type PublicProfile} from "../nostr/profiles";
+import {retryPublicProfile,verifyNip05,watchPublicProfiles,type PublicProfile,type ProfileLoadState} from "../nostr/profiles";
 import CopyValue from "./copy-value";
 import styles from "./nostr-user.module.css";
 
@@ -20,8 +20,11 @@ type Props={
 export default function NostrUser({pubkey,profile:provided,variant="card",resolveProfile=true,hostCities=[],editorCities=[],showLightning=true,profileLink=false}:Props){
  const [resolved,setResolved]=useState<{pubkey:string;profile:PublicProfile}>(),[failed,setFailed]=useState<string>();
  const [verified,setVerified]=useState<{key:string;value:boolean}>();
+ const [load,setLoad]=useState<{key:string;state:ProfileLoadState}>();
  const profile=resolved?.pubkey===pubkey?resolved.profile:provided;
- useEffect(()=>resolveProfile?watchPublicProfiles([pubkey],(key,value)=>{if(key===pubkey)setResolved({pubkey:key,profile:value});}):()=>{},[pubkey,resolveProfile]);
+ const pending=resolveProfile&&!profile;
+ const unavailable=load?.key===pubkey&&load.state==="unavailable";
+ useEffect(()=>resolveProfile?watchPublicProfiles([pubkey],(key,value)=>{if(key===pubkey)setResolved({pubkey:key,profile:value});},(key,state)=>setLoad({key,state})):()=>{},[pubkey,resolveProfile]);
  const verificationKey=profile?.nip05?`${pubkey}:${profile.nip05}`:"";
  useEffect(()=>{if(!profile?.nip05)return;let active=true;void verifyNip05(pubkey,profile.nip05).then(value=>{if(active)setVerified({key:verificationKey,value});});return()=>{active=false;};},[profile?.nip05,pubkey,verificationKey]);
  const verification:"absent"|"checking"|"verified"|"unverified"=!profile?.nip05?"absent":verified?.key!==verificationKey?"checking":verified.value?"verified":"unverified";
@@ -34,10 +37,10 @@ export default function NostrUser({pubkey,profile:provided,variant="card",resolv
     ?<img src={profile.picture} alt="" width={variant==="compact"?48:64} height={variant==="compact"?48:64} loading="lazy" referrerPolicy="no-referrer" onError={()=>setFailed(profile.picture)} />
     :<span className={styles.avatar} aria-hidden="true">👤</span>}
    <div className={styles.details}>
-    <div className={styles.nameLine}><strong className={styles.name}><CopyValue label="username" value={profile?.name??"Unnamed Nostr user"}/></strong>{profile?.nip05?<span className={styles.nip05}><CopyValue label="NIP-05" value={profile.nip05}/><span className={styles[verification]}>{verification==="verified"?"✓ verified":verification==="checking"?"checking…":"not verified"}</span></span>:<span className={styles.nip05Missing}>NIP-05 not provided</span>}</div>
+    <div className={styles.nameLine}><strong className={styles.name}>{pending?<span role="status">{unavailable?"Profile unavailable":"Loading profile…"}</span>:<CopyValue label="username" value={profile?.name??"Unnamed Nostr user"}/>}</strong>{profile?.nip05?<span className={styles.nip05}><CopyValue label="NIP-05" value={profile.nip05}/><span className={styles[verification]}>{verification==="verified"?"✓ verified":verification==="checking"?"checking…":"not verified"}</span></span>:!pending&&<span className={styles.nip05Missing}>NIP-05 not provided</span>}{pending&&unavailable&&<button type="button" onClick={()=>retryPublicProfile(pubkey)}>Retry profile</button>}</div>
     <dl>
      <div><dt>npub</dt><dd><CopyValue label="npub" value={npub}/></dd></div>
-     {showLightning&&<div><dt>LNURL</dt><dd><CopyValue label="LNURL" value={profile?.lnurl}/></dd></div>}
+     {showLightning&&<div><dt>LNURL</dt><dd>{pending?(unavailable?"Unavailable":"Loading…"):<CopyValue label="LNURL" value={profile?.lnurl}/>}</dd></div>}
     </dl>
     {profileLink&&<a href={`nostr:${npub}`}>Open Nostr profile</a>}
    </div>

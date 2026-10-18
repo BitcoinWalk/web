@@ -4,6 +4,13 @@ import {describe,expect,it} from "vitest";
 import NostrUser from "./nostr-user";
 
 describe("Nostr user identity",()=>{
+ it("does not claim missing metadata while the profile is still loading",()=>{
+  const html=renderToStaticMarkup(createElement(NostrUser,{pubkey:"5".repeat(64)}));
+  expect(html).toContain("Loading profile…");
+  expect(html).not.toContain("NIP-05 not provided");
+  expect(html).not.toContain("Unnamed Nostr user");
+  expect(html).not.toContain("Not provided");
+ });
  it("renders the connected user's avatar and name in compact mode",()=>{
   const html=renderToStaticMarkup(createElement(NostrUser,{pubkey:"3".repeat(64),profile:{name:"Sponsor Alice",picture:"https://example.org/avatar.webp"},variant:"compact",showLightning:false,resolveProfile:false}));
   expect(html).toContain("Sponsor Alice");

@@ -9,8 +9,9 @@ import styles from "./dashboard-account-menu.module.css";
 function roleLabel(role:DashboardRole){return role==="super-admin"?"Super-admin":role==="organizer"?"Host":"Participant";}
 
 export default function DashboardAccountMenu({pubkey,role,walkCount,onDisconnect}:{pubkey:string;role:DashboardRole;walkCount:number|null;onDisconnect:()=>void}){
- const [profile,setProfile]=useState<PublicProfile>(),[failed,setFailed]=useState("");
- useEffect(()=>watchPublicProfiles([pubkey],(key,value)=>{if(key===pubkey)setProfile(value);}),[pubkey]);
+ const [resolved,setResolved]=useState<{key:string;profile:PublicProfile}>(),[failed,setFailed]=useState("");
+ const profile=resolved?.key===pubkey?resolved.profile:undefined;
+ useEffect(()=>watchPublicProfiles([pubkey],(key,value)=>{if(key===pubkey)setResolved({key,profile:value});}),[pubkey]);
  const npub=nip19.npubEncode(pubkey),label=profile?.name??`${npub.slice(0,12)}…${npub.slice(-6)}`,picture=profile?.picture&&profile.picture!==failed?profile.picture:null;
  return <details className={styles.account}>
   <summary aria-label={`Account menu for ${label}`} title={`Logged in as ${label}`}>
