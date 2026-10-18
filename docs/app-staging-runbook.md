@@ -25,7 +25,8 @@ is unchanged by this release.
 3. Run tests, lint, typecheck/build, `npm run release:package` and
    `npm run release:smoke`. Retain the archive and its checksum.
 4. Copy both files to the bitcoinwalk account and verify their checksum.
-5. Run `/home/bitcoinwalk/bin/deploy-staging-app /path/to/app-staging-X.Y.Z.tar.gz`.
+5. Record `readlink -f /opt/bitcoinwalk-app-staging/current` before preparing deployment.
+   Run `/home/bitcoinwalk/bin/deploy-staging-app /path/to/app-staging-X.Y.Z.tar.gz --expected-current RECORDED_PATH`.
    The helper preserves deployment evidence, activates a new release and checks
    health. No sudo or automatic staging rollback is required.
 6. Verify `systemctl --user is-active bitcoinwalk-app-staging.service`, loopback
@@ -34,6 +35,33 @@ is unchanged by this release.
 
 Keep the previous release and deployment evidence. Never overwrite application
 state as a response to a failed code deployment; diagnose before another activation.
+
+## Release collision prevention (0.3.445)
+
+Both environment helpers hold an exclusive, non-waiting lock through activation,
+health checks and evidence capture. A stale expected-current path fails closed:
+inspect and merge the newly active source instead of blindly updating the argument.
+Uploads must use a unique source/hash directory, never a shared version-only path.
+The helper snapshots the input before verifying its checksum and extracting it.
+One version is permanently bound to one archive digest per environment; identical
+artifact retries are allowed, but different contents require a new version even if
+the first activation failed. Legacy release directories are checked too.
+
+Packaging requires committed tracked source and a build ID matching that commit.
+The artifact includes release-manifest.json with environment, commit and ancestry.
+Once the active release has a manifest, a candidate must include its source commit.
+The first manifest-bearing release uses the explicitly recorded legacy target as
+the bootstrap guard. Staging and production use the same source commit but separate
+builds because browser relay settings differ. Never deploy staging assets to prod.
+
+Install app-deploy-guard.sh and validate-app-manifest.mjs beside both helpers.
+Production usage is `deploy-production-app ARCHIVE --expected-current RECORDED_PATH`,
+where the recorded path comes from the production current symlink. Retain backups
+of helpers before updating. Old automation omitting this argument intentionally fails.
+An emergency code rollback is a separately reviewed operation: record the failed
+release, take the same environment lock, restore only the previous app symlink and
+release environment, then restart/check health. Never restore payment data for a
+code rollback, remove version reservations, or bypass guards for routine releases.
 
 ## Configuration boundaries
 

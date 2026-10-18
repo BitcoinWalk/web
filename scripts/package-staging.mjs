@@ -9,6 +9,9 @@ const standalone=join(root,".next","standalone");
 const staticAssets=join(root,".next","static");
 const publicAssets=join(root,"public");
 const output=join(root,"release-build");
+const git=(...args)=>execFileSync("git",args,{cwd:root,encoding:"utf8"}).trim();
+if(git("status","--porcelain","--untracked-files=no"))throw new Error("Commit tracked changes before packaging a release.");
+const sourceCommit=git("rev-parse","HEAD");
 const profile=process.argv[2]??"staging";
 if(!["staging","production"].includes(profile))throw new Error("Release profile must be staging or production.");
 
@@ -74,6 +77,7 @@ await requirePath(join(standalone,".next","BUILD_ID"),"file");
 const buildId=(await readFile(join(root,".next","BUILD_ID"),"utf8")).trim();
 const standaloneBuildId=(await readFile(join(standalone,".next","BUILD_ID"),"utf8")).trim();
 if(!buildId || buildId!==standaloneBuildId)throw new Error("Standalone and static build IDs differ. Run npm run build again.");
+if(buildId!==sourceCommit)throw new Error("Build does not match the release commit. Rebuild before packaging.");
 await requirePath(join(staticAssets,buildId),"directory");
 
 await mkdir(output,{recursive:true});
@@ -98,6 +102,7 @@ try{
   if(!(await readdir(join(stage,".next","static"))).length)throw new Error("Release static assets are empty.");
   await requireProfileRelays(join(stage,".next","static"));
   await rejectPrivateFiles(stage);
+  await writeFile(join(stage,"release-manifest.json"),JSON.stringify({schema:1,release,profile,sourceCommit,ancestors:git("rev-list","HEAD").split("\n"),buildId},null,2)+"\n");
 
   const archive=join(output,`${release}.tar.gz`);
   const temporaryArchive=join(temp,basename(archive));

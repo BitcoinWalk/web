@@ -52,7 +52,7 @@ describe("my cities inventory",()=>{
   const page=source();
   expect(page).toContain('import {ProCitySetup} from "../admin/pro-setup/screen"');
   expect(page).toContain('hidden={workspaceTab!=="pro"}');
-  expect(page).toContain('<ProCitySetup enabled cityId={base.city.cityId} active={workspaceTab==="pro"}/>');
+  expect(page).toContain('<ProCitySetup enabled cityId={base.city.cityId} active={workspaceTab==="pro"} onClose={()=>setWorkspaceTab("profile")}/>');
   expect(page).not.toContain("Complete Pro setup");
   expect(page).not.toContain("/admin/upgrade");
  });

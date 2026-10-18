@@ -3,9 +3,9 @@ import {assessRustressWallet,type WalletReadinessEvidence} from "./wallet-readin
 import {RUSTRESS_WALLET_REQUIREMENTS} from "./contract";
 function evidence():WalletReadinessEvidence{return{
  connectionRef:"rustress-test",checkoutConnectionRef:"checkout",network:"signet",
- inventory:{checkedAt:1000,expiresAt:2000,grantedMethods:[...RUSTRESS_WALLET_REQUIREMENTS.methods],notificationsGranted:true,revoked:false,budgetMsat:100000,remainingBudgetMsat:100000,budgetRenewal:"never",isolated:true},
+ inventory:{checkedAt:1000,expiresAt:2000,grantedMethods:[...RUSTRESS_WALLET_REQUIREMENTS.methods],notificationsGranted:true,revoked:false,budgetMsat:100000,remainingBudgetMsat:100000,budgetRenewal:"monthly",isolated:true},
  protocol:{checkedAt:1000,advertisedMethods:[...RUSTRESS_WALLET_REQUIREMENTS.methods],successfulReadMethods:["get_info","lookup_invoice","list_transactions"]},
- policy:{approvedAt:1000,expiresAt:2000,expectedNetwork:"signet",maximumBudgetMsat:100000,maximumTestPaymentMsat:79000,maximumFeeMsat:1000,feeLimitVerified:true,approvedSharedWallet:false},
+ policy:{approvedAt:1000,expiresAt:2000,expectedNetwork:"signet",maximumBudgetMsat:100000,approvedBudgetRenewal:"monthly",maximumTestPaymentMsat:79000,maximumFeeMsat:1000,feeLimitVerified:true,approvedSharedWallet:false},
 };}
 describe("Rustress preflight is not live payment authorization",()=>{
  it("only permits consideration of an explicitly authorized test, never live activation",()=>{
@@ -36,9 +36,9 @@ describe("Rustress preflight is not live payment authorization",()=>{
   const e=evidence();e.inventory.notificationsGranted=false;e.protocol.successfulReadMethods=["get_info"];e.protocol.advertisedMethods=[];
   expect(assessRustressWallet(e,1000).issues).toEqual(expect.arrayContaining(["notifications-not-granted","read-probes-incomplete","missing-advertised-methods"]));
  });
- it("requires a bounded non-renewing pilot budget with room for fees",()=>{
+ it("requires the exactly approved renewing budget with room for fees",()=>{
   const e=evidence();e.inventory.budgetMsat=200000;e.inventory.remainingBudgetMsat=79000;e.inventory.budgetRenewal="daily";
-  expect(assessRustressWallet(e,1000).issues).toEqual(expect.arrayContaining(["budget-exceeds-approval","insufficient-budget","renewing-budget"]));
+  expect(assessRustressWallet(e,1000).issues).toEqual(expect.arrayContaining(["budget-exceeds-approval","insufficient-budget","budget-renewal-mismatch"]));
  });
  it("rejects inconsistent budgets and unverified fee enforcement",()=>{
   const e=evidence();e.inventory.remainingBudgetMsat=100001;e.policy.feeLimitVerified=false;

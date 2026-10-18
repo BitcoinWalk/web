@@ -55,6 +55,7 @@ describe("branded city authority contract and private storage", () => {
     expect(store.reviewQueue()).toEqual([]);
     expect(store.completed()).toEqual([expect.objectContaining({id:request.requestId,status:"active"})]);
     expect(store.activate(request.requestId,admin,authority,[p.signed],["wss://relay.example/"])).toMatchObject({row:{status:"active"}});
+    expect(store.currentForCity(authority.cityId)).toMatchObject({id:request.requestId,status:"active"});
   });
   it("reuses only an identical unexpired request and expires abandoned requests",()=>{
     const {store,advance}=setup(),first=store.prepare(owner,authority,origin,brand,"activate",profile);

@@ -26,7 +26,10 @@ export class SettlementCollector {
    if(hints.length>0)return {state:"scanned" as const,cursor:after,done:false,credited,failed,pending};
    for(let page=0;page<maxPages;page++){
     if(!this.enabled())return {state:"paused" as const};
-    const result=await this.flow.sweep(cursor,50);
+    // Keep each authenticated wallet lookup inside the runtime's short-lived
+    // deployment evidence. The supervisor persists the returned cursor across
+    // cycles, so a small batch does not starve later historical invoices.
+    const result=await this.flow.sweep(cursor,1);
     credited+=result.credited;failed+=result.failed;pending+=result.pending;
     if(result.done)return {state:"scanned" as const,cursor:0,done:true,credited,failed,pending};
     if(result.cursor<=cursor)throw new Error();cursor=result.cursor;

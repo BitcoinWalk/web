@@ -4,7 +4,9 @@ set -euo pipefail
 umask 077
 
 test "$(id -un)" = bitcoinwalk || { echo 'Run as bitcoinwalk.' >&2; exit 1; }
-test "$#" -eq 1 || { echo 'Usage: deploy-production-app-user.sh /path/to/app-production-X.Y.Z.tar.gz' >&2; exit 1; }
+test "$#" -eq 3 && test "$2" = --expected-current || { echo 'Usage: deploy-production-app-user.sh ARCHIVE --expected-current RESOLVED_CURRENT_PATH' >&2; exit 1; }
+expected_current=$3
+profile=production
 
 archive=$(readlink -f "$1")
 checksum="$archive.sha256"
@@ -13,7 +15,6 @@ case "$base" in app-production-*.tar.gz) ;; *) echo 'Archive name must be app-pr
 release=${base#app-production-}; release=${release%.tar.gz}
 test -f "$archive"
 test -f "$checksum" || { echo "Missing checksum: $checksum" >&2; exit 1; }
-(cd "$(dirname "$archive")" && sha256sum -c "$(basename "$checksum")")
 
 digest=$(sha256sum "$archive" | cut -d' ' -f1)
 root=/home/bitcoinwalk/apps/bitcoinwalk-production
@@ -26,6 +27,8 @@ backup_root=/home/bitcoinwalk/backups
 runtime="$root/runtime/bin/node"
 release_env=/home/bitcoinwalk/.config/bitcoinwalk/production-release.env
 export XDG_RUNTIME_DIR=/run/user/$(id -u)
+source "$(dirname "$0")/app-deploy-guard.sh"
+app_deploy_guard
 
 test -x "$runtime"
 for directory in "$releases" "$cache" "$(dirname "$database")" "$backup_root"; do test -d "$directory" && test -w "$directory"; done

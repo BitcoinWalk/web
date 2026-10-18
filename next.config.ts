@@ -1,7 +1,9 @@
 import type { NextConfig } from "next";
+import {execFileSync} from "node:child_process";
 
 const nextConfig: NextConfig = {
   output: "standalone",
+  generateBuildId: async () => execFileSync("git",["rev-parse","HEAD"],{encoding:"utf8"}).trim(),
   // Keep the native Sharp package name intact in the standalone server. Without
   // this, Turbopack can emit a hashed external name that Node cannot resolve.
   serverExternalPackages: ["sharp"],

@@ -4,7 +4,7 @@ import {classifyCityIdentityTier,managedCityProfileMatches,provisioningStatusCit
 const base=(overrides:Partial<CityIdentityHealthEvidence>={}):CityIdentityHealthEvidence=>({
  cityId:"11111111-1111-4111-8111-111111111111",cityName:"Madeira",slug:"madeira",availableInEnvironment:true,tier:"pro",checkedAt:100,
  task:{cityId:"11111111-1111-4111-8111-111111111111",state:"ready-for-proof",signer:{pubkey:"a".repeat(64),version:1,confirmedAt:80},createdAt:1,updatedAt:90},
- active:{eventId:"b".repeat(64),verifiedAt:85,challenge:{binding:{brandPubkey:"a".repeat(64)},profile:{}} as never},binding:"pass",
+ active:{eventId:"b".repeat(64),verifiedAt:85,challenge:{binding:{brandPubkey:"a".repeat(64)},profile:{}} as never},activationState:"active",preparedBrandPubkey:"a".repeat(64),binding:"pass",
  profile:{reachable:3,matching:3,nip05:3,lightning:3},capabilities:{overall:"active",nip05:"active",lightning:"active",retryable:false,detail:"verified"},nip05Verified:true,activationUpdatedAt:95,...overrides,
 });
 
@@ -23,7 +23,14 @@ describe("Pro city identity health",()=>{
   const row=summarizeCityIdentityHealth(base());
   expect(row.status).toBe("complete");
   expect(row.checks.find(check=>check.key==="publishing")?.state).toBe("future");
-  expect(row.lastVerifiedAt).toBe(95);
+ expect(row.lastVerifiedAt).toBe(95);
+ });
+ it("assigns an approved unpublished identity to the super-admin rather than the host",()=>{
+  const row=summarizeCityIdentityHealth(base({active:null,activationState:"approved",preparedBrandPubkey:"a".repeat(64),binding:"fail",profile:{reachable:3,matching:0,nip05:0,lightning:0},capabilities:{overall:"setup-required",nip05:"setup-required",lightning:"setup-required",retryable:false,detail:"Awaiting publication."},nip05Verified:false}));
+  expect(row.activationState).toBe("approved");
+  expect(row.status).toBe("action-required");
+  expect(row.checks.find(check=>check.key==="identity")).toMatchObject({state:"pass",detail:expect.stringContaining("submitted")});
+  expect(row.checks.find(check=>check.key==="binding")?.state).toBe("fail");
  });
  it("does not reopen verified managed services because profile relays lag optional fields",()=>{
   const row=summarizeCityIdentityHealth(base({profile:{reachable:3,matching:3,nip05:0,lightning:0}}));
@@ -40,6 +47,7 @@ describe("Pro city identity health",()=>{
   const active=base().active;
   active!.challenge.profile={name:"BitcoinWalk in London",picture:"https://bitcoinwalk.org/avatar.webp",website:"https://bitcoinwalk.org/london"} as never;
   expect(managedCityProfileMatches({name:"BitcoinWalk London",picture:"https://blossom.primal.net/london.jpg",website:"https://bitcoinwalk.org/london"},active,"London")).toBe(true);
+  expect(managedCityProfileMatches({name:"BitcoinWalk London",picture:"https://blossom.primal.net/london.jpg",website:"https://bitcoinwalk.org/london"},{...active!,challenge:{...active!.challenge,profile:{...active!.challenge.profile,website:"https://app-staging.bitcoinwalk.org/london"}}},"London","https://bitcoinwalk.org/london")).toBe(true);
   expect(managedCityProfileMatches({name:"Other London",picture:"https://blossom.primal.net/london.jpg",website:"https://bitcoinwalk.org/london"},active,"London")).toBe(false);
   expect(managedCityProfileMatches({name:"BitcoinWalk London",picture:"https://blossom.primal.net/london.jpg",website:"https://example.com"},active,"London")).toBe(false);
  });

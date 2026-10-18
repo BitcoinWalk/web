@@ -115,4 +115,23 @@ describe("isolated durable 79/21 ledger",()=>{
   const id=randomUUID();ledger.reserve(bucket,id,outgoing,"79000","1000");expect(ledger.pendingPayoutIds(bucket.walletRef)).toEqual([id]);expect(ledger.payableBuckets(bucket.walletRef)).toEqual([]);
   ledger.claimSend(id);expect(ledger.pendingPayoutIds(bucket.walletRef)).toEqual([id]);ledger.confirmPaid(id,bucket.walletRef,outgoing,"79000","1",preimage);expect(ledger.pendingPayoutIds(bucket.walletRef)).toEqual([]);
  });
+ it("moves an exact old-destination obligation once without rewriting its invoices",()=>{
+  const {ledger,db}=open(),target={...bucket,destinationVersion:2,destination:"new@example.org"},targetHash="b".repeat(64);
+  credit(ledger);credit(ledger,"1000",targetHash,target);
+  const id=randomUUID();expect(ledger.migrate(id,bucket,target,"79000")).toEqual({amountMsat:"79000"});
+  expect(ledger.migrate(id,bucket,target,"79000")).toEqual({amountMsat:"79000"});
+  expect(ledger.balance(bucket).availableMsat).toBe("0");expect(ledger.balance(target).availableMsat).toBe("79790");
+  expect(ledger.payableBuckets(bucket.walletRef)).toContainEqual({bucket:target,sourceHash:incoming});
+  ledger.reserve(target,randomUUID(),outgoing,"79000","1000");expect(ledger.balance(target).availableMsat).toBe("790");
+  expect(db.prepare("SELECT count(*) n FROM bw_ledger_migration").get()?.n).toBe(1);
+  expect(JSON.parse(String(db.prepare("SELECT snapshot FROM bw_ledger_invoice WHERE hash=?").get(incoming)?.snapshot))).toMatchObject(bucket);
+ });
+ it("refuses changed, cross-city, missing-target and unfinished destination migrations",()=>{
+  const {ledger}=open(),target={...bucket,destinationVersion:2,destination:"new@example.org"};credit(ledger);
+  expect(()=>ledger.migrate(randomUUID(),bucket,target,"79000")).toThrow("unavailable");
+  credit(ledger,"1000","b".repeat(64),target);const payout=randomUUID();ledger.reserve(bucket,payout,outgoing,"1000","0");
+  expect(()=>ledger.migrate(randomUUID(),bucket,target,"78000")).toThrow("unavailable");ledger.cancelUnsent(payout);
+  expect(()=>ledger.migrate(randomUUID(),bucket,{...target,cityId:randomUUID()},"78000")).toThrow("Invalid");
+  expect(()=>ledger.migrate(randomUUID(),bucket,target,"1")).toThrow("amount changed");
+ });
 });

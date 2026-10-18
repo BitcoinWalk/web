@@ -19,6 +19,7 @@ import styles from "./chat.module.css";
 type Directory={version:number;guidePubkey?:string|null;cities:Nip29CityRoom[]};
 type Membership="checking"|"joined"|"not-joined"|"unavailable";
 type Mention={start:number;end:number;query:string};
+const GUIDE_ROOM="nip17:guide";
 
 function shortNpub(pubkey:string){const value=nip19.npubEncode(pubkey);return `${value.slice(0,12)}…${value.slice(-6)}`;}
 function participantLabel(count:number){return `${count} ${count===1?"participant":"participants"}`;}
@@ -44,6 +45,9 @@ async function authenticateRelay(pool:SimplePool,room:NonNullable<Nip29CityRoom[
  try{await target.auth(authenticateWithBrowserExtension);return;}catch(error){if(!(error instanceof Error)||!error.message.includes("no challenge"))throw error;}
  await new Promise<void>((resolve,reject)=>{const state:{done:boolean;timer?:ReturnType<typeof setTimeout>;sub?:ReturnType<typeof target.subscribe>}={done:false};const finish=(error?:Error)=>{if(state.done)return;state.done=true;if(state.timer)clearTimeout(state.timer);state.sub?.close("authentication probe complete");if(error)reject(error);else resolve();};state.sub=target.subscribe([{kinds:[9],"#h":["bitcoinwalk-authentication-probe"],limit:1}],{oneose:()=>finish(new Error("The chat relay did not request authentication.")),onclose:reason=>finish(reason.startsWith("auth-required:")?undefined:new Error(`Chat authentication failed: ${reason}`)),eoseTimeout:5000});state.timer=setTimeout(()=>finish(new Error("Chat authentication timed out.")),6000);});
  await target.auth(authenticateWithBrowserExtension);
+}
+function readPrivateWraps(pool:SimplePool,relays:string[],recipient:string){
+ return new Promise<{events:Event[];reasons:string[]}>(resolve=>{const events:Event[]=[];let done=false;const finish=(reasons:string[]=[])=>{if(done)return;done=true;clearTimeout(timer);resolve({events,reasons});},timer=setTimeout(()=>{sub.close("read timeout");finish(["read timeout"]);},13000),sub=pool.subscribeEose(relays,{kinds:[1059],"#p":[recipient],limit:200},{maxWait:12000,onauth:authenticateWithBrowserExtension,onevent:event=>events.push(event),onclose:rows=>finish(rows.map(row=>row.reason))});});
 }
 
 export default function ChatPage(){

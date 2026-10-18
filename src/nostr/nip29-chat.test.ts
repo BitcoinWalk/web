@@ -1,6 +1,6 @@
 import {finalizeEvent,getPublicKey,type EventTemplate} from "nostr-tools";
 import {describe,expect,it} from "vitest";
-import {dashboardNip29CityRooms,dashboardNip29Rooms,mergeNip29Messages,nip29ComposerKey,nip29JoinTemplate,nip29MessageTemplate,nip29ParticipantCount,nip29RoomName,uniqueNip29Rooms,updateNip29Composer,validNip29Destination} from "./nip29-chat";
+import {configuredNip29Room,dashboardNip29CityRooms,dashboardNip29Rooms,mergeNip29Messages,nip29ComposerKey,nip29JoinTemplate,nip29MessageTemplate,nip29ParticipantCount,nip29RoomName,uniqueNip29Rooms,updateNip29Composer,validNip29Destination} from "./nip29-chat";
 
 const key=new Uint8Array(32).fill(4),pubkey=getPublicKey(key),group="bitcoinwalk-london";
 const signed=(template:EventTemplate)=>finalizeEvent(template,key);
@@ -20,8 +20,19 @@ describe("NIP-29 dashboard chat",()=>{
  it("collapses cities that currently share one room instead of pretending the chat changed",()=>{
   const shared={relay:"wss://chat.bitcoinwalk.org",groupId:"shared"};
   expect(uniqueNip29Rooms([{id:"a",name:"Warszawa",slug:"warszawa",chat:{scope:"global",nip29:shared}},{id:"b",name:"Madeira",slug:"madeira",chat:{scope:"global",nip29:shared}},{id:"c",name:"London",slug:"london",chat:{scope:"city",nip29:{relay:"wss://london.bitcoinwalk.org",groupId:"chat"}}}])).toEqual([
-   expect.objectContaining({label:"BitcoinWalk Global",scope:"global",cityIds:["a","b"]}),
    expect.objectContaining({label:"London",scope:"city",cityIds:["c"]}),
+   expect.objectContaining({label:"BitcoinWalk Global",scope:"global",cityIds:["a","b"]}),
+  ]);
+ });
+ it("builds a bounded configured Hosts room only from a valid reviewed destination",()=>{
+  expect(configuredNip29Room("Hosts","hosts",{relay:"wss://chat.bitcoinwalk.org",groupId:"9e8d282f27d9c9cd"})).toMatchObject({label:"Hosts",scope:"hosts",destination:{relay:"wss://chat.bitcoinwalk.org/",groupId:"9e8d282f27d9c9cd"}});
+  expect(configuredNip29Room("Hosts","hosts",{relay:"wss://evil.example",groupId:"hosts"})).toBeNull();
+ });
+ it("adds the independently published Global conversation after the selected city room",()=>{
+  const global={relay:"wss://chat.bitcoinwalk.org",groupId:"13bc3a423b4f2954"},city={relay:"wss://chat.bitcoinwalk.org",groupId:"bitcoinwalk-rye"};
+  expect(uniqueNip29Rooms([{id:"rye",name:"Rye",slug:"rye",avatarUrl:"https://bitcoinwalk.org/rye.jpg",chat:{scope:"city",nip29:city,communities:{global,city}}}])).toEqual([
+   expect.objectContaining({label:"Rye",scope:"city",cityIds:["rye"],avatarUrl:"https://bitcoinwalk.org/rye.jpg"}),
+   expect.objectContaining({label:"BitcoinWalk Global",scope:"global",cityIds:["rye"],destination:{relay:"wss://chat.bitcoinwalk.org/",groupId:"13bc3a423b4f2954"}}),
   ]);
  });
  it("keeps the selected city and global communities visible as separate dashboard conversations",()=>{
@@ -61,5 +72,11 @@ describe("NIP-29 dashboard chat",()=>{
   expect(state[global]).toEqual({draft:"",attachment:"https://bitcoinwalk.org/global.webp"});
   expect(state[other]).toEqual({draft:"Other account",attachment:""});
   expect(updateNip29Composer(state,london,{draft:""})[london]).toBeUndefined();
+ });
+ it("counts unique members only from the latest verified group roster",()=>{
+  const first=signed({kind:39002,created_at:10,tags:[["d",group],["p",pubkey],["p",pubkey],["p","f".repeat(64)]],content:""});
+  const latest=signed({kind:39002,created_at:11,tags:[["d",group],["p",pubkey]],content:""});
+  expect(nip29ParticipantCount([first,latest],group)).toBe(1);
+  expect(nip29ParticipantCount([],group)).toBeNull();
  });
 });

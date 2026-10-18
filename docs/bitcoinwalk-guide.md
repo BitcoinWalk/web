@@ -18,6 +18,29 @@ becomes stale, and notifies a replacement verified owner without reusing the pri
 owner's envelope. Guide receives no payout destination, payment credential, private
 proof, signer secret or activation authority.
 
+### Basic and Pro welcome lifecycle
+
+Guide welcomes a new Basic host only after the exact approved first walk is
+public. A signed request for Pro is not payment evidence, so a Pro-requested city
+does not receive the Basic welcome and cannot receive a Pro welcome from its plan
+label alone. The Basic message links the canonical city page, first walk, Walks
+management and the optional Pro entry point.
+
+The Pro welcome is a later, independent transition. It requires the settled Pro
+entitlement, active city binding, active managed NIP-05 and Lightning capabilities,
+and the exact public city profile name read from two configured profile relays.
+Until those checks pass, the existing state-specific setup message remains in
+force. The Pro welcome links Walks and Sponsorships, states the host-invitation
+79/21 policy and distinguishes super-admin invitations, which have no host payout.
+
+Both tracks baseline cities already present when the feature is installed, so
+deployment cannot create a historical message blast. New transitions keep one
+durable encrypted wrapper across retry and restart. The notification-only footer
+remains truthful until BW-67 inbound Support conversations are deployed.
+Once a Pro completion has been independently observed and queued, a temporary
+profile-relay read failure does not invalidate its retained wrapper; removal of
+the city/owner from the currently authorized feed still makes it obsolete.
+
 ### Paid Pro organizer handoff
 
 The app feed and Guide worker must be released together because the signed feed's

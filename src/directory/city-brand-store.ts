@@ -66,6 +66,7 @@ export class CityBrandStore {
   completed(limit=20){return (this.db.prepare("SELECT * FROM city_brand_request WHERE status='active' ORDER BY rowid DESC LIMIT ?").all(limit) as RequestRow[])
     .map(row=>({...row,challenge:JSON.parse(row.challenge) as CityBrandChallenge}));}
   pendingForCity(cityId:string){this.expire();const row=this.db.prepare("SELECT * FROM city_brand_request WHERE city_id=? AND status='pending'").get(cityId) as RequestRow|undefined;return row?{...row,challenge:JSON.parse(row.challenge) as CityBrandChallenge}:null;}
+  currentForCity(cityId:string){this.expire();const row=this.db.prepare("SELECT * FROM city_brand_request WHERE city_id=? AND status IN ('pending','approved','active') ORDER BY rowid DESC LIMIT 1").get(cityId) as RequestRow|undefined;return row?{...row,challenge:JSON.parse(row.challenge) as CityBrandChallenge}:null;}
   submitProofs(id: string, actor: string, authority: CityBrandAuthority, ownerProof: Event, brandProof: Event) {
     const row = this.request(id);
     if (row.status !== "pending" || actor !== authority.ownerPubkey || row.city_id !== authority.cityId) throw new Error("Only the current city owner may submit this pending request.");

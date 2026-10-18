@@ -48,7 +48,13 @@ node promote-basic-city-to-pro.cjs --template \
   "Approved partnership: reference TICKET"
 ```
 
-For staging, replace `production` with `staging`. The tool reads both authoritative directory relays for that environment, then produces a 15-minute kind-27235 template from the current approved revision, approval and owner authority. The template also names the complete Pro bundle, every included capability and the 79/21 policy. Save the output without editing it.
+For staging, replace `production` with `staging`. The tool reads the target
+environment's authoritative application relay, then produces a 15-minute
+kind-27235 template from the current approved revision, approval and owner
+authority. Endpoint-directory relays are deliberately not used here: they carry
+signed city endpoint roots, not the city workflow records required by this
+authorization check. The template also names the complete Pro bundle, every
+included capability and the 79/21 policy. Save the output without editing it.
 
 Sign that exact template with the configured BitcoinWalk super-admin Nostr identity on a separate trusted signer. Save the complete signed event JSON to an owner-readable file on the target host. Do not copy an `nsec` or signer session to the server.
 
