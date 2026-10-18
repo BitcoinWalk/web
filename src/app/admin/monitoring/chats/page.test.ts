@@ -9,7 +9,10 @@ describe("city community administration", () => {
       ),
       layout = readFileSync("src/app/admin/monitoring/layout.tsx", "utf8");
     expect(layout).toContain('href="/admin/monitoring/chats"');
-    expect(page).toContain("Pro city communities");
+    expect(page).toContain("All city communities");
+    expect(page).toContain("Every approved Basic and Pro city gets its own NIP-29 Walkie Talkie group");
+    expect(page).toContain("cities.map(city=>");
+    expect(page).not.toContain("paidCities");
     expect(page).toContain('tone:"neutral",label:"Not set up"');
     expect(page).toContain('tone:"red",label:"Needs attention"');
     expect(page).toContain("red is reserved for a channel that needs intervention");
