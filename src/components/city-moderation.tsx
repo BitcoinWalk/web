@@ -231,6 +231,7 @@ export default function CityModeration(){
   if(action==="review-request"){const id=item.pending?.event.id??item.needsChanges?.revision.event.id;return <Link {...menuItem} href={`/admin/requests#submission-${id}`}>{item.source==="pending"?"Review application":"Review requested changes"}</Link>;}
   if(action==="activate-as-is")return <button {...menuItem} disabled={busy||!directoryCurrent} onClick={()=>activateAwaitingCity(item.needsChanges!)}>Set Active as-is</button>;
   if(action==="view-decision")return <Link {...menuItem} href={`/admin/requests#submission-${item.rejected!.event.id}`}>View final decision</Link>;
+  if(action==="activate-pro")return <Link {...menuItem} href="/admin/requests#pro-city-activations">Set as active</Link>;
   if(action==="manage-pro")return <Link {...menuItem} href="/admin/requests#post-approval-follow-ups">Review Pro follow-up</Link>;
   if(action==="set-online")return <button {...menuItem} disabled={busy||!directoryCurrent} onClick={()=>decide(item.managed!,"approve")}>Restore online</button>;
   if(action==="set-offline")return <button {...menuItem} disabled={busy||!directoryCurrent} onClick={()=>decide(item.managed!,"disapprove")}>Set offline</button>;

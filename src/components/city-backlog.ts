@@ -65,7 +65,7 @@ export function cityWorkflowNextStep(row:CityWorkflowRow):CityWorkflowNextStep|n
   return {owner:"City host",action,helpHref:`${hostGuide}#${anchor}`};
  }
  if(row.health?.status==="not-configured")return {owner:"City host",action:"open Pro setup and complete the city identity and recovery steps.",helpHref:`${hostGuide}#complete-pro-city-setup`};
- if(failed.has("binding"))return {owner:"Super-admin",action:"review and sign the city-identity activation request after checking the host proof."};
+ if(failed.has("binding"))return {owner:"Super-admin",action:row.health?.activationState==="approved"?"publish and verify the approved city identity to set the Pro city active.":"review and sign the city-identity activation request after checking the host proof."};
  const provisioning=[failed.has("profile")?"public profile":null,failed.has("nip05")?"NIP-05":null,failed.has("lightning")?"Lightning address":null].filter((value):value is string=>!!value);
  if(provisioning.length)return {owner:"Super-admin",action:`verify the ${new Intl.ListFormat("en",{style:"long",type:"conjunction"}).format(provisioning)} evidence and retry provisioning.`};
  if(row.health?.checks.some(check=>check.state==="unknown"))return {owner:"Super-admin",action:"recheck the unavailable verification evidence before changing anything."};
@@ -78,7 +78,7 @@ export function cityWorkflowActions(row:CityWorkflowRow):CityWorkflowAction[]{
  if(row.managed){
   const actions:CityWorkflowAction[]=["open-record"];
   if(row.online)actions.push("open-public");
-  if(row.health?.availableInEnvironment&&row.tier!=="basic"&&row.health.status!=="complete")actions.push("manage-pro");
+  if(row.health?.availableInEnvironment&&row.tier!=="basic"&&row.health.status!=="complete")actions.push(row.health.activationState==="approved"?"activate-pro":"manage-pro");
   actions.push(row.managed.state==="approved"?"set-offline":"set-online");
   if(!row.online)actions.push("delete");
   return actions;

@@ -29,7 +29,7 @@ function fixture(on=true){
  let enabled=on,now=1800000000;
  const db=new DatabaseSync(":memory:");dbs.push(db);
  const deps:PayoutRuntimeDependencies={ledger:new PayoutLedger(db),walletRef:"fixture",network:"bc",
-  policy:{binding:mock.binding,budgetMsat:"1000000",acceptedPriorSpentMsat:"0",maximumPayoutMsat:"100000",maximumFeeMsat:"10000",feePolicy:"ldk-native-v1",expiresAt:now+900},
+  policy:{binding:mock.binding,budgetMsat:"1000000",acceptedPriorSpentMsat:"0",budgetRenewal:"monthly",maximumPayoutMsat:"100000",maximumFeeMsat:"10000",feePolicy:"ldk-native-v1"},
   journal:{origin:"http://127.0.0.1:18891",serviceId:mock.serviceId},
   credentials:vi.fn(async()=>({wallet:"synthetic",checkout:"synthetic-other",journalClientToken:"synthetic"})),
   deployment:vi.fn<PayoutRuntimeDependencies["deployment"]>(async()=>({binding:mock.binding,serviceId:mock.serviceId,checkedAt:1800000000,expiresAt:1800000060,privateTransport:true,separateHost:true,backupRestoreVerified:true,exclusiveSender:true})),
@@ -37,9 +37,9 @@ function fixture(on=true){
   permit:vi.fn(async()=>null),fetchJson:vi.fn(),
   notifications:()=>({start:mock.notificationStart}),
   evidence:vi.fn<PayoutRuntimeDependencies["evidence"]>(async()=>({binding:mock.binding,readiness:{connectionRef:"fixture",checkoutConnectionRef:"checkout",network:"mainnet",
-   inventory:{checkedAt:now,expiresAt:now+900,grantedMethods:[...RUSTRESS_WALLET_REQUIREMENTS.methods],notificationsGranted:true,revoked:false,budgetMsat:1000000,remainingBudgetMsat:1000000,budgetRenewal:"never",isolated:true},
+   inventory:{checkedAt:now,expiresAt:now+900,grantedMethods:[...RUSTRESS_WALLET_REQUIREMENTS.methods],notificationsGranted:true,revoked:false,budgetMsat:1000000,remainingBudgetMsat:1000000,budgetRenewal:"monthly",isolated:true},
    protocol:{checkedAt:now,advertisedMethods:[...RUSTRESS_WALLET_REQUIREMENTS.methods],successfulReadMethods:["get_info","lookup_invoice","list_transactions"]},
-   policy:{approvedAt:now,expiresAt:now+900,expectedNetwork:"mainnet",maximumBudgetMsat:1000000,maximumTestPaymentMsat:100000,maximumFeeMsat:10000,feeLimitVerified:true,approvedSharedWallet:false}}})),
+   policy:{approvedAt:now,expiresAt:now+900,expectedNetwork:"mainnet",maximumBudgetMsat:1000000,approvedBudgetRenewal:"monthly",maximumTestPaymentMsat:100000,maximumFeeMsat:10000,feeLimitVerified:true,approvedSharedWallet:false}}})),
  };
  return {deps,runtime:new PayoutRuntime(deps,()=>enabled,()=>now),disable:()=>{enabled=false;},expire:()=>{now+=61;},now};
 }
@@ -82,12 +82,12 @@ describe("default-off payout runtime composition",()=>{
  });
  it("accepts only fresh connection-bound inventory for the approved native Hub",async()=>{
   mock.info.mockResolvedValue({network:"mainnet",methods:["get_info","make_invoice","lookup_invoice","list_transactions","pay_invoice"]});const f=fixture();
-  f.deps.hubSafety=vi.fn(async()=>({contract:NATIVE_HUB_SAFETY_CONTRACT,binding:mock.binding,checkedAt:f.now,expiresAt:f.now+60,hubVersion:"1.24.0",backend:"ldk",feePolicy:"ldk-native-v1",nonRenewingBudgetMsat:"1000000",exclusiveConnection:true,inventoryVerified:true} as const));
+  f.deps.hubSafety=vi.fn(async()=>({contract:NATIVE_HUB_SAFETY_CONTRACT,binding:mock.binding,checkedAt:f.now,expiresAt:f.now+60,hubVersion:"1.24.0",backend:"ldk",feePolicy:"ldk-native-v1",budgetMsat:"1000000",budgetRenewal:"monthly",exclusiveConnection:true,inventoryVerified:true} as const));
   expect(await f.runtime.reconcile()).toEqual({state:"reconciled"});expect(f.runtime.blockedAt).toBeNull();
  });
  it.each(["binding","budget","stale"])('blocks invalid native Hub %s evidence',async mode=>{
   mock.info.mockResolvedValue({network:"mainnet",methods:["get_info","make_invoice","lookup_invoice","list_transactions","pay_invoice"]});const f=fixture();
-  f.deps.hubSafety=vi.fn(async()=>({contract:NATIVE_HUB_SAFETY_CONTRACT,binding:mode==="binding"?"cd".repeat(32):mock.binding,checkedAt:mode==="stale"?f.now-61:f.now,expiresAt:f.now+60,hubVersion:"1.24.0",backend:"ldk",feePolicy:"ldk-native-v1",nonRenewingBudgetMsat:mode==="budget"?"999999":"1000000",exclusiveConnection:true,inventoryVerified:true} as const));
+  f.deps.hubSafety=vi.fn(async()=>({contract:NATIVE_HUB_SAFETY_CONTRACT,binding:mode==="binding"?"cd".repeat(32):mock.binding,checkedAt:mode==="stale"?f.now-61:f.now,expiresAt:f.now+60,hubVersion:"1.24.0",backend:"ldk",feePolicy:"ldk-native-v1",budgetMsat:mode==="budget"?"999999":"1000000",budgetRenewal:"monthly",exclusiveConnection:true,inventoryVerified:true} as const));
   expect(await f.runtime.reconcile()).toEqual({state:"blocked"});
  });
  it("pause and expiry invalidate the wallet enable callback",async()=>{

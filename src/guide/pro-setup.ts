@@ -4,7 +4,7 @@ import {mediaRequestTemplate} from "../domain/media-request";
 
 const base={cityId:z.string().uuid(),cityName:z.string().min(1).max(200),ownerPubkey:z.string().regex(/^[0-9a-f]{64}$/),updatedAt:z.number().int().nonnegative()};
 const task=z.discriminatedUnion("kind",[
- z.object({...base,kind:z.literal("setup"),state:z.enum(["setup-required","payout-confirmed","signer-confirmed","ready-for-proof","awaiting-review","awaiting-publication","active"])}).strict(),
+ z.object({...base,kind:z.literal("setup"),state:z.enum(["setup-required","payout-confirmed","signer-confirmed","ready-for-proof","awaiting-review","awaiting-publication","active","complete"])}).strict(),
  z.object({...base,kind:z.literal("payout-update"),payoutVersion:z.number().int().positive(),state:z.enum(["queued","preparing","prepared","applying","verifying","unknown","needs-attention","active","blocked"])}).strict(),
 ]);
 const report=z.object({version:z.literal(1),tasks:z.array(task).max(100),checkedAt:z.string().datetime()}).strict();

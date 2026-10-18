@@ -45,11 +45,11 @@ export async function runPayoutAcceptance(scenario:typeof scenarios[number]){
   const hash=createHash("sha256").update(Buffer.from(preimage,"hex")).digest("hex");
   const outgoingHash=createHash("sha256").update(Buffer.from(outgoingPreimage,"hex")).digest("hex");
   const bucket={cityId:randomUUID(),walletRef:"fake-wallet",destinationVersion:1,destination:"fixture@wallet.example"};
-  const policy={binding,budgetMsat:"20000000",acceptedPriorSpentMsat:"0",maximumPayoutMsat:"15000000",maximumFeeMsat:"150000",feePolicy:"ldk-native-v1" as const,expiresAt:now+900};
+  const policy={binding,budgetMsat:"20000000",acceptedPriorSpentMsat:"0",budgetRenewal:"monthly" as const,maximumPayoutMsat:"15000000",maximumFeeMsat:"150000",feePolicy:"ldk-native-v1" as const};
   const readiness:WalletReadinessEvidence={connectionRef:"fake-wallet",checkoutConnectionRef:"fake-checkout",network:"mainnet",
-   inventory:{checkedAt:now,expiresAt:now+900,grantedMethods:[...RUSTRESS_WALLET_REQUIREMENTS.methods],notificationsGranted:true,revoked:false,budgetMsat:20000000,remainingBudgetMsat:20000000,budgetRenewal:"never",isolated:true},
+   inventory:{checkedAt:now,expiresAt:now+900,grantedMethods:[...RUSTRESS_WALLET_REQUIREMENTS.methods],notificationsGranted:true,revoked:false,budgetMsat:20000000,remainingBudgetMsat:20000000,budgetRenewal:"monthly",isolated:true},
    protocol:{checkedAt:now,advertisedMethods:[...RUSTRESS_WALLET_REQUIREMENTS.methods],successfulReadMethods:["get_info","lookup_invoice","list_transactions"]},
-   policy:{approvedAt:now,expiresAt:now+900,expectedNetwork:"mainnet",maximumBudgetMsat:20000000,maximumTestPaymentMsat:15000000,maximumFeeMsat:150000,feeLimitVerified:true,approvedSharedWallet:false}};
+   policy:{approvedAt:now,expiresAt:now+900,expectedNetwork:"mainnet",maximumBudgetMsat:20000000,approvedBudgetRenewal:"monthly",maximumTestPaymentMsat:15000000,maximumFeeMsat:150000,feeLimitVerified:true,approvedSharedWallet:false}};
   let sends=0,sentAmount="0",lookupAvailable=scenario!=="wallet-restart",complete=true;
   const outgoingHashes:string[]=[];
   const wallet={walletRef:"fake-wallet",binding,network:"bc" as const,

@@ -38,7 +38,7 @@ export type ProSetupPreview = {
     activation?:{activeVersion?:number;pendingVersion?:number;state:"not-active"|"pending"|"needs-attention"|"active"}};
   setup: {state: "setup-required" | "payout-confirmed" | "signer-confirmed" | "ready-for-proof"; updatedAt: number};
   signer: {configured: boolean; pubkey?: string; version?: number};
-  activation?: {requestId: string; expiresAt: number; proofsReady: boolean};
+  activation?: {requestId: string; expiresAt: number; proofsReady: boolean; status:"pending"|"approved"|"active"};
   capabilities: CityProvisioningCapabilities;
   community: {walkieTalkieActive:boolean;armadaActive:boolean;walkieTalkieEnabled:boolean;armadaEnabled:boolean;url?:string};
   steps: Array<{label: string; state: "ready" | "blocked"; detail: string}>;
@@ -86,11 +86,11 @@ function mepOwnerBrandEligible(resolved:Awaited<ReturnType<typeof resolveProSetu
  return rows.some(row=>{try{return (JSON.parse(row.challenge) as import("../nostr/city-brand").CityBrandChallenge).binding.brandPubkey===brandPubkey;}catch{return false;}});
 }
 
-export type ProSetupNotification = {cityId:string;cityName:string;ownerPubkey:string;kind:"setup";state:ProSetupPreview["setup"]["state"]|"awaiting-review"|"awaiting-publication"|"active";updatedAt:number}|
+export type ProSetupNotification = {cityId:string;cityName:string;ownerPubkey:string;kind:"setup";state:ProSetupPreview["setup"]["state"]|"awaiting-review"|"awaiting-publication"|"active"|"complete";updatedAt:number}|
   {cityId:string;cityName:string;ownerPubkey:string;kind:"payout-update";payoutVersion:number;state:"queued"|"preparing"|"prepared"|"applying"|"verifying"|"unknown"|"needs-attention"|"active"|"blocked";updatedAt:number};
 type SetupNotificationState=Extract<ProSetupNotification,{kind:"setup"}>["state"];
-export function proSetupNotificationState(taskState:ProSetupPreview["setup"]["state"],request:{status:"pending"|"approved"|"active";expiresAt:number;ownerProof:string|null;brandProof:string|null}|undefined,now=Math.floor(Date.now()/1000)):SetupNotificationState{
-  if(request?.status==="active")return "active";
+export function proSetupNotificationState(taskState:ProSetupPreview["setup"]["state"],request:{status:"pending"|"approved"|"active";expiresAt:number;ownerProof:string|null;brandProof:string|null}|undefined,now=Math.floor(Date.now()/1000),complete=false):SetupNotificationState{
+  if(request?.status==="active")return complete?"complete":"active";
   if(request?.status==="approved")return "awaiting-publication";
   if(request?.status==="pending"&&request.expiresAt>now&&request.ownerProof&&request.brandProof)return "awaiting-review";
   return taskState;
@@ -177,7 +177,7 @@ export async function prepareProSetupPreview(cityId: string, actor: string, orig
     taskStore.confirmPayout(cityId, fresh.authority.entitlementId, fresh.authority.ownerPubkey, payout.version) : artworkTask;
   const registration = !payout && task.registrationVersion ? destinations.registration(cityId, task.registrationVersion) : undefined;
   const suggestion = registration?.ownerPubkey === fresh.authority.ownerPubkey && registration.revisionId === binding.revisionId ? registration : undefined;
-  const pending = brandStore().pendingForCity(cityId);
+  const currentActivation = brandStore().currentForCity(cityId);
   const activationTable=getPaymentRuntime().store.db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='rustress_activation_task'").get();
   const activeRow=activationTable?getPaymentRuntime().store.db.prepare("SELECT phase,json_extract(activation_config,'$.payoutVersion') payoutVersion FROM rustress_activation_task WHERE city=?").get(cityId) as {phase:string;payoutVersion:number}|undefined:undefined;
   const updateTable=getPaymentRuntime().store.db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='rustress_payout_update_task'").get();
@@ -195,7 +195,7 @@ export async function prepareProSetupPreview(cityId: string, actor: string, orig
     capabilities,community:{walkieTalkieActive,armadaActive,walkieTalkieEnabled:walkieTalkieActive&&walkieTalkieRow.publicEnabled===1,armadaEnabled:armadaActive&&communityRow.armadaEnabled===1,...(communityUrl?{url:communityUrl}:{})},
     setup: {state: task.state, updatedAt: task.updatedAt},
     signer: task.signer ? {configured: true, pubkey: task.signer.pubkey, version: task.signer.version} : {configured: false},
-    ...(pending ? {activation: {requestId: pending.id, expiresAt: pending.expires_at, proofsReady: !!pending.owner_proof && !!pending.brand_proof}} : {}),
+    ...(currentActivation ? {activation: {requestId: currentActivation.id, expiresAt: currentActivation.expires_at, proofsReady: !!currentActivation.owner_proof && !!currentActivation.brand_proof,status:currentActivation.status as "pending"|"approved"|"active"}} : {}),
     payout: payout ? {configured: true, destination: payout.normalized, version: payout.version,activation:payoutActivation} : suggestion ?
       {configured: false, suggestedDestination: suggestion.normalized, registrationVersion: suggestion.version} : {configured: false},
     profile: {name, display_name: name, picture: artwork.avatar.url, banner: artwork.banner.url, website: `${publicOriginValue}/${slug}`,
@@ -225,10 +225,15 @@ export async function setProCommunityVisibility(cityId:string,actor:string,surfa
 export async function prepareBrandRequest(cityId: string, actor: string, origin: string) {
   const resolved = await resolveProSetupAuthority(cityId, actor), {task} = ensureSetupTask(resolved);
   if (!task.signer || !task.payoutVersion || !task.artwork || task.artwork.revisionId !== resolved.row.revision.event.id) throw new Error("Complete payout, signer and current artwork setup before preparing activation.");
+  const current=brandStore().currentForCity(cityId);
+  if(current?.status==="active")throw new Error("City identity is already active. BitcoinWalk must finish provisioning; no further host signature is required.");
+  if(current?.status==="approved")throw new Error("City identity is already approved. BitcoinWalk must publish it; no further host signature is required.");
   const city = resolved.row.revision.city, slug = resolved.row.decision.approval.slug ?? city.slug;
+  const publicOriginValue=process.env.BITCOINWALK_PUBLIC_ORIGIN?.trim()||"https://bitcoinwalk.org",publicOrigin=new URL(publicOriginValue);
+  if(publicOrigin.protocol!=="https:"||publicOrigin.origin!==publicOriginValue)throw new Error("Canonical public origin is not configured.");
   const profile = {revisionId: task.artwork.revisionId, artworkVersion: task.artwork.version, signerVersion: task.signer.version, payoutVersion: task.payoutVersion,
     name: `BitcoinWalk in ${city.cityName}`, picture: task.artwork.avatar,
-    banner: task.artwork.banner, website: `${origin}/${slug}`};
+    banner: task.artwork.banner, website: `${publicOriginValue}/${slug}`};
   return brandStore().prepare(actor, resolved.authority, origin, task.signer.pubkey, "activate", profile);
 }
 

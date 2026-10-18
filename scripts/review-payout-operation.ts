@@ -20,11 +20,12 @@ function argumentsFrom(argv:string[]){
   const evidence=evidenceSchema.parse(JSON.parse(readFileSync(path,"utf8")));
   return argumentsSchema.parse({release:evidence.release,binding:evidence.binding,journalServiceId:evidence.journalServiceId,budgetMsat:evidence.budgetMsat,
    maximumPayoutMsat:evidence.maximumPayoutMsat,maximumFeeMsat:evidence.maximumFeeMsat,...common});}
- return argumentsSchema.parse({...values,...common});
+ return argumentsSchema.parse({release:values.release,binding:values.binding,journalServiceId:values.journalServiceId,budgetMsat:values.budgetMsat,
+  maximumPayoutMsat:values.maximumPayoutMsat,maximumFeeMsat:values.maximumFeeMsat,...common});
 }
 
 function html(expected:ReturnType<typeof argumentsFrom>,submitPath:string){
- const names:Record<string,string>={"ca20993a-5b7f-443e-931e-8dbaa61d05fe":"Madeira","5c1c04f5-aead-4265-bce7-0f9ce0d9b5cd":"Islamabad (staging)"};
+ const names:Record<string,string>={"530af607-e1c8-47f4-a5af-c200a965420b":"Rye","ca20993a-5b7f-443e-931e-8dbaa61d05fe":"Madeira","ca2f9905-fb4d-4948-a12c-c792b28ec7c8":"London","5c1c04f5-aead-4265-bce7-0f9ce0d9b5cd":"Islamabad (staging)"};
  const cities=expected.cityIds.map(id=>`<li>${names[id]??"City"}: <code>${id}</code></li>`).join("");
  const client=JSON.stringify({...expected,admin:SUPER_ADMIN_PUBKEY,contract:PAYOUT_OPERATION_CONTRACT,submitPath}).replaceAll("<","\\u003c");
  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>BitcoinWalk payout operation approval</title>

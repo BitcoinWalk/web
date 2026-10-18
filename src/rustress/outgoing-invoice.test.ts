@@ -23,6 +23,21 @@ describe("outgoing LNURL invoice validation",()=>{
   const value=sign(encode({satoshis:79,timestamp:now,tags:[{tagName:"payment_hash",data:hash},{tagName:"description",data:"Fixture payout"}]}),"12".repeat(32)).paymentRequest!;
   expect(()=>validateOutgoingInvoice(value,terms,now)).toThrow();
  });
+ it("accepts only the named Wallet of Satoshi compatibility contract",()=>{
+  const walletMetadata=JSON.stringify([["text/plain","Wallet of Satoshi: alice"],["text/identifier","alice@walletofsatoshi.com"]]);
+  const walletTerms={...terms,metadata:walletMetadata,providerPolicy:"wallet-of-satoshi-v1" as const};
+  const value=sign(encode({satoshis:79,timestamp:now,tags:[{tagName:"payment_hash",data:hash},{tagName:"description",data:"Wallet of Satoshi: alice"},{tagName:"expire_time",data:2_592_000}]}),"12".repeat(32)).paymentRequest!;
+  expect(validateOutgoingInvoice(value,walletTerms,now)).toMatchObject({amountMsat:"79000",terms:{providerPolicy:"wallet-of-satoshi-v1"}});
+  for(const changed of [{...walletTerms,metadata:JSON.stringify([["text/plain","Wallet of Satoshi: mallory"],["text/identifier","alice@walletofsatoshi.com"]])},{...walletTerms,metadata:JSON.stringify([["text/plain","Wallet of Satoshi: alice"],["text/identifier","alice@lookalike.example"]])}])expect(()=>validateOutgoingInvoice(value,changed,now)).toThrow();
+ });
+ it("accepts a reviewed Wallet of Satoshi callback that uses the stronger standard metadata commitment",()=>{
+  const walletMetadata=JSON.stringify([["text/plain","Wallet of Satoshi: alice"],["text/identifier","alice@walletofsatoshi.com"]]);
+  const walletTerms={...terms,metadata:walletMetadata,providerPolicy:"wallet-of-satoshi-v1" as const};
+  expect(validateOutgoingInvoice(invoice(79,now,86_400,walletMetadata),walletTerms,now)).toMatchObject({
+   amountMsat:"79000",terms:{providerPolicy:"wallet-of-satoshi-v1"},
+  });
+  expect(()=>validateOutgoingInvoice(invoice(79,now,86_400,"different metadata"),walletTerms,now)).toThrow();
+ });
  it("rejects amountless invoices and altered checksum/signature bytes",()=>{
   const value=sign(encode({timestamp:now,tags:[{tagName:"payment_hash",data:hash},{tagName:"purpose_commit_hash",data:createHash("sha256").update(metadata).digest("hex")}]}),"12".repeat(32)).paymentRequest!;
   expect(()=>validateOutgoingInvoice(value,terms,now)).toThrow();

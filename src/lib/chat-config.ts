@@ -10,3 +10,10 @@ export const chatConfig: ChatConfig = {
   },
   paidCities: {},
 };
+
+// Existing closed organizer support group on the verified shared NIP-29 relay.
+// The dashboard presents the product-facing name “Hosts”.
+export const hostsChatConfig = {
+  relay: "wss://chat.bitcoinwalk.org",
+  groupId: "9e8d282f27d9c9cd",
+};

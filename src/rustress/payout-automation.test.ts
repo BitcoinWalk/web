@@ -13,6 +13,7 @@ function fixture(enabled=true){
  let ready=false;
  const runtime={get ready(){return ready;},reconcile:vi.fn<()=>Promise<{state:string}>>(async()=>{ready=true;return {state:"reconciled"};}),poll:vi.fn<()=>Promise<{state:string;result?:unknown}>>(async()=>({state:"completed",result:{}})),
   prepare:vi.fn<()=>Promise<{state:string;result?:unknown}>>(async()=>({state:"completed",result:{}})),run:vi.fn<()=>Promise<{state:string;result?:unknown}>>(async()=>({state:"completed",result:{}})),pause:vi.fn(()=>{ready=false;})};
+ runtime.poll.mockResolvedValue({state:"completed",result:{state:"scanned",cursor:0,done:true}});
  return {ledger,bucket,hash,runtime,automation:new PayoutAutomation(runtime,ledger,walletRef,()=>enabled,5000),disable:()=>{enabled=false;}};
 }
 describe("default-off payout automation",()=>{
@@ -20,9 +21,16 @@ describe("default-off payout automation",()=>{
  it("reconciles, sweeps and creates at most one payout for an eligible bucket",async()=>{const f=fixture();expect(await f.automation.cycle()).toEqual({state:"completed",resumed:0,prepared:1,completed:1});expect(f.runtime.prepare).toHaveBeenCalledWith(f.hash,expect.any(String));expect(f.runtime.run).toHaveBeenCalledTimes(1);});
  it("resumes durable attempts before scanning and excludes their bucket from a new invoice",async()=>{const f=fixture(),id=randomUUID();f.ledger.reserve(f.bucket,id,"ab".repeat(32),"79000","10000");expect(await f.automation.cycle()).toMatchObject({state:"completed",resumed:1,prepared:0});expect(f.runtime.run).toHaveBeenCalledWith(id);expect(f.runtime.prepare).not.toHaveBeenCalled();});
  it("pays an existing credit before starting a slow historical scan",async()=>{
-  const f=fixture();let release!:()=>void;f.runtime.poll.mockImplementationOnce(()=>new Promise(resolve=>{release=()=>resolve({state:"completed",result:{}});}));
+  const f=fixture();let release!:()=>void;f.runtime.poll.mockImplementationOnce(()=>new Promise(resolve=>{release=()=>resolve({state:"completed",result:{state:"scanned",cursor:0,done:true}});}));
   const cycle=f.automation.cycle();for(let i=0;i<50&&f.runtime.poll.mock.calls.length===0;i++)await Promise.resolve();
   expect(f.runtime.prepare).toHaveBeenCalledWith(f.hash,expect.any(String));expect(f.runtime.run).toHaveBeenCalledTimes(1);release();await expect(cycle).resolves.toMatchObject({state:"completed",prepared:1,completed:1});
+ });
+ it("continues the bounded historical scan from the prior cursor",async()=>{
+  const f=fixture();f.runtime.poll.mockResolvedValueOnce({state:"completed",result:{state:"scanned",cursor:7,done:false}})
+   .mockResolvedValueOnce({state:"completed",result:{state:"scanned",cursor:0,done:true}});
+  await expect(f.automation.cycle()).resolves.toMatchObject({state:"completed"});
+  await expect(f.automation.cycle()).resolves.toMatchObject({state:"completed"});
+  expect(f.runtime.poll).toHaveBeenNthCalledWith(1,0,1);expect(f.runtime.poll).toHaveBeenNthCalledWith(2,7,1);
  });
  it("retains one unavailable destination without blocking other payout cycles",async()=>{
   const f=fixture();f.runtime.prepare.mockResolvedValueOnce({state:"completed",result:null});

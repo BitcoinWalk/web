@@ -36,9 +36,20 @@ export function uniqueNip29Rooms(cities:Nip29CityRoom[]):Nip29Room[]{
   const destination=validNip29Destination(city.chat?.nip29);if(!destination)continue;
   const key=`${destination.relay}\n${destination.groupId}`,existing=rooms.get(key);
   if(existing){existing.cityIds.push(city.id);continue;}
-  rooms.set(key,{key,label:city.chat.scope==="global"?"BitcoinWalk Global":city.name,scope:city.chat.scope,cityIds:[city.id],destination});
+  rooms.set(key,{key,label:city.chat.scope==="global"?"BitcoinWalk Global":city.name,scope:city.chat.scope,cityIds:[city.id],destination,...(city.avatarUrl?{avatarUrl:city.avatarUrl}:{})});
  }
- return [...rooms.values()].sort((a,b)=>a.label.localeCompare(b.label)||a.key.localeCompare(b.key));
+ for(const city of cities){
+  const destination=validNip29Destination(city.chat.communities?.global);if(!destination)continue;
+  const key=`${destination.relay}\n${destination.groupId}`,existing=rooms.get(key);
+  if(existing){if(!existing.cityIds.includes(city.id))existing.cityIds.push(city.id);continue;}
+  rooms.set(key,{key,label:"BitcoinWalk Global",scope:"global",cityIds:[city.id],destination});
+ }
+ return [...rooms.values()].sort((a,b)=>(a.scope==="city"?0:1)-(b.scope==="city"?0:1)||a.label.localeCompare(b.label)||a.key.localeCompare(b.key));
+}
+
+export function configuredNip29Room(label:string,scope:"global"|"hosts",value:unknown):Nip29Room|null{
+ const destination=validNip29Destination(value);if(!destination)return null;
+ return {key:`${destination.relay}\n${destination.groupId}`,label,scope,cityIds:[],destination};
 }
 
 function room(destination:Nip29Destination,label:string,scope:"global"|"city"|"organizers",cityIds:string[],avatarUrl?:string):Nip29Room{

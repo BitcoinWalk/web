@@ -10,6 +10,7 @@ import {isSuperAdmin} from "../../../../nostr/authority";
 import {chatProvisionRequest,type ChatProvisionAction} from "../../../../nostr/chat-provision-request";
 import {publishVerifiedEvent} from "../../../../nostr/relay";
 import {authenticateWithBrowserExtension,getBrowserExtensionPubkey,signWithBrowserExtension} from "../../../../nostr/signer";
+import {hostsChatConfig} from "../../../../lib/chat-config";
 import styles from "../monitoring.module.css";
 
 type City={cityId:string;cityName:string;slug:string;tier:"basic"|"pro";organizerPubkey:string;guidePubkey:string;avatarUrl:string};
@@ -58,6 +59,7 @@ export default function CommunityChatsPage(){
   if(!candidate?.evidenceDigest)throw new Error(`${city.cityName} did not return verified activation evidence.`);
   const activated=await call({action:"activate",cityId:city.cityId,evidenceDigest:candidate.evidenceDigest});
   if(!activated.row||activated.row.phase!=="active")throw new Error(`${city.cityName} did not become active.`);
+  await ensureHostsMember(city.organizerPubkey,actor);
   return activated.row;
  }
  async function assistCity(city:City){

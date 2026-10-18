@@ -88,14 +88,15 @@ export async function validatePayoutDestination(value: string, options: {blocked
   if (!Number.isSafeInteger(min) || !Number.isSafeInteger(max) || min < 1000 || max < min || max > 100_000_000_000) throw new Error("Lightning endpoint returned an invalid payment range.");
   if (typeof body.metadata !== "string" || body.metadata.length > 16_384) throw new Error("Lightning endpoint returned invalid payment metadata.");
   try {const metadata = JSON.parse(body.metadata); if (!Array.isArray(metadata)) throw new Error();} catch {throw new Error("Lightning endpoint returned invalid payment metadata.");}
-  if(callback.origin!==endpoint.origin)throw new Error("The payout callback must stay on the destination provider.");
+  const providerPolicy=reviewedPayoutProvider(endpoint,callback);
+  if(providerPolicy===undefined)throw new Error("The payout callback must stay on the destination provider or its reviewed payment service.");
   const probeAmount=Math.ceil(min/1000)*1000;
   if(probeAmount>max)throw new Error("This destination cannot create a whole-satoshi payout invoice.");
   const probe=new URL(callback);probe.searchParams.set("amount",String(probeAmount));
   const invoice=await (options.fetchJson ?? json)(probe) as Record<string,unknown>;
   try{
     if(!invoice||invoice.status==="ERROR"||typeof invoice.pr!=="string")throw new Error();
-    validateOutgoingInvoice(invoice.pr,{amountMsat:String(probeAmount),minMsat:String(min),maxMsat:String(max),network:"bc",metadata:body.metadata},Math.floor(Date.now()/1000));
+    validateOutgoingInvoice(invoice.pr,{amountMsat:String(probeAmount),minMsat:String(min),maxMsat:String(max),network:"bc",metadata:body.metadata,...(providerPolicy?{providerPolicy}:{})},Math.floor(Date.now()/1000));
   }catch{throw new Error("This destination returned an unverifiable payout invoice. Use a different Lightning address.");}
   let nip57Status:"verified"|"unverified"|"not-advertised"="not-advertised";
   if(body.allowsNostr===true&&typeof body.nostrPubkey==="string"&&/^[0-9a-f]{64}$/.test(body.nostrPubkey)){

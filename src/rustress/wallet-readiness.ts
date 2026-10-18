@@ -27,6 +27,7 @@ const evidenceSchema=z.object({
     approvedAt:timestamp, expiresAt:timestamp,
     expectedNetwork:z.enum(["mainnet","testnet","signet","regtest"]),
     maximumBudgetMsat:z.number().int().safe().positive(),
+    approvedBudgetRenewal:z.enum(["never","daily","weekly","monthly","yearly"]),
     maximumTestPaymentMsat:z.number().int().safe().positive(),
     maximumFeeMsat:z.number().int().safe().nonnegative(),
     feeLimitVerified:z.boolean(),
@@ -40,7 +41,7 @@ export type WalletReadinessIssue=
   | "network-mismatch" | "connection-revoked" | "missing-grants"
   | "excessive-grants" | "notifications-not-granted" | "missing-advertised-methods"
   | "read-probes-incomplete" | "budget-exceeds-approval" | "budget-inconsistent"
-  | "renewing-budget" | "insufficient-budget" | "fee-limit-unverified"
+  | "budget-renewal-mismatch" | "insufficient-budget" | "fee-limit-unverified"
   | "shared-wallet-not-approved";
 export type WalletReadiness={
   state:"blocked"|"ready-for-authorized-test";
@@ -74,8 +75,7 @@ export function assessRustressWallet(input:unknown,now=Math.floor(Date.now()/100
   if(!READ_METHODS.every(m=>e.protocol.successfulReadMethods.includes(m)))issues.push("read-probes-incomplete");
   if(e.inventory.budgetMsat>e.policy.maximumBudgetMsat)issues.push("budget-exceeds-approval");
   if(e.inventory.remainingBudgetMsat>e.inventory.budgetMsat)issues.push("budget-inconsistent");
-  // The first manual pilot must not silently replenish its spending allowance.
-  if(e.inventory.budgetRenewal!=="never")issues.push("renewing-budget");
+  if(e.inventory.budgetRenewal!==e.policy.approvedBudgetRenewal)issues.push("budget-renewal-mismatch");
   if(BigInt(e.inventory.remainingBudgetMsat)<BigInt(e.policy.maximumTestPaymentMsat)+BigInt(e.policy.maximumFeeMsat))issues.push("insufficient-budget");
   if(!e.policy.feeLimitVerified)issues.push("fee-limit-unverified");
   if(!e.inventory.isolated&&!e.policy.approvedSharedWallet)issues.push("shared-wallet-not-approved");
