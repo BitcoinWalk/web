@@ -56,9 +56,9 @@ export class ActivationWorkflow {
     const now=this.now(),reset=this.db.prepare("UPDATE rustress_activation_task SET phase='unknown',lease=NULL,until=0,updated_at=? WHERE city=? AND (lease IS NULL OR until<=?)")
       .run(now,cityId,now);
     if(!reset.changes)return this.status(cityId);
-    return this.run(cityId);
+    return this.run(cityId,true);
   }
-  async run(cityId:string){
+  async run(cityId:string,appliedRecovery=false){
     const lease=randomUUID(),now=this.now(),claim=this.db.prepare("UPDATE rustress_activation_task SET lease=?,until=? WHERE city=? AND (lease IS NULL OR until<=?)")
       .run(lease,now+120_000,cityId,now);
     if(!claim.changes)return this.status(cityId);
@@ -72,7 +72,7 @@ export class ActivationWorkflow {
       const stored=JSON.parse(initial.activation_config) as ProvisionConfig;
       const evidence=await this.resolve(initial.request,stored),activation=verifyCityActivation(evidence.reserved,evidence.activation);
       if(JSON.stringify(evidence.reserved)!==initial.reserved_config||JSON.stringify(activation)!==initial.activation_config||
-        (initial.phase!=="active"&&evidence.proofHash!==initial.proof)||evidence.publicOrigin!==initial.public_origin)throw new AuthorityChanged();
+        (initial.phase!=="active"&&!appliedRecovery&&evidence.proofHash!==initial.proof)||evidence.publicOrigin!==initial.public_origin)throw new AuthorityChanged();
       const current=this.row(cityId);if(current?.lease!==lease||current.until<=this.now())throw new Error("Activation worker lease expired.");
       return evidence;
     };
