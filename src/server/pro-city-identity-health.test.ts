@@ -25,6 +25,12 @@ describe("Pro city identity health",()=>{
   expect(row.checks.find(check=>check.key==="publishing")?.state).toBe("future");
   expect(row.lastVerifiedAt).toBe(95);
  });
+ it("does not reopen verified managed services because profile relays lag optional fields",()=>{
+  const row=summarizeCityIdentityHealth(base({profile:{reachable:3,matching:3,nip05:0,lightning:0}}));
+  expect(row.status).toBe("complete");
+  expect(row.checks.find(check=>check.key==="nip05")?.state).toBe("pass");
+  expect(row.checks.find(check=>check.key==="lightning")?.state).toBe("pass");
+ });
  it("shows incomplete configured Pro cities as action required",()=>{
   const row=summarizeCityIdentityHealth(base({profile:{reachable:3,matching:1,nip05:1,lightning:3}}));
   expect(row.status).toBe("action-required");

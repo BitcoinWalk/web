@@ -50,13 +50,17 @@ export function summarizeCityIdentityHealth(input:CityIdentityHealthEvidence):Ci
   const profileState:IdentityHealthCheckState=input.profile.matching>=2?"pass":input.profile.reachable>=2?"fail":"unknown";
   const profileDetail=profileState==="pass"?"The city-signed name, avatar and approved website were read back from at least two public profile relays.":
     profileState==="fail"?"The public city profile is missing a valid city name or avatar, or its website differs from the approved city identity on the readable profile relays.":"Fewer than two profile relays could be checked; no failure is inferred.";
-  const nip05State:IdentityHealthCheckState=input.capabilities.nip05!=="active"?"fail":input.profile.reachable<2?"unknown":input.profile.nip05<2||!input.nip05Verified?"fail":"pass";
-  const lightningState:IdentityHealthCheckState=input.capabilities.lightning!=="active"?"fail":input.profile.reachable<2?"unknown":input.profile.lightning<2?"fail":"pass";
+  // Managed NIP-05 and Lightning activation already perform independent public
+  // endpoint verification. Do not turn delayed kind-0 replication on unrelated
+  // profile relays into a false managed-service failure; profile propagation is
+  // assessed separately by the profile check above.
+  const nip05State:IdentityHealthCheckState=input.capabilities.nip05!=="active"?"fail":input.nip05Verified?"pass":"fail";
+  const lightningState:IdentityHealthCheckState=input.capabilities.lightning==="active"?"pass":"fail";
   const checks:CityIdentityHealthCheck[]=[
     check("identity","Dedicated city npub",identityOk?"pass":"fail",identityOk?"A distinct city signer matches the active BitcoinWalk city binding.":"A distinct saved city signer and active matching city binding are required."),
     check("profile","Profile and avatar",profileState,profileDetail),
-    check("nip05","NIP-05 verification",nip05State,nip05State==="pass"?`${identifier} resolves to the exact city npub.`:nip05State==="unknown"?"Current NIP-05 evidence could not be collected from enough public relays.":`${identifier} is not currently verified against the exact city npub and public profile.`),
-    check("lightning","Lightning address",lightningState,lightningState==="pass"?`${identifier} has passed managed LNURL-pay verification and is present in the city profile.`:lightningState==="unknown"?"Current Lightning profile evidence could not be collected from enough public relays.":`${identifier} is not currently active and consistent with the city profile.`),
+    check("nip05","NIP-05 verification",nip05State,nip05State==="pass"?`${identifier} resolves to the exact city npub.`:`${identifier} is not currently verified against the exact city npub.`),
+    check("lightning","Lightning address",lightningState,lightningState==="pass"?`${identifier} has passed managed LNURL-pay verification.`:`${identifier} is not currently active.`),
     check("binding","City binding",input.binding,input.binding==="pass"?"The signed city binding is active and its exact head agrees across authoritative read relays.":input.binding==="unknown"?"Authoritative relays could not all be checked; the existing binding was not changed.":"No active binding with exact authoritative relay read-back was found."),
     check("recovery","Recovery acknowledgement",task?.signer?.confirmedAt?"pass":"fail",task?.signer?.confirmedAt?"The organizer confirmed a protected backup or remote-signer recovery method. BitcoinWalk stores no private key.":"The city signer still needs a confirmed recovery method."),
     check("publishing","City-signed publication","future","Future BW-118 scope. This does not prevent an otherwise healthy Pro identity from being complete."),
