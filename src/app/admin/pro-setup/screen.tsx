@@ -25,6 +25,7 @@ export function proSetupJourney(preview:ProSetupPreview,now=Date.now()):ProSetup
 }
 
 function ShieldIcon(){return <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>}
+function BoltIcon(){return <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m13 2-9 12h8l-1 8 9-12h-8z"/></svg>}
 async function signProSetup(template:Parameters<typeof signWithBrowserExtension>[0]){
   let timer:ReturnType<typeof setTimeout>|undefined;
   try{return await Promise.race([signWithBrowserExtension(template),new Promise<never>((_,reject)=>{timer=setTimeout(()=>reject(new Error("Your signer did not respond. Open it, then select Retry Pro services.")),60_000);})]);}
@@ -44,7 +45,7 @@ export function ProCitySetup({enabled,cityId,active=true}:{enabled:boolean;cityI
 }
 function ProSetupForm({enabled, actor, cities, fixedCityId="", embedded=false,interactive=true}: {enabled: boolean; actor: string; cities: Array<{id: string; name: string}>;fixedCityId?:string;embedded?:boolean;interactive?:boolean}) {
   const [cityId, setCityId] = useState(fixedCityId), [preview, setPreview] = useState<ProSetupPreview | null>(null);
-  const [busy, setBusy] = useState(false), [message, setMessage] = useState(""), [destination, setDestination] = useState("");
+  const [busy, setBusy] = useState(false), [message, setMessage] = useState(""), [destination, setDestination] = useState(""), [payoutMessage,setPayoutMessage]=useState("");
   const inFlight = useRef(false);
   const deepLinkApplied = useRef(false);
   useEffect(()=>{
@@ -70,23 +71,24 @@ function ProSetupForm({enabled, actor, cities, fixedCityId="", embedded=false,in
         body: JSON.stringify({event}), signal: AbortSignal.timeout(60_000)});
       const body = await response.json();
       if (!response.ok) throw new Error(body.error || "Pro setup could not be prepared.");
-      setPreview(body.preview); setDestination(body.preview.payout.destination ?? body.preview.payout.suggestedDestination ?? ""); setMessage("Pro services loaded.");
+      setPreview(body.preview); setDestination(body.preview.payout.destination ?? body.preview.payout.suggestedDestination ?? ""); setPayoutMessage(""); setMessage("Pro services loaded.");
     } catch (error) {setMessage(error instanceof Error ? error.message : "Preparation failed; no account or payment was changed.");}
     finally {inFlight.current = false; setBusy(false);}
   },[actor,cityId,embedded]);
   async function savePayout() {
     if (!preview || !destination.trim() || !actor || inFlight.current) return;
-    inFlight.current = true; setBusy(true); setMessage("");
+    inFlight.current = true; setBusy(true); setMessage(""); setPayoutMessage("Confirm the payout update in your signer…");
     try {
       const command = {action: "save-payout" as const, cityId: preview.cityId, destination: destination.trim()}, origin = window.location.origin;
       const event = await signWithBrowserExtension(proSetupTemplate(command, origin));
       if (event.pubkey !== actor || JSON.stringify(authorizeProSetup(event, origin)) !== JSON.stringify(command)) throw new Error("Your signer changed the payout request. Reconnect and try again.");
       const response = await fetch("/api/pro-setup", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({event}), signal: AbortSignal.timeout(60_000)});
       const body = await response.json(); if (!response.ok) throw new Error(body.error || "Payout destination could not be saved.");
-      setPreview(value => value ? {...value, payout: {configured: true, destination: body.payout.destination, version: body.payout.version},
+      setPreview(value => value ? {...value, payout: {configured: true, destination: body.payout.destination, version: body.payout.version,
+        ...(body.payout.update==="not-required"&&value.payout.activation?{activation:value.payout.activation}:body.payout.update!=="not-required"?{activation:{activeVersion:value.payout.activation?.activeVersion,pendingVersion:body.payout.version,state:"pending"}}:{})},
         steps: value.steps.map(step => step.label === "Personal payout destination" ? {...step, state: "ready", detail: body.payout.update==="queued"?`Destination version ${body.payout.version} is being verified. The current destination remains active until it passes.`:`Owner-confirmed destination version ${body.payout.version} is saved privately. It is not active until provisioning is verified.`} : step)} : value);
-      setDestination(body.payout.destination); setMessage(body.payout.message);
-    } catch (error) {setMessage(error instanceof Error ? error.message : "Destination was not saved.");}
+      setDestination(body.payout.destination); setPayoutMessage(body.payout.message); setMessage(body.payout.message);
+    } catch (error) {const note=error instanceof Error ? error.message : "Destination was not saved.";setPayoutMessage(note);setMessage(note);}
     finally {inFlight.current = false; setBusy(false);}
   }
   async function setCommunityVisibility(surface:"walkie-talkie"|"armada",enabled:boolean){
@@ -104,6 +106,9 @@ function ProSetupForm({enabled, actor, cities, fixedCityId="", embedded=false,in
     finally{inFlight.current=false;setBusy(false);}
   }
   const journey=preview?proSetupJourney(preview):null,manage=journey?.mode==="manage";
+  const savedDestination=preview?.payout.destination?.trim()??"",destinationChanged=destination.trim()!==savedDestination;
+  const payoutState=preview?.payout.activation?.state??"not-active";
+  const payoutStatus=payoutState==="active"?"Active":payoutState==="pending"?"Verifying":payoutState==="needs-attention"?"Needs attention":preview?.payout.configured?"Saved":"Not set";
   const showCommunity=!!preview&&(preview.community.walkieTalkieActive||preview.community.armadaActive);
   function continueTo(target:"payout"|"signer"){document.getElementById(`pro-${target}-${cityId}`)?.scrollIntoView({behavior:window.matchMedia("(prefers-reduced-motion: reduce)").matches?"auto":"smooth",block:"start"});}
   return <section className={styles.shell} id={embedded?"pro-city-services":undefined} aria-labelledby={embedded?"pro-city-services-heading":undefined}>
@@ -148,15 +153,17 @@ function ProSetupForm({enabled, actor, cities, fixedCityId="", embedded=false,in
             </div>
           </div>
         </fieldset>}
-        {journey&&(!preview.payout.configured||manage)&&<fieldset className={styles.section} id={`pro-payout-${cityId}`} disabled={busy}>
-          <legend>Personal payout destination</legend>
-          <label>Lightning address or LNURL-pay
-            <input value={destination} onChange={event => setDestination(event.target.value)} placeholder="you@example.com or lnurl1…" autoComplete="off" spellCheck={false}/>
+        {journey&&<fieldset className={`${styles.section} ${styles.payoutCard}`} id={`pro-payout-${cityId}`} disabled={busy}>
+          <legend>Payout LNURL</legend>
+          <div className={styles.payoutHeader}><span className={styles.payoutIcon}><BoltIcon/></span><span><strong>Host payout destination</strong><small>Receives your 79% share of city payments</small></span><span className={styles.payoutState} data-state={payoutState}>{payoutStatus}</span></div>
+          {preview.payout.configured&&<div className={styles.currentPayout}><span>Current saved destination</span><strong>{preview.payout.destination}</strong><small>Version {preview.payout.version}{preview.payout.activation?.activeVersion?` · active version ${preview.payout.activation.activeVersion}`:""}</small></div>}
+          <label>{preview.payout.configured?"New Lightning address or LNURL-pay":"Lightning address or LNURL-pay"}
+            <input value={destination} onChange={event => {setDestination(event.target.value);setPayoutMessage("");}} placeholder="you@example.com or lnurl1…" autoComplete="off" spellCheck={false}/>
           </label>
-          <p>79% of payments to your city’s BitcoinWalk Lightning address will go to this private destination. BitcoinWalk retains 21%. Saving validates the endpoint but sends no payment.</p>
+          <p className={styles.payoutHelp}>BitcoinWalk validates the endpoint without sending funds. The current destination stays active until the signed replacement passes provider and public read-back checks. BitcoinWalk retains 21%.</p>
           {!preview.payout.configured && preview.payout.suggestedDestination && <p><strong>Recovered from your Pro checkout:</strong> {preview.payout.suggestedDestination}. Confirm it below with the current city owner’s signer; checkout alone cannot activate it.</p>}
-          {preview.payout.configured && <p>Saved destination version {preview.payout.version}: <strong>{preview.payout.destination}</strong>. If you replace it, the current destination stays active until the new version passes verification.</p>}
-          <button type="button" onClick={() => void savePayout()} disabled={busy || !destination.trim()}>{busy ? "Validating…" : preview.payout.configured ? "Validate and save new version" : "Validate and save destination"}</button>
+          <div className={styles.payoutActions}><button type="button" onClick={() => void savePayout()} disabled={busy || !destination.trim() || (preview.payout.configured&&!destinationChanged)}>{busy ? "Validating…" : preview.payout.configured ? "Verify and update payout" : "Verify and save payout"}</button>{preview.payout.configured&&!destinationChanged&&<small>Enter a different destination to update it.</small>}</div>
+          {payoutMessage&&<p className={styles.payoutFeedback} role="status" aria-live="polite">{payoutMessage}</p>}
         </fieldset>}
         {journey&&(journey.target==="signer"||manage)&&<div className={styles.section} id={`pro-signer-${cityId}`}><CitySignerSetup cityId={preview.cityId} cityName={preview.cityName} actor={actor} saved={preview.signer} activation={preview.activation} profile={preview.profile}
           setupReady={preview.payout.configured&&preview.signer.configured} busy={busy}

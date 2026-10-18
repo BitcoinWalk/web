@@ -22,6 +22,8 @@ This slice has process-local request throttling. Production must also retain pro
 
 An active Pro city can now save a fresh owner-signed destination without disrupting its existing route. A durable payout-update outbox binds the exact old provider configuration, new immutable payout version, fresh city authority and validated endpoint. Rustress registers the new payout authority through its separately authenticated loopback channel before applying the compare-and-swap provider version. The app keeps the old activation row public until the new provider configuration, NIP-05 and LNURL endpoints have all been independently read back; only then does one local transaction promote the new version. Existing invoices retain their original payout authority.
 
+The current host manages this from **My cities → Pro services → Payout LNURL**. The card shows the privately saved destination and its activation state, accepts a Lightning address or raw LNURL-pay value, and requires a fresh signature from the current city owner. An unchanged value cannot create another version. The existing route stays active while a replacement is validated and reconciled.
+
 Unknown write outcomes are reconciled by exact provider status before retry, so a lost response cannot repeat or blindly replace a change. Changed ownership, binding, signer, slug, split, wallet or destination evidence blocks the transition. A second change cannot overtake unfinished work. The owner-facing screen distinguishes active, pending and needs-attention versions without exposing the destination publicly. BitcoinWalk Guide queues content-free saved, active and needs-attention messages keyed by city, payout version and state.
 
 ## Accepted — 10 October 2026
