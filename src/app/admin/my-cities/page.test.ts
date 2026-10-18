@@ -24,7 +24,7 @@ describe("my cities inventory",()=>{
   expect(heading).toBeGreaterThan(panel);
   expect(page.indexOf("Edit the description, hero image and default meeting point shown across your city and walks.")).toBeGreaterThan(panel);
  });
- it("lets the organizer upload an accepted city hero or keep using a URL",()=>{const page=source();expect(page).toContain("uploadCityImage");expect(page).toContain(">Upload landscape image<input type=\"file\"");expect(page).toContain('accept="image/jpeg,image/png,image/webp"');expect(page).toContain("JPEG, PNG or WebP up to 5 MB");expect(page).toContain("Landscape image URL");});
+ it("lets the organizer upload an accepted city hero or keep using a URL",()=>{const page=source();expect(page).toContain("uploadCityImage");expect(page).toContain('<ImageUploadButton label="Upload hero image"');expect(page).toContain("onSelect={file=>void uploadHero(file)}");expect(page).toContain("JPEG, PNG or WebP up to 5 MB");expect(page).toContain("Landscape image URL");});
  it("shows reviewer feedback and the exact resubmission action for correctable rejected requests",()=>{
   const page=source();
   expect(page).toContain("Correct and resubmit {base.city.cityName}");

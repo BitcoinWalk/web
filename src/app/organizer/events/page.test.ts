@@ -36,8 +36,7 @@ describe("organizer events landing view",()=>{
   it("lets a published walk use an uploaded hero for its page and sharing preview",()=>{
     const source=readFileSync(new URL("./_screen.tsx",import.meta.url),"utf8");
     expect(source).toContain(">Hero and sharing image</h3>");
-    expect(source).toContain(">Upload hero image <input type=\"file\"");
-    expect(source).toContain('accept="image/jpeg,image/png,image/webp"');
+    expect(source).toContain('<ImageUploadButton label="Upload hero image"');
     expect(source).toContain('uploadPublishedWalkImage(file,editingPublishedRow.walk.revision.city.cityId,"hero")');
     expect(source).toContain("JPEG, PNG or WebP up to 5 MB");
     expect(source).toContain("Use city hero instead");
