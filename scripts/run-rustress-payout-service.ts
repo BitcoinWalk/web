@@ -1,4 +1,5 @@
 import {createServer} from "node:http";
+import {createHash} from "node:crypto";
 import {chmodSync,lstatSync,readFileSync,realpathSync,renameSync,rmSync,writeFileSync} from "node:fs";
 import {dirname,join} from "node:path";
 import {backup,DatabaseSync} from "node:sqlite";
@@ -10,8 +11,7 @@ import {PayoutInvoiceIntake} from "../src/rustress/payout-intake";
 import {PayoutControlApi} from "../src/rustress/payout-control-api";
 import {PayoutInvoiceIssuer} from "../src/rustress/payout-invoice-issuer";
 import {PayoutHostEvidence} from "../src/rustress/payout-host-evidence";
-import {verifyPayoutOperation} from "../src/rustress/payout-operation";
-import {MAXIMUM_NODE_TIMEOUT_MILLISECONDS,payoutOperationExpiryDelay} from "../src/rustress/payout-operation-expiry";
+import {PAYOUT_BUDGET_RENEWAL,VERIFIED_PRO_CITY_SCOPE,verifyScopedPayoutOperation,type ScopedPayoutOperationExpected} from "../src/rustress/scoped-payout-operation";
 import {PayoutRuntime} from "../src/rustress/payout-runtime";
 import {PayoutAutomation} from "../src/rustress/payout-automation";
 import {PayoutServiceController} from "../src/rustress/payout-service-controller";
@@ -20,7 +20,7 @@ import {recipientJson} from "../src/rustress/recipient-invoice";
 import {PrivateNwcTransport} from "../src/rustress/nwc-transport";
 import {receiptEvidenceSocketHandler} from "../src/rustress/receipt-evidence-socket";
 
-const version="0.2.14",admin="90cf043861e5b5a9972cb7b529a5ba71b215d6d1e314c749d5526ec133f1db73",walletRef="bitcoinwalk-rustress";
+const version="0.2.18",admin="90cf043861e5b5a9972cb7b529a5ba71b215d6d1e314c749d5526ec133f1db73",walletRef="bitcoinwalk-rustress",maximumCities=100;
 const configRoot="/run/bitcoinwalk-config",secretRoot="/run/bitcoinwalk-secrets",stateRoot="/var/lib/bitcoinwalk-payout";
 const evidenceSocket="/run/bitcoinwalk-payout-evidence/socket/evidence.sock";
 const tokenPattern=/^[A-Za-z0-9_-]{43,256}$/;
@@ -75,16 +75,16 @@ async function main(){
   let enabled=()=>false;
   const host=new PayoutHostEvidence(json(join(configRoot,"host-evidence.json")),ledger,()=>journal.status(),()=>enabled());
   if(host.config.release!==version)throw new Error();
-  const policy=host.policy(),operationPolicy=z.object({cityIds:z.array(z.uuid()).min(1).max(10)}).strict().parse(json(join(configRoot,"operation-cities.json"))),
-   operation=json(join(configRoot,"operation.json")),expected={admin,release:version,binding:pin.binding,journalServiceId:pin.serviceId,
-   budgetMsat:policy.budgetMsat,maximumPayoutMsat:policy.maximumPayoutMsat,maximumFeeMsat:policy.maximumFeeMsat,cityIds:operationPolicy.cityIds};
-  const grant=verifyPayoutOperation(operation,expected),authority=new PayoutAuthorityStore(db,new Set(grant.cityIds));
-  enabled=()=>{try{verifyPayoutOperation(operation,expected);return true;}catch{return false;}};
-  if(process.env.PAYOUT_PREFLIGHT==="1"){db.close();db=undefined;process.stdout.write(`RUSTRESS_PAYOUT_OPERATION_PREFLIGHT_OK expiresAt=${grant.expiresAt} cities=${grant.cityIds.length}\n`);return;}
+  const policy=host.policy(),operation=json(join(configRoot,"operation.json")),expected:ScopedPayoutOperationExpected={admin,binding:pin.binding,journalServiceId:pin.serviceId,
+   budgetMsat:policy.budgetMsat,budgetRenewal:PAYOUT_BUDGET_RENEWAL,maximumPayoutMsat:policy.maximumPayoutMsat,maximumFeeMsat:policy.maximumFeeMsat,cityScope:VERIFIED_PRO_CITY_SCOPE,
+   authorityBinding:createHash("sha256").update(tokens.authority).digest("hex"),maximumCities};
+  const grant=verifyScopedPayoutOperation(operation,expected),authority=new PayoutAuthorityStore(db,{cityScope:grant.cityScope,maximumCities:grant.maximumCities});
+  enabled=()=>{try{verifyScopedPayoutOperation(operation,expected);return true;}catch{return false;}};
+  if(process.env.PAYOUT_PREFLIGHT==="1"){db.close();db=undefined;process.stdout.write(`RUSTRESS_PAYOUT_OPERATION_PREFLIGHT_OK durable=true scope=${grant.cityScope} maximumCities=${grant.maximumCities}\n`);return;}
   const runtime=new PayoutRuntime({ledger,walletRef,network:"bc",policy,journal:{origin:"http://127.0.0.1:18894",serviceId:pin.serviceId},
    credentials:async()=>({wallet:nwc,checkout,journalClientToken:journalToken}),evidence:async()=>host.evidence(),deployment:()=>host.deployment(),coverage:()=>host.coverage(),permit:r=>host.permit(r),fetchJson:recipientJson,hubSafety:async()=>host.hubSafety()},enabled);
   const automation=new PayoutAutomation(runtime,ledger,walletRef,enabled,15000),holder={current:undefined as PayoutServiceController|undefined};
-  controller=new PayoutServiceController(automation,()=>runtime.ready,enabled,undefined,15000,status=>atomicStatus({service:"bitcoinwalk-rustress-payout",version,mode:"operation",operationExpiresAt:grant.expiresAt,authorizedCities:grant.cityIds.length,...status,blockedAt:runtime.blockedAt,...ledger.operationalStatus(walletRef)}));holder.current=controller;
+  controller=new PayoutServiceController(automation,()=>runtime.ready,enabled,undefined,15000,status=>atomicStatus({service:"bitcoinwalk-rustress-payout",version,mode:"operation",durableAuthority:true,budgetRenewal:grant.budgetRenewal,authorizedScope:grant.cityScope,authorizedCities:authority.count(),authorizedCityCapacity:grant.maximumCities,...status,blockedAt:runtime.blockedAt,...ledger.operationalStatus(walletRef)}));holder.current=controller;
   const intake=new PayoutInvoiceIntake(ledger,(city,revision)=>Promise.resolve(authority.resolve(city,revision))),invoiceTransport=new PrivateNwcTransport(walletRef,nwc,checkout);
   if(invoiceTransport.binding!==pin.binding)throw new Error();
   const issuer=new PayoutInvoiceIssuer(db,intake,(city,revision)=>Promise.resolve(authority.resolveInvoice(city,revision)),{makeInvoice:input=>invoiceTransport.call("make_invoice",{amount:Number(input.amountMsat),description_hash:input.descriptionHash,expiry:input.expirySeconds})},hash=>ledger.incomingStatus(walletRef,hash),undefined,hash=>invoiceTransport.lookupInvoice(hash),(domain,localPart,addressVersion)=>Promise.resolve(retained.resolveInvoice(domain,localPart,addressVersion)));
@@ -94,11 +94,10 @@ async function main(){
   server=createServer((request,response)=>{void (async()=>{let result;try{result=await api.route(request.method,request.url,request.headers.authorization,request.method==="POST"?await body(request):undefined);}catch{result={status:400,body:{error:"request-rejected"}};}response.writeHead(result.status,{"content-type":"application/json","cache-control":"no-store","x-content-type-options":"nosniff"});response.end(JSON.stringify(result.body));})();});
   await snapshot(db);const snapshotTimer=setInterval(()=>{if(db)void snapshot(db).catch(()=>{controller?.stop();process.stderr.write("Managed payout snapshot failed.\n");});},21600000);snapshotTimer.unref?.();
   await new Promise<void>((resolve,reject)=>{evidenceServer!.once("error",reject);evidenceServer!.listen(evidenceSocket,()=>{chmodSync(evidenceSocket,0o600);resolve();});});
-  await new Promise<void>((resolve,reject)=>{server!.once("error",reject);server!.listen(8893,"127.0.0.1",resolve);});controller.start();atomicStatus({service:"bitcoinwalk-rustress-payout",version,mode:"operation",operationExpiresAt:grant.expiresAt,authorizedCities:grant.cityIds.length,...controller.status(),blockedAt:runtime.blockedAt,...ledger.operationalStatus(walletRef)});
-  let stopping=false,expiryTimer:NodeJS.Timeout;
-  const stop=()=>{if(stopping)return;stopping=true;clearInterval(snapshotTimer);clearTimeout(expiryTimer);controller!.stop();server!.close(()=>evidenceServer!.close(()=>{rmSync(evidenceSocket,{force:true});db!.close();process.exit(0);}));};
-  const armExpiry=()=>{const delay=payoutOperationExpiryDelay(grant.expiresAt);expiryTimer=setTimeout(delay<MAXIMUM_NODE_TIMEOUT_MILLISECONDS?stop:armExpiry,delay);expiryTimer.unref?.();};
-  armExpiry();process.on("SIGTERM",stop);process.on("SIGINT",stop);
+  await new Promise<void>((resolve,reject)=>{server!.once("error",reject);server!.listen(8893,"127.0.0.1",resolve);});controller.start();atomicStatus({service:"bitcoinwalk-rustress-payout",version,mode:"operation",durableAuthority:true,budgetRenewal:grant.budgetRenewal,authorizedScope:grant.cityScope,authorizedCities:authority.count(),authorizedCityCapacity:grant.maximumCities,...controller.status(),blockedAt:runtime.blockedAt,...ledger.operationalStatus(walletRef)});
+  let stopping=false;
+  const stop=()=>{if(stopping)return;stopping=true;clearInterval(snapshotTimer);controller!.stop();server!.close(()=>evidenceServer!.close(()=>{rmSync(evidenceSocket,{force:true});db!.close();process.exit(0);}));};
+  process.on("SIGTERM",stop);process.on("SIGINT",stop);
  }catch(error){controller?.stop();server?.close();evidenceServer?.close();rmSync(evidenceSocket,{force:true});db?.close();throw error;}
 }
 main().catch(()=>{process.stderr.write("Rustress payout service refused to start.\n");process.exitCode=1;});

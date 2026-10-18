@@ -12,8 +12,31 @@ import {MADEIRA_PILOT} from "../nostr/madeira-pilot";
 import {createCityActivation} from "../rustress/activation-contract";
 import {provisionConfigSchema,provisionDigest} from "../rustress/contract";
 import {canonicalLoopbackTransport,loopbackApiTransport} from "../rustress/loopback-http";
+import {configuredPaidCityEntry} from "../lib/directory-config";
+import type {CityBrandChallenge} from "../nostr/city-brand";
+import type {DatabaseSync} from "node:sqlite";
 
 const cityId=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+const MAXIMUM_MANAGED_PRO_CITIES=100;
+
+/** `*` is not a public wildcard. It derives the private provisioning queue
+ * from the exact durable Pro entitlement, completed owner setup and active city
+ * identity records. Purchased and gifted Pro cities therefore enter the same
+ * reconciler without adding another deployment-time city allow-list. */
+export function managedProCityIds(db:DatabaseSync,configured:string):Set<string>{
+  if(configured.trim()!=="*"){
+    const explicit=new Set(configured.split(",").map(value=>value.trim()).filter(Boolean));
+    if(!explicit.size||explicit.size>MAXIMUM_MANAGED_PRO_CITIES||[...explicit].some(value=>!cityId.test(value)))throw new Error("Managed provisioning city scope required.");
+    return explicit;
+  }
+  const rows=db.prepare(`SELECT DISTINCT task.cityId cityId FROM pro_setup_task task
+    JOIN paid_city_entitlement entitlement ON entitlement.cityId=task.cityId AND entitlement.invoiceId=task.entitlementId
+    JOIN city_brand_request brand ON brand.city_id=task.cityId AND brand.status='active'
+    WHERE task.payoutVersion IS NOT NULL AND task.brandPubkey IS NOT NULL
+    ORDER BY task.cityId LIMIT ?`).all(MAXIMUM_MANAGED_PRO_CITIES+1) as Array<{cityId:string}>;
+  if(rows.length>MAXIMUM_MANAGED_PRO_CITIES||rows.some(row=>!cityId.test(row.cityId)))throw new Error("Managed provisioning city scope is invalid.");
+  return new Set(rows.map(row=>row.cityId));
+}
 function privateToken(path:string){
   if(!path.startsWith("/"))throw new Error("Private managed provisioning token file required.");
   const stat=lstatSync(path);if(!stat.isFile()||stat.mode&0o077||stat.size>1024)throw new Error("Private managed provisioning token file required.");
@@ -24,8 +47,12 @@ function privateToken(path:string){
  * paying for Pro enables neither one. All network clients remain loopback-only. */
 function runtime(){
   if(process.env.BITCOINWALK_RUSTRESS_MANAGED_ENABLED!=="1")return null;
-  const allow=new Set((process.env.BITCOINWALK_RUSTRESS_MANAGED_CITIES??"").split(",").filter(Boolean));
-  if(!allow.size||allow.size>10||[...allow].some(value=>!cityId.test(value)))throw new Error("Managed provisioning city allow-list required.");
+  const configured=process.env.BITCOINWALK_RUSTRESS_MANAGED_CITIES??"";
+  if(configured.trim()!=="*"){
+    const explicit=configured.split(",").map(value=>value.trim()).filter(Boolean);
+    if(!explicit.length||explicit.length>MAXIMUM_MANAGED_PRO_CITIES||explicit.some(value=>!cityId.test(value)))throw new Error("Managed provisioning city scope required.");
+  }
+  const db=getPaymentRuntime().store.db,allow=managedProCityIds(db,configured);
   const options={origin:process.env.BITCOINWALK_RUSTRESS_MANAGED_ORIGIN??"",
     token:privateToken(process.env.BITCOINWALK_RUSTRESS_MANAGED_TOKEN_FILE??""),domain:"bitcoinwalk.org",
     adapterRevision:process.env.BITCOINWALK_RUSTRESS_MANAGED_REVISION??""};
@@ -38,7 +65,7 @@ function runtime(){
   // Every managed origin is loopback-only. Preserve the reviewed virtual host
   // for both the Madeira bridge and generic allow-listed city provisioning.
   const providerTransport=loopbackApiTransport(options.origin,options.domain);
-  const db=getPaymentRuntime().store.db,reservationProvider=new RustressProvisioner(options,providerTransport),activationProvider=new RustressActivator(options,providerTransport);
+  const reservationProvider=new RustressProvisioner(options,providerTransport),activationProvider=new RustressActivator(options,providerTransport);
   const resolveRegular=async(request:string,current?:import("../rustress/contract").ProvisionConfig)=>{
     const row=db.prepare("SELECT city_id FROM city_brand_request WHERE id=? AND status='active'").get(request) as {city_id:string}|undefined;
     if(row&&allow.has(row.city_id))return resolveRustressActivationEvidence(request,publicOrigin,current);
@@ -137,9 +164,16 @@ export async function queueManagedPayoutUpdate(city:string){const service=runtim
  let legacy=false;if(!request&&service.madeiraBridge&&city===MADEIRA_PILOT.cityId){const active=service.db.prepare("SELECT request FROM rustress_activation_task WHERE city=? AND phase='active'").get(city) as {request:string}|undefined;if(active){request={id:active.request};legacy=true;}}
  if(!request)return null;await service.payoutUpdates.enqueue(request.id,legacy?city:undefined);return service.payoutUpdates.status(city);}
 
+function managedProvisioningCityId(service:NonNullable<ReturnType<typeof runtime>>,city:string){
+ if(service.allow.has(city))return city;
+ const row=service.db.prepare("SELECT challenge FROM city_brand_request WHERE city_id=? AND status='active' ORDER BY rowid DESC LIMIT 1").get(city) as {challenge:string}|undefined;
+ if(!row)return city;
+ try{const challenge=JSON.parse(row.challenge) as CityBrandChallenge,slug=new URL(challenge.profile.website).pathname.split("/").filter(Boolean)[0];return configuredPaidCityEntry(city,slug?[slug]:[])?.cityId??city;}catch{return city;}
+}
+
 export async function retryManagedProvisioning(city:string,actor:string){
   if(actor!==SUPER_ADMIN_PUBKEY)throw new Error("Super-admin provisioning recovery required.");
-  const service=runtime();if(!service||!service.allow.has(city))throw new Error("Managed city provisioning is not enabled.");
-  await reconcileCity(service,city);const update=service.payoutUpdates.status(city);if(update&&update.state!=="active")await service.payoutUpdates.retry(city);
-  return {reservation:service.reservation.status(city),activation:service.activation.status(city),payoutUpdate:service.payoutUpdates.status(city),activationEnabled:service.activationEnabled};
+  const service=runtime();if(!service)throw new Error("Managed city provisioning is not enabled.");const managedCity=managedProvisioningCityId(service,city);if(!service.allow.has(managedCity))throw new Error("Managed city provisioning is not enabled.");
+  await reconcileCity(service,managedCity);const update=service.payoutUpdates.status(managedCity);if(update&&update.state!=="active")await service.payoutUpdates.retry(managedCity);
+  return {reservation:service.reservation.status(managedCity),activation:service.activation.status(managedCity),payoutUpdate:service.payoutUpdates.status(managedCity),activationEnabled:service.activationEnabled};
 }

@@ -19,8 +19,12 @@ export const stagingTestCityIds=new Set([
 ]);
 
 const comparable=(value:string)=>value.normalize("NFKD").replace(/\p{M}/gu,"").toLowerCase().trim();
-export function configuredPaidCity(cityId:string,slugs:string[]=[]):PaidDirectoryCity|undefined{
- const exact=directoryConfig.paidCities[cityId];if(exact)return exact;
+export function configuredPaidCityEntry(cityId:string,slugs:string[]=[]):{cityId:string;city:PaidDirectoryCity}|undefined{
+ const exact=directoryConfig.paidCities[cityId];if(exact)return {cityId,city:exact};
  const candidates=new Set(slugs.map(comparable));
- return Object.values(directoryConfig.paidCities).find(city=>[city.slug,...(city.aliases??[])].some(slug=>candidates.has(comparable(slug))));
+ const match=Object.entries(directoryConfig.paidCities).find(([,city])=>[city.slug,...(city.aliases??[])].some(slug=>candidates.has(comparable(slug))));
+ return match?{cityId:match[0],city:match[1]}:undefined;
+}
+export function configuredPaidCity(cityId:string,slugs:string[]=[]):PaidDirectoryCity|undefined{
+ return configuredPaidCityEntry(cityId,slugs)?.city;
 }

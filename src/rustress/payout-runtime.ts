@@ -47,7 +47,7 @@ export class PayoutRuntime {
  private active(){
   const d=this.#deployment,time=this.now();
   return this.enabled()&&!!d&&d.binding===this.deps.policy.binding&&d.serviceId===this.deps.journal.serviceId&&
-   d.checkedAt<=time&&time-d.checkedAt<=60&&d.expiresAt>time&&this.deps.policy.expiresAt>time;
+   d.checkedAt<=time&&time-d.checkedAt<=60&&d.expiresAt>time;
  }
  get ready(){return this.#ready&&this.active()&&this.#recovery?.ready===true;}
  async reconcile(){
@@ -68,7 +68,7 @@ export class PayoutRuntime {
    if(reader.binding!==this.deps.policy.binding)throw new Error();
    this.#blockedAt="hub-safety";
    const info=await reader.getInfo(),native=this.deps.hubSafety?await this.deps.hubSafety():undefined;
-   requireRuntimeHubSafety(info,native,{binding:reader.binding,budgetMsat:this.deps.policy.budgetMsat},this.now());
+   requireRuntimeHubSafety(info,native,{binding:reader.binding,budgetMsat:this.deps.policy.budgetMsat,budgetRenewal:this.deps.policy.budgetRenewal},this.now());
    if(!this.active()||generation!==this.#generation)throw new Error();
    const wallet=new RustressNwcWallet(this.deps.walletRef,c.wallet,c.checkout,this.deps.network,this.deps.permit,()=>this.ready&&generation===this.#generation,this.now);
    if(wallet.binding!==reader.binding)throw new Error();

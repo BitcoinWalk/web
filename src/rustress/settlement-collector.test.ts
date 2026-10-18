@@ -14,12 +14,12 @@ describe("default-off settlement collector",()=>{
   const f=fixture();f.collector.hint("ab".repeat(32));f.collector.hint("ab".repeat(32));
   expect(f.collector.hint("bad")).toBe(false);expect(await f.collector.poll()).toMatchObject({state:"scanned",done:false,pending:1});
   expect(f.flow.collect).toHaveBeenCalledTimes(1);expect(f.flow.sweep).not.toHaveBeenCalled();
-  await f.collector.poll();expect(f.flow.sweep).toHaveBeenCalledWith(0,50);
+  await f.collector.poll();expect(f.flow.sweep).toHaveBeenCalledWith(0,1);
  });
  it("retains failed hints for a later historical sweep without delaying payout work",async()=>{
   const f=fixture();f.flow.collect.mockRejectedValueOnce(new Error("secret"));f.collector.hint("ab".repeat(32));
   expect(await f.collector.poll(100)).toMatchObject({state:"scanned",cursor:100,done:false,failed:1});expect(f.flow.sweep).not.toHaveBeenCalled();
-  expect(await f.collector.poll(100)).toMatchObject({state:"scanned",cursor:0,done:true});expect(f.flow.sweep).toHaveBeenCalledWith(100,50);
+  expect(await f.collector.poll(100)).toMatchObject({state:"scanned",cursor:0,done:true});expect(f.flow.sweep).toHaveBeenCalledWith(100,1);
  });
  it("limits pages and exposes continuation without pretending completeness",async()=>{
   const f=fixture();f.flow.sweep.mockResolvedValue({cursor:50,done:false,credited:2,pending:3,failed:1});

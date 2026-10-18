@@ -7,7 +7,7 @@ type Runtime={readonly ready:boolean;reconcile:()=>Promise<Operation>;poll:(afte
 /** Default-off bounded supervisor. It owns no credentials or operator grant.
  * Every cycle reuses PayoutRuntime's fresh deployment/readiness/recovery gates. */
 export class PayoutAutomation {
- #busy=false;#timer?:ReturnType<typeof setInterval>;
+ #busy=false;#scanAfter=0;#timer?:ReturnType<typeof setInterval>;
  constructor(private runtime:Runtime,private ledger:PayoutLedger,private walletRef:string,
   private enabled:()=>boolean=()=>false,private intervalMs=15000){
   if(!/^[a-z0-9][a-z0-9-]{0,62}$/.test(walletRef)||!Number.isSafeInteger(intervalMs)||intervalMs<5000||intervalMs>300000)throw new Error("Invalid payout automation configuration");
@@ -35,7 +35,10 @@ export class PayoutAutomation {
    // Credits may already exist after a restart or an earlier long scan. Never
    // hold those obligations behind another pass over every unpaid invoice.
    await pay();
-   const scan=await this.runtime.poll(0,10);if(scan.state!=="completed")throw new Error();
+   const scan=await this.runtime.poll(this.#scanAfter,1);if(scan.state!=="completed")throw new Error();
+   const page=scan.result as {state?:unknown;cursor?:unknown}|undefined;
+   if(page?.state!=="scanned"||!Number.isSafeInteger(page.cursor)||Number(page.cursor)<0)throw new Error();
+   this.#scanAfter=Number(page.cursor);
    await pay();
    return {state:"completed" as const,resumed,prepared,completed};
   }catch{this.runtime.pause();return {state:"blocked" as const};}finally{this.#busy=false;}

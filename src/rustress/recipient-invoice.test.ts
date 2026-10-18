@@ -5,12 +5,20 @@ import {publicIPv4,recipientUrl,retrieveRecipientInvoice,selectPublicIPv4} from 
 const metadata='[["text/plain","fixture"]]',now=1800000000;
 const pr=sign(encode({satoshis:79,timestamp:now,tags:[{tagName:"payment_hash",data:"ab".repeat(32)},{tagName:"purpose_commit_hash",data:createHash("sha256").update(metadata).digest("hex")},{tagName:"expire_time",data:3600}]}),"12".repeat(32)).paymentRequest!;
 const body={tag:"payRequest",callback:"https://wallet.example/pay?token=fixture&amount=1",minSendable:1000,maxSendable:100000,metadata};
+const walletMetadata='[["text/plain","Wallet of Satoshi: alice"],["text/identifier","alice@walletofsatoshi.com"]]';
+const walletPr=sign(encode({satoshis:79,timestamp:now,tags:[{tagName:"payment_hash",data:"cd".repeat(32)},{tagName:"description",data:"Wallet of Satoshi: alice"},{tagName:"expire_time",data:2592000}]}),"13".repeat(32)).paymentRequest!;
 describe("isolated recipient invoice retrieval",()=>{
  it("binds invoice to exact metadata and amount from the saved destination",async()=>{
   const fetchJson=vi.fn().mockResolvedValueOnce(body).mockResolvedValueOnce({pr});
   expect(await retrieveRecipientInvoice("alice@wallet.example","79000","bc",{fetchJson,now:()=>now})).toMatchObject({paymentRequest:pr,amountMsat:"79000"});
   expect(fetchJson.mock.calls[0][0].href).toBe("https://wallet.example/.well-known/lnurlp/alice");
   expect(fetchJson.mock.calls[1][0].searchParams.getAll("amount")).toEqual(["79000"]);
+ });
+ it("uses the reviewed Wallet of Satoshi compatibility contract end to end",async()=>{
+  const wallet={...body,metadata:walletMetadata,callback:"https://livingroomofsatoshi.com/api/v1/lnurl/payreq/fixture"},fetchJson=vi.fn().mockResolvedValueOnce(wallet).mockResolvedValueOnce({pr:walletPr});
+  const result=await retrieveRecipientInvoice("alice@walletofsatoshi.com","79000","bc",{fetchJson,now:()=>now});
+  expect(result.terms).toMatchObject({providerPolicy:"wallet-of-satoshi-v1",metadata:walletMetadata});
+  expect(fetchJson.mock.calls[1][0].href).toBe("https://livingroomofsatoshi.com/api/v1/lnurl/payreq/fixture?amount=79000");
  });
  it.each([{callback:"https://other.example/pay"},{callback:"http://wallet.example/pay"},{callback:"https://127.0.0.1/pay"},{minSendable:80000},{maxSendable:78000},{minSendable:"1000"},{status:"ERROR"}])("rejects unsafe metadata before callback: %j",async patch=>{
   const fetchJson=vi.fn().mockResolvedValue({...body,...patch});

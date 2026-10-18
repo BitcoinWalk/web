@@ -1,1 +1,2 @@
-export default function GuidePage(){return <main><h1>BitcoinWalk Guide</h1><p>Your private conversation with BitcoinWalk Guide will appear here.</p></main>;}
+import {redirect} from "next/navigation";
+export default function GuidePage(){redirect("/admin/chat");}

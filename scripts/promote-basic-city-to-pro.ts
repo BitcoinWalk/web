@@ -7,8 +7,8 @@ import {queryAuthorizations,queryDirectoryRecords} from "../src/nostr/city-recor
 import {createAdminProPromotionTemplate,installAdminProPromotion} from "../src/payments/admin-pro-promotion";
 
 const targets={
- staging:{database:"/var/lib/bitcoinwalk-app-staging/payments.sqlite",relays:["wss://directory-staging.bitcoinwalk.org/","wss://directory-2-staging.bitcoinwalk.org/"]},
- production:{database:"/home/bitcoinwalk/.local/state/bitcoinwalk-production/payments.sqlite",relays:["wss://directory.bitcoinwalk.org/","wss://directory-2.bitcoinwalk.org/"]},
+ staging:{database:"/var/lib/bitcoinwalk-app-staging/payments.sqlite",relays:["wss://relay-staging.bitcoinwalk.org/"]},
+ production:{database:"/home/bitcoinwalk/.local/state/bitcoinwalk-production/payments.sqlite",relays:["wss://relay.bitcoinwalk.org/"]},
 } as const;
 function target(value:string){if(value!=="staging"&&value!=="production")throw new Error("Target must be staging or production.");return targets[value];}
 async function evidence(relays:readonly string[]){const urls=[...relays],[snapshot,authorizations]=await Promise.all([queryDirectoryRecords(urls),queryAuthorizations(urls)]);return {...snapshot,authorizations};}

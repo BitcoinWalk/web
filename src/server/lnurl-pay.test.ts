@@ -8,12 +8,24 @@ function invoice(metadata=endpoint.metadata,amount="1000"){
  const hash="ab".repeat(32),commit=createHash("sha256").update(metadata).digest("hex");
  return {pr:sign(encode({millisatoshis:amount,timestamp:Math.floor(Date.now()/1000),tags:[{tagName:"payment_hash",data:hash},{tagName:"purpose_commit_hash",data:commit},{tagName:"expire_time",data:3600}]}),"34".repeat(32)).paymentRequest!};
 }
+function walletInvoice(description="Wallet of Satoshi: bitcoinwalk",amount="1000"){
+ const hash="cd".repeat(32);return {pr:sign(encode({millisatoshis:amount,timestamp:Math.floor(Date.now()/1000),tags:[{tagName:"payment_hash",data:hash},{tagName:"description",data:description},{tagName:"expire_time",data:2_592_000}]}),"35".repeat(32)).paymentRequest!};
+}
 function options(){return {fetchJson:vi.fn().mockResolvedValueOnce(endpoint).mockResolvedValueOnce(invoice()),resolveHost:vi.fn().mockResolvedValue("203.0.114.1")};}
 describe("private payout destination validation", () => {
   it("normalizes Lightning-address domains and validates LNURL-pay metadata without sending money", async () => {
     const transport=options(),result = await validatePayoutDestination("Alice@WALLET.Example", transport);
     expect(result).toMatchObject({normalized: "Alice@wallet.example", endpoint: "https://wallet.example/.well-known/lnurlp/Alice", callback: "https://wallet.example/pay", minSendable: 1000});
     expect(transport.fetchJson).toHaveBeenCalledTimes(2);expect(String(transport.fetchJson.mock.calls[1][0])).toBe("https://wallet.example/pay?amount=1000");
+  });
+  it("accepts Wallet of Satoshi's reviewed Living Room of Satoshi payment callback only",async()=>{
+    const wallet={...endpoint,metadata:JSON.stringify([["text/plain","Wallet of Satoshi: bitcoinwalk"],["text/identifier","bitcoinwalk@walletofsatoshi.com"]]),callback:"https://livingroomofsatoshi.com/api/v1/lnurl/payreq/22e04948-6539-4f42-9e28-cab85f1d671b"};
+    const transport={fetchJson:vi.fn().mockResolvedValueOnce(wallet).mockResolvedValueOnce(walletInvoice()),resolveHost:vi.fn().mockResolvedValue("203.0.114.1")};
+    await expect(validatePayoutDestination("bitcoinwalk@walletofsatoshi.com",transport)).resolves.toMatchObject({callback:wallet.callback});
+    for(const callback of ["https://livingroomofsatoshi.com/other/22e04948","https://wallet-of-satoshi.example/api/v1/lnurl/payreq/22e04948"]){
+      const rejected={...endpoint,callback},options={fetchJson:vi.fn().mockResolvedValue(rejected),resolveHost:vi.fn().mockResolvedValue("203.0.114.1")};
+      await expect(validatePayoutDestination("bitcoinwalk@walletofsatoshi.com",options)).rejects.toThrow("reviewed payment service");
+    }
   });
   it("decodes genuine bech32 LNURLs and rejects lookalikes", () => {
     const encoded = bech32.encode("lnurl", bech32.toWords(new TextEncoder().encode("https://wallet.example/.well-known/lnurlp/alice")), 5000);

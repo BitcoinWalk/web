@@ -2,8 +2,8 @@ import {compareEvents,verifyEvent,type Event,type EventTemplate} from "nostr-too
 
 export type Nip29Destination={relay:string;groupId:string};
 export type Nip29Message={id:string;pubkey:string;content:string;createdAt:number};
-export type Nip29CityRoom={id:string;name:string;slug:string;chat:{scope:"global"|"city";nip29:Nip29Destination|null}};
-export type Nip29Room={key:string;label:string;scope:"global"|"city";cityIds:string[];destination:Nip29Destination};
+export type Nip29CityRoom={id:string;name:string;slug:string;avatarUrl?:string;chat:{scope:"global"|"city";nip29:Nip29Destination|null;communities?:{global:Nip29Destination|null;city:Nip29Destination|null}}};
+export type Nip29Room={key:string;label:string;scope:"global"|"city"|"hosts";cityIds:string[];destination:Nip29Destination;avatarUrl?:string};
 
 const hex=/^[0-9a-f]{64}$/;
 
@@ -24,9 +24,20 @@ export function uniqueNip29Rooms(cities:Nip29CityRoom[]):Nip29Room[]{
   const destination=validNip29Destination(city.chat?.nip29);if(!destination)continue;
   const key=`${destination.relay}\n${destination.groupId}`,existing=rooms.get(key);
   if(existing){existing.cityIds.push(city.id);continue;}
-  rooms.set(key,{key,label:city.chat.scope==="global"?"BitcoinWalk Global":city.name,scope:city.chat.scope,cityIds:[city.id],destination});
+  rooms.set(key,{key,label:city.chat.scope==="global"?"BitcoinWalk Global":city.name,scope:city.chat.scope,cityIds:[city.id],destination,...(city.avatarUrl?{avatarUrl:city.avatarUrl}:{})});
  }
- return [...rooms.values()].sort((a,b)=>a.label.localeCompare(b.label)||a.key.localeCompare(b.key));
+ for(const city of cities){
+  const destination=validNip29Destination(city.chat.communities?.global);if(!destination)continue;
+  const key=`${destination.relay}\n${destination.groupId}`,existing=rooms.get(key);
+  if(existing){if(!existing.cityIds.includes(city.id))existing.cityIds.push(city.id);continue;}
+  rooms.set(key,{key,label:"BitcoinWalk Global",scope:"global",cityIds:[city.id],destination});
+ }
+ return [...rooms.values()].sort((a,b)=>(a.scope==="city"?0:1)-(b.scope==="city"?0:1)||a.label.localeCompare(b.label)||a.key.localeCompare(b.key));
+}
+
+export function configuredNip29Room(label:string,scope:"global"|"hosts",value:unknown):Nip29Room|null{
+ const destination=validNip29Destination(value);if(!destination)return null;
+ return {key:`${destination.relay}\n${destination.groupId}`,label,scope,cityIds:[],destination};
 }
 
 function exactTag(event:Event,name:string,value:string){const tags=event.tags.filter(tag=>tag[0]===name);return tags.length===1&&tags[0].length===2&&tags[0][1]===value;}
@@ -35,6 +46,12 @@ export function nip29RoomName(events:Event[],groupId:string,fallback:string):str
  const metadata=events.filter(event=>event.kind===39000&&verifyEvent(event)&&exactTag(event,"d",groupId)).sort(compareEvents)[0];
  const name=metadata?.tags.find(tag=>tag[0]==="name"&&tag.length===2)?.[1]?.trim();
  return name&&name.length<=80?name:fallback;
+}
+
+export function nip29ParticipantCount(events:Event[],groupId:string):number|null{
+ const membership=events.filter(event=>event.kind===39002&&verifyEvent(event)&&exactTag(event,"d",groupId)).sort(compareEvents)[0];
+ if(!membership)return null;
+ return new Set(membership.tags.filter(tag=>tag[0]==="p"&&tag.length>=2&&hex.test(tag[1])).map(tag=>tag[1])).size;
 }
 
 export function mergeNip29Messages(current:Nip29Message[],events:Event[],groupId:string,now=Math.floor(Date.now()/1000)):Nip29Message[]{

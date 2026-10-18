@@ -82,7 +82,7 @@ def main() -> None:
         choices=["ledger-and-journal"],
         help="explicit human confirmation that both real encrypted archives passed the offline restore verifier",
     )
-    parser.add_argument("--release", required=True, choices=["0.2.1", "0.2.2", "0.2.3", "0.2.4", "0.2.5", "0.2.6", "0.2.7", "0.2.8", "0.2.9", "0.2.10", "0.2.11", "0.2.12", "0.2.13", "0.2.14"])
+    parser.add_argument("--release", required=True, choices=["0.2.1", "0.2.2", "0.2.3", "0.2.4", "0.2.5", "0.2.6", "0.2.7", "0.2.8", "0.2.9", "0.2.10", "0.2.11", "0.2.12", "0.2.13", "0.2.14", "0.2.15", "0.2.16", "0.2.17", "0.2.18"])
     parser.add_argument("--service-mode", choices=["disabled", "invoice-only", "operation"], default="disabled")
     args = parser.parse_args()
     if args.restore_rehearsal_verified != "ledger-and-journal":
@@ -139,7 +139,7 @@ def main() -> None:
         if not all(isinstance(spend[name], int) and spend[name] > 0 for name in ("createdAt", "settledAt")):
             fail("accepted prior spend evidence is invalid")
     evidence = {
-        "contract": "bitcoinwalk-payout-host-evidence-v1",
+        "contract": "bitcoinwalk-payout-host-evidence-v2",
         "release": args.release,
         "binding": journal["binding"],
         "journalServiceId": journal["serviceId"],
@@ -148,8 +148,8 @@ def main() -> None:
         "connectionStartedAt": connection_started_at,
         "retainedFrom": connection_started_at,
         "approvedAt": now,
-        "expiresAt": now + 30 * 24 * 60 * 60,
         "budgetMsat": "797900000",
+        "budgetRenewal": "monthly",
         "maximumPayoutMsat": "790000000",
         "maximumFeeMsat": "7900000",
         "grantedMethods": [

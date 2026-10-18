@@ -8,6 +8,7 @@ export const outgoingTermsSchema=z.object({
   network:z.enum(["bc","tb","bcrt"]),
   // Exact metadata bytes returned by the independently validated LNURL endpoint.
   metadata:z.string().min(1).max(16384),
+  providerPolicy:z.literal("wallet-of-satoshi-v1").optional(),
 }).strict();
 export type OutgoingTerms=z.infer<typeof outgoingTermsSchema>;
 
@@ -21,18 +22,27 @@ export function validateOutgoingInvoice(request:string,input:OutgoingTerms,now:n
     const value=BigInt(terms.amountMsat);
     if(value%1000n!==0n||value<BigInt(terms.minMsat)||value>BigInt(terms.maxMsat))throw new Error();
     const metadata:unknown=JSON.parse(terms.metadata);
-    if(!Array.isArray(metadata)||!metadata.every(row=>Array.isArray(row)&&row.length===2&&row.every(v=>typeof v==="string"))||
-      !metadata.some(row=>row[0]==="text/plain"))throw new Error();
+    if(!Array.isArray(metadata)||!metadata.every(row=>Array.isArray(row)&&row.length===2&&row.every(v=>typeof v==="string")))throw new Error();
+    const description=metadata.find(row=>row[0]==="text/plain")?.[1],identifier=metadata.find(row=>row[0]==="text/identifier")?.[1];
+    if(typeof description!=="string")throw new Error();
     const invoice=decode(request);
     const tags=(name:string)=>invoice.tags.filter(tag=>tag.tagName===name);
     const hash=invoice.tagsObject.payment_hash;
     const commitment=createHash("sha256").update(terms.metadata,"utf8").digest("hex");
+    const providerCompatible=terms.providerPolicy==="wallet-of-satoshi-v1"&&typeof identifier==="string"&&
+      /^([a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]{1,64})@walletofsatoshi\.com$/.test(identifier)&&description===`Wallet of Satoshi: ${identifier.slice(0,identifier.indexOf("@"))}`&&
+      tags("purpose_commit_hash").length===0&&tags("description").length===1&&invoice.tagsObject.description===description;
+    // A reviewed cross-origin provider may upgrade from its documented legacy
+    // description tag to the standard LNURL metadata commitment. The callback
+    // origin is still pinned before these terms are constructed, so accepting
+    // the stronger standard form does not widen the provider boundary.
+    const standard=tags("purpose_commit_hash").length===1&&tags("description").length===0&&invoice.tagsObject.purpose_commit_hash===commitment;
+    const maximumLifetime=providerCompatible?2_678_400:86_400;
     if(!invoice.complete||invoice.network?.bech32!==terms.network||invoice.millisatoshis!==terms.amountMsat||
       typeof hash!=="string"||!/^[0-9a-f]{64}$/.test(hash)||tags("payment_hash").length!==1||
-      tags("purpose_commit_hash").length!==1||tags("description").length!==0||tags("expire_time").length>1||
-      invoice.tagsObject.purpose_commit_hash!==commitment||!Number.isSafeInteger(invoice.timestamp)||
+      (!standard&&!providerCompatible)||tags("expire_time").length>1||!Number.isSafeInteger(invoice.timestamp)||
       invoice.timestamp!>now+60||!Number.isSafeInteger(invoice.timeExpireDate)||
-      invoice.timeExpireDate!<=invoice.timestamp!||invoice.timeExpireDate!-invoice.timestamp!>86400||
+      invoice.timeExpireDate!<=invoice.timestamp!||invoice.timeExpireDate!-invoice.timestamp!>maximumLifetime||
       (!allowExpired&&invoice.timeExpireDate!<=now+30))throw new Error();
     return {paymentRequest:request,paymentHash:hash,amountMsat:terms.amountMsat,expiresAt:invoice.timeExpireDate!,terms};
   }catch{throw new Error("Outgoing invoice failed validation");}

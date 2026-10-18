@@ -1,5 +1,5 @@
 import {describe,expect,it} from "vitest";
-import {configuredPaidCity,directoryConfig} from "./directory-config";
+import {configuredPaidCity,configuredPaidCityEntry,directoryConfig} from "./directory-config";
 
 describe("operator-confirmed paid city inventory",()=>{
  it("contains Madeira, London, Würzburg, Graz and Hanover without inferring pilots or requested tiers",()=>{
@@ -13,6 +13,7 @@ describe("operator-confirmed paid city inventory",()=>{
  it("recognizes a staging record by canonical slug or legacy alias",()=>{
  expect(configuredPaidCity("different-staging-id",["wuerzburg"])?.cityName).toBe("Würzburg");
  expect(configuredPaidCity("different-staging-id",["wurzburg"])?.cityName).toBe("Würzburg");
-  expect(configuredPaidCity("different-staging-id",["madeira"])?.cityName).toBe("Madeira");
+ expect(configuredPaidCity("different-staging-id",["madeira"])?.cityName).toBe("Madeira");
+ expect(configuredPaidCityEntry("different-production-id",["madeira"])).toMatchObject({cityId:"ca20993a-5b7f-443e-931e-8dbaa61d05fe",city:{slug:"madeira"}});
  });
 });

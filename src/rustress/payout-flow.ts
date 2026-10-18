@@ -7,8 +7,8 @@ import {assessRustressWallet,type WalletReadinessEvidence} from "./wallet-readin
 
 const money=z.string().regex(/^(0|[1-9][0-9]{0,15})$/).refine(v=>BigInt(v)<=BigInt(Number.MAX_SAFE_INTEGER));
 const policySchema=z.object({binding:z.string().regex(/^[0-9a-f]{64}$/),budgetMsat:money.refine(v=>BigInt(v)>0n),
- acceptedPriorSpentMsat:money,
- maximumPayoutMsat:money.refine(v=>BigInt(v)>=1000n),maximumFeeMsat:money,feePolicy:z.literal("ldk-native-v1"),expiresAt:z.number().int().safe().positive()}).strict();
+ acceptedPriorSpentMsat:money,budgetRenewal:z.literal("monthly"),
+ maximumPayoutMsat:money.refine(v=>BigInt(v)>=1000n),maximumFeeMsat:money,feePolicy:z.literal("ldk-native-v1")}).strict();
 type Policy=z.infer<typeof policySchema>;
 type Dependencies={
  wallet:PayoutWallet&{binding:string};
@@ -18,6 +18,10 @@ type Dependencies={
  fetchJson:(url:URL)=>Promise<unknown>;
  recovery?:{readonly ready:boolean;claim:(id:string)=>boolean|Promise<boolean>};
 };
+export function monthlyBudgetPeriodStart(now:number){
+ const value=new Date(now*1000);
+ return Math.floor(Date.UTC(value.getUTCFullYear(),value.getUTCMonth(),1)/1000);
+}
 /** Isolated integration harness, NOT a live service. No default transport or
  * credentials. An explicit injected wallet is required, tests use fakes only. */
 export class PayoutFlow {
@@ -29,15 +33,14 @@ export class PayoutFlow {
   if(deps.reader.walletRef!==deps.wallet.walletRef||deps.reader.binding!==policy.binding||deps.wallet.binding!==policy.binding)throw new Error("Wallet binding mismatch");
   ledger.bindWallet(deps.wallet.walletRef,policy.binding);
   this.#worker=new PayoutWorker(ledger,deps.wallet,async request=>{
-   const p=this.#policy;if(this.now()>=p.expiresAt||BigInt(request.amountMsat)>BigInt(p.maximumPayoutMsat)||BigInt(request.maximumFeeMsat)>BigInt(p.maximumFeeMsat))return false;
+   const p=this.#policy;if(BigInt(request.amountMsat)>BigInt(p.maximumPayoutMsat)||BigInt(request.maximumFeeMsat)>BigInt(p.maximumFeeMsat))return false;
    const e=await deps.evidence(),r=e.readiness;
    if(e.binding!==p.binding||r.connectionRef!==deps.wallet.walletRef||assessRustressWallet(r,this.now()).state!=="ready-for-authorized-test")return false;
    const network={mainnet:"bc",testnet:"tb",signet:"tb",regtest:"bcrt"}[r.network];
    return network===deps.wallet.network&&BigInt(r.policy.maximumTestPaymentMsat)>=BigInt(request.amountMsat)&&
     BigInt(r.policy.maximumFeeMsat)>=BigInt(request.maximumFeeMsat)&&BigInt(r.policy.maximumBudgetMsat)>=BigInt(p.budgetMsat);
-  },now,async id=>this.now()<this.#policy.expiresAt&&deps.recovery?.ready===true&&
-    ledger.claimWithinBudget(id,deps.wallet.walletRef,String(BigInt(this.#policy.budgetMsat)-BigInt(this.#policy.acceptedPriorSpentMsat)))&&await deps.recovery.claim(id)&&
-    this.now()<this.#policy.expiresAt&&deps.recovery.ready);
+  },now,async id=>deps.recovery?.ready===true&&
+    ledger.claimWithinBudget(id,deps.wallet.walletRef,String(BigInt(this.#policy.budgetMsat)-BigInt(this.#policy.acceptedPriorSpentMsat)),monthlyBudgetPeriodStart(this.now()))&&await deps.recovery.claim(id)&&deps.recovery.ready);
  }
  /** Issuance must save a verified invoice snapshot before showing it publicly. */
  register(snapshot:IncomingSnapshot){if(snapshot.walletRef!==this.deps.reader.walletRef)throw new Error("Wallet mismatch");this.ledger.register(snapshot);}
@@ -69,7 +72,6 @@ export class PayoutFlow {
   const {cityId,walletRef,destinationVersion,destination}=s,bucket={cityId,walletRef,destinationVersion,destination};
   const existing=this.ledger.workerInput(id);
   if(existing){if(JSON.stringify(existing.bucket)!==JSON.stringify(bucket))throw new Error("Payout obligation conflict");return this.ledger.status(id);}
-  if(this.now()>=this.#policy.expiresAt)throw new Error("Payout operation expired");
   let invoice:Awaited<ReturnType<typeof retrieveRecipientInvoice>>;
   try{invoice=await retrieveRecipientInvoice(destination,(min,max)=>{
     const remaining=BigInt(this.#policy.budgetMsat)-BigInt(this.#policy.acceptedPriorSpentMsat)-BigInt(this.#policy.maximumFeeMsat);

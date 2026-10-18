@@ -96,8 +96,8 @@ export function proSetupAlert(cityName:string,cityId:string,state:ProSetupAlertS
 export function payoutUpdateAlert(cityName:string,cityId:string,state:"pending"|"active"|"attention",adminURL:string):string{
  const city=cityName.replace(/[\p{C}\p{Z}]+/gu," ").trim(),url=new URL(adminURL);url.searchParams.set("city",cityId);
  if(state==="active")return `Your new payout destination for BitcoinWalk in ${city} is now active! ⚡\n\nPayments will now be sent to your new destination. Everything is set up, so there’s nothing else you need to do.\n\nThis is an automated message from BitcoinWalk Guide. Replies aren’t monitored.`;
- if(state==="attention")return `Your payout destination update for BitcoinWalk in ${city} needs attention.\n\nThe previous destination is still active; no funds were redirected to an unverified replacement. Review the update here: ${url.href}\n\nBitcoinWalk Guide is automated; replies are not monitored. Never share your private key.`;
- return `Your payout destination update for BitcoinWalk in ${city} was saved.\n\nThe previous destination remains active while BitcoinWalk verifies the replacement. You can follow its status here: ${url.href}\n\nBitcoinWalk Guide is automated; replies are not monitored. Never share your private key.`;
+ if(state==="attention")return `Your payout destination update for BitcoinWalk in ${city} needs attention.\n\nThe previous destination is still active; no funds were redirected to an unverified replacement.\n\nReview the update: ${url.href}\n\nBitcoinWalk Guide is automated; replies are not monitored. Never share your private key.`;
+ return `Your payout destination update for BitcoinWalk in ${city} was saved.\n\nThe previous destination remains active while BitcoinWalk verifies the replacement.\n\nTrack the update: ${url.href}\n\nBitcoinWalk Guide is automated; replies are not monitored. Never share your private key.`;
 }
 
 export function selectInbox(events: Event[], recipient: string, allowed: string[], now = Math.floor(Date.now()/1000)): string[] {

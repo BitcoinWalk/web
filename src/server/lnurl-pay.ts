@@ -5,6 +5,15 @@ import {isIP} from "node:net";
 import {validateOutgoingInvoice} from "../rustress/outgoing-invoice";
 
 export type ValidatedPayoutDestination = {normalized: string; endpoint: string; callback: string; minSendable: number; maxSendable: number};
+export type ReviewedPayoutProvider="wallet-of-satoshi-v1";
+const reviewedCallbackProviders=new Map([
+  ["https://walletofsatoshi.com",{origin:"https://livingroomofsatoshi.com",pathPrefix:"/api/v1/lnurl/payreq/",policy:"wallet-of-satoshi-v1" as const}],
+]);
+export function reviewedPayoutProvider(endpoint:URL,callback:URL):ReviewedPayoutProvider|null|undefined{
+  if(callback.origin===endpoint.origin)return null;
+  const reviewed=reviewedCallbackProviders.get(endpoint.origin);
+  return reviewed&&callback.origin===reviewed.origin&&callback.pathname.startsWith(reviewed.pathPrefix)&&callback.pathname.length>reviewed.pathPrefix.length?reviewed.policy:undefined;
+}
 function publicAddress(address: string) {
   if (isIP(address) === 4) {
     const p = address.split(".").map(Number), [a, b, c] = p;
@@ -75,14 +84,15 @@ export async function validatePayoutDestination(value: string, options: {blocked
   if (!Number.isSafeInteger(min) || !Number.isSafeInteger(max) || min < 1000 || max < min || max > 100_000_000_000) throw new Error("Lightning endpoint returned an invalid payment range.");
   if (typeof body.metadata !== "string" || body.metadata.length > 16_384) throw new Error("Lightning endpoint returned invalid payment metadata.");
   try {const metadata = JSON.parse(body.metadata); if (!Array.isArray(metadata)) throw new Error();} catch {throw new Error("Lightning endpoint returned invalid payment metadata.");}
-  if(callback.origin!==endpoint.origin)throw new Error("The payout callback must stay on the destination provider.");
+  const providerPolicy=reviewedPayoutProvider(endpoint,callback);
+  if(providerPolicy===undefined)throw new Error("The payout callback must stay on the destination provider or its reviewed payment service.");
   const probeAmount=Math.ceil(min/1000)*1000;
   if(probeAmount>max)throw new Error("This destination cannot create a whole-satoshi payout invoice.");
   const probe=new URL(callback);probe.searchParams.set("amount",String(probeAmount));
   const invoice=await (options.fetchJson ?? json)(probe) as Record<string,unknown>;
   try{
     if(!invoice||invoice.status==="ERROR"||typeof invoice.pr!=="string")throw new Error();
-    validateOutgoingInvoice(invoice.pr,{amountMsat:String(probeAmount),minMsat:String(min),maxMsat:String(max),network:"bc",metadata:body.metadata},Math.floor(Date.now()/1000));
+    validateOutgoingInvoice(invoice.pr,{amountMsat:String(probeAmount),minMsat:String(min),maxMsat:String(max),network:"bc",metadata:body.metadata,...(providerPolicy?{providerPolicy}:{})},Math.floor(Date.now()/1000));
   }catch{throw new Error("This destination returned an unverifiable payout invoice. Use a different Lightning address.");}
   return {normalized: parsed.normalized, endpoint: endpoint.href, callback: callback.href, minSendable: min, maxSendable: max};
 }

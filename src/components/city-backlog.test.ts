@@ -51,6 +51,17 @@ describe("cityWorkflowRows",()=>{
   expect(cityWorkflowActions({...paid,online:false,status:"offline",managed:{...paid.managed!,state:"disapproved"}})).toEqual(["open-record","set-online","delete"]);
   expect(cityWorkflowActions(test)).toEqual(["open-record","manage-pro","set-online","delete"]);
  });
+ it("offers the approved Pro activation to the super-admin from the city row",()=>{
+  const health={cityId:"m",cityName:"Madeira",slug:"madeira",availableInEnvironment:true,tier:"pro" as const,status:"action-required" as const,activationState:"approved" as const,checkedAt:1,checks:[
+   {key:"identity" as const,label:"Dedicated city npub",state:"pass" as const,detail:"Saved."},
+   {key:"recovery" as const,label:"Recovery acknowledgement",state:"pass" as const,detail:"Saved."},
+   {key:"binding" as const,label:"City binding",state:"fail" as const,detail:"Awaiting publication."},
+  ]};
+  const row=cityWorkflowRows({managed:[managed("m","Madeira","approved")],pending:[],needsChanges:[],health:[health],paidCityIds:new Set(["m"]),paidCities:{}})[0];
+  expect(row.status).toBe("action-required");
+  expect(cityWorkflowNextStep(row)).toEqual({owner:"Super-admin",action:"publish and verify the approved city identity to set the Pro city active."});
+  expect(cityWorkflowActions(row)).toEqual(["open-record","open-public","activate-pro","set-offline"]);
+ });
  it("names the responsible person and exact next action for waiting rows",()=>{
   const pending=cityWorkflowRows({managed:[],pending:[revision("p","Pending")],needsChanges:[],health:[],paidCityIds:new Set(),paidCities:{}})[0];
   const awaiting={revision:revision("w","Waiting"),rejection:{event:{id:"d".repeat(64)},approval:{cityId:"w",cityRevisionId:"a".repeat(64),status:"rejected",note:"  Add a clearer meeting point.\nThen resubmit.  "}} as NeedsChangesCity["rejection"]};

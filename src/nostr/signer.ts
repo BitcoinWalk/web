@@ -1,7 +1,10 @@
 import { verifyEvent, type Event, type EventTemplate, type VerifiedEvent } from "nostr-tools";
 
 export type NostrBrowserExtension = {
-  nip44?: { encrypt(pubkey: string, plaintext: string): Promise<string> };
+  nip44?: {
+    encrypt(pubkey: string, plaintext: string): Promise<string>;
+    decrypt(pubkey: string, ciphertext: string): Promise<string>;
+  };
   getPublicKey(): Promise<string>;
   signEvent(event: EventTemplate): Promise<Event>;
 };
@@ -59,4 +62,14 @@ export async function authenticateWithBrowserExtension(template: EventTemplate):
 export async function getBrowserExtensionPubkey(): Promise<string> {
   if (typeof window === "undefined" || !window.nostr) throw new SignerUnavailableError();
   return window.nostr.getPublicKey();
+}
+
+/** Decrypts only in the connected signer and keeps private key material out of BitcoinWalk. */
+export async function decryptWithBrowserExtension(pubkey:string,ciphertext:string,expectedKey:string):Promise<string>{
+  if(typeof window==="undefined"||!window.nostr?.nip44?.decrypt)throw new Error("Your connected signer needs NIP-44 decryption support to open private messages.");
+  if(!/^[0-9a-f]{64}$/.test(pubkey)||!ciphertext)throw new Error("The private message envelope is invalid.");
+  if(await window.nostr.getPublicKey()!==expectedKey)throw new Error("Your signer account changed. Reconnect the dashboard to open private messages.");
+  const plaintext=await window.nostr.nip44.decrypt(pubkey,ciphertext);
+  if(await window.nostr.getPublicKey()!==expectedKey)throw new Error("Your signer account changed while opening private messages. Reconnect and retry.");
+  return plaintext;
 }

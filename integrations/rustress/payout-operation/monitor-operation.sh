@@ -10,7 +10,7 @@ verify_operation(){
  done
 }
 case "$mode" in
- invoice-only) [ "$(docker inspect "$service" --format '{{index .Config.Labels "org.bitcoinwalk.version"}}|{{index .Config.Labels "org.bitcoinwalk.mode"}}|{{.HostConfig.NetworkMode}}|{{.State.Status}}')" = '0.2.14|invoice-only|host|running' ]&& ! docker container inspect "$parked" >/dev/null 2>&1;;
- operation) [ "$(docker inspect "$service" --format '{{index .Config.Labels "org.bitcoinwalk.version"}}|{{index .Config.Labels "org.bitcoinwalk.mode"}}|{{.HostConfig.NetworkMode}}|{{.State.Status}}')" = '0.2.14|operation|host|running' ]&&docker container inspect "$parked" >/dev/null 2>&1&&[ "$(systemctl --user is-active bitcoinwalk-payout-operation-expiry.timer)" = active ]&&verify_operation;;
+ invoice-only) [ "$(docker inspect "$service" --format '{{index .Config.Labels "org.bitcoinwalk.version"}}|{{index .Config.Labels "org.bitcoinwalk.mode"}}|{{.HostConfig.NetworkMode}}|{{.State.Status}}')" = '0.2.16|invoice-only|host|running' ]&& ! docker container inspect "$parked" >/dev/null 2>&1;;
+ operation) [ "$(docker inspect "$service" --format '{{index .Config.Labels "org.bitcoinwalk.version"}}|{{index .Config.Labels "org.bitcoinwalk.mode"}}|{{.HostConfig.NetworkMode}}|{{.State.Status}}')" = '0.2.16|operation|host|running' ]&&docker container inspect "$parked" >/dev/null 2>&1&&verify_operation;;
  *) exit 1;;
 esac
