@@ -618,7 +618,7 @@ export default function OrganizerEventsPage({canModerate=false}:{canModerate?:bo
     {hostingError&&<p role="alert">Hosting assignments could not be loaded: {hostingError}</p>}
     {!!owner && !!walks.length && <><AdminButton variant="primary" disabled={busy||publishingBlocked} onClick={openForm}>+ Add a walk</AdminButton>{publishingNotice&&<p role={publishingAccess==="suspended"?"alert":"status"}>{publishingNotice}</p>}</>}
     {showForm&&<div className={imageStyles.backdrop} role="presentation" onMouseDown={event=>{if(event.target===event.currentTarget)closeAddWalk();}}>
-      <section className={imageStyles.modal} role="dialog" aria-modal="true" aria-labelledby="walk-create-title">
+      <section className={`${imageStyles.modal} ${imageStyles.createModal}`} role="dialog" aria-modal="true" aria-labelledby="walk-create-title">
         <header className={imageStyles.header}><div><span className={imageStyles.eyebrow}>New walk</span><h2 id="walk-create-title">Add a walk</h2><p>{walks.find(w=>w.revision.city.cityId===cityId)?.revision.city.cityName??"Choose a city, then prepare the walk."}</p></div><button className={imageStyles.close} type="button" disabled={busy} onClick={closeAddWalk} aria-label="Close walk creator">×</button></header>
         <nav className={imageStyles.steps} aria-label="Add a walk progress">{addWalkSteps.map((item,index)=>{const current=addWalkSteps.findIndex(step=>step.id===addWalkStep);return <button key={item.id} type="button" disabled={index>current} aria-current={addWalkStep===item.id?"step":undefined} data-complete={current>index} onClick={()=>setAddWalkStep(item.id)}><span>{index+1}</span>{item.label}</button>;})}</nav>
         <div className={imageStyles.body}>

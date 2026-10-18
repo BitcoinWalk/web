@@ -48,6 +48,7 @@ describe("organizer events landing view",()=>{
     expect(source).toContain('type AddWalkStep="details"|"schedule"|"preview"|"sign"');
     expect(source).toContain('<CityFinder items={walks.filter');
     expect(source).toContain('aria-label="Add a walk progress"');
+    expect(source).toContain('className={`${imageStyles.modal} ${imageStyles.createModal}`}');
     expect(source).toContain('>Continue to schedule</AdminButton>');
     expect(source).toContain('>Preview occurrences</AdminButton>');
     expect(source).toContain('>Continue to sign</AdminButton>');
@@ -55,6 +56,7 @@ describe("organizer events landing view",()=>{
     expect(source).toContain('"Sign and publish selected"');
     expect(source).toContain('preview.length?"Save for later":"Cancel"');
     expect(styles).toContain(".steps{display:grid;grid-template-columns:repeat(4,1fr)");
+    expect(styles).toContain(".createModal{grid-template-rows:auto auto minmax(0,1fr) auto}");
     expect(styles).toContain(".footerSpacer{flex:1}");
   });
   it("retains the selected walk view in the URL and restores it on back",()=>{
