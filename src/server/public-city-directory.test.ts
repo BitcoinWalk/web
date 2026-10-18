@@ -21,7 +21,7 @@ function row(cityId: string, cityName: string, slug: string, aliases: string[] =
 }
 
 describe("public city directory", () => {
-  beforeEach(() => mocks.loadCalendarWalks.mockReset());
+  beforeEach(() => { mocks.loadCalendarWalks.mockReset(); delete process.env.BITCOINWALK_GUIDE_PUBKEY; });
 
   it("sorts and deduplicates approved cities with canonical links", async () => {
     mocks.loadCalendarWalks.mockResolvedValue([
@@ -48,6 +48,14 @@ describe("public city directory", () => {
       },
     });
     expect(directory.cities[1].aliases).toEqual(["Zuerich"]);
+  });
+
+  it("exposes only a validated public Guide identity", async () => {
+    mocks.loadCalendarWalks.mockResolvedValue([]);
+    process.env.BITCOINWALK_GUIDE_PUBKEY = "A".repeat(64);
+    expect((await loadPublicCityDirectory(0)).guidePubkey).toBe("a".repeat(64));
+    process.env.BITCOINWALK_GUIDE_PUBKEY = "not-a-key";
+    expect((await loadPublicCityDirectory(0)).guidePubkey).toBeNull();
   });
 
   it("does not fall a paid city back to the global room before dedicated chat is verified", async () => {

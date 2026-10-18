@@ -31,6 +31,7 @@ export type PublicCityDirectoryItem = {
 export type PublicCityDirectory = {
   version: 1;
   generatedAt: string;
+  guidePubkey: string | null;
   cities: PublicCityDirectoryItem[];
 };
 
@@ -81,6 +82,7 @@ export async function loadPublicCityDirectory(now = Date.now()): Promise<PublicC
   return {
     version: 1,
     generatedAt: new Date(now).toISOString(),
+    guidePubkey: /^[a-f0-9]{64}$/i.test(process.env.BITCOINWALK_GUIDE_PUBKEY ?? "") ? process.env.BITCOINWALK_GUIDE_PUBKEY!.toLowerCase() : null,
     cities: [...cities.values()].sort((a, b) => a.name.localeCompare(b.name) || a.id.localeCompare(b.id)),
   };
 }

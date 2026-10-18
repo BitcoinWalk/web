@@ -1,7 +1,10 @@
 import { verifyEvent, type Event, type EventTemplate, type VerifiedEvent } from "nostr-tools";
 
 export type NostrBrowserExtension = {
-  nip44?: { encrypt(pubkey: string, plaintext: string): Promise<string> };
+  nip44?: {
+    encrypt(pubkey: string, plaintext: string): Promise<string>;
+    decrypt(pubkey: string, ciphertext: string): Promise<string>;
+  };
   getPublicKey(): Promise<string>;
   signEvent(event: EventTemplate): Promise<Event>;
 };
@@ -59,4 +62,16 @@ export async function authenticateWithBrowserExtension(template: EventTemplate):
 export async function getBrowserExtensionPubkey(): Promise<string> {
   if (typeof window === "undefined" || !window.nostr) throw new SignerUnavailableError();
   return window.nostr.getPublicKey();
+}
+
+/** Decrypts only in the connected signer and rejects an account change while
+ * the request is open. Read-only inbox access must not depend on stale write
+ * authorization in the dashboard shell. */
+export async function decryptWithBrowserExtension(pubkey:string,ciphertext:string):Promise<string>{
+ if(typeof window==="undefined"||!window.nostr?.nip44?.decrypt)throw new Error("This signer does not support NIP-44 decryption. Reconnect with a compatible Nostr signer.");
+ const expected=dashboardIdentity,generation=identityGeneration;
+ if(expected&&await window.nostr.getPublicKey()!==expected)throw new Error("Signer identity changed. Reconnect the dashboard before opening private messages.");
+ const plaintext=await window.nostr.nip44.decrypt(pubkey,ciphertext);
+ if(expected&&(identityGeneration!==generation||await window.nostr.getPublicKey()!==expected))throw new Error("Dashboard identity changed while opening private messages. Reconnect and retry.");
+ return plaintext;
 }

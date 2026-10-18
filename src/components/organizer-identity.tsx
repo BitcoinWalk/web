@@ -1,7 +1,7 @@
 "use client";
 
 import {useCallback,useEffect,useId,useRef,useState,type ChangeEvent,type Ref} from "react";
-import {finalizeEvent,generateSecretKey,getPublicKey,nip19,type EventTemplate} from "nostr-tools";
+import {finalizeEvent,generateSecretKey,getPublicKey,nip19,nip44,type EventTemplate} from "nostr-tools";
 import {BUNKER_REGEX,BunkerSigner,createNostrConnectURI,parseBunkerInput} from "nostr-tools/nip46";
 import {QRCodeSVG} from "qrcode.react";
 import ConnectedAccount from "./connected-account";
@@ -10,11 +10,11 @@ import {validOrganizerKey} from "../nostr/organizer-identity";
 import {activeSignerIdentity,connectBrowserSigner,disconnectSignerSession,installSignerSession,subscribeSignerSession} from "../nostr/signer-session";
 
 function downloadPrivateKey(nsec:string){const text=["BitcoinWalk Nostr account backup","","PRIVATE KEY — KEEP SECRET","Anyone with this nsec can control your Nostr identity.","Never upload it or share it with BitcoinWalk support.","","nsec:",nsec,"","RECOMMENDED NEXT STEP","On desktop, import this nsec into a trusted Nostr browser-extension signer.","On mobile, import it into a signer app such as Amber or Clave and connect through a bunker/remote-signer link.","Delete insecure extra copies and keep one protected offline backup."].join("\n"),url=URL.createObjectURL(new Blob([text],{type:"text/plain;charset=utf-8"})),anchor=document.createElement("a");anchor.href=url;anchor.download=`bitcoinwalk-nostr-key-${new Date().toISOString().slice(0,10)}.txt`;anchor.hidden=true;document.body.appendChild(anchor);anchor.click();anchor.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);}
-function localSigner(secretKey:Uint8Array):NostrBrowserExtension{const pubkey=getPublicKey(secretKey);return{getPublicKey:async()=>pubkey,signEvent:async(template:EventTemplate)=>finalizeEvent(structuredClone(template),secretKey)};}
+function localSigner(secretKey:Uint8Array):NostrBrowserExtension{const pubkey=getPublicKey(secretKey),conversation=(peer:string)=>nip44.v2.utils.getConversationKey(secretKey,peer);return{getPublicKey:async()=>pubkey,signEvent:async(template:EventTemplate)=>finalizeEvent(structuredClone(template),secretKey),nip44:{encrypt:async(peer,plaintext)=>nip44.v2.encrypt(plaintext,conversation(peer)),decrypt:async(peer,ciphertext)=>nip44.v2.decrypt(ciphertext,conversation(peer))}};}
 function decodeNsec(value:string){const decoded=nip19.decode(value.trim());if(decoded.type!=="nsec"||!(decoded.data instanceof Uint8Array))throw new Error("Enter a valid private key beginning with nsec1.");return decoded.data;}
-function remoteSigner(signer:BunkerSigner):NostrBrowserExtension{return{getPublicKey:()=>signer.getPublicKey(),signEvent:template=>signer.signEvent(template),nip44:{encrypt:(pubkey,plaintext)=>signer.nip44Encrypt(pubkey,plaintext)}};}
+function remoteSigner(signer:BunkerSigner):NostrBrowserExtension{return{getPublicKey:()=>signer.getPublicKey(),signEvent:template=>signer.signEvent(template),nip44:{encrypt:(pubkey,plaintext)=>signer.nip44Encrypt(pubkey,plaintext),decrypt:(pubkey,ciphertext)=>signer.nip44Decrypt(pubkey,ciphertext)}};}
 const qrRelays=["wss://relay.damus.io/","wss://relay.primal.net/"];
-const signerPermissions=["sign_event:5","sign_event:13","sign_event:14","sign_event:27235","sign_event:30303","sign_event:30305","sign_event:30306","sign_event:30309","sign_event:31923","sign_event:9000","sign_event:9002","sign_event:9007","sign_event:22242"];
+const signerPermissions=["sign_event:5","sign_event:13","sign_event:14","sign_event:27235","sign_event:30303","sign_event:30305","sign_event:30306","sign_event:30309","sign_event:31923","sign_event:9000","sign_event:9002","sign_event:9007","sign_event:22242","nip44_encrypt","nip44_decrypt"];
 export function validSignerInput(value:string){const input=value.trim();if(input.startsWith("nsec1")){try{decodeNsec(input);return true;}catch{return false;}}if(!BUNKER_REGEX.test(input))return false;const query=input.slice(input.indexOf("?")+1),relays=new URLSearchParams(query).getAll("relay");return relays.some(value=>{try{return new URL(value).protocol==="wss:";}catch{return false;}});}
 export function remoteSignerConnectionURI(secretKey:Uint8Array,origin:string){return createNostrConnectURI({clientPubkey:getPublicKey(secretKey),relays:qrRelays,secret:crypto.randomUUID(),perms:signerPermissions,name:"BitcoinWalk",url:origin});}
 

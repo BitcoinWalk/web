@@ -46,8 +46,9 @@ The app uses one conversation list rather than separate chat products. A regular
 participant sees the verified city room, BitcoinWalk Global and their direct
 conversations. An eligible organizer additionally sees the role-gated
 **BitcoinWalk Hosts** room containing the current active-city hosts,
-BitcoinWalk Guide and the BitcoinWalk HQ account. NIP-17 Guide notifications and
-other direct messages appear in the same list as direct conversations.
+BitcoinWalk Guide and the BitcoinWalk HQ account. NIP-17 notifications from the
+pinned Guide identity appear under the Guide avatar; a general direct-message
+conversation list remains part of BW-128.
 
 The interface labels public community, organizer-only and encrypted direct
 conversations clearly, but does not make people choose a protocol. NIP-29 group
@@ -67,8 +68,12 @@ reconciliation under **Hosts → Organizer chat** creates `bitcoinwalk-organizer
 as private, restricted and closed,
 adds current owners plus BitcoinWalk Guide and BitcoinWalk HQ, removes superseded
 owners and requires exact relay-signed metadata and roster read-back. Private
-NIP-29 access control is not end-to-end encryption. Guide remains an honest
-notification-only NIP-17 destination until BW-128 adds compatible inbound DMs.
+NIP-29 access control is not end-to-end encryption. The web Guide view reads
+standard NIP-59 gift wraps from the connected account's signed kind-10050 inbox,
+asks the signer to perform NIP-44 decryption, validates the enclosed seal and
+kind-14 rumor, and displays only messages signed by the configured BitcoinWalk
+Guide identity. The view remains read-only and notification-only. Wider client
+interoperability and bidirectional direct messaging remain under BW-128.
 
 The Guide sends each current owner one durable NIP-17 onboarding message after
 the roster is reconciled. Its stable `https://bitcoinwalk.org/chat/hosts` link
