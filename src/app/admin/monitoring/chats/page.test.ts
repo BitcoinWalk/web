@@ -9,7 +9,10 @@ describe("city community administration", () => {
       ),
       layout = readFileSync("src/app/admin/monitoring/layout.tsx", "utf8");
     expect(layout).toContain('href="/admin/monitoring/chats"');
-    expect(page).toContain("Paid communities");
+    expect(page).toContain("Pro city communities");
+    expect(page).toContain('tone:"neutral",label:"Not set up"');
+    expect(page).toContain('tone:"red",label:"Needs attention"');
+    expect(page).toContain("red is reserved for a channel that needs intervention");
     expect(page).toContain("All approved city channels");
     expect(page).toContain(
       "Sign and provision ${missingCities.length} remaining",

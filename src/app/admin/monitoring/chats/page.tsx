@@ -16,10 +16,18 @@ type City={cityId:string;cityName:string;slug:string;tier:"basic"|"pro";organize
 type Directory={version:1;cities:Array<{id:string;avatarUrl:string}>};
 type Row={cityId:string;tier:"basic"|"pro";slug:string;relay:string;groupId:string;phase:"candidate"|"verified"|"active"|"needs-attention";evidenceDigest:string|null;metadataEventId:string|null;verifiedAt:number|null;activatedAt:number|null;updatedAt:number};
 type Report={cities:City[];rows:Row[];inspection?:{name:string;picture:string|null};city?:City;row?:Row;error?:string};
+type CommunityTone="green"|"amber"|"red"|"neutral";
 
 const WALKIE_TALKIE_RELAY="wss://chat.bitcoinwalk.org/";
 const COMMUNITY_POOL=new SimplePool();
 function relayFor(city:City){void city;return WALKIE_TALKIE_RELAY;}
+function communityStatus(row:Row|undefined):{tone:CommunityTone;label:string;detail:string}{
+ if(!row)return {tone:"neutral",label:"Not set up",detail:"No Walkie Talkie channel has been registered yet."};
+ if(row.phase==="active")return {tone:"green",label:"Active",detail:"Available on public walk pages."};
+ if(row.phase==="verified")return {tone:"amber",label:"Ready to activate",detail:"Verified successfully; final activation remains."};
+ if(row.phase==="candidate")return {tone:"neutral",label:"Setup started",detail:"The channel still needs independent verification."};
+ return {tone:"red",label:"Needs attention",detail:"The saved channel evidence needs to be reconciled."};
+}
 function createGroupTemplate(groupId:string):EventTemplate{return {kind:9007,created_at:Math.floor(Date.now()/1000),tags:[["h",groupId],["client","bitcoinwalk.org"]],content:"Create the public, open-join BitcoinWalk city community."};}
 function metadataTemplate(city:City,groupId:string):EventTemplate{return {kind:9002,created_at:Math.floor(Date.now()/1000),tags:[["h",groupId],["name",`BitcoinWalk ${city.cityName}`],["about",`The open community for BitcoinWalk ${city.cityName}. Anyone can join; only members can read messages.`],["picture",city.avatarUrl],["open"],["client","bitcoinwalk.org"]],content:"Configure the BitcoinWalk city community."};}
 function addMemberTemplate(groupId:string,pubkey:string):EventTemplate{return {kind:9000,created_at:Math.floor(Date.now()/1000),tags:[["h",groupId],["p",pubkey],["client","bitcoinwalk.org"]],content:"Add a founding BitcoinWalk city community member."};}
@@ -79,11 +87,21 @@ export default function CommunityChatsPage(){
    {rolloutProgress&&<p role="status" aria-live="polite"><strong>{rolloutProgress}</strong></p>}
   </section>
   <section>
-   <h2>Paid communities</h2>
-   {!paidCities.length?<p>No paid communities.</p>:paidCities.map(city=>{const row=rows.find(value=>value.cityId===city.cityId);return <article key={city.cityId} className={styles.card} data-rag={row?.phase==="active"?"green":row?.phase==="verified"?"amber":"red"}>
-    <h3>{city.cityName}</h3>
-    <p><code>{relayFor(city)}</code><br/>{row?<><code>{row.groupId}</code> · {row.phase}</>:"Not provisioned"}</p>
-   </article>;})}
+   <div className={styles.sectionHeading}>
+    <div><h2>Pro city communities</h2><p>Pro status and Walkie Talkie setup are separate. Neutral cards are waiting for setup; red is reserved for a channel that needs intervention.</p></div>
+    <div className={styles.summary} aria-label="Pro community status summary">
+     <span data-rag="green">{paidCities.filter(city=>rows.find(row=>row.cityId===city.cityId)?.phase==="active").length} active</span>
+     <span>{paidCities.filter(city=>!rows.some(row=>row.cityId===city.cityId)).length} not set up</span>
+    </div>
+   </div>
+   {!paidCities.length?<p>No Pro city communities.</p>:<div className={styles.communityGrid}>{paidCities.map(city=>{const row=rows.find(value=>value.cityId===city.cityId),status=communityStatus(row);return <article key={city.cityId} className={`${styles.card} ${styles.communityCard}`} data-rag={status.tone}>
+    <header>
+     <div className={styles.communityIdentity}><Image unoptimized src={city.avatarUrl} alt="" width={48} height={48}/><div><h3>{city.cityName}</h3><p>Pro city</p></div></div>
+     <span className={styles.rag} data-rag={status.tone}><span className={styles.dot} aria-hidden="true"/>{status.label}</span>
+    </header>
+    <p>{status.detail}</p>
+    <dl><div><dt>Relay</dt><dd><code>{relayFor(city)}</code></dd></div>{row&&<div><dt>Channel</dt><dd><code>{row.groupId}</code></dd></div>}</dl>
+   </article>;})}</div>}
   </section>
   {cities.length>0&&<section>
    <h2>Provision a community</h2>
