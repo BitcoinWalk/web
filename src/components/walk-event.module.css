@@ -62,7 +62,6 @@
   background: #e9e5df;
   box-shadow: 0 1.25rem 3rem rgb(48 37 24 / .12);
 }
-.header :global(.event-hero figcaption) { margin: .55rem .25rem 0; color: var(--walk-muted); font-size: .78rem; }
 
 .summary {
   position: relative;

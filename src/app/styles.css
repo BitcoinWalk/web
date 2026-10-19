@@ -24,7 +24,6 @@ textarea { min-height: 8rem; }
 .event-hero { margin: 1.5rem 0; }
 .event-hero .hero-image { aspect-ratio: 16 / 9; margin: 0; }
 .hero-fallback { display: grid; place-items: center; min-height: 14rem; background: linear-gradient(135deg,#16110d,#f7931a); color: white; font-size: clamp(1.5rem,6vw,4rem); font-weight: 800; letter-spacing: .08em; }
-.event-hero figcaption { margin-top: 0.45rem; color: #666; font-size: 0.8rem; }
 .chat-button { display: inline-block; padding: 0.8rem 1.1rem; background: #171717; color: white; border-radius: 0.4rem; text-decoration: none; }
 .chat-button:hover { background: #383838; }
 .chat-button:focus-visible { outline: 3px solid #b85c00; outline-offset: 3px; }

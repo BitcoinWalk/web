@@ -42,7 +42,7 @@ export default async function WalkEvent({event,walk,currentProfile,logoHref,titl
       <div className={styles.heading}><CityWalkTitle cityName={city.cityName} logo={titleLogo}/>
         <WalkWeather result={weather} timeZone={timeZone??null}/>
       </div>
-      <ResilientHero sources={[calendarImageOverride(event),forecastHero,city.heroImageUrl,walk.approval.approval.heroImageUrl,initialCalendarHero(event,walk)]} alt={`BitcoinWalk ${city.cityName}`} forecast={!calendarImageOverride(event)&&!!forecastHero}/>
+      <ResilientHero sources={[calendarImageOverride(event),forecastHero,city.heroImageUrl,walk.approval.approval.heroImageUrl,initialCalendarHero(event,walk)]} alt={`BitcoinWalk ${city.cityName}`}/>
       <div className={styles.summary}>
         <div><span className={styles.eyebrow}>Next walk</span><time dateTime={date.toISOString()}><strong>{dateLabel}</strong><span>{timeLabel}</span></time></div>
         <div><span className={styles.eyebrow}>Meeting point</span><strong>{point.description}</strong><CoordinatesCopy latitude={point.latitude} longitude={point.longitude}/></div>
