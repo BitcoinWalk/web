@@ -7,7 +7,7 @@ import {fileURLToPath} from "node:url";
 import {build} from "esbuild";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const version = "city-logo-inkscape-v1.2";
+const version = "city-logo-inkscape-v1.3";
 const output = join(root, "release-build");
 await mkdir(output, {recursive: true});
 const temporary = await mkdtemp(join(output, ".city-logo-renderer-"));
@@ -28,6 +28,10 @@ try {
   await cp(join(root, "deploy/render-city-logo-pack"), join(stage, "bin/render-city-logo-pack"));
   await cp(join(root, "design/city-logo-templates/v1/fonts"), join(stage, "design/city-logo-templates/v1/fonts"), {recursive: true});
   await cp(join(root, "design/city-logo-templates/v1/examples/prototype-packs/szydlowiec"), join(stage, "design/city-logo-templates/v1/examples/prototype-packs/szydlowiec"), {recursive: true});
+  await mkdir(join(stage, "public/brand"), {recursive: true});
+  for (const file of ["bitcoinwalk-horizontal.png", "bitcoinwalk-horizontal-white.png"]) {
+    await cp(join(root, "public/brand", file), join(stage, "public/brand", file));
+  }
   await cp(join(root, "node_modules/sharp"), join(stage, "node_modules/sharp"), {recursive: true, verbatimSymlinks: true});
   await cp(join(root, "node_modules/@img"), join(stage, "node_modules/@img"), {recursive: true, verbatimSymlinks: true});
   await cp(join(root, "node_modules/detect-libc"), join(stage, "node_modules/detect-libc"), {recursive: true, verbatimSymlinks: true});

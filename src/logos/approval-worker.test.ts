@@ -132,6 +132,25 @@ describe("verified approval to durable logo job", () => {
     expect(store.rows().every(row => row.state === "ready" && row.attempts === 1)).toBe(true);
   });
 
+  it("keeps the last ready pack online until its template successor is ready", async () => {
+    const {service, store} = setup();
+    const current = approvedLogoCandidates(snapshot())[0];
+    const previous = {...current, jobKey:"9".repeat(64), templateVersion:"city-logo-inkscape-v1.2"};
+    store.reconcile([previous], now - 2);
+    const claimed = store.claim(now - 2, 300)!;
+    store.recordArtifact(claimed.jobKey, claimed.leaseToken!, `/assets/${claimed.jobKey}/${claimed.slug}`, now - 1);
+    store.complete(claimed.jobKey, claimed.leaseToken!, now - 1);
+
+    await service.reconcile();
+    expect(store.get(previous.jobKey)?.state).toBe("ready");
+    expect(store.get(current.jobKey)?.state).toBe("queued");
+
+    await service.runOne();
+    await service.reconcile();
+    expect(store.get(previous.jobKey)?.state).toBe("obsolete");
+    expect(store.get(current.jobKey)?.state).toBe("ready");
+  });
+
   it("recovers an expired lease after restart and retries with bounded backoff", async () => {
     const {service, store} = setup();
     await service.reconcile();

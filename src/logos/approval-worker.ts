@@ -76,11 +76,6 @@ export class LogoJobStore {
     const eligible = candidates;
     this.db.exec("BEGIN IMMEDIATE");
     try {
-      for (const row of this.rows()) {
-        if (!preservedCityIds.has(row.cityId) && current.get(row.cityId)?.jobKey !== row.jobKey && row.state !== "obsolete") {
-          this.db.prepare("UPDATE city_logo_job SET state='obsolete',leaseUntil=NULL,leaseToken=NULL,updatedAt=? WHERE jobKey=?").run(now, row.jobKey);
-        }
-      }
       for (const candidate of eligible) {
         this.db.prepare(`INSERT OR IGNORE INTO city_logo_job(
           jobKey,cityId,revisionId,approvalId,decisionAt,cityName,slug,locale,templateVersion,state,nextAttemptAt,createdAt,updatedAt
@@ -91,6 +86,15 @@ export class LogoJobStore {
           state=CASE WHEN state='obsolete' AND artifactPath IS NOT NULL THEN 'ready' WHEN state='obsolete' THEN 'queued' ELSE state END,
           nextAttemptAt=CASE WHEN state='obsolete' THEN ? ELSE nextAttemptAt END,lastError=CASE WHEN state='obsolete' THEN NULL ELSE lastError END
           WHERE jobKey=?`).run(candidate.approvalId,candidate.decisionAt,candidate.cityName,candidate.slug,candidate.locale,now,now,candidate.jobKey);
+      }
+      for (const row of this.rows()) {
+        const successor = current.get(row.cityId);
+        if (preservedCityIds.has(row.cityId) || successor?.jobKey === row.jobKey || row.state === "obsolete") continue;
+        const successorRow = successor ? this.get(successor.jobKey) : null;
+        // Keep the last complete pack online while a new revision or template is
+        // rendering. A revocation still has no successor and withdraws it at once.
+        if (row.state === "ready" && row.artifactPath && successor && successorRow?.state !== "ready") continue;
+        this.db.prepare("UPDATE city_logo_job SET state='obsolete',leaseUntil=NULL,leaseToken=NULL,updatedAt=? WHERE jobKey=?").run(now, row.jobKey);
       }
       this.db.exec("COMMIT");
     } catch (error) { this.db.exec("ROLLBACK"); throw error; }
