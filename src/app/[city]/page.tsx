@@ -36,8 +36,9 @@ export async function generateMetadata({params}:{params:Promise<{city:string}>})
   return cityShareMetadata(city);
 }
 
-export default async function CityOrEventPage({params}:{params:Promise<{city:string}>}) {
+export default async function CityOrEventPage({params,searchParams}:{params:Promise<{city:string}>;searchParams:Promise<{view?:string|string[]}>}) {
   const {city}=await params;
+  const embedded=(await searchParams).view==="app";
   const paidHost=paidCityForHost((await headers()).get("host"),directoryConfig.paidCities);
   if(city.startsWith("nevent1")) {
     let result;
@@ -69,7 +70,7 @@ export default async function CityOrEventPage({params}:{params:Promise<{city:str
   }
   if(outcome.state==="unavailable")return <main><h1>Walk temporarily unavailable</h1><p>The relay could not be read. Please try again later.</p></main>;
   if(outcome.state==="missing")notFound();
-  if(outcome.state==="redirect")redirect(outcome.href);
-  if(outcome.eventHref)redirect(outcome.eventHref);
+  if(outcome.state==="redirect")redirect(`${outcome.href}${embedded?"?view=app":""}`);
+  if(outcome.eventHref)redirect(`${outcome.eventHref}${embedded?"?view=app":""}`);
   return <main><h1>BitcoinWalk {outcome.cityName}</h1><p>No upcoming walk has been scheduled.</p><PublicCityHost cityId={outcome.cityId} cityName={outcome.cityName} citySlug={outcome.slug}/><PublicCitySupport cityId={outcome.cityId} revisionId={outcome.revisionId} cityName={outcome.cityName} requestedTier={outcome.requestedTier}/><SponsorModule presentation={outcome.sponsorship} cityName={outcome.cityName} ogImageUrl={outcome.sponsorOgImage}/><CityChat cityId={outcome.cityId} slug={outcome.slug} config={serverChatConfig()}/>{outcome.logoHref&&<p><Link href={outcome.logoHref}>Download the official city logo pack</Link></p>}<p><Link href="/">Browse BitcoinWalks</Link></p></main>;
 }
