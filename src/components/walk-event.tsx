@@ -51,6 +51,7 @@ export default async function WalkEvent({event,walk,currentProfile,logoHref,titl
     <div className={styles.content}>
       <article className={styles.primary}>
         <WalkDescriptions cityName={currentProfile.revision.city.cityName} cityDescription={currentProfile.revision.city.description} eventDescription={event.content}/>
+        <div className={styles.sponsorshipSlot}><SponsorModule presentation={sponsorship} cityName={city.cityName} cityLogo={titleLogo} ogImageUrl={sponsorOgImage} endsAt={endSeconds}/></div>
         {calendarContentImage(event)&&<figure className={styles.contentImage}><Image src={calendarContentImage(event)!} width={1600} height={900} sizes="(max-width: 960px) 100vw, 960px" unoptimized alt={`BitcoinWalk ${city.cityName} walk`}/></figure>}
         {calendarRoute(event)&&<WalkRoute url={calendarRoute(event)!}/>}
       </article>
@@ -58,7 +59,6 @@ export default async function WalkEvent({event,walk,currentProfile,logoHref,titl
         {host.state==="personal"&&<WalkDelegation event={publicEvent} readOnly/>}
         <CityHostPanel host={host} payment={await resolvePublicCityPayment(city.cityId,city.slug,host)} event={publicEvent}/>
         <PublicCitySupport cityId={currentProfile.revision.city.cityId} revisionId={currentProfile.revision.event.id} cityName={currentProfile.revision.city.cityName} requestedTier={currentProfile.revision.city.requestedTier}/>
-        <SponsorModule presentation={sponsorship} cityName={city.cityName} ogImageUrl={sponsorOgImage} endsAt={endSeconds}/>
         <CityChat cityId={city.cityId} slug={city.slug} config={chatConfig}/>
       </aside>
     </div>

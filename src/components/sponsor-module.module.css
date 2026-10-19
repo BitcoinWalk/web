@@ -1,1 +1,96 @@
-.sponsor{margin:.75rem 0 2rem;padding:1.25rem;border:1px solid #d9dee3;border-radius:.8rem;background:#f8fafb}.sponsor h2{margin-top:0}.sponsor>p:last-child{margin-bottom:0}.invitation{display:flex;align-items:center;justify-content:space-between;gap:1rem;padding:1rem 1.1rem}.invitation h2{margin:0;font-size:1.1rem}.invitation p{margin:.25rem 0 0;color:#636b73}.options{flex:0 0 auto;padding:.65rem .85rem;border-radius:.45rem;background:#f7931a;color:#171717!important;font-weight:800;text-decoration:none}.options:hover,.options:focus-visible{background:#ffad3b;text-decoration:underline}.npub{overflow-wrap:anywhere}.npub code{font-size:.82rem}.ogImage{display:block;width:100%;height:auto;margin:1rem 0;border-radius:.65rem}@media(max-width:38rem){.invitation{align-items:flex-start;flex-direction:column}.options{width:100%;text-align:center}}
+.sponsor {
+  margin: 0;
+  padding: 1.25rem;
+  border: 1px solid #ded9d0;
+  border-radius: 1rem;
+  background: #fff;
+  box-shadow: 0 .75rem 2rem rgb(48 37 24 / .07);
+}
+.sponsor h2 { margin-top: 0; }
+.sponsor > p:last-child { margin-bottom: 0; }
+.invitation {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: clamp(1.25rem, 4vw, 3rem);
+  overflow: hidden;
+  padding: clamp(1.25rem, 3vw, 2rem);
+  border-left: .3rem solid #f7931a;
+}
+.invitation::after {
+  position: absolute;
+  right: -4rem;
+  bottom: -6rem;
+  width: 13rem;
+  height: 13rem;
+  border-radius: 50%;
+  background: rgb(247 147 26 / .07);
+  content: "";
+  pointer-events: none;
+}
+.invitationCopy { position: relative; z-index: 1; min-width: 0; }
+.eyebrow {
+  display: block;
+  margin-bottom: .8rem;
+  color: #8a4700;
+  font-size: .72rem;
+  font-weight: 800;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+}
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+.brandLogo {
+  display: block;
+  width: min(100%, 21rem);
+  height: auto;
+  max-height: 5.25rem;
+  object-fit: contain;
+  object-position: left center;
+}
+.invitation p { max-width: 38rem; margin: .85rem 0 0; color: #68635d; line-height: 1.5; }
+.options {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: .45rem;
+  min-height: 3rem;
+  padding: .75rem 1rem;
+  border: 1px solid transparent;
+  border-radius: .65rem;
+  background: #f7931a;
+  box-shadow: 0 .45rem 1rem rgb(138 71 0 / .15);
+  color: #17120d !important;
+  font-weight: 800;
+  line-height: 1.25;
+  text-align: center;
+  text-decoration: none;
+  transition: background-color 150ms ease, box-shadow 150ms ease;
+}
+.npub { overflow-wrap: anywhere; }
+.npub code { font-size: .82rem; }
+.ogImage { display: block; width: 100%; height: auto; margin: 1rem 0; border-radius: .65rem; outline: 1px solid oklch(0 0 0 / .1); outline-offset: -1px; }
+
+@media (hover: hover) and (pointer: fine) {
+  .options:hover { background: #ffad3b; box-shadow: 0 .6rem 1.25rem rgb(138 71 0 / .2); }
+}
+
+@media (max-width: 38rem) {
+  .invitation { grid-template-columns: 1fr; gap: 1.25rem; padding: 1.2rem; }
+  .brandLogo { width: min(100%, 17rem); max-height: 4.25rem; }
+  .invitation p { margin-top: .7rem; }
+  .options { width: 100%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .options { transition: opacity 150ms ease-out; }
+}

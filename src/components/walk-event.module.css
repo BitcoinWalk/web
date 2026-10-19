@@ -115,6 +115,8 @@
 .primary :global(.walk-story) { padding-bottom: 2rem; border-bottom: 1px solid var(--walk-line); }
 .primary :global(.walk-description) { color: #37332f; }
 .primary :global(.walk-description p) { margin: 0 0 1rem; }
+.sponsorshipSlot { margin: 0 0 2.5rem; }
+.sponsorshipSlot:empty { display: none; }
 .primary :global(.walk-route iframe) { height: min(32rem, 68vh); border-radius: 1rem; outline: 1px solid oklch(0 0 0 / .1); outline-offset: -1px; }
 .primary :global(.walk-route__consent) { min-height: 13rem; border-color: var(--walk-line); border-radius: 1rem; background: #fff8ef; }
 .primary :global(.walk-route__consent button) { border: 1px solid #b85c00; border-radius: .55rem; background: var(--walk-accent); color: #17120d; font-weight: 800; }
