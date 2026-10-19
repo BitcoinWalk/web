@@ -4,6 +4,7 @@ import {createCityActivation} from "./activation-contract";
 import {ActivationWorkflow,type ActivationEvidence} from "./activation-workflow";
 import {ProvisioningError} from "./client";
 import {provisionDigest,RUSTRESS_API,type ActivationReceipt,type ProvisionConfig,type ProvisionReceipt} from "./contract";
+import {PublicProvisioningError} from "./public-provisioning";
 
 const reserved:ProvisionConfig={cityId:"00000000-0000-4000-8000-000000000001",version:1,domain:"bitcoinwalk.org",localPart:"madeira",
   brandPubkey:"a".repeat(64),authorityEventId:"b".repeat(64),approvalEventId:"c".repeat(64),brandEventId:"d".repeat(64),payoutVersion:2,
@@ -32,6 +33,17 @@ describe("durable managed city activation",()=>{
     expect(await f.workflow.run(reserved.cityId)).toMatchObject({state:"needs-attention",nip05:"active",lnurl:"needs-attention"});
     expect(await f.workflow.run(reserved.cityId)).toMatchObject({state:"active",nip05:"active",lnurl:"active"});
     expect(f.provider.apply).toHaveBeenCalledTimes(1);
+  });
+  it("preserves an already verified capability across a transient public read outage",async()=>{
+    const f=fixture();await f.workflow.enqueue("request");expect(await f.workflow.run(reserved.cityId)).toMatchObject({state:"active"});
+    f.verify.nip05.mockRejectedValueOnce(new PublicProvisioningError("nip05","unavailable"));
+    f.verify.lnurl.mockRejectedValueOnce(new PublicProvisioningError("lnurl","unavailable"));
+    expect(await f.workflow.run(reserved.cityId)).toMatchObject({state:"active",nip05:"active",lnurl:"active"});
+  });
+  it("fails closed when a previously verified public capability becomes invalid",async()=>{
+    const f=fixture();await f.workflow.enqueue("request");expect(await f.workflow.run(reserved.cityId)).toMatchObject({state:"active"});
+    f.verify.nip05.mockRejectedValueOnce(new PublicProvisioningError("nip05","invalid"));
+    expect(await f.workflow.run(reserved.cityId)).toMatchObject({state:"needs-attention",nip05:"needs-attention",lnurl:"active"});
   });
   it("recovers a falsely blocked exact applied activation without another provider write",async()=>{
     const f=fixture();await f.workflow.enqueue("request");

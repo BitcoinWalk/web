@@ -103,9 +103,17 @@ export class ActivationWorkflow {
       }
       if(phase==="verifying"){
         const evidence=await fresh(),input={publicOrigin:evidence.publicOrigin,domain:active.domain,localPart:active.localPart,brandPubkey:active.brandPubkey};
-        let nip05:Check="active",lnurl:Check="active";
-        try{await this.verify.nip05(input);}catch{nip05="needs-attention";}
-        try{await this.verify.lnurl(input);}catch{lnurl="needs-attention";}
+        const checked=async(run:()=>Promise<unknown>,previous:Check):Promise<Check>=>{
+          try{await run();return "active";}
+          catch(error){
+            // A periodic read-back must not withdraw a capability that already
+            // passed exact public verification merely because the public route
+            // was temporarily unreachable during an app restart. Invalid data
+            // still fails closed and new activations never inherit this grace.
+            return previous==="active"&&error instanceof PublicProvisioningError&&error.reason==="unavailable"?"active":"needs-attention";
+          }
+        };
+        const nip05=await checked(()=>this.verify.nip05(input),initial.nip05),lnurl=await checked(()=>this.verify.lnurl(input),initial.lnurl);
         await fresh();set(nip05==="active"&&lnurl==="active"?"active":"needs-attention",nip05,lnurl);
       }
     }catch(error){
