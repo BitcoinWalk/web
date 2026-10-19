@@ -71,3 +71,36 @@ opt-in Guide notification and an independent standard client in both directions.
 Record app/signer versions, receipt once, link opening, account switching and
 restart deduplication. No APK release, production deployment or customer DM was
 performed for this checkpoint.
+
+## Integrated compatibility checkpoint — 19 October 2026
+
+Walkie Talkie commit `07f45e5` integrates standard kind-14 NIP-17 text reception
+and delivery onto the current city-mosaic release line. Identity-key encryption
+and both decryption layers stay behind the selected local, extension or NIP-46
+signer. Standard seals retain empty tags and independently randomized timestamps;
+wrapper and seal signatures, exact recipient, rumor hash and author binding are
+validated before storage. A standard envelope never becomes a NIP-4E peer-key
+announcement, and extension groups, files, reactions, media and own-device copies
+never silently downgrade to the text-only path.
+
+Background intake never launches an interactive signer. It retains at most 32
+recent encrypted envelopes for foreground retry. The explicit Guide recovery
+action scans at most 32 recent wrappers, keeps old processed markers and history
+cursors intact, stores by canonical rumor ID and emits no historical-arrival
+notification. Account/session changes cancel stale work. The durable outbound
+queue stores the exact wrapper before publication and reuses it on retry.
+
+Validation on the integrated release line passed 196 messaging, crypto, signer,
+support-state and Guide-recovery tests, the TypeScript check and lint with no
+errors. The synthetic independent side uses the public `nostr-tools` NIP-59
+implementation and opens the generated message without BitcoinWalk extensions.
+This proves the source contract, not a person's receipt. Android test workflow
+`39245594059` was started for the real-device gate.
+
+Remaining acceptance is deliberately physical and versioned: install that test
+APK on Pixel/GrapheneOS, record the Amber version, receive one real Guide message
+once and open its link, exchange text in both directions with an independent
+standard NIP-17 client, switch accounts, reconnect and restart without duplicates,
+and record bounded feedback for an unreadable/unsupported message. iOS remains
+unverified until a real iPhone and supported signer are available. Guide stays
+notification-only; conversational support remains BW-67.
