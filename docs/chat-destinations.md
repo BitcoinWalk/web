@@ -64,3 +64,16 @@ and the release-mode build passed. Standalone HTTP checks verified relative
 Hosts/Global redirects, ignored URL access claims, anonymous Hosts privacy,
 missing Guide configuration as 503, and malformed/duplicate targets as 400.
 No message, membership action, external push or deployment was performed.
+
+Staging verification, 20 October 2026: runtime commit
+`d54c768ecb313d24483d7f6fc3f18738e9c55be6` was pushed to GitHub and ngit and
+deployed as `app-staging-0.3.457`. Package SHA-256:
+`1b0cc2d29f869f863b22eff875cff18f4060fdb0c5595db45845cbbed77585f1`.
+The guarded deployment accepted the expected 0.3.456 predecessor; evidence is
+`/home/bitcoinwalk/backups/app-staging-deploy.hSksNQ` on the staging host.
+Live read-only checks passed for all 19 city resolver mappings and redirects,
+Guide/Global/Hosts links and resolution, anonymous Hosts privacy, four malformed
+or unknown-target responses, and the source-specific static build manifest.
+The staging service is active. Production remains `app-production-0.3.454`.
+No messages or membership actions were performed. Mobile fixture execution and
+human acceptance remain pending; BW-157/BW-158 are not included.
