@@ -13,6 +13,7 @@
   overflow: hidden;
   background: #f5f2ec;
   color: var(--walk-ink);
+  color-scheme: only light;
 }
 
 .page *, .page *::before, .page *::after { box-sizing: border-box; }
@@ -132,6 +133,19 @@
   background: var(--walk-surface);
 }
 .secondary :global(.chat-button) { border-radius: .55rem; background: var(--walk-ink); }
+.secondary > :global(section:not([class]) button) {
+  min-height: 2.75rem;
+  max-width: 100%;
+  padding: .65rem .85rem;
+  border: 1px solid #cfc8bd;
+  border-radius: .55rem;
+  background: #fff8ef;
+  color: var(--walk-ink);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+.secondary > :global(section:not([class]) svg) { max-width: 100%; height: auto; }
 
 .utilities { max-width: 68rem; margin: 2.5rem auto 0; padding-top: 1.5rem; border-top: 1px solid var(--walk-line); }
 .utilities > :global(section) { padding: 0; }

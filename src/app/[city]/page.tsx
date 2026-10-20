@@ -5,11 +5,17 @@ import {directoryConfig} from "../../lib/directory-config";
 import {relayConfig} from "../../lib/relay-config";
 import {serverReadRelays} from "../../lib/server-relay-config";
 import {currentOrNextEvent,paidCityForHost} from "../../domain/event-routing";
-import {calendarNevent,resolveCalendarLink} from "../../nostr/calendar-records";
+import {calendarNevent,resolveCalendarLink,type CalendarSource} from "../../nostr/calendar-records";
 import {queryCalendarEvents} from "../../nostr/city-records";
 import {contentRoute,queryContentRevisions} from "../../nostr/content-records";
 import StaticContentPage from "../../components/static-content-page";
 import {getLogoCatalog} from "../../logos/runtime";
+import {logoVariantAsset,type LogoVariantAsset} from "../../logos/catalog";
+import {cityWalkTitleLogoVariant} from "../../components/city-walk-title";
+import CityPageLayout from "../../components/city-page-layout";
+import CoordinatesCopy from "../../components/coordinates-copy";
+import WalkDescriptions from "../../components/walk-descriptions";
+import styles from "../../components/walk-event.module.css";
 import SponsorModule from "../../components/sponsor-module";
 import type {SponsorshipPresentation} from "../../domain/sponsorship";
 import {resolvedFeatureFlags} from "../../nostr/feature-flags";
@@ -51,7 +57,7 @@ export default async function CityOrEventPage({params,searchParams}:{params:Prom
   let staticRoute:ReturnType<typeof contentRoute>=null;
   try{staticRoute=contentRoute(await queryContentRevisions(serverReadRelays()),city);}catch{}
   if(staticRoute){if("redirect" in staticRoute)redirect(staticRoute.redirect);return <StaticContentPage page={staticRoute.page.page}/>;}
-  let outcome: {state:"unavailable"}|{state:"missing"}|{state:"redirect";href:string}|{state:"ready";cityId:string;cityName:string;slug:string;revisionId:string;requestedTier?:"free"|"paid";eventHref?:string;logoHref?:string;sponsorship:SponsorshipPresentation;sponsorOgImage?:string};
+  let outcome: {state:"unavailable"}|{state:"missing"}|{state:"redirect";href:string}|{state:"ready";profile:CalendarSource;cityId:string;cityName:string;slug:string;revisionId:string;requestedTier?:"free"|"paid";eventHref?:string;logoHref?:string;titleLogo?:LogoVariantAsset;sponsorship:SponsorshipPresentation;sponsorOgImage?:string};
   try{
     const walks=await loadSharedCities(),[flagResult,sponsorshipResult]=await Promise.allSettled([resolvedFeatureFlags(serverReadRelays()),querySponsorships(serverReadRelays())]),flags=flagResult.status==="fulfilled"?flagResult.value:DEFAULT_FEATURE_FLAGS,sponsorships=sponsorshipResult.status==="fulfilled"?sponsorshipResult.value:[];
     const route=resolveCityRoute(walks,city);
@@ -61,9 +67,9 @@ export default async function CityOrEventPage({params,searchParams}:{params:Prom
       const walk=route.row;
       const events=await queryCalendarEvents(serverReadRelays(),{cityId:walk.revision.city.cityId});
       const event=currentOrNextEvent(walk,events);
-      let logoHref:string|undefined;try{const revision=walk.revision,pack=await getLogoCatalog().ready({cityId:revision.city.cityId,revisionId:revision.event.id,slug:revision.city.slug});if(pack?.publiclyListed)logoHref=`/${encodeURIComponent(pack.slug)}/logo`;}catch{}
+      let logoHref:string|undefined,titleLogo:LogoVariantAsset|undefined;try{const revision=walk.revision,pack=await getLogoCatalog().readyForCity({cityId:revision.city.cityId,slug:revision.city.slug});if(pack){titleLogo=logoVariantAsset(pack,cityWalkTitleLogoVariant)??undefined;if(pack.publiclyListed)logoHref=`/${encodeURIComponent(pack.slug)}/logo`;}}catch{}
       const profile=walk.revision.city,sponsorship=publicSponsorship(sponsorships,flags.sponsorships&&sponsorshipResult.status==="fulfilled",profile.cityId,event),sponsorOgImage=sponsorship.state==="sponsor"&&sponsorship.logoHash?await assignedSponsorShareImage(profile.cityId,profile.slug,[walk.approval.approval.heroImageUrl,profile.heroImageUrl],sponsorship.logoHash):undefined;
-      outcome={state:"ready",cityId:profile.cityId,cityName:profile.cityName,slug:profile.slug,revisionId:walk.revision.event.id,requestedTier:profile.requestedTier,eventHref:event?`/${encodeURIComponent(profile.slug)}/${calendarNevent(event,relayConfig.calendarRelayHints)}`:undefined,logoHref,sponsorship,sponsorOgImage};
+      outcome={state:"ready",profile:walk,cityId:profile.cityId,cityName:profile.cityName,slug:profile.slug,revisionId:walk.revision.event.id,requestedTier:profile.requestedTier,eventHref:event?`/${encodeURIComponent(profile.slug)}/${calendarNevent(event,relayConfig.calendarRelayHints)}`:undefined,logoHref,titleLogo,sponsorship,sponsorOgImage};
     }
   }catch{
     outcome={state:"unavailable"};
@@ -72,5 +78,20 @@ export default async function CityOrEventPage({params,searchParams}:{params:Prom
   if(outcome.state==="missing")notFound();
   if(outcome.state==="redirect")redirect(`${outcome.href}${embedded?"?view=app":""}`);
   if(outcome.eventHref)redirect(`${outcome.eventHref}${embedded?"?view=app":""}`);
-  return <main><h1>BitcoinWalk {outcome.cityName}</h1><p>No upcoming walk has been scheduled.</p><PublicCityHost cityId={outcome.cityId} cityName={outcome.cityName} citySlug={outcome.slug}/><PublicCitySupport cityId={outcome.cityId} revisionId={outcome.revisionId} cityName={outcome.cityName} requestedTier={outcome.requestedTier}/><SponsorModule presentation={outcome.sponsorship} cityName={outcome.cityName} ogImageUrl={outcome.sponsorOgImage}/><CityChat cityId={outcome.cityId} slug={outcome.slug} config={serverChatConfig()}/>{outcome.logoHref&&<p><Link href={outcome.logoHref}>Download the official city logo pack</Link></p>}<p><Link href="/">Browse BitcoinWalks</Link></p></main>;
+  const profile=outcome.profile.revision.city,point=profile.meetingPoint;
+  return <CityPageLayout cityName={outcome.cityName} titleLogo={outcome.titleLogo} embedded={embedded}
+    heroSources={[profile.heroImageUrl,outcome.profile.approval.approval.heroImageUrl]}
+    summary={<>
+      <div><span className={styles.eyebrow}>Next walk</span><strong>No upcoming walk has been scheduled.</strong><p>Explore the city community while the next walk is being planned.</p></div>
+      <div><span className={styles.eyebrow}>Meeting point</span><strong>{point.description}</strong><CoordinatesCopy latitude={point.latitude} longitude={point.longitude}/></div>
+    </>}
+    details={<>
+      <PublicCityHost cityId={outcome.cityId} cityName={outcome.cityName} citySlug={outcome.slug}/>
+      <PublicCitySupport cityId={outcome.cityId} revisionId={outcome.revisionId} cityName={outcome.cityName} requestedTier={outcome.requestedTier}/>
+      <CityChat cityId={outcome.cityId} slug={outcome.slug} config={serverChatConfig()}/>
+    </>}
+    utilities={<>{outcome.logoHref&&<p><Link href={outcome.logoHref}>Download the official city logo pack</Link></p>}<p><Link href="/">Browse BitcoinWalks</Link></p></>}>
+    <WalkDescriptions cityName={outcome.cityName} cityDescription={profile.description} eventDescription={profile.description}/>
+    <div className={styles.sponsorshipSlot}><SponsorModule presentation={outcome.sponsorship} cityName={outcome.cityName} cityLogo={outcome.titleLogo} ogImageUrl={outcome.sponsorOgImage}/></div>
+  </CityPageLayout>;
 }

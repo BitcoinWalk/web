@@ -9,10 +9,9 @@ import CityChat from "./city-chat";
 import WalkWeather, {WeatherAttribution} from "./walk-weather";
 import {getWalkWeather} from "../domain/walk-weather";
 import {pilotWeatherHero} from "../domain/weather-hero";
-import ResilientHero from "./resilient-hero";
+import CityPageLayout from "./city-page-layout";
 import WalkDescriptions from "./walk-descriptions";
 import WalkRoute from "./walk-route";
-import CityWalkTitle from "./city-walk-title";
 import type {LogoVariantAsset} from "../logos/catalog";
 import {CityHostPanel} from "./public-city-host";
 import {resolvePublicCityHost} from "../server/public-city-host";
@@ -37,34 +36,26 @@ export default async function WalkEvent({event,walk,currentProfile,logoHref,titl
   const timeZone=occurrence?.timeZone??undefined,date=new Date(start);
   const dateLabel=new Intl.DateTimeFormat(undefined,{dateStyle:"full",...(timeZone?{timeZone}:{})}).format(date);
   const timeLabel=new Intl.DateTimeFormat(undefined,{timeStyle:"short",...(timeZone?{timeZone}:{})}).format(date);
-  return <main className={`${styles.page} ${embedded?styles.app:""}`}>
-    <header className={styles.header}>
-      <div className={styles.heading}><CityWalkTitle cityName={city.cityName} logo={titleLogo}/>
-        <WalkWeather result={weather} timeZone={timeZone??null}/>
-      </div>
-      <ResilientHero sources={[calendarImageOverride(event),forecastHero,city.heroImageUrl,walk.approval.approval.heroImageUrl,initialCalendarHero(event,walk)]} alt={`BitcoinWalk ${city.cityName}`}/>
-      <div className={styles.summary}>
+  return <CityPageLayout cityName={city.cityName} titleLogo={titleLogo} embedded={embedded}
+    headerExtra={<WalkWeather result={weather} timeZone={timeZone??null}/>}
+    heroSources={[calendarImageOverride(event),forecastHero,city.heroImageUrl,walk.approval.approval.heroImageUrl,initialCalendarHero(event,walk)]}
+    summary={<>
         <div><span className={styles.eyebrow}>Next walk</span><time dateTime={date.toISOString()}><strong>{dateLabel}</strong><span>{timeLabel}</span></time></div>
         <div><span className={styles.eyebrow}>Meeting point</span><strong>{point.description}</strong><CoordinatesCopy latitude={point.latitude} longitude={point.longitude}/></div>
-      </div>
-    </header>
-    <div className={styles.content}>
-      <article className={styles.primary}>
-        <WalkDescriptions cityName={currentProfile.revision.city.cityName} cityDescription={currentProfile.revision.city.description} eventDescription={event.content}/>
-        <div className={styles.sponsorshipSlot}><SponsorModule presentation={sponsorship} cityName={city.cityName} cityLogo={titleLogo} ogImageUrl={sponsorOgImage} endsAt={endSeconds}/></div>
-        {calendarContentImage(event)&&<figure className={styles.contentImage}><Image src={calendarContentImage(event)!} width={1600} height={900} sizes="(max-width: 960px) 100vw, 960px" unoptimized alt={`BitcoinWalk ${city.cityName} walk`}/></figure>}
-        {calendarRoute(event)&&<WalkRoute url={calendarRoute(event)!}/>}
-      </article>
-      <aside className={styles.secondary} aria-label="Walk details and community">
+    </>}
+    details={<>
         {host.state==="personal"&&<WalkDelegation event={publicEvent} readOnly/>}
         <CityHostPanel host={host} payment={await resolvePublicCityPayment(city.cityId,city.slug,host)} event={publicEvent}/>
         <PublicCitySupport cityId={currentProfile.revision.city.cityId} revisionId={currentProfile.revision.event.id} cityName={currentProfile.revision.city.cityName} requestedTier={currentProfile.revision.city.requestedTier}/>
         <CityChat cityId={city.cityId} slug={city.slug} config={chatConfig}/>
-      </aside>
-    </div>
-    <section className={styles.utilities} aria-label="Walk links"><CalendarShare nevent={calendarNevent(event,relayConfig.calendarRelayHints)}/>
+    </>}
+    utilities={<><CalendarShare nevent={calendarNevent(event,relayConfig.calendarRelayHints)}/>
       {logoHref&&<p><a href={logoHref}>Download the official BitcoinWalk {city.cityName} logo pack</a></p>}
-    </section>
-    {weather.kind!=="past"&&<footer className="walk-event-footer"><WeatherAttribution/></footer>}
-  </main>;
+    </>}
+    footer={weather.kind!=="past"&&<footer className="walk-event-footer"><WeatherAttribution/></footer>}>
+    <WalkDescriptions cityName={currentProfile.revision.city.cityName} cityDescription={currentProfile.revision.city.description} eventDescription={event.content}/>
+    <div className={styles.sponsorshipSlot}><SponsorModule presentation={sponsorship} cityName={city.cityName} cityLogo={titleLogo} ogImageUrl={sponsorOgImage} endsAt={endSeconds}/></div>
+    {calendarContentImage(event)&&<figure className={styles.contentImage}><Image src={calendarContentImage(event)!} width={1600} height={900} sizes="(max-width: 960px) 100vw, 960px" unoptimized alt={`BitcoinWalk ${city.cityName} walk`}/></figure>}
+    {calendarRoute(event)&&<WalkRoute url={calendarRoute(event)!}/>}
+  </CityPageLayout>;
 }
