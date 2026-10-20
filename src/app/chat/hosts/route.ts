@@ -1,4 +1,3 @@
-export function GET(request:Request){
- const target=new URL("/admin/chat?room=hosts",request.url);
- return Response.redirect(target,307);
-}
+import {serveChatLink} from "../../../server/chat-target";
+export const dynamic="force-dynamic";
+export const GET=serveChatLink;
