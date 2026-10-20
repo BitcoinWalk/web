@@ -5,7 +5,7 @@ identity, authorization, membership or payment authority.
 
 | Permanent HTTPS path | Target | Access checked by the receiving client and relay |
 | --- | --- | --- |
-| `/chat/city/<approved-city-slug>` | `{version:1, kind:"city", cityId}` | Current public group membership |
+| `/chat/<approved-city-slug>` | `{version:1, kind:"city", cityId}` | Current public group membership |
 | `/chat/guide` | `{version:1, kind:"guide"}` | Connected account's own encrypted inbox |
 | `/chat/global` | `{version:1, kind:"global"}` | Current public group membership |
 | `/chat/hosts` | `{version:1, kind:"hosts"}` | Exact relay-signed private Hosts roster |
@@ -13,6 +13,16 @@ identity, authorization, membership or payment authority.
 Production links use `https://bitcoinwalk.org`; staging uses its own application
 origin. Never build links with an account, role, relay URL or group ID supplied
 by a sender. Existing Guide invitations to `/chat/hosts` remain valid.
+
+City links use the short form, for example `/chat/madeira`. The former
+`/chat/city/madeira` form remains accepted and redirects to `/chat/madeira`.
+`guide`, `global`, `hosts` and the legacy prefix `city` are reserved chat path
+segments, case-insensitively; cities and their aliases cannot shadow them.
+Unknown well-formed short city paths return 404, not a fallback conversation.
+This short-path follow-up is implemented locally, not yet deployed. The shared
+fixtures now include the legacy path and its short canonical destination.
+Verification: all 2,009 tests passed (45 focused contract/endpoint tests), plus
+type checking, changed-file lint, the production-mode build and backlog checks.
 
 ## Resolution
 

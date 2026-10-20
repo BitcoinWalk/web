@@ -8,8 +8,12 @@ describe("platform-independent chat target v1 fixtures",()=>{
     expect(chatTargetPath(row.target as ChatTarget,"madeira")).toBe(row.path);
   });
   it.each(fixtures.invalidPaths)("rejects malformed or authority-bearing path %s",path=>expect(parseChatPath(path)).toBeNull());
+  it.each(fixtures.legacyCases)("accepts legacy $path but formats the short canonical path",row=>{
+    expect(parseChatPath(row.path)).toEqual(row.intent);
+    expect(chatTargetPath({version:1,kind:"city",cityId:"city-madeira"},row.intent.city)).toBe(row.canonicalPath);
+  });
   it("does not interpolate arbitrary paths into a city link",()=>{
-    for(const slug of ["../hosts","madeira?role=host","https://evil.example","madeira/hosts",""])
+    for(const slug of ["../hosts","madeira?role=host","https://evil.example","madeira/hosts","","guide","global","hosts","city"])
       expect(()=>chatTargetPath({version:1,kind:"city",cityId:"a"},slug)).toThrow();
   });
 });

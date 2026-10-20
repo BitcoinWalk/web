@@ -1,4 +1,4 @@
-import {parseChatPath,chatTargetPath,type ChatTarget} from "../domain/chat-target";
+import {parseChatPath,chatTargetPath,isReservedChatSlug,type ChatTarget} from "../domain/chat-target";
 import {resolveCityRoute} from "../domain/city-route";
 import {resolveCityChat,type ChatConfig,type ChatDestination} from "../domain/chat";
 import type {CalendarSource} from "../nostr/calendar-records";
@@ -33,6 +33,7 @@ export function resolveChatTarget(path:string,registry:Registry):ChatTargetResol
   const route=byId?{row:byId,canonicalSlug:byId.revision.city.slug}:resolveCityRoute(registry.cities,intent.city);
   if(!route)return {version:1,state:"not-found"};
   const city=route.row.revision.city;
+  if(isReservedChatSlug(city.slug))return {version:1,state:"unavailable"};
   const chat=resolveCityChat(city.cityId,city.slug,registry.config);
   // Never silently turn a missing city room into Global.
   const destination=chat.scope==="city"?validNip29Destination(chat.nip29):null;
