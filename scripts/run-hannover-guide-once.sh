@@ -14,7 +14,7 @@ if [[ $# -gt 1 ]]; then exit 1; fi
 exec 9>/run/lock/bitcoinwalk-guide-hannover-once.lock
 flock -n 9 || { echo 'Another Hannover delivery operation is running.' >&2; exit 1; }
 source_bundle=/home/bitcoinwalk/incoming/send-hannover-guide.cjs
-expected=6f4c06233a38734dda1e59e86e4ce69d7eb4c78e054467a46bbd06246aef2339
+expected=a5c03cfb2b24ef4f794cb4b9688bcb3ee78b204c0adcd3462809bd3a3b4464ec
 # Copy into root-owned storage before checking and executing the immutable bytes.
 delivery_dir=$(mktemp -d /opt/bitcoinwalk-guide-hannover.XXXXXXXX)
 chmod 0755 "$delivery_dir"

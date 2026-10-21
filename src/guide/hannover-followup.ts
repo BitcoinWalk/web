@@ -1,10 +1,16 @@
 import {createHash} from "node:crypto";
 import type {DatabaseSync} from "node:sqlite";
 import {getPublicKey,verifyEvent,type Event} from "nostr-tools";
-import {wrapAlert} from "./core";
+import {configSchema,wrapAlert} from "./core";
 import type {GuideProSetupTask} from "./pro-setup";
 
 export const hannoverCityId="d42123e1-1d01-473b-98e7-846342150eca";
+// This one-shot sender does not read the worker's source relay, directory or
+// replication feeds. Validate only its actual inputs using the shared rules.
+export const hannoverConfigSchema=configSchema.pick({discoveryRelays:true,allowedInboxRelays:true,recipients:true,proSetupStatusURL:true}).required().refine(
+ config=>config.proSetupStatusURL==="http://127.0.0.1:3345/api/pro-setup-notifications",
+ {message:"Guide must use the production setup endpoint.",path:["proSetupStatusURL"]},
+);
 export const hannoverMessage=`Hi Hannover! Your city name, logos, profile/avatar and NIP-05 are now verified.
 
 Please finish setup here:

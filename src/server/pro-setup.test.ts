@@ -4,6 +4,7 @@ import {finalizeEvent, generateSecretKey, getPublicKey, type Event} from "nostr-
 import {DatabaseSync} from "node:sqlite";
 vi.mock("../payments/runtime", () => ({getPaymentRuntime: vi.fn()}));
 vi.mock("./share-image", () => ({managedBackground: vi.fn()}));
+vi.mock("./existing-city-artwork", () => ({existingCityArtwork: vi.fn()}));
 vi.mock("../logos/profile-artwork", () => ({ProfileArtworkStore: class {ensure = vi.fn().mockResolvedValue({avatar: {url: "https://bitcoinwalk.org/api/media/files/avatar.webp"}, banner: {url: "https://bitcoinwalk.org/api/media/files/banner.webp"}});}}));
 vi.mock("../payments/payout-destination-store", () => ({PayoutDestinationStore: class {
   current = vi.fn().mockReturnValue(null);
@@ -11,6 +12,8 @@ vi.mock("../payments/payout-destination-store", () => ({PayoutDestinationStore: 
 }}));
 import {getPaymentRuntime} from "../payments/runtime";
 import {managedBackground} from "./share-image";
+import {existingCityArtwork} from "./existing-city-artwork";
+import {installNamedIdentity} from "../rustress/public-identity-store";
 import {clearProSetupSigner, ownerCityProfileNameMatches, prepareBrandRequest, prepareProSetupPreview, resolveProSetupAuthority, reviewBrandRequest, reuseOwnerAsCitySigner, saveProSetupSigner, proSetupDependencies, proSetupNotificationState} from "./pro-setup";
 import {citySignerProofTemplate} from "../nostr/pro-setup-command";
 import {ProSetupTaskStore} from "../payments/pro-setup-task-store";
@@ -70,6 +73,13 @@ describe("Pro setup fresh authority", () => {
     await expect(prepareProSetupPreview(cityId, owner, "https://bitcoinwalk.org")).rejects.toThrow("authority changed");
     vi.mocked(managedBackground).mockResolvedValue(null);
     await expect(prepareProSetupPreview(cityId, owner, "https://bitcoinwalk.org")).rejects.toThrow("photo is unavailable");
+    installNamedIdentity(database,"radom",owner);
+    vi.mocked(existingCityArtwork).mockResolvedValue({id:"a".repeat(64),avatar:{url:"https://bitcoinwalk.org/existing.jpg"},banner:{url:"https://bitcoinwalk.org/existing-banner.jpg"}});
+    const reused=await prepareProSetupPreview(cityId,owner,"https://bitcoinwalk.org");
+    expect(reused.profile.picture).toBe("https://bitcoinwalk.org/existing.jpg");
+    expect(reused.steps.find(step=>step.label==="City profile artwork")?.detail).toContain("Reusing");
+    expect(reused.signer.configured).toBe(false);
+    expect(reused.payout.configured).toBe(false);
   });
   it("uses the signed creator grant, never the author of an editor revision", async () => {
     const result = await resolveProSetupAuthority(cityId, owner, deps);

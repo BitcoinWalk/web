@@ -28,6 +28,8 @@ import {armadaChatUrl} from "../domain/chat";
 import {cityOwnerPubkey} from "../domain/city";
 import {legacyProEntitlement,type LegacyProEntitlement} from "../payments/legacy-pro-entitlement";
 import {isSilentActiveOverride} from "../domain/admin-city-requests";
+import {activeNamedIdentity} from "../rustress/public-identity-store";
+import {existingCityArtwork} from "./existing-city-artwork";
 
 /** This preflight cannot publish, create invoices, assign identities or activate payments. */
 export type ProSetupPreview = {
@@ -153,16 +155,22 @@ export async function prepareProSetupPreview(cityId: string, actor: string, orig
   const {authority, row} = await resolveProSetupAuthority(cityId, actor);
   const city = row.revision.city, slug = row.decision.approval.slug ?? city.slug;
   const hero = await managedBackground([row.decision.approval.heroImageUrl, city.heroImageUrl]);
-  if (!hero) throw new Error("The approved city photo is unavailable. Restore it before preparing the profile.");
+  const canonicalOrigin=process.env.BITCOINWALK_PUBLIC_ORIGIN?.trim()||"https://bitcoinwalk.org";
+  const namedIdentity=!hero?activeNamedIdentity(getPaymentRuntime().store.db,slug):null;
+  const existing=!hero&&namedIdentity?await existingCityArtwork(namedIdentity.brandPubkey,city.cityName,slug,canonicalOrigin):null;
+  if (!hero&&!existing) throw new Error("The approved city photo is unavailable and existing city profile artwork could not be verified. Retry or ask BitcoinWalk to review the existing image; do not create another identity.");
   // The public identity already carries the city in its display name. Profile
   // artwork therefore uses the stable BitcoinWalk brand lock-up and does not
   // depend on an optional localized merchandise/logo pack.
+  let artwork:{avatar:{url:string};banner:{url:string}};
+  if(existing){artwork=existing;}else{
   const logo = await profileBrandLogo();
   const mediaRoot = process.env.BITCOINWALK_MEDIA_ROOT;
   if (!mediaRoot) throw new Error("Persistent profile artwork storage is not configured.");
   const config = `${mediaRoot}\n${origin}`;
   if (!artworkStore || artworkConfig !== config) {artworkStore = new ProfileArtworkStore(mediaRoot, origin); artworkConfig = config;}
-  const artwork = await artworkStore.ensure({cityId, revisionId: row.revision.event.id, hero, cityLogo: logo});
+  artwork = await artworkStore.ensure({cityId, revisionId: row.revision.event.id, hero:hero!, cityLogo: logo});
+  }
   // A changing owner/approval/entitlement must not receive a stale prepared profile.
   const fresh = await resolveProSetupAuthority(cityId, actor);
   if (JSON.stringify(authority) !== JSON.stringify(fresh.authority)) throw new Error("City authority changed during preparation. Reload to try again.");
@@ -203,7 +211,7 @@ export async function prepareProSetupPreview(cityId: string, actor: string, orig
       ...(capabilities.lightning === "active" && process.env.BITCOINWALK_RUSTRESS_LNURL_ENABLED === "1" ? {lud16: identifier} : {})},
     steps: [
       {label: "Pro entitlement and city ownership", state: "ready", detail: "Verified against current approval, ownership, moderation and either settled payment or operator-confirmed legacy activation evidence."},
-      {label: "City profile artwork", state: "ready", detail: "Prepared from the approved city photo. The avatar uses the larger icon without city lettering."},
+      {label: "City profile artwork", state: "ready", detail: existing?"Reusing the verified existing city profile image. No new image is required.":"Prepared from the approved city photo. The avatar uses the larger icon without city lettering."},
       {label: "Personal payout destination", state: payout ? "ready" : "blocked", detail: payout ? payoutActivation.state==="active"&&payoutActivation.activeVersion===payout.version?`Owner-confirmed destination version ${payout.version} is active.`:payoutActivation.state==="pending"?`Destination version ${payout.version} is being verified. Version ${payoutActivation.activeVersion} remains active until it passes.`:payoutActivation.state==="needs-attention"?`Destination version ${payout.version} needs attention. Version ${payoutActivation.activeVersion} remains active.`:`Owner-confirmed destination version ${payout.version} is saved privately. It is not active until provisioning is verified.` : suggestion ? "Your checkout destination was recovered privately. Confirm it again with the current city owner’s signer before activation." : "Add and confirm your personal Lightning address or LNURL-pay destination below."},
       {label: "City signer", state: task.signer ? "ready" : "blocked", detail: task.signer ? `Expected city signer version ${task.signer.version} is confirmed privately. Its key remains outside BitcoinWalk.` : `Create or connect a recoverable city identity, or reuse the owner account when its public profile is already named ${name}.`},
       {label: "NIP-05 identity", state: capabilities.nip05 === "active" ? "ready" : "blocked", detail: capabilities.nip05 === "active" ? `${slug}@bitcoinwalk.org is independently verified against the city signer.` : `Status: ${capabilities.nip05}. ${capabilities.detail}`},

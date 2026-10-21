@@ -2,18 +2,17 @@ import {readFileSync,lstatSync} from "node:fs";
 import {join} from "node:path";
 import {DatabaseSync} from "node:sqlite";
 import {SimplePool} from "nostr-tools";
-import {configSchema,assertBotKey,selectInbox,signTransportAuth} from "../src/guide/core";
+import {assertBotKey,selectInbox,signTransportAuth} from "../src/guide/core";
 import {readGuideProSetupTasks} from "../src/guide/pro-setup";
 import {readAnyComplete,publishIdempotent} from "../src/guide/transport";
-import {hannoverMessage,hannoverRecipient,prepareHannoverDelivery} from "../src/guide/hannover-followup";
+import {hannoverConfigSchema,hannoverMessage,hannoverRecipient,prepareHannoverDelivery} from "../src/guide/hannover-followup";
 
 async function main(){
  process.umask(0o077);
  if(process.argv.length!==3||!["--preview","--send"].includes(process.argv[2]))throw new Error("Use --preview or --send. Recipient and message cannot be overridden.");
  const send=process.argv[2]==="--send",credentials=process.env.CREDENTIALS_DIRECTORY,state=process.env.STATE_DIRECTORY;
  if(!credentials||!state)throw new Error("Run through the supplied isolated systemd command.");
- const config=configSchema.parse(JSON.parse(readFileSync("/etc/bitcoinwalk-guide/config.json","utf8")));
- if(config.proSetupStatusURL!=="http://127.0.0.1:3345/api/pro-setup-notifications")throw new Error("Guide must use the production setup endpoint.");
+ const config=hannoverConfigSchema.parse(JSON.parse(readFileSync("/etc/bitcoinwalk-guide/config.json","utf8")));
  const keyPath=join(credentials,"guide-key"),stat=lstatSync(keyPath);
  if(!stat.isFile()||(stat.mode&0o027)!==0||stat.size>66)throw new Error("Invalid protected credential file.");
  const raw=readFileSync(keyPath,"utf8").trim();if(!/^[0-9a-f]{64}$/.test(raw))throw new Error("Invalid Guide credential.");

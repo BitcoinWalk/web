@@ -1,8 +1,15 @@
 import {describe,it,expect} from "vitest";
 import {DatabaseSync} from "node:sqlite";
 import {generateSecretKey} from "nostr-tools";
-import {hannoverCityId,hannoverMessage,hannoverRecipient,prepareHannoverDelivery} from "./hannover-followup";
+import {hannoverConfigSchema,hannoverCityId,hannoverMessage,hannoverRecipient,prepareHannoverDelivery} from "./hannover-followup";
 describe("one-time Hannover follow-up",()=>{
+ const config={discoveryRelays:["wss://relay.primal.net/"],allowedInboxRelays:["wss://relay.primal.net/"],recipients:["a".repeat(64)],proSetupStatusURL:"http://127.0.0.1:3345/api/pro-setup-notifications"};
+ it("ignores unused worker settings including the deployed source listener",()=>{
+  expect(hannoverConfigSchema.parse({...config,sourceReadRelay:"ws://127.0.0.1:3340/"})).toEqual(config);
+ });
+ it("retains restrictions on every setting used to send a message",()=>{
+  for(const change of [{proSetupStatusURL:undefined},{proSetupStatusURL:"http://127.0.0.1:3338/api/pro-setup-notifications"},{discoveryRelays:["ws://127.0.0.1:3340/"]},{allowedInboxRelays:["wss://example.com/?secret=bad"]},{allowedInboxRelays:[]},{recipients:["invalid"]}])expect(()=>hannoverConfigSchema.parse({...config,...change})).toThrow();
+ });
  const task={cityId:hannoverCityId,cityName:"Hannover",ownerPubkey:"a".repeat(64),updatedAt:1,kind:"setup" as const,state:"setup-required" as const};
  it("uses only the current Hannover owner and refuses stale or ambiguous tasks",()=>{
   expect(hannoverRecipient([task])).toBe(task.ownerPubkey);
