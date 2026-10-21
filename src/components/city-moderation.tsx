@@ -27,7 +27,7 @@ import styles from "./city-moderation.module.css";
 import {adminCityRequests,createSilentActiveOverrideDecision} from "../domain/admin-city-requests";
 import {createCityUpdateEvent} from "../nostr/city-event";
 import {editedCity} from "../nostr/organizer-edit";
-import {cityAliases} from "../domain/city";
+import {cityAliases,cityDocumentSchema} from "../domain/city";
 import {importCityImageURL,isManagedImageURL,uploadCityImage} from "../lib/media-client";
 
 type CityOgAsset={label:string;url:string};
@@ -54,6 +54,7 @@ export default function CityModeration(){
  const [publicUrls,setPublicUrls]=useState<Record<string,string>>({});
  const [publicAliases,setPublicAliases]=useState<Record<string,string>>({});
  const [editingRow,setEditingRow]=useState<ManagedCity|null>(null);
+ const [editCityName,setEditCityName]=useState("");
  const [editImageUploading,setEditImageUploading]=useState(false);
  const [editDescription,setEditDescription]=useState(""),[editAliases,setEditAliases]=useState(""),[editMeeting,setEditMeeting]=useState(""),[editHero,setEditHero]=useState("");
  const [editLatitude,setEditLatitude]=useState(""),[editLongitude,setEditLongitude]=useState("");
@@ -191,6 +192,7 @@ export default function CityModeration(){
  function closeCityEditor(){if(busy||editImageUploading)return;setEditingRow(null);setEditAssets([]);setEditAssetsMessage("");}
  function openCityEditor(row:ManagedCity){
   const city=row.revision.city;
+  setEditCityName(city.cityName);
   setEditingRow(row);setEditDescription(city.description);setEditAliases((city.aliases??[]).join("\n"));setEditMeeting(city.meetingPoint.description);setEditHero(city.heroImageUrl??"");setEditLatitude(String(city.meetingPoint.latitude));setEditLongitude(String(city.meetingPoint.longitude));setEditAssets([]);setEditAssetsMessage("Loading the current city and walk OG assets…");
   void Promise.allSettled([fetch("/api/cities",{cache:"no-store"}).then(async response=>{if(!response.ok)throw new Error();return response.json() as Promise<{cities?:Array<{id:string;avatarUrl:string}>}>;}),fetch("/api/events",{cache:"no-store"}).then(async response=>{if(!response.ok)throw new Error();return response.json() as Promise<{events?:Array<{name:string;link:string;image:string}>}>;})]).then(results=>{
    const assets:CityOgAsset[]=[];if(results[0].status==="fulfilled"){const cityAsset=results[0].value.cities?.find(item=>item.id===city.cityId);if(cityAsset?.avatarUrl)assets.push({label:"Current city OG image",url:cityAsset.avatarUrl});}
@@ -211,7 +213,7 @@ export default function CityModeration(){
   if(aliases.length>20)throw new Error("Use no more than 20 alternative city names.");
   let heroImageUrl=editHero.trim()||undefined;
   if(heroImageUrl&&heroImageUrl!==city.heroImageUrl&&!isManagedImageURL(heroImageUrl)){setMessage("Approve importing the new city hero into protected BitcoinWalk storage…");heroImageUrl=(await importCityImageURL(city.cityId,heroImageUrl)).url;}
-  const candidate=editedCity(city,{startAt:city.startAt,description:editDescription,meetingPoint:{description:editMeeting,latitude,longitude},heroImageUrl,aliases:aliases.length?aliases:undefined});
+  const candidate=cityDocumentSchema.parse({...editedCity(city,{startAt:city.startAt,description:editDescription,meetingPoint:{description:editMeeting,latitude,longitude},heroImageUrl,aliases:aliases.length?aliases:undefined}),cityName:editCityName.trim()});
   setMessage("Approve the city revision in your signer…");const signed=await signWithBrowserExtension(createCityUpdateEvent(candidate,latest.revision.event.id));
   if(!isSuperAdmin(signed.pubkey))throw new Error("Signer identity changed. Select the BitcoinWalk super-admin and retry.");
   await admin();await current(row);await publishVerifiedEvent(signed,relayConfig.writeRelays,1,authenticateWithBrowserExtension);
@@ -264,6 +266,7 @@ export default function CityModeration(){
     <form onSubmit={submitCityEdit}>
      <fieldset disabled={busy||editImageUploading} style={{border:0,padding:0,margin:0,minWidth:0}}><div className={styles.editBody}>
       <section className={styles.editFields} aria-label="City details">
+       <label>City name<input required maxLength={100} value={editCityName} onChange={event=>setEditCityName(event.target.value)}/></label>
        <label>Description<textarea required maxLength={5000} value={editDescription} onChange={event=>setEditDescription(event.target.value)}/></label>
        <label>Alternative city names<textarea maxLength={2020} value={editAliases} onChange={event=>setEditAliases(event.target.value)} placeholder="One name per line"/></label>
        <label>Default meeting point<input required maxLength={500} value={editMeeting} onChange={event=>setEditMeeting(event.target.value)}/></label>

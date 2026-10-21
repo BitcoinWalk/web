@@ -58,6 +58,9 @@ describe("city backlog controls",()=>{
  it("opens a signed city editor with hero and current OG previews",()=>{
   const page=source();
   expect(page).toContain(">Edit city</button>");
+  expect(page).toContain("setEditCityName(city.cityName)");
+  expect(page).toContain("cityName:editCityName.trim()");
+  expect(page).toContain("City name<input required maxLength={100}");
   expect(page).not.toContain(">Open city</button>");
  expect(page).toContain("hero image URL");
  expect(page).toContain("Upload hero image");
