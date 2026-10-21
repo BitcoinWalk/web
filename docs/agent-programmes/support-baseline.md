@@ -4,7 +4,7 @@ Prepared from redacted user reports and repository records, not a live inbox exp
 
 | Case | Evidence class/source | Expected useful response and next action | Owner |
 |---|---|---|---|
-| S01 Paid city missing from activation queue | Historical Hanover report; BW-143 | Verify current setup state and explain missing host proof; link exact city setup; do not ask for payment again | Support / Development |
+| S01 Paid city missing from activation queue | Historical Hannover report; BW-143 | Verify current setup state and explain missing host proof; link exact city setup; do not ask for payment again | Support / Development |
 | S02 Pro city cannot invite sponsor | Historical Madeira reports; BW-92 | Check canonical entitlement, current owner and public readiness; distinguish ineligible from failed lookup | Development |
 | S03 Invite banner names city but picker blank | Historical Madeira report; release 0.3.402 | Preserve private invite, reconcile canonical catalogue identity; city-only link alone cannot establish payout attribution | Development |
 | S04 Invoice-fetch failure in a Nostr client | Historical BW-88 reports | Record client, time, amount and city; verify endpoint failure before proposing a retry; never claim paid without evidence | Development |
