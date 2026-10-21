@@ -23,7 +23,6 @@ type Directory={version:number;guidePubkey?:string|null;cities:Nip29CityRoom[]};
 type Membership="checking"|"joined"|"not-joined"|"unavailable";
 type Mention={start:number;end:number;query:string};
 const GUIDE_ROOM="nip17:guide";
-const GUIDE_MATRIX_COLUMNS=["01◆10","11001","0◆011","10110","00◆10","11100","0◆101","10011","01◆00"];
 
 function shortNpub(pubkey:string){const value=nip19.npubEncode(pubkey);return `${value.slice(0,12)}…${value.slice(-6)}`;}
 function participantLabel(count:number){return `${count} ${count===1?"participant":"participants"}`;}
@@ -36,7 +35,7 @@ function ProfileAvatar({pubkey,profile,size=44,label}:{pubkey:string;profile?:Pu
   ?<img className={styles.avatarImage} src={picture} alt={resolvedLabel} title={resolvedLabel} width={size} height={size} loading="lazy" referrerPolicy="no-referrer" onError={()=>setFailed(picture)}/>
   :<span className={styles.avatarFallback} style={{width:size,height:size}} title={resolvedLabel} aria-label={resolvedLabel}>👤</span>;
 }
-function GuideInboxLoader(){return <div className={styles.guideLoader} role="status" aria-live="polite" aria-label="Opening encrypted Guide messages"><div className={styles.guideLoaderCard}><div className={styles.guideMatrix} aria-hidden="true"><div className={styles.guideMatrixRain}>{GUIDE_MATRIX_COLUMNS.map((column,index)=><span key={`${column}-${index}`}>{column}</span>)}</div><div className={styles.guideMatrixCore}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7.5 10V7.5a4.5 4.5 0 0 1 9 0V10M6 10h12v10H6z"/></svg></div></div><div className={styles.guideLoaderCopy}><strong>Opening encrypted Guide messages</strong><span>Checking inbox relays and decrypting your messages…</span><div className={styles.guideProgress} aria-hidden="true"><i/></div><small>Your signer may ask for approval.</small></div></div></div>}
+function GuideInboxLoader(){return <div className={styles.guideLoader} role="status" aria-live="polite" aria-label="Opening encrypted Guide messages"><div className={styles.guideLoaderBody}><span className={styles.guideSpinner} aria-hidden="true"/><div className={styles.guideLoaderCopy}><strong>Opening Guide messages…</strong><span>Checking your encrypted inbox</span></div></div></div>}
 function read(pool:SimplePool,room:Nip29CityRoom["chat"]["nip29"],filter:{kinds:number[];"#d"?:string[];"#h"?:string[];limit:number}){
  if(!room)throw new Error("Chat destination is missing.");
  return new Promise<{events:Event[];reasons:string[]}>(resolve=>{const events:Event[]=[];let done=false,timer:ReturnType<typeof setTimeout>|undefined=undefined;const finish=(reasons:string[]=[])=>{if(done)return;done=true;if(timer)clearTimeout(timer);resolve({events,reasons});};const sub=pool.subscribeEose([room.relay],filter,{maxWait:9000,onevent:event=>events.push(event),onclose:rows=>finish(rows.map(row=>row.reason))});timer=setTimeout(()=>{sub.close("read timeout");finish(["read timeout"]);},10000);});
