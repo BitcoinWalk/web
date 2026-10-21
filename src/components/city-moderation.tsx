@@ -2,7 +2,7 @@
 import {useDashboard,useDashboardAutoLoad} from "./dashboard-context";
 import {useEffect,useRef,useState,type FormEvent} from "react";
 import Link from "next/link";
-import {nip19,type Event} from "nostr-tools";
+import {nip19,type Event,type EventTemplate} from "nostr-tools";
 import AdminCityLink from "./admin-city-link";
 import {relayConfig} from "../lib/relay-config";
 import {directoryConfig} from "../lib/directory-config";
@@ -106,6 +106,18 @@ export default function CityModeration(){
    await reload(city.cityId);setSelectedId(city.cityId);setMessage(`${city.cityName}: ${saved.state}. Confirmed by relay read-back. No relay infrastructure was deleted.`);
   });
  }
+ async function grantPro(item:CityWorkflowRow){await run(async()=>{
+  if(item.tier!=="basic"||!item.online||!paymentInventoryReady)throw new Error("Only a current online Basic city with verified payment inventory can receive this grant.");
+  if(!window.confirm(`Grant lifetime Pro access to ${item.cityName}?\n\nThis creates a zero-cost administrative entitlement and starts the normal organizer-controlled setup. It includes the complete Pro bundle and the 79% organizer / 21% BitcoinWalk policy. It does not choose a payout destination, create or hold a city key, or activate public payment services.`)){setMessage("Cancelled. No Pro grant was signed.");return;}
+  setMessage(`Preparing the exact ${item.cityName} Pro grant…`);
+  const prepared=await fetch(`/api/admin/pro-promotion?cityId=${encodeURIComponent(item.cityId)}`,{cache:"no-store"}),payload=await prepared.json() as {template?:EventTemplate;error?:string};
+  if(!prepared.ok||!payload.template)throw new Error(payload.error||"The Pro grant could not be prepared.");
+  setMessage(`Review the exact ${item.cityName} lifetime Pro grant in your signer…`);
+  const signed=await signWithBrowserExtension(payload.template);assertExactSigned(signed,payload.template);await admin();
+  const response=await fetch("/api/admin/pro-promotion",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({event:signed})}),result=await response.json() as {created?:boolean;error?:string};
+  if(!response.ok)throw new Error(result.error||"The Pro grant was refused.");
+  await reload(item.cityId);setMessage(`${item.cityName} now has lifetime Pro access. The organizer's first required step is to confirm their payout destination.`);
+ });}
  async function archiveRejectedTests(){await run(async()=>{
   if(!paymentInventoryReady)throw new Error("Payment inventory is unavailable. Refresh cities before archiving anything.");
   const blocked=needsChanges.filter(row=>paidCityIds.has(row.revision.city.cityId)||!!directoryConfig.paidCities[row.revision.city.cityId]);
@@ -250,7 +262,7 @@ export default function CityModeration(){
   <ol className={styles.list} aria-label="City operational backlog">{visibleWorkflow.length?visibleWorkflow.map(item=>{const nextStep=cityWorkflowNextStep(item);return <li className={styles.item} key={item.cityId}>
    <div className={styles.row}><div className={styles.identity}><span className={styles.dot} data-online={item.online} role="img" aria-label={item.online?"Online":"Offline"}/><div><strong>{item.cityName}</strong><small>/{item.slug} · <CopyValue label={`${item.cityName} city ID`} value={item.cityId}/></small></div></div>
    <div className={styles.badges}><span className={styles.badge} data-status={item.status}>{cityWorkflowLabel(item.status)}</span><span className={styles.badge}>{item.tier==="paid"?"Paid":item.tier==="test"?"Test":"Basic"}</span><span className={styles.badge}>{cityRelayLabel(item.relay)}</span></div>
-   <CityActionsMenu cityName={item.cityName}>{cityWorkflowActions(item).map(action=><span className={styles.actionMenuItem} key={action}>{cityAction(item,action)}</span>)}</CityActionsMenu></div>
+   <CityActionsMenu cityName={item.cityName}>{cityWorkflowActions(item).map(action=><span className={styles.actionMenuItem} key={action}>{cityAction(item,action)}</span>)}{item.tier==="basic"&&item.online&&<span className={styles.actionMenuItem}><button role="menuitem" disabled={busy||!directoryCurrent||!paymentInventoryReady} onClick={()=>grantPro(item)}>Grant Pro access</button></span>}</CityActionsMenu></div>
    {nextStep&&<aside className={styles.nextStep} aria-label={`Next action for ${item.cityName}`}>
     <span className={styles.nextStepMark} aria-hidden="true">→</span>
     <p><strong>Next: {nextStep.owner}</strong> — {nextStep.action}{nextStep.helpHref&&<> <a href={nextStep.helpHref} target="_blank" rel="noreferrer">View host instructions <span aria-hidden="true">↗</span></a></>}</p>
