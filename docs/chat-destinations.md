@@ -19,7 +19,7 @@ City links use the short form, for example `/chat/madeira`. The former
 `guide`, `global`, `hosts` and the legacy prefix `city` are reserved chat path
 segments, case-insensitively; cities and their aliases cannot shadow them.
 Unknown well-formed short city paths return 404, not a fallback conversation.
-This short-path follow-up is implemented locally, not yet deployed. The shared
+This short-path follow-up is deployed to staging and production as 0.3.458. The shared
 fixtures now include the legacy path and its short canonical destination.
 Verification: all 2,009 tests passed (45 focused contract/endpoint tests), plus
 type checking, changed-file lint, the production-mode build and backlog checks.
@@ -87,3 +87,41 @@ or unknown-target responses, and the source-specific static build manifest.
 The staging service is active. Production remains `app-production-0.3.454`.
 No messages or membership actions were performed. Mobile fixture execution and
 human acceptance remain pending; BW-157/BW-158 are not included.
+
+Short-path staging verification, 20 October 2026: runtime commit
+`d1befd06c9c3e8e101f09d54785ea0257d9fa239` was pushed to GitHub and ngit and
+deployed as `app-staging-0.3.458`. Package SHA-256:
+`e247bee941f8f206387cba0264b34046a655e026e6372adc2e6273cac8020fb0`.
+The guard accepted the recorded 0.3.457 predecessor; deployment evidence is
+`/home/bitcoinwalk/backups/app-staging-deploy.1BeGES` on the staging host.
+All 19 cities passed live short-link redirects, legacy-to-short redirects and
+resolver identity/current-group checks. Guide/Global/Hosts redirects, Hosts
+privacy, legacy resolver canonicalization, four unknown/malformed/reserved-path
+checks and the source-specific static manifest passed. The service and loopback
+health are healthy. Production remains `app-production-0.3.454`; no signed
+actions, messages or membership changes were performed.
+
+Production promotion, 20 October 2026: the exact staging-tested source
+`d1befd06c9c3e8e101f09d54785ea0257d9fa239` was separately rebuilt with production
+relay and invitation settings. All 2,009 tests, type checking/build and production
+package smoke checks passed. Evaluating the emitted browser relay module verified
+production read/write/directory configuration; staging strings retained as unused
+defaults are not effective relay settings.
+Package SHA-256: `6491069f967e165d36b93ac4aec79f3dfc77edf5faf1cc0f2f7a6f9598a0ee25`.
+The guard activated `app-production-0.3.458` from the recorded 0.3.454 predecessor.
+Evidence and the consistent online payments backup are retained at
+`/home/bitcoinwalk/backups/app-production-deploy.lh3C8f` on the production host.
+
+Production readiness differs from staging: 21 approved cities, but only Hradec
+Králové, Lugano and Madrid have active city-group records. A read-only comparison
+of the pre-release database backup and live database found exactly the same three
+records, all public-enabled. Live checks across all 21 cities verified working
+short links, legacy redirects and resolver identity/current-group mappings for
+those three, and safe 503 responses (no Global fallback) for the other 18, including
+Madeira and London. Guide/Global/Hosts redirects and resolution, Hosts privacy,
+five malformed/unknown/reserved-target checks and the source-specific static
+manifest passed. Production service and public/loopback health are healthy;
+staging remains 0.3.458. Missing production groups require the separate signed
+provisioning workflow; this release did not create groups or change membership.
+BW-156 remains in progress pending production provisioning, mobile fixture
+execution and human acceptance; BW-157/BW-158 remain separate.

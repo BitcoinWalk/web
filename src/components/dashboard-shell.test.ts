@@ -1,7 +1,7 @@
 import {createElement} from "react";
 import {renderToStaticMarkup} from "react-dom/server";
 import {describe,expect,it,vi} from "vitest";
-import DashboardShell,{DashboardBrand} from "./dashboard-shell";
+import DashboardShell,{DashboardBrand,DashboardDataHealth} from "./dashboard-shell";
 import {combinedPendingRequestCount} from "./pending-request-count";
 
 vi.mock("next/navigation",()=>({usePathname:()=>"/admin"}));
@@ -48,4 +48,16 @@ describe("dashboard request totals",()=>{
     expect(combinedPendingRequestCount({cities:0,proActivations:0})).toBe(0);
     expect(combinedPendingRequestCount({cities:2,proActivations:3})).toBe(5);
   });
+});
+
+describe("chat dashboard status",()=>{
+ it("removes the entire healthy banner wrapper only in chat",()=>{
+  const props={health:{state:"ready" as const,message:"Current."},busy:false,onRetry:()=>{}};
+  expect(renderToStaticMarkup(createElement(DashboardDataHealth,{...props,chat:true}))).toBe("");
+  expect(renderToStaticMarkup(createElement(DashboardDataHealth,{...props,chat:false}))).toContain("Data up to date");
+ });
+ it.each(["loading","partial","stale","failed"] as const)("retains %s feedback and recovery in chat",state=>{
+  const html=renderToStaticMarkup(createElement(DashboardDataHealth,{chat:true,health:{state,message:"Check required."},busy:false,onRetry:()=>{}}));
+  expect(html).toContain("Check required.");if(state!=="loading")expect(html).toContain("Retry");if(state==="failed")expect(html).toContain('role="alert"');
+ });
 });
