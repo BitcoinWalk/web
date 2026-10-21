@@ -32,7 +32,7 @@ export default function WalkieTalkieHome({cities,rooms,guideAvailable,globalRoom
    <img src="/brand/bitcoinwalk-icon.png" width="64" height="64" alt="" aria-hidden="true"/>
   </header>
   <nav className={styles.shortcuts} aria-label="Shared conversations">
-   <button type="button" disabled={!guideAvailable} onClick={onGuide}><img src="/brand/bitcoinwalk-admin-favicon.png" alt=""/><span><strong>Guide</strong><small>{guideAvailable?"Private DM":"Organizer only"}</small></span></button>
+   <button type="button" disabled={!guideAvailable} onClick={onGuide}><img src="/brand/bitcoinwalk-admin-favicon.png" alt=""/><span><strong>Guide</strong><small>{guideAvailable?"Private DM":"Sign in"}</small></span></button>
    <button type="button" disabled={!globalRoom} onClick={onGlobal}><img src="/brand/bitcoinwalk-icon.png" alt=""/><span><strong>Global</strong><small>{globalRoom?"Community":"Not available"}</small></span></button>
    <button type="button" disabled={!hostsRoom} onClick={onHosts}><span className={styles.hostsAvatar} aria-hidden="true">BW</span><span><strong>Hosts</strong><small>{hostsRoom?"Private group":"Host only"}</small></span></button>
   </nav>
