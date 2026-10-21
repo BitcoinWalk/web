@@ -1,5 +1,5 @@
 import {describe,expect,it} from "vitest";
-import {classifyCityIdentityTier,managedCityProfileMatches,provisioningStatusCityId,summarizeCityIdentityHealth,type CityIdentityHealthEvidence} from "./pro-city-identity-health";
+import {classifyCityIdentityTier,identityHealthPubkey,managedCityProfileMatches,provisioningStatusCityId,summarizeCityIdentityHealth,type CityIdentityHealthEvidence} from "./pro-city-identity-health";
 
 const base=(overrides:Partial<CityIdentityHealthEvidence>={}):CityIdentityHealthEvidence=>({
  cityId:"11111111-1111-4111-8111-111111111111",cityName:"Madeira",slug:"madeira",availableInEnvironment:true,tier:"pro",checkedAt:100,
@@ -9,6 +9,29 @@ const base=(overrides:Partial<CityIdentityHealthEvidence>={}):CityIdentityHealth
 });
 
 describe("Pro city identity health",()=>{
+ it("recognizes reviewed public identity without completing private onboarding",()=>{
+  const row=summarizeCityIdentityHealth(base({task:null,active:null,preparedBrandPubkey:undefined,activationState:undefined,binding:"fail",capabilities:{overall:"setup-required",nip05:"setup-required",lightning:"setup-required",retryable:false,detail:"Not activated"},nip05Verified:true}));
+  expect(row.checks.filter(check=>check.state==="pass").map(check=>check.key)).toEqual(["profile","nip05"]);
+  expect(row.checks.filter(check=>check.state==="fail").map(check=>check.key)).toEqual(["identity","lightning","binding","recovery"]);
+ });
+ it("uses named mappings only as a fallback, never over a recorded signer",()=>{
+  expect(identityHealthPubkey(null,null,null,"c".repeat(64))).toBe("c".repeat(64));
+  expect(identityHealthPubkey(base().active,null,null,"c".repeat(64))).toBe("a".repeat(64));
+  expect(identityHealthPubkey(null,{brandPubkey:"b".repeat(64)},base().task,"c".repeat(64))).toBe("b".repeat(64));
+  expect(identityHealthPubkey(null,null,base().task,"c".repeat(64))).toBe("a".repeat(64));
+  expect(identityHealthPubkey(null,null,null)).toBeUndefined();
+ });
+ it("verifies a conventional profile before binding, but requires the canonical website",()=>{
+  const profile={name:"BitcoinWalk Hannover",picture:"https://bitcoinwalk.org/hannover.jpg",website:"https://bitcoinwalk.org/hannover"};
+  expect(managedCityProfileMatches(profile,null,"Hannover",profile.website)).toBe(true);
+  expect(managedCityProfileMatches({...profile,name:"Other"},null,"Hannover",profile.website)).toBe(false);
+  expect(managedCityProfileMatches({...profile,website:"https://example.com"},null,"Hannover",profile.website)).toBe(false);
+  expect(managedCityProfileMatches(profile,null,"Hannover")).toBe(false);
+  expect(managedCityProfileMatches({...profile,picture:undefined},null,"Hannover",profile.website)).toBe(false);
+ });
+ it("does not pass NIP-05 merely because provisioning says active",()=>{
+  expect(summarizeCityIdentityHealth(base({nip05Verified:false})).checks.find(check=>check.key==="nip05")?.state).toBe("fail");
+ });
  it("keeps confirmed London/Würzburg Pro while separating staging test evidence",()=>{
   expect(classifyCityIdentityTier({operatorConfirmed:true,settled:false,hasSetup:false,hasActiveBinding:false,staging:true})).toBe("pro");
   expect(classifyCityIdentityTier({operatorConfirmed:false,settled:true,hasSetup:true,hasActiveBinding:true,staging:true})).toBe("pilot");

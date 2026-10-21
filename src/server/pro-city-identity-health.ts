@@ -11,6 +11,7 @@ import {getPaymentRuntime} from "../payments/runtime";
 import type {ProSetupTask} from "../payments/pro-setup-task-store";
 import {cityProvisioningCapabilities, type CityProvisioningCapabilities} from "../rustress/provisioning-capabilities";
 import {citySetupEvidence} from "./city-setup-evidence";
+import {activeNamedIdentity} from "../rustress/public-identity-store";
 
 export type IdentityHealthCheckState="pass"|"fail"|"unknown"|"future"|"not-applicable";
 export type IdentityHealthStatus="complete"|"action-required"|"not-configured"|"unknown"|"not-applicable";
@@ -54,7 +55,7 @@ export function summarizeCityIdentityHealth(input:CityIdentityHealthEvidence):Ci
   // endpoint verification. Do not turn delayed kind-0 replication on unrelated
   // profile relays into a false managed-service failure; profile propagation is
   // assessed separately by the profile check above.
-  const nip05State:IdentityHealthCheckState=input.capabilities.nip05!=="active"?"fail":input.nip05Verified?"pass":"fail";
+  const nip05State:IdentityHealthCheckState=input.nip05Verified?"pass":"fail";
   const lightningState:IdentityHealthCheckState=input.capabilities.lightning==="active"?"pass":"fail";
   const checks:CityIdentityHealthCheck[]=[
     check("identity","Dedicated city npub",identityOk?"pass":"fail",identityOk?(input.activationState==="active"?"The saved city signer matches the active BitcoinWalk city binding.":"The saved city signer matches the submitted BitcoinWalk city identity."):"A distinct saved city signer matching the submitted city identity is required."),
@@ -104,8 +105,14 @@ function latestProfile(events:Event[],pubkey:string):PublicProfile|null{
 }
 export function managedCityProfileMatches(profile:PublicProfile|null,active:ActiveBrand|null,cityName:string,canonicalWebsite?:string){
   const expected=active?.challenge.profile;
-  if(!profile||!expected||!profile.name||!profile.picture||!profile.website||profile.website!==expected.website&&profile.website!==canonicalWebsite)return false;
-  return profile.name===expected.name||profile.name===`BitcoinWalk ${cityName}`||profile.name===`BitcoinWalk in ${cityName}`;
+  if(!profile||!profile.name||!profile.picture||!profile.website||profile.website!==expected?.website&&profile.website!==canonicalWebsite)return false;
+  return profile.name===expected?.name||profile.name===`BitcoinWalk ${cityName}`||profile.name===`BitcoinWalk in ${cityName}`;
+}
+
+/** A reviewed NIP-05 mapping is public-profile evidence only. It cannot satisfy
+ * signer possession, recovery, a signed city binding or payout activation. */
+export function identityHealthPubkey(active:ActiveBrand|null,request:{brandPubkey:string}|null,task:ProSetupTask|null,namedPubkey?:string){
+  return active?.challenge.binding.brandPubkey??request?.brandPubkey??task?.signer?.pubkey??namedPubkey;
 }
 
 /** Read-only super-admin projection. It never creates an identity, retries provisioning or changes a public record. */
@@ -121,21 +128,23 @@ export async function listProCityIdentityHealth(actor:string):Promise<CityIdenti
   const identityDefinitions=definitions.filter(city=>!!city.operator||settled.has(city.cityId)||setupIds.has(city.cityId)||activeIds.has(city.cityId));
   const active=new Map(identityDefinitions.map(city=>[city.cityId,activeBrand(db,city.cityId)]));
   const requests=new Map(identityDefinitions.map(city=>[city.cityId,latestBrandRequest(db,city.cityId)]));
-  const ids=identityDefinitions.map(city=>city.cityId),brands=[...new Set([...active.values()].map(value=>value?.challenge.binding.brandPubkey).filter((value):value is string=>!!value))];
+  const tasks=new Map(identityDefinitions.map(city=>[city.cityId,setupIds.has(city.cityId)?setupTask(db,city.cityId):null]));
+  const publicBrands=new Map(identityDefinitions.map(city=>[city.cityId,identityHealthPubkey(active.get(city.cityId)??null,requests.get(city.cityId)??null,tasks.get(city.cityId)??null,activeNamedIdentity(db,city.slug)?.brandPubkey)]));
+  const ids=identityDefinitions.map(city=>city.cityId),brands=[...new Set([...publicBrands.values()].filter((value):value is string=>!!value))];
   const bindingRelays=serverReadRelays(),bindingReads=ids.length?await Promise.all(bindingRelays.map(async relay=>{try{const events=await queryRelayEvents([relay],[30312],undefined,{authors:[SUPER_ADMIN_PUBKEY],"#i":ids,limit:500});return {relay,events,error:events.length>=500};}catch{return {relay,events:[] as Event[],error:true};}})):[];
   const publicProfileReads=brands.length?await Promise.all(profileRelays.map(async relay=>{try{return {relay,events:await queryRelayEvents([relay],[0],undefined,{authors:brands,limit:Math.min(500,Math.max(100,brands.length*5))}),error:false};}catch{return {relay,events:[] as Event[],error:true};}})):[];
   const publicOrigin=process.env.BITCOINWALK_PUBLIC_ORIGIN?.trim()||"https://bitcoinwalk.org";
   return Promise.all(definitions.map(async city=>{
-    const {cityId,cityName,slug,availableInEnvironment}=city,provisioningCityId=city.operatorCityId??cityId,task=setupIds.has(cityId)?setupTask(db,cityId):null,current=active.get(cityId)??null,request=requests.get(cityId)??null;
+    const {cityId,cityName,slug,availableInEnvironment}=city,provisioningCityId=city.operatorCityId??cityId,task=tasks.get(cityId)??null,current=active.get(cityId)??null,request=requests.get(cityId)??null;
     const staging=process.env.BITCOINWALK_PAYMENT_APP_ORIGIN?.includes("app-staging.bitcoinwalk.org")??false;
     const tier=classifyCityIdentityTier({operatorConfirmed:!!city.operator,settled:settled.has(cityId),hasSetup:!!task,hasActiveBinding:!!current,staging});
     let binding:CityIdentityHealthEvidence["binding"]="fail";
     if(current){if(!bindingRelays.length||bindingReads.some(read=>read.error))binding="unknown";else binding=bindingReads.every(read=>resolveCityBrand(read.events.filter(event=>event.tags.some(tag=>tag[0]==="i"&&tag[1]===cityId)),cityId)?.event.id===current.eventId)?"pass":"fail";}
-    const brand=current?.challenge.binding.brandPubkey??request?.brandPubkey??task?.signer?.pubkey,identifier=`${slug}@bitcoinwalk.org`,profiles:ProfileEvidence={reachable:0,matching:0,nip05:0,lightning:0};
+    const brand=publicBrands.get(cityId),identifier=`${slug}@bitcoinwalk.org`,profiles:ProfileEvidence={reachable:0,matching:0,nip05:0,lightning:0};
     if(brand)for(const read of publicProfileReads){if(read.error)continue;profiles.reachable++;const profile=latestProfile(read.events,brand);if(managedCityProfileMatches(profile,current,cityName,`${publicOrigin}/${slug}`))profiles.matching++;if(profile?.nip05===identifier)profiles.nip05++;if(profile?.lnurl===identifier)profiles.lightning++;}
     const capabilities=tier!=="basic"?cityProvisioningCapabilities(db,provisioningCityId):{overall:"setup-required",nip05:"setup-required",lightning:"setup-required",retryable:false,detail:"Not applicable."} as CityProvisioningCapabilities;
     const activation=table(db,"rustress_activation_task")?db.prepare("SELECT updated_at FROM rustress_activation_task WHERE city=?").get(provisioningCityId) as {updated_at:number}|undefined:undefined;
-    const nip05Verified=!!brand&&capabilities.nip05==="active"&&await verifyNip05(brand,identifier);
+    const nip05Verified=!!brand&&await verifyNip05(brand,identifier);
     return summarizeCityIdentityHealth({cityId,cityName,slug,availableInEnvironment,tier,checkedAt,task,active:current,activationState:request?.state,preparedBrandPubkey:request?.brandPubkey??current?.challenge.binding.brandPubkey,binding,profile:profiles,capabilities,nip05Verified,activationUpdatedAt:activation?.updated_at});
   }));
 }
