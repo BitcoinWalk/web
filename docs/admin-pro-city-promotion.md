@@ -99,6 +99,12 @@ The operation creates an online SQLite backup under `/home/bitcoinwalk/backups/`
 
 An exact retry is idempotent and reports `created=false`. Any partial, different or pre-existing history is refused. The tool has no downgrade or revoke mode.
 
+An exact retry of a fully installed promotion remains readable after the
+15-minute signing window has elapsed. This is acknowledgement recovery only:
+the stored grant, zero-amount audit row, entitlement and setup-task binding must
+all match byte-for-byte, and the retry performs no write. An expired grant that
+was never installed is still refused, as is any partial or conflicting history.
+
 ## 4. Confirm the organizer handoff
 
 After the application and Guide workers have reconciled:

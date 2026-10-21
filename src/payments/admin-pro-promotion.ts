@@ -30,10 +30,15 @@ export function createAdminProPromotionTemplate(evidence:PromotionEvidence,input
   organizerBasisPoints:7900,retainedBasisPoints:2100,reason:input.reason,issuedAt:now,expiresAt:now+900,nonce:input.nonce});
  return {kind:27235,created_at:now,tags:tags(value),content:JSON.stringify(value)};
 }
-export function authorizeAdminProPromotion(event:Event,evidence:PromotionEvidence,now=Math.floor(Date.now()/1000)):AdminProPromotion{
+function parseAdminProPromotion(event:Event):AdminProPromotion{
  if(event.kind!==27235||event.pubkey!==SUPER_ADMIN_PUBKEY||!verifyEvent(event))throw new Error("Exact BitcoinWalk super-admin signature required.");
  let value:AdminProPromotion;try{value=schema.parse(JSON.parse(event.content));}catch{throw new Error("Invalid administrative Pro promotion contract.");}
- if(event.created_at!==value.issuedAt||value.issuedAt>now+60||value.expiresAt<=now||value.expiresAt-value.issuedAt!==900||JSON.stringify(event.tags)!==JSON.stringify(tags(value)))throw new Error("Administrative Pro promotion is expired or changed.");
+ if(event.created_at!==value.issuedAt||value.expiresAt-value.issuedAt!==900||JSON.stringify(event.tags)!==JSON.stringify(tags(value)))throw new Error("Administrative Pro promotion is expired or changed.");
+ return value;
+}
+export function authorizeAdminProPromotion(event:Event,evidence:PromotionEvidence,now=Math.floor(Date.now()/1000)):AdminProPromotion{
+ const value=parseAdminProPromotion(event);
+ if(value.issuedAt>now+60||value.expiresAt<=now)throw new Error("Administrative Pro promotion is expired or changed.");
  const {city,authority,owner}=currentCity(evidence,value.cityId);
  if(value.cityName!==city.revision.city.cityName||value.ownerPubkey!==owner||value.revisionId!==city.revision.event.id||value.approvalEventId!==city.decision.event.id||value.authorityEventId!==authority.event.id)
   throw new Error("City approval or ownership changed after the promotion was prepared.");
@@ -44,7 +49,7 @@ type AuditRow={cityId:string;entitlementId:string;ownerPubkey:string;revisionId:
 const auditColumns="cityId,entitlementId,ownerPubkey,revisionId,approvalEventId,authorityEventId,grantEventId,grantEvent,bundle,capabilities,organizerBasisPoints,retainedBasisPoints,reason,grantedAt";
 const same=(a:unknown,b:unknown)=>JSON.stringify(a)===JSON.stringify(b);
 export function installAdminProPromotion(db:DatabaseSync,event:Event,evidence:PromotionEvidence,apply=false,now=Math.floor(Date.now()/1000)){
- const value=authorizeAdminProPromotion(event,evidence,now),entitlementId=`admin-pro:${event.id}`,audit:AuditRow={cityId:value.cityId,entitlementId,ownerPubkey:value.ownerPubkey,revisionId:value.revisionId,
+ let value=parseAdminProPromotion(event);const entitlementId=`admin-pro:${event.id}`,audit:AuditRow={cityId:value.cityId,entitlementId,ownerPubkey:value.ownerPubkey,revisionId:value.revisionId,
   approvalEventId:value.approvalEventId,authorityEventId:value.authorityEventId,grantEventId:event.id,grantEvent:JSON.stringify(event),bundle:value.bundle,capabilities:JSON.stringify(value.capabilities),
   organizerBasisPoints:value.organizerBasisPoints,retainedBasisPoints:value.retainedBasisPoints,reason:value.reason,grantedAt:value.issuedAt};
  const table=(name:string)=>!!db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?").get(name);
@@ -61,6 +66,7 @@ export function installAdminProPromotion(db:DatabaseSync,event:Event,evidence:Pr
   if(existingAudit.length!==1||invoice.length!==1||entitlement.length!==1||setup.length!==1||!same(existingAudit[0],audit)||!same(invoice[0],expectedInvoice)||!same(entitlement[0],expectedEntitlement)||
    task?.cityId!==value.cityId||task.entitlementId!==entitlementId||task.originalOwnerPubkey!==value.ownerPubkey)throw new Error("City already has payment, entitlement, setup or conflicting promotion history.");
   return {created:false,cityId:value.cityId,entitlementId,ownerPubkey:value.ownerPubkey,bundle:value.bundle,capabilities:value.capabilities,organizerBasisPoints:value.organizerBasisPoints,retainedBasisPoints:value.retainedBasisPoints};}
+ value=authorizeAdminProPromotion(event,evidence,now);
  if(!apply)return {created:true,cityId:value.cityId,entitlementId,ownerPubkey:value.ownerPubkey,bundle:value.bundle,capabilities:value.capabilities,organizerBasisPoints:value.organizerBasisPoints,retainedBasisPoints:value.retainedBasisPoints};
  if(!invoiceColumns.has("source"))db.exec("ALTER TABLE payment_invoice ADD COLUMN source TEXT NOT NULL DEFAULT 'checkout-v1'");
  db.exec(`CREATE TABLE IF NOT EXISTS admin_pro_promotion(cityId TEXT PRIMARY KEY,entitlementId TEXT NOT NULL UNIQUE,ownerPubkey TEXT NOT NULL,revisionId TEXT NOT NULL,approvalEventId TEXT NOT NULL,
