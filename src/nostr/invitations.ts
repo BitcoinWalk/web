@@ -1,4 +1,4 @@
-import {SimplePool,compareEvents,verifyEvent,getEventHash,nip19,type Event} from "nostr-tools";
+import {SimplePool,compareEvents,verifyEvent,getEventHash,nip19,type Event,type EventTemplate} from "nostr-tools";
 import {createWrap} from "nostr-tools/nip59";
 import {profileRelays} from "./profiles";
 import {getBrowserExtensionPubkey,signWithBrowserExtension} from "./signer";
@@ -15,6 +15,13 @@ function validInboxURL(value:string):boolean {try{const u=new URL(value);return 
 // Announcement discovery is separate from delivery: only signed kind-10050
 // preferences below may supply message destinations.
 export const inboxDiscoveryRelays=[...new Set((process.env.NEXT_PUBLIC_INBOX_DISCOVERY_RELAYS?.split(",")??[...profileRelays,"wss://relay.ditto.pub/","wss://relay.primal.net/"]).map(value=>value.trim()).filter(validInboxURL).map(value=>new URL(value).href))];
+/** Public, Guide-compatible NIP-17 inboxes used by the web chat's one-time
+ * setup action. Both are discovery relays, so the signed preference is
+ * independently readable without inventing a private-message destination. */
+export const guideInboxRelays=["wss://relay.ditto.pub/","wss://nos.lol/"] as const;
+export function guideInboxTemplate(now=Math.floor(Date.now()/1000)):EventTemplate{
+ return {kind:10050,created_at:now,content:"",tags:guideInboxRelays.map(relay=>["relay",relay])};
+}
 export function inboxRelays(events:Event[],key:string):string[]{
  const newest=events.filter(e=>e.kind===10050&&e.pubkey===key&&e.created_at<=Math.floor(Date.now()/1000)+60&&verifyEvent(e)).sort(compareEvents)[0];
  if(!newest)throw new Error("No signed DM inbox announcement was found on the reachable discovery relays. Publish NIP-17 inbox settings in a compatible client.");

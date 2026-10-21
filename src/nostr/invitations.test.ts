@@ -2,7 +2,7 @@ import {describe,it,expect,vi,afterEach} from "vitest";
 import {SimplePool,finalizeEvent,getPublicKey,nip19,nip44,type EventTemplate} from "nostr-tools";
 import {unwrapEvent} from "nostr-tools/nip59";
 vi.mock("./authority",()=>({isSuperAdmin:(key:string)=>key===getPublicKey(new Uint8Array(32).fill(1))}));
-import {inviteRecipient,publicInviteURL,invitationText,inboxRelays,prepareInvitation,preparePrivateInvitation,readInboxAnnouncements,discoverInvitationInboxes,invitationFailureMessage,inboxDiscoveryRelays} from "./invitations";
+import {inviteRecipient,publicInviteURL,invitationText,inboxRelays,prepareInvitation,preparePrivateInvitation,readInboxAnnouncements,discoverInvitationInboxes,invitationFailureMessage,inboxDiscoveryRelays,guideInboxRelays,guideInboxTemplate} from "./invitations";
 const key=new Uint8Array(32).fill(2),pubkey=getPublicKey(key);
 afterEach(()=>{vi.unstubAllGlobals();vi.restoreAllMocks();});
 describe("organizer invitations",()=>{
@@ -26,6 +26,10 @@ describe("organizer invitations",()=>{
   expect(()=>inboxRelays([e],"f".repeat(64))).toThrow();
   const latest=finalizeEvent({kind:10050,created_at:11,tags:[],content:""},key);expect(()=>inboxRelays([e,latest],pubkey)).toThrow();
   const tampered=JSON.parse(JSON.stringify(e));tampered.tags=[["relay","wss://evil.example.com"]];expect(()=>inboxRelays([tampered],pubkey)).toThrow();
+ });
+ it("prepares the exact Guide-compatible web inbox preference",()=>{
+  expect(guideInboxRelays).toEqual(["wss://relay.ditto.pub/","wss://nos.lol/"]);
+  expect(guideInboxTemplate(123)).toEqual({kind:10050,created_at:123,content:"",tags:[["relay","wss://relay.ditto.pub/"],["relay","wss://nos.lol/"]]});
  });
  it("finds signed settings on another discovery relay when the profile relays are unavailable",async()=>{
   const inbox=finalizeEvent({kind:10050,created_at:10,tags:[["relay","wss://recipient.example.com"]],content:""},key);
