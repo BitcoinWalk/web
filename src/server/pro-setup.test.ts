@@ -42,6 +42,7 @@ describe("Pro setup fresh authority", () => {
     const secret=generateSecretKey(),pubkey=getPublicKey(secret),created_at=Math.floor(Date.now()/1000),matching=finalizeEvent({kind:0,created_at,tags:[],content:JSON.stringify({display_name:"BitcoinWalk in Radom"})},secret),wrong=finalizeEvent({kind:0,created_at:created_at+1,tags:[],content:JSON.stringify({display_name:"Alice"})},secret);
     const twoMatches=vi.fn().mockResolvedValue([matching]);
     expect(await ownerCityProfileNameMatches(pubkey,"BitcoinWalk in Radom",["wss://one.example","wss://two.example"],twoMatches)).toBe(true);
+    expect(await ownerCityProfileNameMatches(pubkey,["BitcoinWalk Radom","BitcoinWalk in Radom"],["wss://one.example","wss://two.example"],twoMatches)).toBe(true);
     const oneMatch=vi.fn().mockImplementation(async(relays:string[])=>relays[0]==="wss://one.example"?[matching]:[wrong]);
     expect(await ownerCityProfileNameMatches(pubkey,"BitcoinWalk in Radom",["wss://one.example","wss://two.example"],oneMatch)).toBe(false);
   });
@@ -102,11 +103,11 @@ describe("Pro setup fresh authority", () => {
     expect(await clearProSetupSigner(cityId,owner)).toMatchObject({cleared:true,state:"setup-required"});
     expect(JSON.stringify(database.prepare("SELECT * FROM pro_setup_task").get())).not.toContain("nsec");
   });
-  it("reuses the owner npub only when its public profile already has the exact city name",async()=>{
+  it("reuses the owner npub when its public profile has either supported city name",async()=>{
     expect(await reuseOwnerAsCitySigner(cityId,owner,{action:"reuse-owner-city-signer",cityId,recoveryAcknowledged:true},deps)).toMatchObject({pubkey:owner,version:1,state:"confirmed-not-active",message:expect.stringContaining("No new signer")});
-    expect(deps.ownerCityProfileMatches).toHaveBeenCalledWith(owner,"BitcoinWalk in Radom");
+    expect(deps.ownerCityProfileMatches).toHaveBeenCalledWith(owner,["BitcoinWalk Radom","BitcoinWalk in Radom"]);
     vi.mocked(deps.ownerCityProfileMatches).mockResolvedValue(false);
-    await expect(reuseOwnerAsCitySigner(cityId,owner,{action:"reuse-owner-city-signer",cityId,recoveryAcknowledged:true},deps)).rejects.toThrow("named exactly");
+    await expect(reuseOwnerAsCitySigner(cityId,owner,{action:"reuse-owner-city-signer",cityId,recoveryAcknowledged:true},deps)).rejects.toThrow("BitcoinWalk Radom");
   });
   it("binds the saved signer and exact approved artwork into a private BW-103 request",async()=>{
     vi.spyOn(proSetupDependencies,"snapshot").mockImplementation(deps.snapshot);vi.spyOn(proSetupDependencies,"grants").mockImplementation(deps.grants);vi.spyOn(proSetupDependencies,"discover").mockImplementation(deps.discover);vi.spyOn(proSetupDependencies,"entitlement").mockImplementation(deps.entitlement);vi.spyOn(proSetupDependencies,"restrictions").mockImplementation(deps.restrictions);

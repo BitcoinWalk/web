@@ -47,12 +47,13 @@ export type ProSetupPreview = {
 };
 
 // Dependencies stay explicit so incomplete reads and owner changes can be tested without networking.
-export async function ownerCityProfileNameMatches(pubkey:string,expectedName:string,relays=profileRelays,read:typeof queryRelayEvents=queryRelayEvents):Promise<boolean>{
+export async function ownerCityProfileNameMatches(pubkey:string,expectedNames:string|readonly string[],relays=profileRelays,read:typeof queryRelayEvents=queryRelayEvents):Promise<boolean>{
+  const accepted=new Set(typeof expectedNames==="string"?[expectedNames]:expectedNames);
   const requested=new Set([pubkey]);
   const reads=await Promise.allSettled(relays.map(async relay=>{
     const events=await read([relay],[0],undefined,{authors:[pubkey],limit:20});
     const latest=events.filter(event=>parsePublicProfile(event,requested)).sort((a,b)=>b.created_at-a.created_at||a.id.localeCompare(b.id))[0];
-    return latest?parsePublicProfile(latest,requested)?.name===expectedName:false;
+    return latest?accepted.has(parsePublicProfile(latest,requested)?.name??""):false;
   }));
   return reads.filter(row=>row.status==="fulfilled"&&row.value).length>=2;
 }
@@ -343,8 +344,9 @@ export async function saveProSetupSigner(cityId: string, actor: string, command:
 
 export async function reuseOwnerAsCitySigner(cityId:string,actor:string,command:Extract<ProSetupCommand,{action:"reuse-owner-city-signer"}>,deps=proSetupDependencies){
   if(command.cityId!==cityId||actor===SUPER_ADMIN_PUBKEY)throw new Error("The connected owner account cannot be used as this city identity.");
-  const before=await resolveProSetupAuthority(cityId,actor,deps),expectedName=`BitcoinWalk in ${before.row.revision.city.cityName}`;
-  if(!await deps.ownerCityProfileMatches(actor,expectedName))throw new Error(`The connected owner profile must already be named exactly “${expectedName}” on at least two public relays.`);
+  const before=await resolveProSetupAuthority(cityId,actor,deps),cityName=before.row.revision.city.cityName;
+  const acceptedNames=[`BitcoinWalk ${cityName}`,`BitcoinWalk in ${cityName}`] as const;
+  if(!await deps.ownerCityProfileMatches(actor,acceptedNames))throw new Error(`The connected owner profile must already be named “${acceptedNames[0]}” or “${acceptedNames[1]}” on at least two public relays.`);
   const after=await resolveProSetupAuthority(cityId,actor,deps);
   if(JSON.stringify(before.authority)!==JSON.stringify(after.authority)||before.row.revision.city.cityName!==after.row.revision.city.cityName)
     throw new Error("City authority changed during signer verification. Reload and try again.");
