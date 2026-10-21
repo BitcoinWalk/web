@@ -9,7 +9,7 @@ import type {LogoVariantAsset} from "../logos/catalog";
 import NostrUser from "./nostr-user";
 import styles from "./sponsor-module.module.css";
 
-export default function SponsorModule({presentation,cityName,cityLogo,ogImageUrl,endsAt}:{presentation:SponsorshipPresentation;cityName:string;cityLogo?:LogoVariantAsset;ogImageUrl?:string;endsAt?:number}){
+export default function SponsorModule({presentation,cityName,cityLogo,ogImageUrl,endsAt,luganoEvent=false}:{presentation:SponsorshipPresentation;cityName:string;cityLogo?:LogoVariantAsset;ogImageUrl?:string;endsAt?:number;luganoEvent?:boolean}){
  const [expired,setExpired]=useState(false);
  useEffect(()=>{if(endsAt===undefined)return;let timer:ReturnType<typeof setTimeout>;const check=()=>{const remaining=endsAt*1000-Date.now();setExpired(remaining<=0);if(remaining>0)timer=setTimeout(check,Math.min(remaining,60000));};timer=setTimeout(check,0);return()=>clearTimeout(timer);},[endsAt]);
  const sponsor=presentation.state==="sponsor"?presentation:null,sponsorPubkey=sponsor?.pubkey,[resolved,setResolved]=useState<{pubkey:string;profile:PublicProfile}>();
@@ -18,12 +18,12 @@ export default function SponsorModule({presentation,cityName,cityLogo,ogImageUrl
  if(expired||presentation.state==="hidden")return null;
  if(presentation.state==="empty")return <section className={`${styles.sponsor} ${styles.invitation}`} aria-labelledby="sponsor-heading">
   <div className={styles.invitationCopy}>
-   <span className={styles.eyebrow}>Sponsor this walk</span>
+   <span className={styles.eyebrow}>{luganoEvent?"Sponsor the Lugano conference walk":"Sponsor this walk"}</span>
    <h2 id="sponsor-heading" className={styles.srOnly}>Sponsor BitcoinWalk in {cityName}</h2>
    <Image className={styles.brandLogo} src={cityLogo?.src??"/brand/bitcoinwalk-horizontal.png"} width={cityLogo?.width??1690} height={cityLogo?.height??312} unoptimized alt={`BitcoinWalk ${cityName}`}/>
-   <p>Help keep this and future local walks free, visible and welcoming.</p>
+   {luganoEvent?<><h3>Keep the conversation going beyond the conference.</h3><p>Bring conference visitors and local Bitcoiners together for this Plan ₿ Forum BitcoinWalk side-event, in solidarity with Simply Bitcoin.</p><p><strong>Sunday 25 OCT · 10:00am · Lugano</strong></p><p>Sponsor this event for 210,000 sats. Your logo will be displayed everywhere this walk is advertised.</p></>:<p>Help keep this and future local walks free, visible and welcoming.</p>}
   </div>
-  <Link className={styles.options} href={`/sponsor?city=${encodeURIComponent(cityName)}`}>View sponsorship options <span aria-hidden="true">→</span></Link>
+  <Link className={styles.options} href={luganoEvent?"/sponsor/lugano-planb":`/sponsor?city=${encodeURIComponent(cityName)}`}>{luganoEvent?"Sponsor this side-event":"View sponsorship options"} <span aria-hidden="true">→</span></Link>
  </section>;
  if(!sponsor)return null;
  const website=sponsor.website;

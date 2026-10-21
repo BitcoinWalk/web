@@ -17,6 +17,7 @@ import {CityHostPanel} from "./public-city-host";
 import {resolvePublicCityHost} from "../server/public-city-host";
 import {resolvePublicCityPayment} from "../server/public-city-payment";
 import SponsorModule from "./sponsor-module";
+import {isLuganoSponsorEvent} from "../payments/lugano-event";
 import type {SponsorshipPresentation} from "../domain/sponsorship";
 import PublicCitySupport from "./public-city-support";
 import type {ChatConfig} from "../domain/chat";
@@ -54,7 +55,7 @@ export default async function WalkEvent({event,walk,currentProfile,logoHref,titl
     </>}
     footer={weather.kind!=="past"&&<footer className="walk-event-footer"><WeatherAttribution/></footer>}>
     <WalkDescriptions cityName={currentProfile.revision.city.cityName} cityDescription={currentProfile.revision.city.description} eventDescription={event.content}/>
-    <div className={styles.sponsorshipSlot}><SponsorModule presentation={sponsorship} cityName={city.cityName} cityLogo={titleLogo} ogImageUrl={sponsorOgImage} endsAt={endSeconds}/></div>
+    <div className={styles.sponsorshipSlot}><SponsorModule presentation={sponsorship} cityName={city.cityName} cityLogo={titleLogo} ogImageUrl={sponsorOgImage} endsAt={endSeconds} luganoEvent={isLuganoSponsorEvent(city.slug,startSeconds)}/></div>
     {calendarContentImage(event)&&<figure className={styles.contentImage}><Image src={calendarContentImage(event)!} width={1600} height={900} sizes="(max-width: 960px) 100vw, 960px" unoptimized alt={`BitcoinWalk ${city.cityName} walk`}/></figure>}
     {calendarRoute(event)&&<WalkRoute url={calendarRoute(event)!}/>}
   </CityPageLayout>;
