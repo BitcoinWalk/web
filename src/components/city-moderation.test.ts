@@ -49,6 +49,12 @@ describe("city backlog controls",()=>{
   expect(page).not.toContain("Retire staging test city");
   expect(page).not.toContain("Approve / Restore");
  });
+ it("keeps signed URL controls reachable",()=>{
+  const page=source();
+  expect(page).toContain(">Manage URL and services</button>");
+  expect(page).toContain("setSelectedId(item.cityId);void run(()=>reload(item.cityId))");
+  expect(page).toContain("Sign and save public URL");
+ });
  it("opens a signed city editor with hero and current OG previews",()=>{
   const page=source();
   expect(page).toContain(">Edit city</button>");

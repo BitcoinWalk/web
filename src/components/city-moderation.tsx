@@ -226,7 +226,7 @@ export default function CityModeration(){
  const statusCounts=workflow.reduce<Record<CityWorkflowStatus,number>>((counts,item)=>({...counts,[item.status]:counts[item.status]+1}),{"action-required":0,"awaits-change":0,online:0,offline:0});
  function cityAction(item:CityWorkflowRow,action:CityWorkflowAction){
   const menuItem={role:"menuitem" as const};
-  if(action==="open-record")return <button {...menuItem} disabled={busy} onClick={()=>openCityEditor(item.managed!)}>Edit city</button>;
+  if(action==="open-record")return <><button {...menuItem} disabled={busy} onClick={()=>openCityEditor(item.managed!)}>Edit city</button><button {...menuItem} disabled={busy} onClick={()=>{setSelectedId(item.cityId);void run(()=>reload(item.cityId));}}>Manage URL and services</button></>;
   if(action==="open-public"){const href=item.health&&!item.health.availableInEnvironment?`https://bitcoinwalk.org/${item.slug}`:`/${item.slug}`;return <a {...menuItem} href={href} target="_blank" rel="noreferrer">Open public page <span aria-hidden="true">↗</span></a>;}
   if(action==="review-request"){const id=item.pending?.event.id??item.needsChanges?.revision.event.id;return <Link {...menuItem} href={`/admin/requests#submission-${id}`}>{item.source==="pending"?"Review application":"Review requested changes"}</Link>;}
   if(action==="activate-as-is")return <button {...menuItem} disabled={busy||!directoryCurrent} onClick={()=>activateAwaitingCity(item.needsChanges!)}>Set Active as-is</button>;
