@@ -16,13 +16,13 @@ import {activeNamedIdentity} from "../rustress/public-identity-store";
 export type IdentityHealthCheckState="pass"|"fail"|"unknown"|"future"|"not-applicable";
 export type IdentityHealthStatus="complete"|"action-required"|"not-configured"|"unknown"|"not-applicable";
 export type CityIdentityHealthCheck={key:"identity"|"profile"|"nip05"|"lightning"|"binding"|"recovery"|"publishing";label:string;state:IdentityHealthCheckState;detail:string};
-export type CityIdentityHealth={cityId:string;cityName:string;slug:string;availableInEnvironment:boolean;tier:"basic"|"pro"|"pilot";status:IdentityHealthStatus;activationState?:"pending"|"approved"|"active";checks:CityIdentityHealthCheck[];checkedAt:number;lastVerifiedAt?:number};
+export type CityIdentityHealth={cityId:string;cityName:string;slug:string;availableInEnvironment:boolean;tier:"basic"|"pro"|"pilot";status:IdentityHealthStatus;activationState?:"pending"|"approved"|"active"|"expired";checks:CityIdentityHealthCheck[];checkedAt:number;lastVerifiedAt?:number};
 
 type ActiveBrand={eventId:string;verifiedAt:number;challenge:CityBrandChallenge};
 type ProfileEvidence={reachable:number;matching:number;nip05:number;lightning:number};
 export type CityIdentityHealthEvidence={
   cityId:string;cityName:string;slug:string;availableInEnvironment:boolean;tier:"basic"|"pro"|"pilot";checkedAt:number;task:ProSetupTask|null;active:ActiveBrand|null;
-  activationState?:"pending"|"approved"|"active";preparedBrandPubkey?:string;binding:"pass"|"fail"|"unknown";profile:ProfileEvidence;capabilities:CityProvisioningCapabilities;nip05Verified:boolean;activationUpdatedAt?:number;
+  activationState?:"pending"|"approved"|"active"|"expired";preparedBrandPubkey?:string;binding:"pass"|"fail"|"unknown";profile:ProfileEvidence;capabilities:CityProvisioningCapabilities;nip05Verified:boolean;activationUpdatedAt?:number;
 };
 
 export function classifyCityIdentityTier(input:{operatorConfirmed:boolean;settled:boolean;hasSetup:boolean;hasActiveBinding:boolean;staging:boolean}):CityIdentityHealth["tier"]{
@@ -47,7 +47,8 @@ export function summarizeCityIdentityHealth(input:CityIdentityHealthEvidence):Ci
     check("publishing","City-signed publication","not-applicable","Basic walks continue to use the organizer's existing publishing flow."),
   ]};
   const task=input.task,active=input.active,preparedBrand=input.preparedBrandPubkey,identifier=`${input.slug}@bitcoinwalk.org`;
-  const identityOk=!!task?.signer&&!!preparedBrand&&task.signer.pubkey===preparedBrand;
+  const expectedBrand=active?.challenge.binding.brandPubkey??(input.activationState==="expired"?undefined:preparedBrand);
+  const identityOk=!!task?.signer&&(!expectedBrand||task.signer.pubkey===expectedBrand);
   const profileState:IdentityHealthCheckState=input.profile.matching>=2?"pass":input.profile.reachable>=2?"fail":"unknown";
   const profileDetail=profileState==="pass"?"The city-signed name, avatar and approved website were read back from at least two public profile relays.":
     profileState==="fail"?"The public city profile is missing a valid city name or avatar, or its website differs from the approved city identity on the readable profile relays.":"Fewer than two profile relays could be checked; no failure is inferred.";
@@ -62,7 +63,7 @@ export function summarizeCityIdentityHealth(input:CityIdentityHealthEvidence):Ci
     check("profile","Profile and avatar",profileState,profileDetail),
     check("nip05","NIP-05 verification",nip05State,nip05State==="pass"?`${identifier} resolves to the exact city npub.`:`${identifier} is not currently verified against the exact city npub.`),
     check("lightning","Lightning address",lightningState,lightningState==="pass"?`${identifier} has passed managed LNURL-pay verification.`:`${identifier} is not currently active.`),
-    check("binding","City binding",input.binding,input.binding==="pass"?"The signed city binding is active and its exact head agrees across authoritative read relays.":input.binding==="unknown"?"Authoritative relays could not all be checked; the existing binding was not changed.":"No active binding with exact authoritative relay read-back was found."),
+    check("binding","City binding",input.binding,input.binding==="pass"?"The signed city binding is active and its exact head agrees across authoritative read relays.":input.binding==="unknown"?"Authoritative relays could not all be checked; the existing binding was not changed.":input.activationState==="expired"?"The previous signed activation request expired before approval. The organizer must sign and submit a fresh request; the saved identity remains unchanged.":"No active binding with exact authoritative relay read-back was found."),
     check("recovery","Recovery acknowledgement",task?.signer?.confirmedAt?"pass":"fail",task?.signer?.confirmedAt?"The organizer confirmed a protected backup or remote-signer recovery method. BitcoinWalk stores no private key.":"The city signer still needs a confirmed recovery method."),
     check("publishing","City-signed publication","future","Future BW-118 scope. This does not prevent an otherwise healthy Pro identity from being complete."),
   ];
@@ -92,9 +93,9 @@ function activeBrand(db:DatabaseSync,cityId:string):ActiveBrand|null{
   if(!row?.approved_event)return null;
   try{const approved=JSON.parse(row.approved_event) as Event,challenge=JSON.parse(row.challenge) as CityBrandChallenge;if(approved.id!==row.event_id)return null;return {eventId:row.event_id,verifiedAt:row.verified_at,challenge};}catch{return null;}
 }
-function latestBrandRequest(db:DatabaseSync,cityId:string):{state:"pending"|"approved"|"active";brandPubkey:string}|null{
+function latestBrandRequest(db:DatabaseSync,cityId:string):{state:"pending"|"approved"|"active"|"expired";brandPubkey:string}|null{
   if(!table(db,"city_brand_request"))return null;
-  const row=db.prepare("SELECT status,challenge FROM city_brand_request WHERE city_id=? AND status IN ('pending','approved','active') ORDER BY rowid DESC LIMIT 1").get(cityId) as {status:"pending"|"approved"|"active";challenge:string}|undefined;
+  const row=db.prepare("SELECT status,challenge FROM city_brand_request WHERE city_id=? AND status IN ('pending','approved','active','expired') ORDER BY rowid DESC LIMIT 1").get(cityId) as {status:"pending"|"approved"|"active"|"expired";challenge:string}|undefined;
   if(!row)return null;
   try{const challenge=JSON.parse(row.challenge) as CityBrandChallenge;return {state:row.status,brandPubkey:challenge.binding.brandPubkey};}catch{return null;}
 }

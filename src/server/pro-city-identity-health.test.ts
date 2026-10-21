@@ -55,6 +55,11 @@ describe("Pro city identity health",()=>{
   expect(row.checks.find(check=>check.key==="identity")).toMatchObject({state:"pass",detail:expect.stringContaining("submitted")});
   expect(row.checks.find(check=>check.key==="binding")?.state).toBe("fail");
  });
+ it("keeps a confirmed signer complete when its activation request expires",()=>{
+  const row=summarizeCityIdentityHealth(base({active:null,activationState:"expired",preparedBrandPubkey:"a".repeat(64),binding:"fail"}));
+  expect(row.checks.find(check=>check.key==="identity")).toMatchObject({state:"pass",detail:expect.stringContaining("saved city signer")});
+  expect(row.checks.find(check=>check.key==="binding")).toMatchObject({state:"fail",detail:expect.stringContaining("expired")});
+ });
  it("does not reopen verified managed services because profile relays lag optional fields",()=>{
   const row=summarizeCityIdentityHealth(base({profile:{reachable:3,matching:3,nip05:0,lightning:0}}));
   expect(row.status).toBe("complete");
