@@ -48,6 +48,8 @@ export function authorizeAdminProPromotion(event:Event,evidence:PromotionEvidenc
 type AuditRow={cityId:string;entitlementId:string;ownerPubkey:string;revisionId:string;approvalEventId:string;authorityEventId:string;grantEventId:string;grantEvent:string;bundle:string;capabilities:string;organizerBasisPoints:number;retainedBasisPoints:number;reason:string;grantedAt:number};
 const auditColumns="cityId,entitlementId,ownerPubkey,revisionId,approvalEventId,authorityEventId,grantEventId,grantEvent,bundle,capabilities,organizerBasisPoints,retainedBasisPoints,reason,grantedAt";
 const same=(a:unknown,b:unknown)=>JSON.stringify(a)===JSON.stringify(b);
+type InvoiceRow={id:string;cityId:string;owner:string;cityName:string;revisionId:string;invoice:string|null;paymentHash:string|null;amountMsat:number|null;createdAt:number;expiresAt:number|null;status:string;settledAt:number|null;checkedAt:number|null;source:string};
+function harmlessExpiredCheckout(row:InvoiceRow,cityId:string){return row.cityId===cityId&&row.source==="checkout-v1"&&row.status==="expired"&&row.settledAt===null;}
 export function installAdminProPromotion(db:DatabaseSync,event:Event,evidence:PromotionEvidence,apply=false,now=Math.floor(Date.now()/1000)){
  let value=parseAdminProPromotion(event);const entitlementId=`admin-pro:${event.id}`,audit:AuditRow={cityId:value.cityId,entitlementId,ownerPubkey:value.ownerPubkey,revisionId:value.revisionId,
   approvalEventId:value.approvalEventId,authorityEventId:value.authorityEventId,grantEventId:event.id,grantEvent:JSON.stringify(event),bundle:value.bundle,capabilities:JSON.stringify(value.capabilities),
@@ -56,16 +58,18 @@ export function installAdminProPromotion(db:DatabaseSync,event:Event,evidence:Pr
  for(const name of ["payment_invoice","paid_city_entitlement","pro_setup_task"])if(!table(name))throw new Error(`Payments database is missing ${name}.`);
  const existingAudit=table("admin_pro_promotion")?db.prepare(`SELECT ${auditColumns} FROM admin_pro_promotion WHERE cityId=? OR entitlementId=? OR grantEventId=?`).all(value.cityId,entitlementId,event.id) as AuditRow[]:[];
  const invoiceColumns=new Set((db.prepare("PRAGMA table_info(payment_invoice)").all() as Array<{name:string}>).map(row=>row.name)),source=invoiceColumns.has("source")?"source":"'checkout-v1' source";
- const invoice=db.prepare(`SELECT id,cityId,owner,cityName,revisionId,invoice,paymentHash,amountMsat,createdAt,expiresAt,status,settledAt,checkedAt,${source} FROM payment_invoice WHERE cityId=? OR id=? OR paymentHash=?`).all(value.cityId,entitlementId,event.id) as unknown[];
+ const invoice=db.prepare(`SELECT id,cityId,owner,cityName,revisionId,invoice,paymentHash,amountMsat,createdAt,expiresAt,status,settledAt,checkedAt,${source} FROM payment_invoice WHERE cityId=? OR id=? OR paymentHash=?`).all(value.cityId,entitlementId,event.id) as InvoiceRow[];
  const entitlement=db.prepare("SELECT cityId,owner,paymentHash,invoiceId,paidAt FROM paid_city_entitlement WHERE cityId=? OR invoiceId=? OR paymentHash=?").all(value.cityId,entitlementId,event.id) as unknown[];
  const setup=db.prepare("SELECT cityId,entitlementId,originalOwnerPubkey,currentOwnerPubkey,registrationVersion,payoutVersion,brandPubkey,brandVersion,backupAcknowledgedAt,artworkRevisionId,artworkAvatar,artworkBanner,artworkVersion,state,createdAt,updatedAt FROM pro_setup_task WHERE cityId=? OR entitlementId=?").all(value.cityId,entitlementId) as unknown[];
  const expectedInvoice={id:entitlementId,cityId:value.cityId,owner:value.ownerPubkey,cityName:value.cityName,revisionId:value.revisionId,invoice:"",paymentHash:event.id,amountMsat:0,createdAt:value.issuedAt,expiresAt:0,status:"paid",settledAt:value.issuedAt,checkedAt:value.issuedAt,source:"admin-pro-promotion-v1"};
  const expectedEntitlement={cityId:value.cityId,owner:value.ownerPubkey,paymentHash:event.id,invoiceId:entitlementId,paidAt:value.issuedAt};
- const found=existingAudit.length+invoice.length+entitlement.length+setup.length;
- if(found){const task=setup[0] as {cityId?:unknown;entitlementId?:unknown;originalOwnerPubkey?:unknown}|undefined;
-  if(existingAudit.length!==1||invoice.length!==1||entitlement.length!==1||setup.length!==1||!same(existingAudit[0],audit)||!same(invoice[0],expectedInvoice)||!same(entitlement[0],expectedEntitlement)||
+ const expectedInvoices=invoice.filter(row=>same(row,expectedInvoice)),conflictingInvoices=invoice.filter(row=>!same(row,expectedInvoice)&&!harmlessExpiredCheckout(row,value.cityId));
+ const promotionFound=existingAudit.length+expectedInvoices.length+entitlement.length+setup.length;
+ if(promotionFound){const task=setup[0] as {cityId?:unknown;entitlementId?:unknown;originalOwnerPubkey?:unknown}|undefined;
+  if(existingAudit.length!==1||expectedInvoices.length!==1||entitlement.length!==1||setup.length!==1||conflictingInvoices.length!==0||!same(existingAudit[0],audit)||!same(entitlement[0],expectedEntitlement)||
    task?.cityId!==value.cityId||task.entitlementId!==entitlementId||task.originalOwnerPubkey!==value.ownerPubkey)throw new Error("City already has payment, entitlement, setup or conflicting promotion history.");
   return {created:false,cityId:value.cityId,entitlementId,ownerPubkey:value.ownerPubkey,bundle:value.bundle,capabilities:value.capabilities,organizerBasisPoints:value.organizerBasisPoints,retainedBasisPoints:value.retainedBasisPoints};}
+ if(conflictingInvoices.length)throw new Error("City already has payment, entitlement, setup or conflicting promotion history.");
  value=authorizeAdminProPromotion(event,evidence,now);
  if(!apply)return {created:true,cityId:value.cityId,entitlementId,ownerPubkey:value.ownerPubkey,bundle:value.bundle,capabilities:value.capabilities,organizerBasisPoints:value.organizerBasisPoints,retainedBasisPoints:value.retainedBasisPoints};
  if(!invoiceColumns.has("source"))db.exec("ALTER TABLE payment_invoice ADD COLUMN source TEXT NOT NULL DEFAULT 'checkout-v1'");

@@ -22,7 +22,7 @@ The public city address and private organizer payout destination are deliberatel
 
 - Deploy the app release containing this operation before running it. Do not run a new database writer against an older application schema.
 - Confirm the city is the current approved canonical city on the target environment and has current signed owner authority.
-- Confirm the city has no payment invoice, paid entitlement, Pro setup task or prior administrative promotion. A city with any such history needs a separate reconciliation, not this operation.
+- Confirm the city has no paid, pending, creating or creation-uncertain payment invoice, paid entitlement, Pro setup task or prior administrative promotion. Fully expired, unpaid `checkout-v1` invoices are retained as audit history and do not block the operation; any other payment history needs a separate reconciliation.
 - Confirm the city and organizer are not suspended and record a concise operational reason for the grant.
 - Use the target environment's exact database and relay. Staging and production must not be mixed.
 - Keep the super-admin signer off the server. Only an unsigned template and the resulting public signed event move between the server and signer.
@@ -78,7 +78,7 @@ node promote-basic-city-to-pro.cjs --verify-only \
   /home/bitcoinwalk/incoming/admin-pro-signed-event.json
 ```
 
-Continue only after `ADMIN_PRO_PROMOTION_VERIFY_OK`. Verification is read-only. It checks the signature, exact tags and payload, expiry, current approval and ownership, database shape, and absence of conflicting payment/setup history.
+Continue only after `ADMIN_PRO_PROMOTION_VERIFY_OK`. Verification is read-only. It checks the signature, exact tags and payload, expiry, current approval and ownership, database shape, and absence of conflicting payment/setup history. Old unpaid `checkout-v1` rows must be both `expired` and unsettled; they remain in place.
 
 ## 3. Apply once
 
@@ -97,7 +97,7 @@ The operation creates an online SQLite backup under `/home/bitcoinwalk/backups/`
 - the ordinary city entitlement; and
 - a pristine `setup-required` Pro setup task for the current owner.
 
-An exact retry is idempotent and reports `created=false`. Any partial, different or pre-existing history is refused. The tool has no downgrade or revoke mode.
+An exact retry is idempotent and reports `created=false`. Any partial, different or unresolved history is refused. Harmless expired checkout audit rows are preserved alongside the administrative grant. The tool has no downgrade or revoke mode.
 
 An exact retry of a fully installed promotion remains readable after the
 15-minute signing window has elapsed. This is acknowledgement recovery only:
