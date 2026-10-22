@@ -54,7 +54,7 @@ export default function AppPage(){return <main className={styles.page}>
    <div className={`${styles.phone} ${styles.phoneBack}`}><Image src="/app/walkie-talkie/walk.png" width={1320} height={2868} priority alt="A BitcoinWalk city page with the next walk and meeting point"/></div>
    <div className={`${styles.phone} ${styles.phoneFront}`}><Image src="/app/walkie-talkie/chats.png" width={1320} height={2868} priority alt="Walkie Talkie chats with the AI Guide, Global and local BitcoinWalk groups"/></div>
    <span className={`${styles.signal} ${styles.signalOrange}`}>Local walks</span>
-   <span className={`${styles.signal} ${styles.signalPurple}`}>AI Guide</span>
+   <span className={`${styles.signal} ${styles.signalPurple}`}>Nostr Native</span>
   </div>
  </section>
 
