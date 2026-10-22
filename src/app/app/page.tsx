@@ -6,7 +6,7 @@ import styles from "./app.module.css";
 const zapstoreUrl="https://zapstore.dev/apps/org.bitcoinwalk.walkietalkie";
 const sourceUrl="https://github.com/BitcoinWalk/walkie-talkie";
 
-const title="Walkie Talkie | Meet your Bitcoin community";
+const title="Walkie Talkie | Your BitcoinWalk companion app";
 const description="BitcoinWalk is a weekly, in-person walk. Walkie Talkie helps you find your local event and stay in touch with your Bitcoin community between meetups.";
 
 export const metadata:Metadata={
@@ -44,8 +44,8 @@ export default function AppPage(){return <main className={styles.page}>
 
  <section className={styles.hero}>
   <div className={styles.heroCopy}>
-   <div className={styles.appIdentity}><Image src="/app/walkie-talkie/icon.png" width={512} height={512} alt="Walkie Talkie app icon"/><span>Walkie Talkie for Android</span></div>
-   <h1>Meet your Bitcoin crowd.<br/><em>In real life.</em></h1>
+   <div className={styles.appIdentity}><Image src="/app/walkie-talkie/icon.png" width={512} height={512} alt="Walkie Talkie app icon"/><span>Walkie Talkie</span></div>
+   <h1>Your BitcoinWalk<br/><em style={{display:"inline-block",fontSize:".72em",letterSpacing:"-.05em",whiteSpace:"nowrap"}}>Companion app</em></h1>
    <p className={styles.lede}>BitcoinWalk is a weekly, in-person event. Walkie Talkie helps you find your local walk and stay in touch between meetups.</p>
    <StoreButtons/>
    <div className={styles.trustLine}><span><Check/>Free and open source</span><span><Check/>No phone number required</span></div>
