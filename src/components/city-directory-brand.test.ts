@@ -13,10 +13,14 @@ describe("homepage brand",()=>{
   expect(homepageCtaLabel("Find your city ↓")).toBe("Find your walk ↓");
   expect(homepageCtaLabel("Explore walks")).toBe("Explore walks");
  });
- it("offers the quiet Walkie Talkie prompt beneath the hero CTA",()=>{
+ it("offers the Walkie Talkie download panel beneath the hero CTA",()=>{
   const page=readFileSync(join(process.cwd(),"src/components/city-directory.tsx"),"utf8");
-  expect(page).toContain("Prefer the app?");
-  expect(page).toContain("Try Walkie Talkie");
+  expect(page).toContain("Download your BitcoinWalk companion app");
+  expect(page).toContain("Get on");
+  expect(page).toContain("App Store coming soon");
+  expect(page).toContain("Google Play coming soon");
+  expect(page).toContain("Free and open source");
+  expect(page).toContain("No phone number required");
   expect(page).toContain("/brand/walkie-talkie-zapstore-icon.png");
   expect(page).toContain("https://zapstore.dev/apps/org.bitcoinwalk.walkietalkie");
  });
