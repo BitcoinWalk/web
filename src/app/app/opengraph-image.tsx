@@ -2,7 +2,7 @@ import {readFile} from "node:fs/promises";
 import {join} from "node:path";
 import {ImageResponse} from "next/og";
 
-export const alt="Walkie Talkie — the BitcoinWalk app";
+export const alt="Walkie Talkie — meet your Bitcoin community in real life";
 export const size={width:1200,height:630};
 export const contentType="image/png";
 
@@ -21,8 +21,8 @@ export default async function OpenGraphImage(){
    <img src={logo} width={260} height={48} alt="" style={{objectFit:"contain"}}/>
    <div style={{display:"flex",flexDirection:"column"}}>
     <div style={{display:"flex",marginBottom:18,color:"#c9aaff",fontSize:22,fontWeight:700,letterSpacing:3,textTransform:"uppercase"}}>Walkie Talkie for Android</div>
-    <div style={{display:"flex",flexDirection:"column",fontSize:76,fontWeight:800,lineHeight:.95,letterSpacing:-4}}><span>Your BitcoinWalk.</span><span style={{color:"#f7931a"}}>In your pocket.</span></div>
-    <div style={{display:"flex",marginTop:24,color:"#d5d7d1",fontSize:25}}>Walks · Community chat · AI Guide · Nostr identity</div>
+    <div style={{display:"flex",flexDirection:"column",fontSize:70,fontWeight:800,lineHeight:.95,letterSpacing:-4}}><span>Meet your Bitcoin crowd.</span><span style={{color:"#f7931a"}}>In real life.</span></div>
+    <div style={{display:"flex",marginTop:24,color:"#d5d7d1",fontSize:25}}>Weekly walks · Local community · Stay in touch</div>
    </div>
   </div>
   <div style={{position:"absolute",right:72,top:108,display:"flex",width:320,height:414,alignItems:"center",justifyContent:"center",border:"2px solid rgba(255,255,255,.16)",borderRadius:72,background:"rgba(255,255,255,.07)",boxShadow:"0 30px 80px rgba(0,0,0,.4)"}}>
