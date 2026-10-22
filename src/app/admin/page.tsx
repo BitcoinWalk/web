@@ -1,7 +1,6 @@
 "use client";
 import Image from "next/image";
 import Link from "next/link";
-import {QRCodeSVG} from "qrcode.react";
 import DashboardUpcoming from "../../components/dashboard-upcoming";
 import {useEffect,useState,useRef} from "react";
 import {useDashboard,useDashboardAutoLoad} from "../../components/dashboard-context";
@@ -36,13 +35,16 @@ export default function DashboardOverview(){
  const statusLabel={"awaiting-approval":"Awaiting approval",approved:"Approved","needs-changes":"Awaits change",rejected:"Rejected",archived:"Archived"} as const;
  const capabilities={hostedWalks:session.role==="member"&&session.cities.length>0},copy=dashboardHomeCopy(session.role),actions=dashboardHomeActions(session.role,capabilities),showSubmissions=activeSubmissions.length>0||archivedSubmissions.length>0;
  return <main className={styles.overview}>
-  <p className={styles.eyebrow}>BitcoinWalk dashboard</p><h1>{copy.title}</h1><p className={styles.intro}>{copy.intro}</p>
+  <p className={styles.eyebrow}>BitcoinWalk dashboard</p>
+  <div className={styles.overviewHeader}>
+   <div><h1>{copy.title}</h1><p className={styles.intro}>{copy.intro}</p></div>
+   <a className={styles.walkieDownload} href={WALKIE_TALKIE_DOWNLOAD_URL} target="_blank" rel="noopener noreferrer" aria-label="Get your BitcoinWalk companion app">
+    <Image src="/brand/walkie-talkie-zapstore-icon.png" width={56} height={56} alt=""/>
+    <span className={styles.walkieCopy}><strong>Get your BitcoinWalk companion app</strong><span>Download on Zapstore</span></span>
+    <span className={styles.walkieArrow} aria-hidden="true">↗</span>
+   </a>
+  </div>
   {session.role==="organizer"&&<OrganizerProNextAction/>}
-  <section className={styles.walkieDownload} aria-labelledby="walkie-download-title">
-   <Image src="/brand/walkie-talkie-zapstore-icon.png" width={56} height={56} alt=""/>
-   <div className={styles.walkieCopy}><p>Companion app</p><h2 id="walkie-download-title">Walkie Talkie</h2><p>Take your city, Guide and global chats with you on Android.</p></div>
-   <div className={styles.walkieActions}><div className={styles.walkieQr}><QRCodeSVG value={WALKIE_TALKIE_DOWNLOAD_URL} size={82} marginSize={1} title="Download Walkie Talkie"/><small>Scan to download</small></div><a href={WALKIE_TALKIE_DOWNLOAD_URL} target="_blank" rel="noopener noreferrer" aria-label="Download Walkie Talkie">Download Walkie Talkie <span aria-hidden="true">↗</span></a></div>
-  </section>
   {handoff&&<section role="status"><h2>{handoff.paymentVerified?"Payment received":"City submitted"}</h2><p>{handoff.paymentVerified?`Your Pro payment for BitcoinWalk in ${handoff.cityName} is verified. The city is awaiting approval.`:`BitcoinWalk in ${handoff.cityName} was submitted successfully and is awaiting approval.`}</p></section>}
   <nav className={styles.actionGrid} aria-label="Quick actions">{actions.map(action=><Link className={styles.actionCard} key={action.href} href={action.href}><strong>{action.label}</strong><span>{action.description}</span><span aria-hidden="true">Open →</span></Link>)}</nav>
   {showSubmissions&&<section><h2>Your city submissions</h2>{activeSubmissions.map(item=><article key={item.cityId} id={`city-submission-${item.cityId}`} aria-current={item.cityId===submittedCity?"true":undefined}><h3>{item.cityName}</h3><p><strong>{item.tier==="paid"?"Pro requested":"Basic"}</strong> · {statusLabel[item.status]}</p>{item.status==="approved"&&<p><Link href={`/${item.slug}`}>View city page →</Link></p>}{item.status==="needs-changes"&&<p>This submission awaits a host correction before it can be approved. Open <Link href="/admin/my-cities">Cities</Link> to review the feedback and resubmit.</p>}</article>)}{!!archivedSubmissions.length&&<details><summary>Archived cities ({archivedSubmissions.length})</summary><p>Archived cities are read-only and hidden from public and active host views. Contact BitcoinWalk to request restoration.</p>{archivedSubmissions.map(item=><article key={item.cityId}><h3>{item.cityName}</h3><p><strong>{item.tier==="paid"?"Pro requested":"Basic"}</strong> · Archived</p></article>)}</details>}</section>}
