@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import "./styles.css";
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://bitcoinwalk.org"),
   title: "BitcoinWalk",
   description: "Find or start a weekly BitcoinWalk.",
   icons: {
