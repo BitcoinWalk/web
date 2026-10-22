@@ -36,3 +36,13 @@ export function directoryWithWalkSchedule(rows:DirectoryCity[],occurrences:Reado
 export function directoryImage(value:string|undefined):string|undefined {
   try {const url=new URL(value??"");return url.protocol==="https:"&&!url.username&&!url.password?url.href:undefined;}catch{return;}
 }
+/** Prefer the current environment's content-addressed copy for BitcoinWalk-managed
+ * media. The signed source URL remains a safe fallback for local development and
+ * for a temporarily incomplete replica. */
+export function directoryImageCandidates(value:string|undefined):string[] {
+  if(value?.startsWith("/")&&!value.startsWith("//"))return [value];
+  const image=directoryImage(value);if(!image)return [];
+  const url=new URL(image),managed=/^\/api\/media\/files\/[a-f0-9]{64}\.webp$/.test(url.pathname)&&
+    (url.hostname==="bitcoinwalk.org"||url.hostname==="app-staging.bitcoinwalk.org");
+  return managed?[url.pathname,image]:[image];
+}

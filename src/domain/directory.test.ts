@@ -1,5 +1,5 @@
 import {describe,it,expect} from "vitest";
-import {approvedDirectory,directoryWithWalkSchedule,filterDirectory,directoryImage} from "./directory";
+import {approvedDirectory,directoryWithWalkSchedule,filterDirectory,directoryImage,directoryImageCandidates} from "./directory";
 import type {CityRevision,ApprovalRecord} from "../nostr/city-records";
 const cityId="66f137cb-2ac1-4eef-8358-7dd66b45922f";
 const revision=(id:string,slug="radom"):CityRevision=>({event:{id,created_at:1} as CityRevision["event"],city:{cityId,slug,cityName:"Radom",description:"Walk",startAt:"2026-10-03T10:00:00Z",meetingPoint:{description:"Rynek",latitude:51.4,longitude:21.1},heroImageUrl:"https://example.com/hero.jpg",sponsor:{name:"Example",logoUrl:"https://example.com/logo.png"}}});
@@ -50,5 +50,12 @@ describe("approved city directory",()=>{
   expect(directoryImage("javascript:alert(1)")).toBeUndefined();
   expect(directoryImage("https://user:pass@example.com/a")).toBeUndefined();
   expect(directoryImage("https://example.com/a")).toBe("https://example.com/a");
+ });
+ it("prefers the current environment copy of managed city artwork",()=>{
+  const hash="a".repeat(64),staging=`https://app-staging.bitcoinwalk.org/api/media/files/${hash}.webp`;
+  expect(directoryImageCandidates(staging)).toEqual([`/api/media/files/${hash}.webp`,staging]);
+  expect(directoryImageCandidates("/brand/campaigns/lugano-planb-background.webp")).toEqual(["/brand/campaigns/lugano-planb-background.webp"]);
+  expect(directoryImageCandidates("https://images.example/hannover.webp")).toEqual(["https://images.example/hannover.webp"]);
+  expect(directoryImageCandidates("javascript:alert(1)")).toEqual([]);
  });
 });

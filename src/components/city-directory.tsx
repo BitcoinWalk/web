@@ -6,7 +6,7 @@ import {useEffect,useState} from "react";
 import {queryCalendarEvents,queryDirectoryRecords} from "../nostr/city-records";
 import {relayConfig} from "../lib/relay-config";
 import {directoryConfig} from "../lib/directory-config";
-import {approvedDirectory,directoryWithWalkSchedule,filterDirectory,directoryImage,type DirectoryCity} from "../domain/directory";
+import {approvedDirectory,directoryWithWalkSchedule,filterDirectory,directoryImageCandidates,type DirectoryCity} from "../domain/directory";
 import {approvedCalendarWalks} from "../nostr/calendar-records";
 import {managedCalendarEvents} from "../domain/event-routing";
 import {DEFAULT_HOME_PAGE,HOME_PAGE_ID,type ContentPage} from "../domain/content";
@@ -20,17 +20,17 @@ const DirectoryMap=dynamic(()=>import("./directory-map"),{ssr:false,loading:()=>
 export const compactHomepageBrand=(scrollY:number)=>scrollY>72;
 export const homepageCtaLabel=(label:string)=>label==="Find your city ↓"?"Find your walk ↓":label;
 function Photo({src,alt}:{src?:string;alt:string}) {
-  const [failed,setFailed]=useState(false);
+  const candidates=directoryImageCandidates(src),[attempt,setAttempt]=useState(0),image=candidates[attempt];
   // Browser-loaded public images, not server-side URL fetches.
   // eslint-disable-next-line @next/next/no-img-element
-  return src&&!failed?<img className={styles.photo} src={src} alt={alt} style={{objectPosition:heroObjectPosition(src)}} loading="lazy" referrerPolicy="no-referrer" onError={()=>setFailed(true)}/>:<div className={styles.placeholder} aria-hidden="true">₿ / WALK</div>;
+  return image?<img className={styles.photo} src={image} alt={alt} style={{objectPosition:heroObjectPosition(src)}} loading="lazy" referrerPolicy="no-referrer" onError={()=>setAttempt(value=>value+1)}/>:<div className={styles.placeholder} aria-hidden="true">₿ / WALK</div>;
 }
 function Card({row}:{row:DirectoryCity}) {
   const {city}=row;
   const luganoPlanB=isLuganoPlanBConference(city.slug,[city.heroImageUrl]);
   return <article className={styles.card}>
     <div className={styles.cardMedia} data-campaign={luganoPlanB?"lugano-planb":undefined}>
-      <Photo key={city.heroImageUrl} src={luganoPlanB?"/brand/campaigns/lugano-planb-background.webp":directoryImage(city.heroImageUrl)} alt={`BitcoinWalk in ${city.cityName}`}/>
+      <Photo key={city.heroImageUrl} src={luganoPlanB?"/brand/campaigns/lugano-planb-background.webp":city.heroImageUrl} alt={`BitcoinWalk in ${city.cityName}`}/>
       {luganoPlanB&&<Image className={styles.campaignLogo} src="/brand/campaigns/lugano-planb-forum-2026.png" width={408} height={225} alt="Plan ₿ Forum — Lugano, October 23–24, 2026"/>}
     </div>
     <div className={styles.content}><p className={styles.eyebrow}>{row.tier==="paid"?"Dedicated city relay":"Community walk"}</p>
