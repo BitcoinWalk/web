@@ -2,7 +2,7 @@ import { resolveApprovedCity, type CityRevision, type ApprovalRecord } from "../
 import type { CityDocument } from "./city";
 export type PaidDirectoryCity={slug:string;featured:boolean;subdomainReady:boolean;cityName?:string;aliases?:string[];relayMode?:"dedicated"|"migrated"};
 export type DirectoryCity={city:CityDocument;href:string;tier:"free"|"paid";featured:boolean;hasUpcomingWalk:boolean};
-export type DirectoryOccurrence={start:number;status:"active"|"grace"|"upcoming"|"past";meetingPoint:CityDocument["meetingPoint"]};
+export type DirectoryOccurrence={start:number;status:"active"|"grace"|"upcoming"|"past";meetingPoint:CityDocument["meetingPoint"];heroImageUrl?:string};
 export function approvedDirectory(revisions:CityRevision[],approvals:ApprovalRecord[],paid:Record<string,PaidDirectoryCity>):DirectoryCity[] {
   const ids=[...new Set(revisions.map(r=>r.city.cityId))];
   const rows:DirectoryCity[]=[];
@@ -30,7 +30,7 @@ export function directoryWithWalkSchedule(rows:DirectoryCity[],occurrences:Reado
   return rows.map(row=>{
     const occurrence=occurrences.get(row.city.cityId);
     if(!occurrence||(occurrence.status!=="active"&&occurrence.status!=="upcoming"))return row;
-    return {...row,hasUpcomingWalk:true,city:{...row.city,startAt:new Date(occurrence.start*1000).toISOString(),meetingPoint:{...occurrence.meetingPoint}}};
+    return {...row,hasUpcomingWalk:true,city:{...row.city,startAt:new Date(occurrence.start*1000).toISOString(),meetingPoint:{...occurrence.meetingPoint},...(occurrence.heroImageUrl?{heroImageUrl:occurrence.heroImageUrl}:{})}};
   });
 }
 export function directoryImage(value:string|undefined):string|undefined {

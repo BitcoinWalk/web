@@ -7,7 +7,7 @@ import {queryCalendarEvents,queryDirectoryRecords} from "../nostr/city-records";
 import {relayConfig} from "../lib/relay-config";
 import {directoryConfig} from "../lib/directory-config";
 import {approvedDirectory,directoryWithWalkSchedule,filterDirectory,directoryImageCandidates,type DirectoryCity} from "../domain/directory";
-import {approvedCalendarWalks} from "../nostr/calendar-records";
+import {approvedCalendarWalks,initialCalendarHero} from "../nostr/calendar-records";
 import {managedCalendarEvents} from "../domain/event-routing";
 import {DEFAULT_HOME_PAGE,HOME_PAGE_ID,type ContentPage} from "../domain/content";
 import {latestContentPages,queryContentRevisions} from "../nostr/content-records";
@@ -54,7 +54,7 @@ export default function CityDirectory({sponsoredWalks=[]}:{sponsoredWalks?:HomeS
   useEffect(()=>{
     let active=true;
     Promise.allSettled([queryDirectoryRecords(relayConfig.readRelays),queryCalendarEvents(relayConfig.readRelays),queryContentRevisions(relayConfig.readRelays)]).then(([directory,calendar,contentResult])=>{
-      if(!active)return;if(directory.status==="rejected"||calendar.status==="rejected"||calendar.value.length>=500){setError("We couldn’t load the current walks completely. The relay may be temporarily unavailable or rate-limited. Please try again in a few minutes.");setStatus("error");return;}const {revisions,approvals}=directory.value,walks=approvedCalendarWalks(revisions,approvals),current=new Map(walks.flatMap(walk=>{const occurrence=managedCalendarEvents(walk,calendar.value).find(item=>item.status==="active"||item.status==="upcoming");return occurrence?[[walk.revision.city.cityId,occurrence] as const]:[];}));setRows(directoryWithWalkSchedule(approvedDirectory(revisions,approvals,directoryConfig.paidCities),current));if(contentResult.status==="fulfilled"){const home=latestContentPages(contentResult.value).find(row=>row.page.pageId===HOME_PAGE_ID&&row.page.published);setContent(home?.page??DEFAULT_HOME_PAGE);}setStatus("ready");
+      if(!active)return;if(directory.status==="rejected"||calendar.status==="rejected"||calendar.value.length>=500){setError("We couldn’t load the current walks completely. The relay may be temporarily unavailable or rate-limited. Please try again in a few minutes.");setStatus("error");return;}const {revisions,approvals}=directory.value,walks=approvedCalendarWalks(revisions,approvals),current=new Map(walks.flatMap(walk=>{const occurrence=managedCalendarEvents(walk,calendar.value).find(item=>item.status==="active"||item.status==="upcoming");return occurrence?[[walk.revision.city.cityId,{...occurrence,heroImageUrl:initialCalendarHero(occurrence.event,walk)}] as const]:[];}));setRows(directoryWithWalkSchedule(approvedDirectory(revisions,approvals,directoryConfig.paidCities),current));if(contentResult.status==="fulfilled"){const home=latestContentPages(contentResult.value).find(row=>row.page.pageId===HOME_PAGE_ID&&row.page.published);setContent(home?.page??DEFAULT_HOME_PAGE);}setStatus("ready");
     });
     return ()=>{active=false;};
   },[attempt]);

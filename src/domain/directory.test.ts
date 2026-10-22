@@ -41,8 +41,8 @@ describe("approved city directory",()=>{
   expect(filterDirectory(rows,"WARSCHAU")).toHaveLength(1);
  });
  it("retains every approved city and uses exact active or upcoming occurrence details",()=>{
-  const rows=approvedDirectory([revision("a")],[decision("a","approved",1)],{}),point={description:"New meeting point",latitude:51.41,longitude:21.11};
-  expect(directoryWithWalkSchedule(rows,new Map([[cityId,{start:1_800_000_000,status:"upcoming",meetingPoint:point}]]))).toMatchObject([{hasUpcomingWalk:true,city:{startAt:"2027-01-15T08:00:00.000Z",meetingPoint:point}}]);
+  const rows=approvedDirectory([revision("a")],[decision("a","approved",1)],{}),point={description:"New meeting point",latitude:51.41,longitude:21.11},heroImageUrl="https://bitcoinwalk.org/api/media/files/"+"a".repeat(64)+".webp";
+  expect(directoryWithWalkSchedule(rows,new Map([[cityId,{start:1_800_000_000,status:"upcoming",meetingPoint:point,heroImageUrl}]]))).toMatchObject([{hasUpcomingWalk:true,city:{startAt:"2027-01-15T08:00:00.000Z",meetingPoint:point,heroImageUrl}}]);
   for(const status of ["grace","past"] as const)expect(directoryWithWalkSchedule(rows,new Map([[cityId,{start:1_800_000_000,status,meetingPoint:point}]]))).toEqual(rows);
   expect(directoryWithWalkSchedule(rows,new Map())).toEqual(rows);
  });
