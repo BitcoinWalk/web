@@ -17,6 +17,14 @@
 .hero {padding:4rem 0 3rem;max-width:52rem;}
 .hero h1 {font-size:clamp(2.7rem,7vw,5.2rem);line-height:1.04;letter-spacing:-.04em;margin:1.2rem 0;}
 .hero>p:not(.eyebrow) {font-size:1.2rem;max-width:38rem;line-height:1.6;}
+.heroActions {display:flex;flex-direction:column;align-items:flex-start;gap:1rem;margin-top:1.25rem;}
+.walkiePrompt {display:inline-grid;grid-template-columns:2.5rem auto auto;align-items:center;gap:.65rem;padding:.35rem .5rem .35rem .35rem;border:1px solid transparent;border-radius:.8rem;color:#4d4d47;text-decoration:none;transition:background-color .15s ease-out,scale .15s ease-out;-webkit-tap-highlight-color:transparent;}
+.walkiePrompt>span:nth-child(2) {display:grid;gap:.1rem;line-height:1.2;}
+.walkiePrompt>span:nth-child(2)>span {font-size:.78rem;color:#686862;}
+.walkiePrompt strong {color:#22251e;font-size:.95rem;}
+.walkiePrompt>span:last-child {color:#8a4600;font-weight:700;}
+.walkiePrompt:active {scale:.96;}
+.walkieIcon {display:block;width:2.5rem;height:2.5rem;border-radius:.72rem;}
 .eyebrow {text-transform:uppercase;letter-spacing:.09em;font-size:.75rem;font-weight:700;}
 .home section {margin:3rem 0;scroll-margin-top:1rem;}
 .home h2 {font-size:2rem;letter-spacing:-.025em;}
@@ -51,6 +59,7 @@
 .showAll {margin-top:1.25rem;background:#fff;border:1px solid #aaa;cursor:pointer;}
 .footer {margin-top:4rem;padding:2rem;background:#f7f0e4;border-radius:.8rem;}
 .home a:focus-visible,.home button:focus-visible {outline:3px solid #9b4d00;outline-offset:3px;}
+@media(hover:hover){.walkiePrompt:hover{background:#f7f0e4;}}
 @media(max-width:760px){.sponsoredCard{max-width:36rem;}}
 @media(max-width:480px){.nav div{gap:.75rem;font-size:.9rem}.startButton{padding:.6rem .75rem}.connectLink{width:2.35rem;height:2.35rem}.brand{width:10.8rem}.brand span{width:10.8rem;height:2rem}.brand img{height:2rem}.brand[data-compact=true]{width:2rem}.hero {padding-top:2rem;}}
-@media(prefers-reduced-motion:reduce){.brand,.nav,.sponsoredCard{transition:none;}.sponsoredCard:hover{transform:none;}}
+@media(prefers-reduced-motion:reduce){.brand,.nav,.sponsoredCard,.walkiePrompt{transition:none;}.sponsoredCard:hover{transform:none;}.walkiePrompt:active{scale:1;}}

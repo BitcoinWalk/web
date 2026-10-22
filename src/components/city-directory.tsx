@@ -18,6 +18,7 @@ import SponsoredWalks from "./sponsored-walks";
 import styles from "./city-directory.module.css";
 const DirectoryMap=dynamic(()=>import("./directory-map"),{ssr:false,loading:()=> <p>Loading map…</p>});
 export const compactHomepageBrand=(scrollY:number)=>scrollY>72;
+export const homepageCtaLabel=(label:string)=>label==="Find your city ↓"?"Find your walk ↓":label;
 function Photo({src,alt}:{src?:string;alt:string}) {
   const [failed,setFailed]=useState(false);
   // Browser-loaded public images, not server-side URL fetches.
@@ -60,7 +61,7 @@ export default function CityDirectory({sponsoredWalks=[]}:{sponsoredWalks?:HomeS
   const filtered=filterDirectory(rows,query),filteredSponsored=filterHomeSponsoredWalks(sponsoredWalks,query);
   return <main className={styles.home}>
     <nav className={styles.nav} data-compact={compactBrand}><Link className={styles.brand} data-compact={compactBrand} href="/" aria-label="BitcoinWalk homepage"><span><Image className={styles.wordmark} src="/brand/bitcoinwalk-horizontal.png" width={1690} height={312} priority alt="BitcoinWalk"/><Image className={styles.icon} src="/brand/bitcoinwalk-icon.png" width={312} height={312} priority alt="" aria-hidden="true"/></span></Link><div><Link className={styles.startButton} href="/start">Start a walk</Link><Link className={styles.connectLink} href="/admin" aria-label="Connect to your dashboard" title="Connect"><svg aria-hidden="true" viewBox="0 0 24 24" focusable="false"><path d="M9 3v4m6-4v4M7 7h10v3a5 5 0 0 1-10 0V7Zm5 8v3c0 2 1 3 3 3h2"/></svg></Link></div></nav>
-    <header className={styles.hero}>{content.eyebrow&&<p className={styles.eyebrow}>{content.eyebrow}</p>}<h1>{content.title==="Good company. One walk at a time."?<>Good company.<br/>One walk at a time.</>:content.title}</h1>{content.intro&&<p>{content.intro}</p>}{content.ctaLabel&&content.ctaHref&&<a className={styles.link} href={content.ctaHref}>{content.ctaLabel}</a>}</header>
+    <header className={styles.hero}>{content.eyebrow&&<p className={styles.eyebrow}>{content.eyebrow}</p>}<h1>{content.title==="Good company. One walk at a time."?<>Good company.<br/>One walk at a time.</>:content.title}</h1>{content.intro&&<p>{content.intro}</p>}<div className={styles.heroActions}>{content.ctaLabel&&content.ctaHref&&<a className={styles.link} href={content.ctaHref}>{homepageCtaLabel(content.ctaLabel)}</a>}<a className={styles.walkiePrompt} href="https://zapstore.dev/apps/org.bitcoinwalk.walkietalkie" aria-label="Try Walkie Talkie on Zapstore"><Image className={styles.walkieIcon} src="/brand/walkie-talkie-zapstore-icon.png" width={40} height={40} alt=""/><span><span>Prefer the app?</span><strong>Try Walkie Talkie</strong></span><span aria-hidden="true">↗</span></a></div></header>
     {content.body&&<section>{content.body.split(/\n\s*\n/).map((paragraph,index)=><p key={index} style={{whiteSpace:"pre-wrap"}}>{paragraph}</p>)}</section>}
     <p className={styles.muted}>Approved cities from BitcoinWalk’s public relay.</p>
     <section id="find-walk" aria-labelledby="directory-title"><h2 id="directory-title">Find your city</h2>
