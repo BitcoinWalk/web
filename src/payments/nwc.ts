@@ -2,13 +2,15 @@ import {finalizeEvent,getPublicKey,nip04,nip44,nip47,verifyEvent,type Event} fro
 import {Relay} from "nostr-tools/relay";
 import {decode} from "bolt11";
 import {PRICE_MSAT,type Invoice,type PaymentWallet} from "./service";
+import {LUGANO_EVENT_SATS} from "./lugano-event";
 const {parseConnectionString}=nip47;
+const SPONSOR_AMOUNTS_MSAT=[21_000_000,42_000_000,69_000_000,LUGANO_EVENT_SATS*1000];
 function parsePrivateConnection(value:string):ReturnType<typeof parseConnectionString>{
  try{return parseConnectionString(value);}catch{throw new Error("Invalid NWC configuration");}
 }
 
 export function validateInvoice(result:Record<string,unknown>,now=Math.floor(Date.now()/1000),amountMsat=PRICE_MSAT):Invoice {
- if(![21_000_000,42_000_000,69_000_000].includes(amountMsat)||result.type!=="incoming"||result.amount!==amountMsat||typeof result.invoice!=="string"||!result.invoice.startsWith("lnbc"))throw new Error("Invalid invoice response");
+ if(!SPONSOR_AMOUNTS_MSAT.includes(amountMsat)||result.type!=="incoming"||result.amount!==amountMsat||typeof result.invoice!=="string"||!result.invoice.startsWith("lnbc"))throw new Error("Invalid invoice response");
  const decoded=decode(result.invoice),hash=decoded.tagsObject.payment_hash;
  if(decoded.millisatoshis!==String(amountMsat)||!hash||hash!==result.payment_hash||!decoded.timestamp||decoded.timestamp>now+60||!decoded.timeExpireDate||decoded.timeExpireDate<=now||decoded.timeExpireDate>now+86400)throw new Error("Invoice amount, hash, network or expiry mismatch");
  return{invoice:result.invoice,paymentHash:hash,amountMsat,createdAt:decoded.timestamp,expiresAt:decoded.timeExpireDate};
@@ -24,7 +26,7 @@ export class NwcWallet implements PaymentWallet {
   this.secret=Buffer.from(this.connection.secret,"hex");
  }
  async makeInvoice(description:string):Promise<Invoice>{return validateInvoice(await this.call("make_invoice",{amount:PRICE_MSAT,description,expiry:3600}));}
- async makeSponsorInvoice(description:string,amount:number):Promise<Invoice>{if(![21_000_000,42_000_000,69_000_000].includes(amount))throw new Error("Invalid sponsorship package");return validateInvoice(await this.call("make_invoice",{amount,description,expiry:3600}),Math.floor(Date.now()/1000),amount);}
+ async makeSponsorInvoice(description:string,amount:number):Promise<Invoice>{if(!SPONSOR_AMOUNTS_MSAT.includes(amount))throw new Error("Invalid sponsorship package");return validateInvoice(await this.call("make_invoice",{amount,description,expiry:3600}),Math.floor(Date.now()/1000),amount);}
  lookupInvoice(hash:string):Promise<Record<string,unknown>>{if(!/^[0-9a-f]{64}$/.test(hash))throw new Error("Invalid payment hash");return this.call("lookup_invoice",{payment_hash:hash});}
  private async call(method:"make_invoice"|"lookup_invoice",params:Record<string,unknown>):Promise<Record<string,unknown>>{
   // Fail over connections before publication only. A timeout after publication
