@@ -6,7 +6,9 @@ describe("dashboard Walkie Talkie download",()=>{
   const page=readFileSync("src/app/admin/page.tsx","utf8");
   expect(page).toContain("Get your BitcoinWalk companion app");
   expect(page).toContain("Download on Zapstore");
-  expect(page).not.toContain("QRCodeSVG");
+  expect(page).toContain("QRCodeSVG");
+  expect(page).toContain('value={WALKIE_TALKIE_DOWNLOAD_URL}');
+  expect(page).not.toContain("walkie-talkie-zapstore-icon.png");
   expect(page).toContain("https://bitcoinwalk.org/app");
   expect(page).toContain('aria-label="Get your BitcoinWalk companion app"');
   expect(page).toContain('target="_blank"');

@@ -1,6 +1,6 @@
 "use client";
-import Image from "next/image";
 import Link from "next/link";
+import {QRCodeSVG} from "qrcode.react";
 import DashboardUpcoming from "../../components/dashboard-upcoming";
 import {useEffect,useState,useRef} from "react";
 import {useDashboard,useDashboardAutoLoad} from "../../components/dashboard-context";
@@ -39,7 +39,7 @@ export default function DashboardOverview(){
   <div className={styles.overviewHeader}>
    <div><h1>{copy.title}</h1><p className={styles.intro}>{copy.intro}</p></div>
    <a className={styles.walkieDownload} href={WALKIE_TALKIE_DOWNLOAD_URL} target="_blank" rel="noopener noreferrer" aria-label="Get your BitcoinWalk companion app">
-    <Image src="/brand/walkie-talkie-zapstore-icon.png" width={56} height={56} alt=""/>
+    <QRCodeSVG value={WALKIE_TALKIE_DOWNLOAD_URL} size={56} marginSize={1} title="Scan to get the BitcoinWalk companion app"/>
     <span className={styles.walkieCopy}><strong>Get your BitcoinWalk companion app</strong><span>Download on Zapstore</span></span>
     <span className={styles.walkieArrow} aria-hidden="true">↗</span>
    </a>
