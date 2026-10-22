@@ -8,6 +8,7 @@ describe("Lugano event sponsorship page",()=>{
   const html=renderToStaticMarkup(createElement(LuganoEventSponsorship));
   expect(html).toContain("Sponsor the Sunday BitcoinWalk.");
   expect(html).toContain("Exclusive event sponsorship");
+  expect(html).toContain("Your logo goes on the event page, share images and promotional artwork.");
   expect(html).toContain("Create Lightning invoice");
   expect(html).not.toContain("Simply Bitcoin");
   expect(html).not.toContain("Your logo, everywhere this walk is advertised.");

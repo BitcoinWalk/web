@@ -12,7 +12,8 @@
 .offer{display:flex;flex-direction:column;gap:.15rem;margin:1.6rem 0}
 .offer strong{font-size:clamp(2.1rem,4vw,3rem);line-height:1;color:#ffad46;letter-spacing:-.035em}
 .offer span{color:#c9ccd4}
-.placement{max-width:34rem;color:#e5e7ec;line-height:1.5}
+.placement{display:flex;align-items:flex-start;gap:.65rem;max-width:34rem;padding:.8rem .9rem;border:1px solid rgba(213,108,255,.32);border-radius:.75rem;background:rgba(213,108,255,.1);color:#f4e9f9;font-weight:700;line-height:1.45}
+.placement span{flex:none;color:#d56cff;font-weight:900}
 .cta{display:inline-flex;align-items:center;justify-content:center;gap:.5rem;min-height:3.25rem;margin-top:.5rem;padding:0 1.2rem;border:1px solid transparent;border-radius:.75rem;background:#f7931a;color:#17120d!important;font-weight:850;text-decoration:none;box-shadow:0 1px 1px rgba(0,0,0,.16),0 8px 24px rgba(247,147,26,.18);transition-property:background-color,box-shadow,transform;transition-duration:150ms;transition-timing-function:ease-out;-webkit-tap-highlight-color:transparent}
 .cta:active{transform:scale(.96)}
 .back{margin:.9rem 0 0;font-size:.9rem}
