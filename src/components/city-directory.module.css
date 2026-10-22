@@ -18,7 +18,7 @@
 .hero h1 {font-size:clamp(2.7rem,7vw,5.2rem);line-height:1.04;letter-spacing:-.04em;margin:1.2rem 0;}
 .hero>p:not(.eyebrow) {font-size:1.2rem;max-width:38rem;line-height:1.6;}
 .heroActions {display:flex;flex-direction:column;align-items:flex-start;gap:1rem;margin-top:1.25rem;}
-.walkieDownload {box-sizing:border-box;width:min(100%,31rem);margin:0!important;}
+.walkieDownload {box-sizing:border-box;width:min(100%,25rem);margin:0!important;}
 .home .walkieDownload h2 {margin:0;color:#22251e;font-size:.92rem;line-height:1.25;letter-spacing:-.01em;}
 .zapstoreButton {display:grid;grid-template-columns:2.5rem minmax(0,1fr) auto;align-items:center;gap:.7rem;width:100%;box-sizing:border-box;padding:.58rem .72rem;border:1px solid #e3d8c8;border-radius:.85rem;background:#fffaf2;color:#22251e;text-decoration:none;box-shadow:0 5px 14px rgba(34,37,30,.06);transition:background-color .15s ease-out,box-shadow .15s ease-out,scale .15s ease-out;-webkit-tap-highlight-color:transparent;}
 .zapstoreButton:active {scale:.96;}

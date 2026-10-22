@@ -15,6 +15,7 @@ describe("homepage brand",()=>{
  });
  it("offers the Walkie Talkie download panel beneath the hero CTA",()=>{
   const page=readFileSync(join(process.cwd(),"src/components/city-directory.tsx"),"utf8");
+  const styles=readFileSync(join(process.cwd(),"src/components/city-directory.module.css"),"utf8");
   expect(page).toContain("Get your BitcoinWalk companion app");
   expect(page).toContain("Download on Zapstore");
   expect(page).not.toContain("Approved cities from BitcoinWalk’s public relay.");
@@ -22,6 +23,7 @@ describe("homepage brand",()=>{
   expect(page).not.toContain("Google Play coming soon");
   expect(page).toContain("/brand/walkie-talkie-zapstore-icon.png");
   expect(page).toContain("https://zapstore.dev/apps/org.bitcoinwalk.walkietalkie");
+  expect(styles).toContain(".walkieDownload {box-sizing:border-box;width:min(100%,25rem)");
  });
  it("adds the Plan B Forum campaign mark to the Lugano city card",()=>{
   const page=readFileSync(join(process.cwd(),"src/components/city-directory.tsx"),"utf8");
