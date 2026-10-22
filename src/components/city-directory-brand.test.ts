@@ -1,5 +1,5 @@
 import {describe,expect,it} from "vitest";
-import {compactHomepageBrand} from "./city-directory";
+import {compactHomepageBrand,homepageCtaLabel} from "./city-directory";
 import {readFileSync} from "node:fs";
 import {join} from "node:path";
 
@@ -8,6 +8,21 @@ describe("homepage brand",()=>{
   expect(compactHomepageBrand(0)).toBe(false);
   expect(compactHomepageBrand(72)).toBe(false);
   expect(compactHomepageBrand(73)).toBe(true);
+ });
+ it("renames only the legacy homepage CTA to Find your walk",()=>{
+  expect(homepageCtaLabel("Find your city ↓")).toBe("Find your walk ↓");
+  expect(homepageCtaLabel("Explore walks")).toBe("Explore walks");
+ });
+ it("offers the Walkie Talkie download panel beneath the hero CTA",()=>{
+  const page=readFileSync(join(process.cwd(),"src/components/city-directory.tsx"),"utf8");
+  expect(page).toContain("Download your BitcoinWalk companion app");
+  expect(page).toContain("Get on");
+  expect(page).toContain("App Store coming soon");
+  expect(page).toContain("Google Play coming soon");
+  expect(page).toContain("Free and open source");
+  expect(page).toContain("No phone number required");
+  expect(page).toContain("/brand/walkie-talkie-zapstore-icon.png");
+  expect(page).toContain("https://zapstore.dev/apps/org.bitcoinwalk.walkietalkie");
  });
  it("adds the Plan B Forum campaign mark to the Lugano city card",()=>{
   const page=readFileSync(join(process.cwd(),"src/components/city-directory.tsx"),"utf8");
