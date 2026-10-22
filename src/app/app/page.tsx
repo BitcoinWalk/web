@@ -25,10 +25,16 @@ export const metadata:Metadata={
 };
 
 function ZapstoreMark(){return <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M13.3 2 5.8 13h5.1l-.7 9L18.6 9h-5.3V2Z" fill="currentColor"/></svg>}
+function AppleMark(){return <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M17.2 12.8c0-2.5 2-3.7 2.1-3.8a4.6 4.6 0 0 0-3.6-2c-1.5-.2-3 1-3.8 1-.8 0-2-1-3.3-1-1.7 0-3.3 1-4.2 2.5-1.8 3.1-.5 7.8 1.3 10.3.9 1.2 1.9 2.6 3.2 2.5 1.3 0 1.8-.8 3.4-.8s2 .8 3.4.8c1.4 0 2.3-1.3 3.1-2.5 1-1.4 1.4-2.9 1.4-3-.1 0-3-.9-3-4Zm-2.5-7.4c.7-.9 1.2-2.1 1.1-3.4-1.1 0-2.4.8-3.2 1.7-.7.8-1.3 2-1.1 3.2 1.2.1 2.5-.6 3.2-1.5Z" fill="currentColor"/></svg>}
+function PlayMark(){return <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4.1 3.2 13 12l-8.9 8.8A2 2 0 0 1 3.5 19V5c0-.7.2-1.3.6-1.8Zm10.3 10.2 2.4 2.4-9.5 5.4 7.1-7.8Zm3.9-5.2 2.4 1.4c1.1.6 1.1 1.4 0 2l-2.4 1.4-2.8-2.4 2.8-2.4ZM7.3 2.8l9.5 5.4-2.4 2.4-7.1-7.8Z" fill="currentColor"/></svg>}
 function Arrow(){return <svg aria-hidden="true" viewBox="0 0 24 24"><path d="m9 5 7 7-7 7" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.25"/></svg>}
 function Check(){return <svg aria-hidden="true" viewBox="0 0 24 24"><path d="m5 12.5 4.2 4.2L19 7" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.25"/></svg>}
 
-function DownloadButton(){return <a className={styles.primaryAction} href={zapstoreUrl} target="_blank" rel="noreferrer"><ZapstoreMark/><span><small>Download from</small>Zapstore</span><Arrow/></a>}
+function StoreButtons(){return <div className={styles.storeButtons} aria-label="App downloads">
+ <a className={styles.storeActive} href={zapstoreUrl} target="_blank" rel="noreferrer"><ZapstoreMark/><span><small>Download from</small>Zapstore</span><Arrow/></a>
+ <button type="button" disabled><AppleMark/><span><small>Coming soon</small>App Store</span></button>
+ <button type="button" disabled><PlayMark/><span><small>Coming soon</small>Google Play</span></button>
+ </div>}
 
 export default function AppPage(){return <main className={styles.page}>
  <header className={styles.header}>
@@ -41,7 +47,7 @@ export default function AppPage(){return <main className={styles.page}>
    <div className={styles.appIdentity}><Image src="/app/walkie-talkie/icon.png" width={512} height={512} alt="Walkie Talkie app icon"/><span>Walkie Talkie for Android</span></div>
    <h1>Your BitcoinWalk.<br/><em>In your pocket.</em></h1>
    <p className={styles.lede}>Find the next walk, join your city and chat privately—all with a Nostr identity you control.</p>
-   <div className={styles.actions}><DownloadButton/><a className={styles.secondaryAction} href="#features">Explore the app</a></div>
+   <StoreButtons/>
    <div className={styles.trustLine}><span><Check/>Free and open source</span><span><Check/>No phone number required</span></div>
   </div>
   <div className={styles.heroVisual} aria-label="Walkie Talkie app preview">
@@ -65,10 +71,6 @@ export default function AppPage(){return <main className={styles.page}>
     <div><span>02 · Chat</span><h3>Talk to your people.</h3><p>Ask the BitcoinWalk Guide AI bot, join Global and city groups, or send encrypted direct messages.</p></div>
     <div className={styles.cardScreen}><Image src="/app/walkie-talkie/chats.png" width={1320} height={2868} alt="AI Guide, community groups and private chats"/></div>
    </article>
-   <article className={`${styles.featureCard} ${styles.orangeCard}`}>
-    <div><span>03 · Identity</span><h3>Bring your own identity.</h3><p>Create a Nostr identity or connect one you already use. No phone number or email address required.</p></div>
-    <div className={styles.cardScreen}><Image src="/app/walkie-talkie/sign-in.png" width={1320} height={2868} alt="Walkie Talkie Nostr sign-in options"/></div>
-   </article>
   </div>
   <div className={styles.quickStart}>
    <p><b>1</b><span><strong>Install</strong> from Zapstore</span></p>
@@ -80,9 +82,9 @@ export default function AppPage(){return <main className={styles.page}>
  </section>
 
  <section className={styles.finalCta}>
-  <Image src="/app/walkie-talkie/icon.png" width={512} height={512} alt=""/>
-  <div><p>Ready for the next walk?</p><h2>Take BitcoinWalk with you.</h2></div>
-  <DownloadButton/>
+  <div className={styles.donationMark}><ZapstoreMark/></div>
+  <div><p>Open source. Community funded.</p><h2>Help us ship faster.</h2><span>Your sats fund development and help bring Walkie Talkie to more platforms.</span></div>
+  <a className={styles.donateAction} href="lightning:donate@bitcoinwalk.org"><span><small>Support Walkie Talkie</small>Donate sats</span><Arrow/></a>
  </section>
 
  <footer className={styles.footer}><Link href="/"><Image src="/brand/bitcoinwalk-horizontal-white.png" width={2000} height={368} alt="BitcoinWalk"/></Link><p>Walk locally. Talk freely.</p><span><Link href="/brand">Brand</Link><a href={sourceUrl} target="_blank" rel="noreferrer">Open source</a><a href={zapstoreUrl} target="_blank" rel="noreferrer">Zapstore</a></span></footer>
