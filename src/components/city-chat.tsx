@@ -1,3 +1,4 @@
+import Image from "next/image";
 import { resolveCityChat, type ChatConfig } from "../domain/chat";
 import { chatConfig } from "../lib/chat-config";
 import { directoryConfig } from "../lib/directory-config";
@@ -14,13 +15,9 @@ export default function CityChat({ cityId, slug, config = chatConfig, paid }: { 
   const chat = cityChatDetails({cityId,slug,config,paid});
   return <>
     <section className="walkie-talkie-card" aria-labelledby="walkie-talkie-title">
-      <div className="walkie-talkie-card__icon" aria-hidden="true">
-        <svg viewBox="0 0 24 24">
-          <path d="M7 18.5 3.5 21v-5.1A8 8 0 0 1 2 11.25C2 6.7 6.48 3 12 3s10 3.7 10 8.25-4.48 8.25-10 8.25c-1.8 0-3.48-.4-5-1Z"/>
-        </svg>
-      </div>
+      <Image className="walkie-talkie-card__icon" src="/brand/walkie-talkie-zapstore-icon.png" width={56} height={56} alt="" />
       <div className="walkie-talkie-card__content">
-        <p className="walkie-talkie-card__eyebrow">Your BitcoinWalk companion app</p>
+        <p className="walkie-talkie-card__eyebrow">Try our companion app</p>
         <h2 id="walkie-talkie-title">Walkie Talkie</h2>
         <p>Join your city chat, meet fellow Bitcoiners and keep the conversation going before and after the walk.</p>
       </div>

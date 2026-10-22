@@ -10,7 +10,8 @@ describe("event community action",()=>{
   it("links a free walk to the global Armada community",()=>{
     const html=renderToStaticMarkup(createElement(CityChat,{cityId:"free",slug:"memphis",config,paid:false}));
     expect(html).toContain("Open Armada");
-    expect(html).toContain("Your BitcoinWalk companion app");
+    expect(html).toContain("Try our companion app");
+    expect(html).toContain("walkie-talkie-zapstore-icon.png");
     expect(html).toContain("Get it on Zapstore");
     expect(html).toContain(WALKIE_TALKIE_ZAPSTORE_URL);
     expect(html).toContain("Armada Concord");
