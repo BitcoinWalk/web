@@ -15,8 +15,9 @@ describe("homepage brand",()=>{
  });
  it("offers the Walkie Talkie download panel beneath the hero CTA",()=>{
   const page=readFileSync(join(process.cwd(),"src/components/city-directory.tsx"),"utf8");
-  expect(page).toContain("Download your BitcoinWalk companion app");
-  expect(page).toContain("Get on Zapstore");
+  expect(page).toContain("Get your BitcoinWalk companion app");
+  expect(page).toContain("Download on Zapstore");
+  expect(page).not.toContain("Approved cities from BitcoinWalk’s public relay.");
   expect(page).not.toContain("App Store coming soon");
   expect(page).not.toContain("Google Play coming soon");
   expect(page).toContain("/brand/walkie-talkie-zapstore-icon.png");
