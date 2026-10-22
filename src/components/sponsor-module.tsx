@@ -21,7 +21,7 @@ export default function SponsorModule({presentation,cityName,cityLogo,ogImageUrl
    <span className={styles.eyebrow}>{luganoEvent?"Sponsor the Lugano conference walk":"Sponsor this walk"}</span>
    <h2 id="sponsor-heading" className={styles.srOnly}>Sponsor BitcoinWalk in {cityName}</h2>
    <Image className={styles.brandLogo} src={cityLogo?.src??"/brand/bitcoinwalk-horizontal.png"} width={cityLogo?.width??1690} height={cityLogo?.height??312} unoptimized alt={`BitcoinWalk ${cityName}`}/>
-   {luganoEvent?<><h3>Keep the conversation going beyond the conference.</h3><p>Bring conference visitors and local Bitcoiners together for this Plan ₿ Forum BitcoinWalk side-event, in solidarity with Simply Bitcoin.</p><p><strong>Sunday 25 OCT · 10:00am · Lugano</strong></p><p>Sponsor this event for 210,000 sats. Your logo will be displayed everywhere this walk is advertised.</p></>:<p>Help keep this and future local walks free, visible and welcoming.</p>}
+   {luganoEvent?<><h3>Keep the conversation going beyond the conference.</h3><p>Bring conference visitors and local Bitcoiners together for this Plan ₿ Forum BitcoinWalk side-event.</p><p><strong>Sunday 25 OCT · 10:00am · Lugano</strong></p><p>Sponsor this event for 210,000 sats. Your logo will be displayed everywhere this walk is advertised.</p></>:<p>Help keep this and future local walks free, visible and welcoming.</p>}
   </div>
   <Link className={styles.options} href={luganoEvent?"/sponsor/lugano-planb":`/sponsor?city=${encodeURIComponent(cityName)}`}>{luganoEvent?"Sponsor this side-event":"View sponsorship options"} <span aria-hidden="true">→</span></Link>
  </section>;

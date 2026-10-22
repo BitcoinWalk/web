@@ -106,6 +106,9 @@
 .invitation,.split { margin: 1rem 0; padding: 1rem; border: 1px solid #e7a84d; border-radius: .75rem; background: #fff7e8; }
 .invitation p { margin: .5rem 0; }
 .invitation small { color: #5d5042; }
+.eventSummary { display: grid; gap: .3rem; margin: 1rem 0 1.25rem; padding: .9rem 1rem; border: 1px solid #e6e0d8; border-radius: .75rem; background: #faf8f5; }
+.eventSummary span { color: #55515a; line-height: 1.4; }
+.eventSummary strong { color: #171717; font-size: 1.1rem; }
 
 @media (max-width: 28rem) {
   .package { grid-template-columns: auto minmax(0, 1fr) auto; }
