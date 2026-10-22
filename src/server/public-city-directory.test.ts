@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const mocks = vi.hoisted(() => ({ loadCalendarWalks: vi.fn() }));
+const mocks = vi.hoisted(() => ({ loadCalendarWalks: vi.fn(), queryAuthorizations: vi.fn() }));
 vi.mock("../nostr/calendar-records", () => ({ loadCalendarWalks: mocks.loadCalendarWalks }));
+vi.mock("../nostr/city-records", () => ({ queryAuthorizations: mocks.queryAuthorizations }));
 vi.mock("../lib/server-relay-config", () => ({ serverReadRelays: () => ["wss://relay.example"] }));
 vi.mock("./chat-config", () => ({ serverChatConfig: () => ({
   environment: "production",
@@ -17,11 +18,11 @@ vi.mock("./share-preview", () => ({
 import { loadPublicCityDirectory } from "./public-city-directory";
 
 function row(cityId: string, cityName: string, slug: string, aliases: string[] = []) {
-  return { revision: { city: { cityId, cityName, slug, aliases, heroImageUrl: `https://images.example/${slug}.webp` } } };
+  return { revision: { event: {pubkey: "1".repeat(64)}, city: { cityId, cityName, slug, aliases, heroImageUrl: `https://images.example/${slug}.webp` } } };
 }
 
 describe("public city directory", () => {
-  beforeEach(() => { mocks.loadCalendarWalks.mockReset(); delete process.env.BITCOINWALK_GUIDE_PUBKEY; });
+  beforeEach(() => { mocks.loadCalendarWalks.mockReset(); mocks.queryAuthorizations.mockReset().mockResolvedValue([]); delete process.env.BITCOINWALK_GUIDE_PUBKEY; });
 
   it("sorts and deduplicates approved cities with canonical links", async () => {
     mocks.loadCalendarWalks.mockResolvedValue([
@@ -36,6 +37,7 @@ describe("public city directory", () => {
       id: "a",
       slug: "madeira",
       canonicalUrl: "https://bitcoinwalk.org/madeira",
+      organizerNpub: "npub1zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygse4sl3h",
       avatarUrl: `https://bitcoinwalk.org/api/og/files/${"a".repeat(64)}.jpg`,
       heroImageUrl: "https://images.example/madeira.webp",
       chat: {

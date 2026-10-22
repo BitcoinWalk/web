@@ -1,9 +1,11 @@
 import { resolveCityChat } from "../domain/chat";
 import { configuredPaidCity } from "../lib/directory-config";
 import { loadCalendarWalks } from "../nostr/calendar-records";
+import { queryAuthorizations } from "../nostr/city-records";
 import { serverReadRelays } from "../lib/server-relay-config";
 import { serverChatConfig } from "./chat-config";
 import { renderedShareImage, shareOrigin } from "./share-preview";
+import { publicOrganizerNpubs } from "./public-organizer";
 
 type PublicCommunityDestination = {
   relay: string;
@@ -16,6 +18,7 @@ export type PublicCityDirectoryItem = {
   slug: string;
   aliases: string[];
   canonicalUrl: string;
+  organizerNpub: string | null;
   avatarUrl: string;
   heroImageUrl: string;
   chat: {
@@ -36,13 +39,15 @@ export type PublicCityDirectory = {
   cities: PublicCityDirectoryItem[];
 };
 
-/** Public projection of approved cities. It deliberately contains no owner,
- * payment, private-relay or moderation data. A paid city never falls back to
+/** Public projection of approved cities. It contains the current organizer's
+ * public NIP-19 identifier, but no payment, private-relay or moderation data. A paid city never falls back to
  * the global room while its dedicated NIP-29 destination is incomplete. */
 export async function loadPublicCityDirectory(now = Date.now()): Promise<PublicCityDirectory> {
   if (!Number.isSafeInteger(now) || now < 0) throw new Error("Invalid directory time.");
   const origin = shareOrigin();
-  const walks = await loadCalendarWalks(serverReadRelays());
+  const relays = serverReadRelays();
+  const [walks, authorizations] = await Promise.all([loadCalendarWalks(relays), queryAuthorizations(relays)]);
+  const organizerNpubs = publicOrganizerNpubs(walks, authorizations);
   const chatConfig = serverChatConfig();
   const cities = new Map<string, PublicCityDirectoryItem>();
   for (const walk of walks) {
@@ -68,6 +73,7 @@ export async function loadPublicCityDirectory(now = Date.now()): Promise<PublicC
       slug: city.slug,
       aliases,
       canonicalUrl: `${origin}/${encodeURIComponent(city.slug)}`,
+      organizerNpub: organizerNpubs.get(city.cityId) ?? null,
       avatarUrl,
       heroImageUrl: walk.approval?.approval?.heroImageUrl || city.heroImageUrl || avatarUrl,
       chat: {

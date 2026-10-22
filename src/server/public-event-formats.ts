@@ -28,6 +28,7 @@ export function eventsIcalendar(feed:PublicEventsFeed,origin:string):string{
   `LOCATION:${icsText(event.address)}`,
   `GEO:${event.latitude};${event.longitude}`,
   `URL:${icsUri(event.link)}`,
+  ...(event.organizerNpub?[`X-BITCOINWALK-ORGANIZER-NPUB:${icsText(event.organizerNpub)}`]:[]),
   `IMAGE;VALUE=URI;FMTTYPE=image/jpeg;DISPLAY=FULLSIZE:${icsUri(event.image)}`,
   `X-BITCOINWALK-TIMEZONE:${icsText(event.timeZone)}`,
   `X-NOSTR-EVENT-ID:${event.id}`,
@@ -48,6 +49,7 @@ export function eventsRss(feed:PublicEventsFeed,origin:string):string{
       <bw:startDate>${xml(event.startDate)}</bw:startDate>${event.endDate?`\n      <bw:endDate>${xml(event.endDate)}</bw:endDate>`:""}
       <bw:timeZone>${xml(event.timeZone)}</bw:timeZone>
       <bw:address>${xml(event.address)}</bw:address>
+      ${event.organizerNpub?`<bw:organizerNpub>${xml(event.organizerNpub)}</bw:organizerNpub>`:""}
       <geo:lat>${event.latitude}</geo:lat>
       <geo:long>${event.longitude}</geo:long>
       <media:content url="${xml(event.image)}" type="image/jpeg" medium="image" />

@@ -30,7 +30,12 @@ describe("Pro city identity health",()=>{
   expect(managedCityProfileMatches({...profile,picture:undefined},null,"Hannover",profile.website)).toBe(false);
  });
  it("does not pass NIP-05 merely because provisioning says active",()=>{
-  expect(summarizeCityIdentityHealth(base({nip05Verified:false})).checks.find(check=>check.key==="nip05")?.state).toBe("fail");
+  expect(summarizeCityIdentityHealth(base({nip05Verified:false,profile:{reachable:3,matching:3,nip05:0,lightning:3}})).checks.find(check=>check.key==="nip05")?.state).toBe("fail");
+ });
+ it("does not reopen an activated mapping after one transient probe failure when public profiles corroborate it",()=>{
+  const row=summarizeCityIdentityHealth(base({nip05Verified:false,profile:{reachable:3,matching:3,nip05:2,lightning:3}}));
+  expect(row.status).toBe("complete");
+  expect(row.checks.find(check=>check.key==="nip05")?.state).toBe("pass");
  });
  it("keeps confirmed London/Würzburg Pro while separating staging test evidence",()=>{
   expect(classifyCityIdentityTier({operatorConfirmed:true,settled:false,hasSetup:false,hasActiveBinding:false,staging:true})).toBe("pro");

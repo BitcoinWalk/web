@@ -56,7 +56,13 @@ export function summarizeCityIdentityHealth(input:CityIdentityHealthEvidence):Ci
   // endpoint verification. Do not turn delayed kind-0 replication on unrelated
   // profile relays into a false managed-service failure; profile propagation is
   // assessed separately by the profile check above.
-  const nip05State:IdentityHealthCheckState=input.nip05Verified?"pass":"fail";
+  // A live probe is the strongest evidence. If it fails transiently, retain a
+  // previously activated managed mapping only when at least two independent
+  // public profile relays still advertise that exact identifier. This prevents
+  // a temporary self-fetch/DNS failure from reopening completed onboarding,
+  // without trusting durable provisioning state on its own.
+  const nip05Ok=input.nip05Verified||input.capabilities.nip05==="active"&&input.profile.nip05>=2;
+  const nip05State:IdentityHealthCheckState=nip05Ok?"pass":"fail";
   const lightningState:IdentityHealthCheckState=input.capabilities.lightning==="active"?"pass":"fail";
   const checks:CityIdentityHealthCheck[]=[
     check("identity","Dedicated city npub",identityOk?"pass":"fail",identityOk?(input.activationState==="active"?"The saved city signer matches the active BitcoinWalk city binding.":"The saved city signer matches the submitted BitcoinWalk city identity."):"A distinct saved city signer matching the submitted city identity is required."),
