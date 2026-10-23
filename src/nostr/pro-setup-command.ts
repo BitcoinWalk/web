@@ -2,6 +2,7 @@ import {getEventHash, verifyEvent, type Event, type EventTemplate} from "nostr-t
 import {z} from "zod";
 
 const commandSchema = z.discriminatedUnion("action", [
+  z.object({action:z.literal("accept-city-profile"),cityId:z.uuid(),fingerprint:z.string().regex(/^[0-9a-f]{64}$/)}).strict(),
   z.object({action: z.literal("preview"), cityId: z.uuid()}).strict(),
   z.object({action: z.literal("save-payout"), cityId: z.uuid(), destination: z.string().trim().min(5).max(500)}).strict(),
   z.object({action: z.literal("confirm-city-signer"), cityId: z.uuid(), brandPubkey: z.string().regex(/^[0-9a-f]{64}$/), backupAcknowledged: z.literal(true)}).strict(),

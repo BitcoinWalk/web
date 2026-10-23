@@ -3,6 +3,7 @@ import type {ManagedCity,NeedsChangesCity} from "../nostr/moderation";
 import type {CityIdentityHealth} from "../server/pro-city-identity-health";
 import type {PaidDirectoryCity} from "../domain/directory";
 import {visibleDecisionNote} from "../domain/admin-city-requests";
+import {identityApprovalProblems} from "../domain/identity-review";
 
 export type CityWorkflowStatus="action-required"|"awaits-change"|"online"|"offline";
 export type CityRelayType="shared"|"dedicated"|"migrated";
@@ -28,14 +29,14 @@ export function cityWorkflowRows(input:{managed:ManagedCity[];pending:CityRevisi
   for(const row of managed){
     const city=row.revision.city,h=healthById.get(city.cityId),paid=tier(city.cityId,h)==="paid";
     let status:CityWorkflowStatus=row.state==="approved"?"online":"offline";
-    if(row.state==="approved"&&h?.status==="action-required")status=hostMustAct(h)?"awaits-change":"action-required";
+    if(row.state==="approved"&&h&&identityApprovalProblems(h).length)status=hostMustAct(h)?"awaits-change":"action-required";
     if(row.state==="approved"&&h?.status==="not-configured")status="awaits-change";
     rows.set(city.cityId,{cityId:city.cityId,cityName:city.cityName,slug:row.decision.approval.slug??city.slug,status,online:row.state==="approved",tier:tier(city.cityId,h),relay:relay(city.cityId,paid),source:"managed",managed:row,health:h});
   }
   for(const item of needsChanges){const city=item.revision.city,h=healthById.get(city.cityId),paid=tier(city.cityId,h)==="paid";rows.set(city.cityId,{cityId:city.cityId,cityName:city.cityName,slug:city.slug,status:"awaits-change",online:false,tier:tier(city.cityId,h),relay:relay(city.cityId,paid),source:"awaits-change",needsChanges:item,health:h});}
   for(const item of pending){const city=item.city,h=healthById.get(city.cityId),paid=tier(city.cityId,h)==="paid";rows.set(city.cityId,{cityId:city.cityId,cityName:city.cityName,slug:city.slug,status:"action-required",online:false,tier:tier(city.cityId,h),relay:relay(city.cityId,paid),source:"pending",pending:item,health:h});}
   for(const item of rejected){const city=item.city,h=healthById.get(city.cityId),paid=tier(city.cityId,h)==="paid";rows.set(city.cityId,{cityId:city.cityId,cityName:city.cityName,slug:city.slug,status:"offline",online:false,tier:tier(city.cityId,h),relay:relay(city.cityId,paid),source:"inventory",rejected:item,health:h});}
-  for(const h of health){if(rows.has(h.cityId)||excludedCityIds.has(h.cityId))continue;const paid=tier(h.cityId,h)==="paid",status:CityWorkflowStatus=h.status==="complete"?"online":hostMustAct(h)||h.status==="not-configured"?"awaits-change":"action-required";rows.set(h.cityId,{cityId:h.cityId,cityName:h.cityName,slug:h.slug,status,online:true,tier:tier(h.cityId,h),relay:relay(h.cityId,paid),source:"inventory",health:h});}
+  for(const h of health){if(rows.has(h.cityId)||excludedCityIds.has(h.cityId))continue;const paid=tier(h.cityId,h)==="paid",status:CityWorkflowStatus=hostMustAct(h)||h.status==="not-configured"?"awaits-change":identityApprovalProblems(h).length?"action-required":"online";rows.set(h.cityId,{cityId:h.cityId,cityName:h.cityName,slug:h.slug,status,online:true,tier:tier(h.cityId,h),relay:relay(h.cityId,paid),source:"inventory",health:h});}
   return [...rows.values()].sort((a,b)=>priority[a.status]-priority[b.status]||a.cityName.localeCompare(b.cityName));
 }
 
@@ -66,8 +67,7 @@ export function cityWorkflowNextStep(row:CityWorkflowRow):CityWorkflowNextStep|n
  }
  if(row.health?.status==="not-configured")return {owner:"City host",action:"open Pro setup and complete the city identity and recovery steps.",helpHref:`${hostGuide}#complete-pro-city-setup`};
  if(failed.has("binding"))return {owner:"Super-admin",action:row.health?.activationState==="approved"?"publish and verify the approved city identity to set the Pro city active.":"review and sign the city-identity activation request after checking the host proof."};
- const provisioning=[failed.has("profile")?"public profile":null,failed.has("nip05")?"NIP-05":null,failed.has("lightning")?"Lightning address":null].filter((value):value is string=>!!value);
- if(provisioning.length)return {owner:"Super-admin",action:`verify the ${new Intl.ListFormat("en",{style:"long",type:"conjunction"}).format(provisioning)} evidence and retry provisioning.`};
+ if(failed.has("profile"))return {owner:"Super-admin",action:"preview and accept the city name and avatar in Identity reviews."};
  if(row.health?.checks.some(check=>check.state==="unknown"))return {owner:"Super-admin",action:"recheck the unavailable verification evidence before changing anything."};
  return row.status==="awaits-change"?{owner:"External provider",action:"supply the missing verification evidence; the super-admin should recheck it afterwards."}:{owner:"Super-admin",action:"open the city record and review the unresolved requirement."};
 }

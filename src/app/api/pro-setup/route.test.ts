@@ -2,11 +2,11 @@ import {afterEach, beforeEach, describe, expect, it, vi} from "vitest";
 import {finalizeEvent, generateSecretKey, getPublicKey} from "nostr-tools";
 vi.mock("../../../server/pro-setup", () => ({prepareProSetupPreview: vi.fn(),saveProSetupPayout:vi.fn(),saveProSetupSigner:vi.fn(),reuseOwnerAsCitySigner:vi.fn(),clearProSetupSigner:vi.fn(),prepareBrandRequest:vi.fn(),submitBrandProofs:vi.fn(),cancelBrandRequest:vi.fn(),listBrandRequests:vi.fn(),reviewBrandRequest:vi.fn(),approveBrandRequest:vi.fn(),prepareBrandPublication:vi.fn(),confirmBrandPublication:vi.fn(),setProCommunityVisibility:vi.fn()}));
 vi.mock("../../../server/rustress-activation",()=>({retryManagedProvisioning:vi.fn()}));
-vi.mock("../../../server/pro-city-identity-health",()=>({listProCityIdentityHealth:vi.fn()}));
+vi.mock("../../../server/pro-city-identity-health",()=>({listProCityIdentityHealth:vi.fn(),acceptCityProfile:vi.fn()}));
 import {approveBrandRequest,cancelBrandRequest,clearProSetupSigner,confirmBrandPublication,listBrandRequests,prepareBrandPublication,prepareBrandRequest,prepareProSetupPreview,reviewBrandRequest,reuseOwnerAsCitySigner,saveProSetupPayout,saveProSetupSigner,setProCommunityVisibility,submitBrandProofs} from "../../../server/pro-setup";
 import {citySignerProofTemplate,proSetupTemplate} from "../../../nostr/pro-setup-command";
 import {retryManagedProvisioning} from "../../../server/rustress-activation";
-import {listProCityIdentityHealth} from "../../../server/pro-city-identity-health";
+import {acceptCityProfile,listProCityIdentityHealth} from "../../../server/pro-city-identity-health";
 import {POST} from "./route";
 const origin = "https://app-staging.bitcoinwalk.org", cityId = "66f137cb-2ac1-4eef-8358-7dd66b45922f";
 function request(key = generateSecretKey(), requestOrigin = origin) {
@@ -17,6 +17,13 @@ function payoutRequest(key = generateSecretKey()) {return new Request(`${origin}
 beforeEach(() => {vi.clearAllMocks(); vi.stubEnv("BITCOINWALK_PRO_SETUP_PREVIEW", "true"); vi.stubEnv("BITCOINWALK_PAYMENT_APP_ORIGIN", origin);});
 afterEach(() => vi.unstubAllEnvs());
 describe("Pro setup preview API", () => {
+  it("routes exact signed appearance review without calling provisioning",async()=>{
+    const event=finalizeEvent(proSetupTemplate({action:"accept-city-profile",cityId,fingerprint:"a".repeat(64)},origin),generateSecretKey());
+    vi.mocked(acceptCityProfile).mockResolvedValue({cityId} as never);
+    const response=await POST(new Request(`${origin}/api/pro-setup`,{method:"POST",headers:{origin},body:JSON.stringify({event})}));
+    expect(response.status).toBe(200);expect(await response.json()).toEqual({identityHealth:{cityId}});
+    expect(acceptCityProfile).toHaveBeenCalledWith(JSON.parse(JSON.stringify(event)),origin,cityId);expect(retryManagedProvisioning).not.toHaveBeenCalled();
+  });
   it("stays disabled by default and never resolves private data before authentication", async () => {
     vi.stubEnv("BITCOINWALK_PRO_SETUP_PREVIEW", "false");
     expect((await POST(request())).status).toBe(503);

@@ -4,7 +4,7 @@ import {paymentBody} from "../../../payments/request-body";
 import {approveBrandRequest, cancelBrandRequest, clearProSetupSigner, confirmBrandPublication, listBrandRequests, prepareBrandPublication, prepareBrandRequest, prepareProSetupPreview,
   reviewBrandRequest, reuseOwnerAsCitySigner, saveProSetupPayout, saveProSetupSigner, setProCommunityVisibility, submitBrandProofs} from "../../../server/pro-setup";
 import {retryManagedProvisioning} from "../../../server/rustress-activation";
-import {listProCityIdentityHealth} from "../../../server/pro-city-identity-health";
+import {acceptCityProfile,listProCityIdentityHealth} from "../../../server/pro-city-identity-health";
 
 export const dynamic = "force-dynamic", runtime = "nodejs";
 const reply = (body: unknown, status = 200) => Response.json(body, {status, headers: {"Cache-Control": "no-store"}});
@@ -34,6 +34,7 @@ export async function POST(request: Request) {
   }
   pending.add(rateKey); attempts.set(rateKey, now);
   try {
+    if(command.action==="accept-city-profile")return reply({identityHealth:await acceptCityProfile(event,origin,command.cityId)});
     if (command.action === "save-payout") return reply({payout: await saveProSetupPayout(command.cityId, event.pubkey, command.destination, event)});
     if (command.action === "confirm-city-signer") {
       if (!brandProof) throw new Error("Separate city signer proof is required.");
