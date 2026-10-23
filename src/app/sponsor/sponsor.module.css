@@ -67,10 +67,23 @@
   text-decoration: none;
 }
 
-.action:hover,
 .action:focus-visible {
   background: #ffad3b;
   text-decoration: underline;
+}
+@media (hover: hover) { .action:not(:disabled):hover { background: #ffad3b; } }
+.artwork .action { border: 1px solid transparent; min-height: 2.75rem; cursor: pointer; }
+.artwork .action:disabled { opacity: .55; cursor: not-allowed; }
+.artworkStep { color: #6641a5; font-size: .85rem; font-weight: 700; margin: 0 0 .5rem; }
+.artwork h3 { margin: 0 0 .75rem; }
+.logoPicker { display: grid; gap: .75rem; margin: 1rem 0; }
+.logoPicker input { max-width: 100%; }
+.artworkSecondary { display: block; margin-top: 1rem; padding: .5rem 0; background: transparent; border: 0; text-decoration: underline; cursor: pointer; }
+.artworkStatus { color: #57515f; line-height: 1.5; }
+.artwork button:focus-visible { outline: 2px solid #6641a5; outline-offset: 3px; }
+@media (prefers-reduced-motion: no-preference) {
+  .artwork .action { transition: transform 150ms ease-out; }
+  .artwork .action:not(:disabled):active { transform: scale(.96); }
 }
 
 .artwork {
@@ -83,7 +96,7 @@
 .artwork details { margin: 1rem 0; }
 .artwork li + li { margin-top: .35rem; }
 .ogPreview { margin-top: 1rem; }
-.ogPreview img { display: block; width: 100%; height: auto; border-radius: .5rem; }
+.ogPreview img { display: block; width: 100%; height: auto; border-radius: .5rem; outline: 1px solid oklch(0 0 0 / .1); outline-offset: -1px; }
 
 .receipt {
   max-width: 44rem;

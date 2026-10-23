@@ -20,6 +20,13 @@ import {getPaymentRuntime} from "../../../../payments/runtime";
 import {getLogoCatalog} from "../../../../logos/runtime";
 import {POST} from "./route";
 const authorizeArtwork=vi.fn();
+it("preserves the exact paid city when staging has a same-name city with another ID",async()=>{
+ const command={action:"generate-paid-sponsor-composite" as const,orderId:"10000000-0000-4000-8000-000000000001",cityId:"00000000-0000-4000-8000-000000000001",sponsorPubkey:"a".repeat(64),hash:"b".repeat(64)};
+ vi.mocked(parseMediaRequest).mockReturnValue(command);
+ vi.mocked(loadCalendarWalks).mockResolvedValue([{revision:{city:{cityId:"different-id",cityName:"Madeira",slug:"madeira"}}}] as never);
+ const response=await POST(request(JSON.stringify({event:{pubkey:command.sponsorPubkey},token:"cd".repeat(32)}),"https://app-staging.bitcoinwalk.org"));
+ expect(response.status).toBe(409);expect(await response.json()).toMatchObject({code:"SPONSOR_CITY_UNAVAILABLE",orderId:command.orderId});expect(renderShareImage).not.toHaveBeenCalled();expect(previewSponsorLogo).not.toHaveBeenCalled();
+});
 const request=(body=JSON.stringify({event:{pubkey:"a".repeat(64)}}),origin?:string)=>new Request("https://example.com/api/sponsors/assets",{method:"POST",headers:origin?{origin}:undefined,body});
 beforeEach(()=>{vi.resetAllMocks();vi.stubEnv("BITCOINWALK_PAYMENT_APP_ORIGIN","https://app-staging.bitcoinwalk.org");vi.mocked(getPaymentRuntime).mockReturnValue({sponsors:{authorizeArtwork}} as never);vi.mocked(getLogoCatalog).mockReturnValue({readyForCity:vi.fn(async()=>null)} as never);vi.mocked(parseMediaRequest).mockReturnValue({action:"list-sponsor-assets"});});
 it("denies non-admin inventory access",async()=>{expect((await POST(request())).status).toBe(403);expect(listSponsorLogoUploads).not.toHaveBeenCalled();});
