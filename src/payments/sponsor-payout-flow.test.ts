@@ -8,6 +8,8 @@ import type {PayoutDestinationVersion} from "./payout-destination-store";
 import {SponsorPayoutFlow,type SponsorPayoutPolicy} from "./sponsor-payout-flow";
 import {SponsorPayoutStore} from "./sponsor-payout-sender";
 import type {SponsorWalletReadinessEvidence} from "./sponsor-wallet-readiness";
+import {SponsorPayoutRecovery} from "./sponsor-payout-recovery";
+import {RemoteJournalStore} from "../rustress/remote-journal-store";
 
 const time=1_800_000_000,orderId="10000000-0000-4000-8000-000000000001",invitationId="20000000-0000-4000-8000-000000000001",cityId="30000000-0000-4000-8000-000000000001",host="34".repeat(32),binding="ab".repeat(32),walletRef="sponsor-wallet";
 const preimage="12".repeat(32),paymentHash=createHash("sha256").update(Buffer.from(preimage,"hex")).digest("hex"),terms:OutgoingTerms={amountMsat:"16590000",minMsat:"1000",maxMsat:"20000000",network:"bc",metadata:'[["text/plain","host payout"]]'};
@@ -26,6 +28,40 @@ function fixture(changes:Partial<SponsorPayoutPolicy>={}){
 }
 
 describe("guarded sponsorship payout flow",()=>{
+ it.each([true,false])("recreates the flow after a lost send response without resending (complete history: %s)",async(complete)=>{
+  const f=fixture(),remote=new DatabaseSync(":memory:");dbs.push(remote);
+  const journal=new RemoteJournalStore(remote,binding),initial=journal.state();
+  const state=journal.control(initial.serviceId,initial.fence,"activate");
+  const client={binding,serviceId:state.serviceId,status:async()=>journal.state(),page:async(after=0)=>journal.page(after),claim:async(input:Parameters<RemoteJournalStore["claim"]>[0])=>journal.claim(input)};
+  let sent=false;
+  const history=async()=>({binding,complete,outgoingHashes:sent?[paymentHash]:[]});
+  const paid={state:"paid" as const,walletRef,paymentHash,amountMsat:"16590000",feeMsat:"1000",preimage};
+  f.wallet.send.mockImplementation(async()=>{sent=true;throw new Error("response lost");});
+  f.wallet.lookup.mockRejectedValue(new Error("lookup unavailable until restart"));
+  const recovery=new SponsorPayoutRecovery(client,f.store,walletRef,async()=>({binding,complete:true,outgoingHashes:[]}),f.wallet.lookup,()=>true);
+  expect(await recovery.reconcile()).toEqual({state:"reconciled"});
+  const policy={...f.policy,journalServiceId:state.serviceId};
+  const deps={wallet:f.wallet,destinations:{version:()=>f.destination},evidence:f.evidence,authorize:f.authorize,retrieve:f.retrieve};
+  const flow=new SponsorPayoutFlow(f.store,{...deps,recovery},policy,()=>time);
+  expect(await flow.process(orderId)).toMatchObject({state:"unknown"});
+  expect(f.wallet.send).toHaveBeenCalledTimes(1);
+  expect(journal.page().entries).toHaveLength(1);
+  recovery.pause();
+  const restoredStore=new SponsorPayoutStore(f.db,()=>time);
+  f.wallet.lookup.mockResolvedValue(paid);
+  const restoredRecovery=new SponsorPayoutRecovery(client,restoredStore,walletRef,history,f.wallet.lookup,()=>true);
+  expect(await restoredRecovery.reconcile()).toEqual({state:complete?"reconciled":"blocked"});
+  expect(restoredRecovery.ready).toBe(complete);
+  if(complete){
+   const restoredFlow=new SponsorPayoutFlow(restoredStore,{...deps,recovery:restoredRecovery},policy,()=>time);
+   expect(await restoredFlow.process(orderId)).toMatchObject({state:"paid",amountMsat:"16590000",feeMsat:"1000"});
+   await restoredFlow.run();
+   expect(restoredStore.budgetUsage(walletRef)).toEqual({usedMsat:"16591000",uncertain:0});
+  }else expect(restoredStore.status(orderId)).toMatchObject({state:"unknown"});
+  expect(f.wallet.send).toHaveBeenCalledTimes(1);
+  expect(f.retrieve).toHaveBeenCalledTimes(1);
+  expect(journal.page().entries).toHaveLength(1);
+ });
  it("combines fresh wallet evidence, current business authority, budget and recovery fence",async()=>{const f=fixture();expect(await f.flow.process(orderId)).toMatchObject({state:"paid",amountMsat:"16590000"});expect(f.authorize).toHaveBeenCalledTimes(2);expect(f.claim).toHaveBeenCalledTimes(1);expect(f.wallet.send).toHaveBeenCalledWith(expect.objectContaining({maximumFeeMsat:"165900"}));expect(f.store.budgetUsage(walletRef)).toEqual({usedMsat:"16591000",uncertain:0});});
  it("fails closed before invoice retrieval when wallet inventory is revoked",async()=>{const f=fixture();f.readiness.inventory.revoked=true;expect(await f.flow.process(orderId)).toMatchObject({state:"owed",attemptState:null});expect(f.retrieve).not.toHaveBeenCalled();expect(f.wallet.send).not.toHaveBeenCalled();});
  it("fails closed for an unapproved city or expired operation",async()=>{const other=fixture({cityIds:["50000000-0000-4000-8000-000000000001"]});expect(await other.flow.process(orderId)).toMatchObject({state:"owed"});expect(other.retrieve).not.toHaveBeenCalled();const expired=fixture({expiresAt:time});expect(await expired.flow.process(orderId)).toMatchObject({state:"owed"});expect(expired.retrieve).not.toHaveBeenCalled();});

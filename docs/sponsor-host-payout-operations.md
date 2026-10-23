@@ -5,6 +5,109 @@ city-zap wallet, sponsorship checkout connection or either payment ledger.
 
 ## Disabled deployment package
 
+### Single-order staging runner candidate — 23 October 2026
+
+Runner `0.1.2` is a separate executable, not an update to the running disabled
+service. Build with `npm run sponsor-payout-order:package`. The archive contains
+only the bundled runner, these instructions and checksums; no credentials,
+database, signed approval or deployment configuration. It requires Node 24.
+No installer, listener, recurring job, wallet funding, invoice issuance or
+journal activation is included.
+
+The integration now connects the canonical sponsorship database, exact signed
+order authority, owner-signed destination, dedicated NWC wallet, authenticated
+Hub fee capability, fresh operator evidence, full outgoing-history recovery and
+the independently hosted journal. This supersedes the missing-entry-point note
+below for local implementation only. Production activation and live acceptance
+are still outstanding.
+
+#### Private preparation contract
+
+Run beside the **canonical staging checkout database**, never against a copied
+export or production database. Deployment placement and any private credential
+handoff must be reviewed before installation; do not move the existing payout
+credential automatically. The journal must be sponsorship-only, independently
+hosted and reached through an already verified private loopback tunnel.
+
+The configuration directory and database directory must be owner-only `0700`;
+all input files and the existing database must be regular, owner-owned `0600`
+files, with no symlinks or hard links. The runner never reads an admin private
+key. It takes these files from its explicit private configuration directory:
+
+- `config.json`: `environment: "staging"`, the absolute canonical `database`
+  path, `binding`, `walletRef: "bitcoinwalk-sponsor-payout"`,
+  `journalServiceId`, private `journalOrigin`, `budgetMsat`,
+  `maximumPayoutMsat`, `maximumFeeMsat`, exactly one `cityIds` entry, public
+  `checkoutClientPubkey` and `zapClientPubkey` separation pins, and `order`.
+- `order` binds `orderId`, incoming settlement `paymentHash`, `receivedMsat`,
+  `hostPubkey`, immutable `payoutVersion` and `destinationFingerprint` (SHA-256
+  of `cityId:version:normalizedDestination`). All amounts are decimal strings
+  in millisatoshis. The approved destination must be the saved version, not a
+  freshly typed address or the branded city-zap forwarding address.
+- `mode`: exactly `preflight` or `single-order`. Missing, changed or disabled
+  mode prevents a send. Removing the signed approval also prevents new sends.
+- `operation.json`: a super-admin-signed kind-30312 operation matching release
+  `0.1.2`, the exact wallet, journal, limits, city **and order**. An existing
+  broad city grant is insufficient. The review template expires after one hour.
+- `wallet-evidence.json`: `{binding, readiness}` using
+  `SponsorWalletReadinessEvidence`. Supply fresh independently verified Hub
+  inventory and read-probe results; never fabricate successful probes or
+  refresh timestamps on old evidence. Lifetime wallet budget and the narrower
+  approved test spend are separate limits.
+- `deployment.json`: `binding`, journal `serviceId`, `checkedAt`, `expiresAt`,
+  and verified `privateTransport`, `separateHost`, `backupRestoreVerified`,
+  `exclusiveSender` booleans. Evidence must be at most 60 seconds old.
+- `coverage.json`: `RecoveryCoverage`, with the exact live journal `fenceId`,
+  full history retained since connection creation, stopped competing senders,
+  fresh timestamps and an empty `acceptedPriorSpends`. This runner cannot
+  exempt unexplained outgoing payments from reconciliation.
+- `nwc-uri` and `journal-token`: owner-only secrets supplied privately, never
+  command arguments, chat, Git or archive contents. Only the sponsorship wallet
+  credential is loaded; the checkout and zap credentials are not required.
+
+#### Review, preflight and execution
+
+Use `node sponsor-payout-order.cjs --review /absolute/private/config` to validate
+the already-settled canonical order and create `unsigned-operation.json`
+without wallet access. It refuses to overwrite a prior template. Review the
+exact city, order, host destination and amounts, then have the configured
+super-admin sign that event with their existing signer and save the signed
+result privately as `operation.json`. Do not publish it to a public relay.
+The signed event is necessary but does not replace explicit user funding and
+payment approval.
+
+With mode `preflight`, `--preflight` loads read access, verifies native Hub fee
+safety and reconciles history. It does not request a recipient invoice or
+claim/send a payment. Recovery may update an already-paid local obligation
+using exact wallet proof; it does not create a debt or mark one paid manually.
+
+Only after reviewed deployment and explicitly bounded user approval, change
+mode to `single-order` and use `--send`. It processes only the signed order,
+then exits. Output contains redacted states and amounts, never destination,
+invoice, credential or preimage. Non-ready/non-paid outcomes exit nonzero.
+SIGINT/SIGTERM revoke in-flight send permission, but cannot cancel a payment
+already submitted to the wallet.
+
+An exclusive directory lock beside the canonical database prevents overlapping
+local runners. A crash can leave the lock behind: verify that no runner is
+alive, preserve the database and journal, and review the unknown outcome before
+removing that exact stale lock. Never reset attempts, bypass reconciliation or
+retry via a manual wallet payment. A fresh process must reconcile first; an
+unknown journal claim without complete wallet proof remains blocked.
+
+Acceptance still requires a real staging checkout through the Madeira host's
+signed invitation, exact 79/21 read-back, recipient confirmation, a process
+restart with no duplicate send, and regression checks on ordinary city zaps and
+platform-origin sponsor orders. Local mocked-wallet tests are not that proof.
+
+Local verification: all 342 test files / 2,080 tests pass, including the new
+single-order runtime tests and a close/reopen of its file-backed SQLite ledger
+after a lost wallet response. Changed-source lint, TypeScript and the bundled
+runner build pass. A smoke check confirms the bundle refuses missing private
+configuration. The initial sandboxed full-suite run could not open existing
+test sockets; the permitted local-socket rerun passed. No service was deployed,
+no wallet credential was moved and no invoice or real payment was created.
+
 `scripts/package-sponsor-payout-service.sh` produces the deterministic
 `bitcoinwalk-sponsor-payout-service-0.1.0.tar.gz` package. Its first deployment
 mode is deliberately inert:
@@ -38,6 +141,46 @@ The service is not acceptance evidence for live payout authority. Its
 reviewed wallet-history and off-host journal reconciliation can complete.
 
 ## Activation gates still required
+
+### Source verification — 23 October 2026
+
+The remaining work is not payment authorization alone. Source inspection found
+that `run-sponsor-payout-service.ts` accepts only `disabled` mode, and the
+`SponsorPayoutFlow`, `SponsorPayoutRecovery` and signed-operation verifier are
+not wired into an operational sender entry point. The five focused sender,
+flow, recovery, operation and deployment test suites pass (33 tests), but that
+is component evidence, not live end-to-end acceptance.
+
+Before funding or enabling anything, assemble and review the operational
+adapter with exact settled-order/destination access, signed operation checking,
+fresh wallet readiness, off-host reconciliation, bounded execution and safe
+shutdown. Then obtain explicit authorization for the selected staging city,
+recipient, funding amount, payout and fee limits. Acceptance must record the
+79/21 result and restart/no-duplicate evidence. Existing city-zap success does
+not satisfy this separate sponsorship rail. BW-92 remains in progress.
+
+### Madeira acceptance preparation — 23 October 2026
+
+The user selected Madeira and its existing confirmed payout address for the
+staging test. A funding amount and payment limit have not yet been approved.
+Read-only host inspection returned `disabled|none|running`. The installed Hub
+safety probe returned `SPONSOR_PAYOUT_REVIEWED_NATIVE_FEE_CAP_VERIFIED` without
+creating an invoice, funding a wallet or sending a payment.
+
+The combined flow/recovery rehearsal now exercises the actual local ledger and
+journal implementation with a mock wallet: a lost send response leaves the
+obligation unknown; recreating the components reconciles complete wallet
+history without a second send; incomplete history blocks recovery. This is
+in-memory component-recreation evidence, not a process restart or live payment.
+All seven focused sponsorship checkout, readiness, sender, flow, recovery,
+operation and deployment suites pass (64 tests); changed-test lint passes.
+
+The normal one-walk package is 21,000 sats: 16,590 sats owed to the host and
+4,410 sats retained before outgoing fees. The current flow calculates a
+165,900-msat (165.9-sat) payout fee ceiling for that obligation. These figures
+are not spending approval. Operational wiring, fresh exact destination and
+readiness evidence, a signed bounded operation and explicit funding/payment
+authorization remain prerequisites for the live test.
 
 Do not change the mode file or set
 `BITCOINWALK_SPONSOR_HOST_PAYOUT_ENABLED=1` yet. Activation still requires:
