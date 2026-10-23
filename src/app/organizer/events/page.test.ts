@@ -41,6 +41,13 @@ describe("organizer events landing view",()=>{
     expect(source).toContain("JPEG, PNG or WebP up to 5 MB");
     expect(source).toContain("Use city hero instead");
   });
+  it("previews selected walk images and keeps upload feedback beside the control",()=>{
+    const source=readFileSync(new URL("./_screen.tsx",import.meta.url),"utf8");
+    expect(source).toContain("URL.createObjectURL(file)");
+    expect(source).toContain("editImagePreview.content||editContentImageUrl");
+    expect(source).toContain("editImageFeedback.content.error?imageStyles.inlineError:imageStyles.inlineStatus");
+    expect(source).toContain("Sign and save changes to publish it below the walk description.");
+  });
   it("guides new walks through searchable details, schedule, preview and signing",()=>{
     const source=readFileSync(new URL("./_screen.tsx",import.meta.url),"utf8");
     const styles=readFileSync(new URL("./walk-image-editor.module.css",import.meta.url),"utf8");
