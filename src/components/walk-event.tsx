@@ -55,8 +55,8 @@ export default async function WalkEvent({event,walk,currentProfile,logoHref,titl
     </>}
     footer={weather.kind!=="past"&&<footer className="walk-event-footer"><WeatherAttribution/></footer>}>
     <WalkDescriptions cityName={currentProfile.revision.city.cityName} cityDescription={currentProfile.revision.city.description} eventDescription={event.content}/>
-    <div className={styles.sponsorshipSlot}><SponsorModule presentation={sponsorship} cityName={city.cityName} cityLogo={titleLogo} ogImageUrl={sponsorOgImage} endsAt={endSeconds} luganoEvent={isLuganoSponsorEvent(city.slug,startSeconds)}/></div>
     {calendarContentImage(event)&&<figure className={styles.contentImage}><Image src={calendarContentImage(event)!} width={1600} height={900} sizes="(max-width: 960px) 100vw, 960px" unoptimized alt={`BitcoinWalk ${city.cityName} walk`}/></figure>}
+    <div className={styles.sponsorshipSlot}><SponsorModule presentation={sponsorship} cityName={city.cityName} cityLogo={titleLogo} ogImageUrl={sponsorOgImage} endsAt={endSeconds} luganoEvent={isLuganoSponsorEvent(city.slug,startSeconds)}/></div>
     {calendarRoute(event)&&<WalkRoute url={calendarRoute(event)!}/>}
   </CityPageLayout>;
 }
