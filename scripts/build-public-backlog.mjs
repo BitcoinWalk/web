@@ -17,7 +17,7 @@ let historyDate;
 for (const line of history.split(/\r?\n/)) {
   if (line.startsWith("BACKLOG_DATE:")) historyDate = line.slice(13);
   // Item rows and dated item-specific checkpoints count. Queue reshuffles do not.
-  if (!historyDate || !/^\+(?:\| BW-\d+ \||\d{1,2} [A-Z][a-z]+ \d{4} BW-|BW-\d+ (?:production follow-up|partial delivery))/.test(line)) continue;
+  if (!historyDate || !/^\+(?:\| BW-\d+ \||\d{1,2} [A-Z][a-z]+ (?:\d{4} )?BW-|BW-\d+ (?:production follow-up|partial delivery))/.test(line)) continue;
   const id = line.match(/BW-\d+/)?.[0];
   if (id && !lastUpdates.has(id)) lastUpdates.set(id, historyDate);
 }
