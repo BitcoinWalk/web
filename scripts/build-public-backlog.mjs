@@ -1,6 +1,7 @@
 import { copyFile, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
+import { execFileSync } from "node:child_process";
 
 const root = process.cwd();
 const sourcePath = path.join(root, "docs", "project-backlog.md");
@@ -8,6 +9,19 @@ const outputDir = path.join(root, "public-backlog-dist");
 const brandSourcePath = path.join(root, "public", "brand", "bitcoinwalk-horizontal.png");
 const brandOutputDir = path.join(outputDir, "brand");
 const source = await readFile(sourcePath, "utf8");
+// Only reviewed public copy is published; internal acceptance notes stay private.
+const descriptions = JSON.parse(await readFile(path.join(root, "docs", "public-backlog-descriptions.json"), "utf8"));
+const lastUpdates = new Map();
+const history = execFileSync("git", ["log", "--format=BACKLOG_DATE:%cs", "--no-ext-diff", "--unified=0", "-p", "--", "docs/project-backlog.md"], { cwd: root, encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
+let historyDate;
+for (const line of history.split(/\r?\n/)) {
+  if (line.startsWith("BACKLOG_DATE:")) historyDate = line.slice(13);
+  // Item rows and dated item-specific checkpoints count. Queue reshuffles do not.
+  if (!historyDate || !/^\+(?:\| BW-\d+ \||\d{1,2} [A-Z][a-z]+ \d{4} BW-|BW-\d+ (?:production follow-up|partial delivery))/.test(line)) continue;
+  const id = line.match(/BW-\d+/)?.[0];
+  if (id && !lastUpdates.has(id)) lastUpdates.set(id, historyDate);
+}
+const formatDate = (date) => new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" }).format(new Date(`${date}T12:00:00Z`));
 
 const statusOrder = ["🟠 In progress", "⚪ Planned", "○ Future", "🟢 Done", "🔴 Blocked"];
 const allowedStatuses = new Set(statusOrder);
@@ -98,6 +112,8 @@ for (const line of lines) {
     number: Number(id.slice(3)),
     stage: plainText(stage),
     title: plainText(rawTitle),
+    description: descriptions[id],
+    updated: lastUpdates.get(id),
     status,
     dependencies: inferDependencies(cells, headers, id),
   });
@@ -109,6 +125,12 @@ if (stages.length !== 11 || stages.some((stage, index) => stage.number !== index
   throw new Error("Expected the authoritative stages 0 through 10 exactly once.");
 }
 if (items.length < 1) throw new Error("No backlog items found.");
+for (const item of items) {
+  if (typeof item.description !== "string" || item.description.length < 30 || item.description.length > 260) throw new Error(`Missing or invalid public description: ${item.id}`);
+}
+for (const id of Object.keys(descriptions)) {
+  if (!items.some((item) => item.id === id)) throw new Error(`Orphan public description: ${id}`);
+}
 
 items.sort((a, b) => a.number - b.number);
 const counts = Object.fromEntries(statusOrder.map((status) => [status, items.filter((item) => item.status === status).length]));
@@ -119,11 +141,10 @@ const itemRows = items
     const dependencies = item.dependencies.length
       ? item.dependencies.map((id) => `<a class="dependency" href="#${id.toLowerCase()}">${id}</a>`).join("")
       : '<span class="muted">None recorded</span>';
-    return `<article class="backlog-row status-${meta.key}" id="${item.id.toLowerCase()}" data-status="${meta.key}" data-stage="${escapeHtml(item.stage)}" data-search="${escapeHtml(`${item.id} ${item.title} ${item.stage} ${item.dependencies.join(" ")}`.toLowerCase())}">
-      <div class="item-id"><a href="#${item.id.toLowerCase()}">${item.id}</a><span>Stage ${escapeHtml(item.stage)}</span></div>
-      <div class="item-main"><h3>${escapeHtml(item.title)}</h3><p>${escapeHtml(meta.summary)}</p><div class="dependencies"><strong>Dependencies</strong>${dependencies}</div></div>
-      <div><span class="status-pill">${escapeHtml(item.status)}</span></div>
-    </article>`;
+    return `<details class="backlog-row status-${meta.key}" id="${item.id.toLowerCase()}" data-status="${meta.key}" data-stage="${escapeHtml(item.stage)}" data-search="${escapeHtml(`${item.id} ${item.title} ${item.description} ${item.stage} ${item.dependencies.join(" ")}`.toLowerCase())}">
+      <summary><span class="item-id"><strong>${item.id}</strong><span>Stage ${escapeHtml(item.stage)}</span></span><span class="item-title">${escapeHtml(item.title)}</span><span class="status-pill">${escapeHtml(item.status)}</span><span class="chevron" aria-hidden="true">⌄</span></summary>
+      <div class="item-detail"><p>${escapeHtml(item.description)}</p><p class="item-updated">Last recorded update: ${item.updated ? `<time datetime="${escapeHtml(item.updated)}">${escapeHtml(formatDate(item.updated))}</time>` : "Not recorded"}</p><div class="dependencies"><strong>Dependencies</strong>${dependencies}<a class="permalink" href="#${item.id.toLowerCase()}" aria-label="Link to ${item.id}">Link to item</a></div></div>
+    </details>`;
   })
   .join("\n");
 
@@ -175,9 +196,21 @@ const html = `<!doctype html>
     .toolbar button { cursor:pointer; }
     .results { align-self:center; color:var(--muted); white-space:nowrap; }
     .backlog-list { display:grid; gap:9px; }
-    .backlog-row { display:grid; grid-template-columns:100px 1fr auto; gap:20px; align-items:start; padding:20px; border:1px solid var(--line); border-left:4px solid var(--accent); border-radius:12px; background:var(--panel); scroll-margin-top:90px; }
+    .backlog-row { border:1px solid var(--line); border-left:4px solid var(--accent); border-radius:12px; background:var(--panel); scroll-margin-top:90px; }
+    .backlog-row summary { display:grid; grid-template-columns:100px 1fr auto 18px; gap:20px; align-items:center; padding:20px; cursor:pointer; list-style:none; border-radius:8px; }
+    .backlog-row summary::-webkit-details-marker { display:none; }
+    .backlog-row summary:hover { background:var(--panel2); }
+    :focus-visible { outline:2px solid var(--orange); outline-offset:3px; }
+    .item-title { font-weight:700; overflow-wrap:anywhere; }
+    .chevron { color:var(--muted); text-align:center; }
+    details[open] .chevron { transform:rotate(180deg); }
+    .item-detail { padding:0 58px 22px 140px; }
+    .item-detail > p { margin:0 0 14px; max-width:75ch; }
+    .item-detail .item-updated { color:var(--muted); font-size:.82rem; }
+    .item-updated time { color:var(--text); }
+    .permalink { margin-left:auto; color:var(--muted); }
     .backlog-row[hidden] { display:none; }
-    .item-id a { color:var(--accent); font-weight:850; text-decoration:none; }
+    .item-id strong { color:var(--accent); font-weight:850; }
     .item-id span { display:block; margin-top:3px; color:var(--muted); font-size:.76rem; }
     .item-main h3 { margin:0; font-size:1.02rem; }
     .item-main > p { margin:4px 0 10px; color:var(--muted); font-size:.88rem; }
@@ -190,13 +223,14 @@ const html = `<!doctype html>
     footer { padding:30px 0 50px; border-top:1px solid var(--line); color:var(--muted); font-size:.88rem; }
     footer .wrap { display:flex; justify-content:space-between; gap:20px; }
     footer a { color:#cbd1d8; }
-    @media (max-width:850px) { .counts { grid-template-columns:repeat(2,1fr); } .backlog-row { grid-template-columns:82px 1fr; } .backlog-row > :last-child { grid-column:2; } }
-    @media (max-width:570px) { header { padding-top:38px; } .wrap { width:min(100% - 22px,1180px); } .brand img { width:min(196px,70vw); } .counts { grid-template-columns:1fr; } .section-head { display:block; } .section-head p { margin-top:8px; } .toolbar { grid-template-columns:1fr 1fr; } .toolbar input { grid-column:1/-1; } .results { text-align:right; } .backlog-row { grid-template-columns:1fr; gap:11px; } .backlog-row > :last-child { grid-column:auto; } footer .wrap { display:block; } }
+    @media (max-width:850px) { .counts { grid-template-columns:repeat(2,1fr); } .backlog-row summary { grid-template-columns:82px 1fr 18px; gap:12px; } .status-pill { grid-column:2; justify-self:start; } .chevron { grid-column:3; grid-row:1; } .item-detail { padding:0 22px 22px 114px; } }
+    @media (max-width:570px) { header { padding-top:38px; } .wrap { width:min(100% - 22px,1180px); } .brand img { width:min(196px,70vw); } .counts { grid-template-columns:1fr; } .section-head { display:block; } .section-head p { margin-top:8px; } .toolbar { grid-template-columns:1fr 1fr; } .toolbar input { grid-column:1/-1; } .results { text-align:right; } .backlog-row summary { grid-template-columns:1fr auto 18px; padding:16px; } .item-title { grid-column:1/3; grid-row:2; } .status-pill { grid-column:2; grid-row:1; } .item-detail { padding:0 16px 20px; } footer .wrap { display:block; } }
+    @media (prefers-reduced-motion:reduce) { html { scroll-behavior:auto; } }
   </style>
 </head>
 <body>
   <header><div class="wrap">
-    <a class="brand" href="https://app-staging.bitcoinwalk.org/" aria-label="BitcoinWalk staging app"><img src="brand/bitcoinwalk-horizontal.png" width="1690" height="312" alt="BitcoinWalk"></a>
+    <a class="brand" href="https://bitcoinwalk.org/" aria-label="BitcoinWalk"><img src="brand/bitcoinwalk-horizontal.png" width="1690" height="312" alt="BitcoinWalk"></a>
     <h1>Open work.<br>Visible progress.</h1>
     <p class="lede">The live, colour-coded delivery backlog for BitcoinWalk. This public view is rebuilt automatically from the maintained project tracker.</p>
     <span class="updated">Last reviewed ${escapeHtml(reviewed)}</span>
@@ -204,7 +238,7 @@ const html = `<!doctype html>
   <main class="wrap">
     <div class="counts" aria-label="Backlog status summary">${countCards}</div>
     <section aria-labelledby="items-title">
-      <div class="section-head"><div><h2 id="items-title">All backlog items</h2></div><p>Search by ID or title, filter by status, or narrow the list to a delivery stage.</p></div>
+      <div class="section-head"><div><h2 id="items-title">All backlog items</h2></div><p>Expand an item for its description and latest recorded backlog update. Dates reflect tracker activity, including reviews, rather than time spent coding.</p></div>
       <div class="toolbar">
         <input id="search" type="search" placeholder="Search BW-44, dashboard…" aria-label="Search backlog">
         <select id="stage-filter" aria-label="Filter by stage"><option value="">All stages</option>${stages.map((stage) => `<option value="${stage.number}">Stage ${stage.number}: ${escapeHtml(stage.name)}</option>`).join("")}</select>
@@ -221,6 +255,13 @@ const html = `<!doctype html>
     const results=document.querySelector('#results');
     const buttons=[...document.querySelectorAll('[data-filter]')];
     let activeStatus='';
+    function openLinkedItem(){
+      const row=rows.find(row=>'#'+row.id===location.hash.toLowerCase());
+      if(!row) return;
+      search.value=''; stage.value=''; activeStatus='';
+      for(const button of buttons) button.setAttribute('aria-pressed','false');
+      applyFilters(); row.open=true; row.scrollIntoView();
+    }
     function applyFilters(){
       const query=search.value.trim().toLowerCase();
       let shown=0;
@@ -238,8 +279,10 @@ const html = `<!doctype html>
       activeStatus=activeStatus===button.dataset.filter?'':button.dataset.filter;
       for(const other of buttons) other.setAttribute('aria-pressed',String(other.dataset.filter===activeStatus));
       applyFilters();
-      document.querySelector('#items-title').scrollIntoView({behavior:'smooth'});
+      document.querySelector('#items-title').scrollIntoView();
     });
+    window.addEventListener('hashchange',openLinkedItem);
+    openLinkedItem();
   </script>
 </body>
 </html>`;

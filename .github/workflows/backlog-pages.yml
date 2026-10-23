@@ -5,6 +5,7 @@ name: Publish public backlog
     branches: [main]
     paths:
       - docs/project-backlog.md
+      - docs/public-backlog-descriptions.json
       - scripts/build-public-backlog.mjs
       - public/brand/bitcoinwalk-horizontal.png
       - .github/workflows/backlog-pages.yml
@@ -24,6 +25,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
       - uses: actions/configure-pages@v5
       - name: Build public-safe backlog
         run: node scripts/build-public-backlog.mjs
