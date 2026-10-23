@@ -192,7 +192,7 @@ const html = `<!doctype html>
     h2 { margin:0; font-size:clamp(1.7rem,4vw,2.6rem); letter-spacing:-.035em; }
     .section-head p { max-width:560px; margin:0; color:var(--muted); }
     .toolbar { position:sticky; top:0; z-index:5; display:grid; grid-template-columns:1fr 190px auto; gap:10px; padding:14px 0; background:rgba(11,13,16,.93); backdrop-filter:blur(14px); }
-    .toolbar input,.toolbar select,.toolbar button { min-height:44px; padding:0 13px; color:var(--text); border:1px solid var(--line); border-radius:10px; background:#111419; }
+    .toolbar input,.toolbar select,.toolbar button { min-width:0; width:100%; min-height:44px; padding:0 13px; color:var(--text); border:1px solid var(--line); border-radius:10px; background:#111419; }
     .toolbar button { cursor:pointer; }
     .results { align-self:center; color:var(--muted); white-space:nowrap; }
     .backlog-list { display:grid; gap:9px; }
