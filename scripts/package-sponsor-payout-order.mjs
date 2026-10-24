@@ -12,7 +12,7 @@ try{
  writeFileSync(join(temporary,"SHA256SUMS"),["sponsor-payout-order.cjs","OPERATIONS.md"].map(name=>`${sha(readFileSync(join(temporary,name)))}  ${name}\n`).join(""));
  const archive=execFileSync("tar",["--sort=name","--mtime=1980-01-01 UTC","--owner=0","--group=0","--numeric-owner","-C",temporary,"-cf","-","."],{maxBuffer:8*1024*1024});
  const compressed=execFileSync("gzip",["-n"],{input:archive,maxBuffer:8*1024*1024});
- const target=join(root,"release-build/bitcoinwalk-sponsor-payout-order-0.1.2.tar.gz");writeFileSync(target,compressed,{mode:0o600});
- writeFileSync(`${target}.sha256`,`${sha(compressed)}  bitcoinwalk-sponsor-payout-order-0.1.2.tar.gz\n`,{mode:0o600});
+ const target=join(root,"release-build/bitcoinwalk-sponsor-payout-order-0.1.3.tar.gz");writeFileSync(target,compressed,{mode:0o600});
+ writeFileSync(`${target}.sha256`,`${sha(compressed)}  bitcoinwalk-sponsor-payout-order-0.1.3.tar.gz\n`,{mode:0o600});
  console.log(`Prepared disabled-by-default single-order runner: ${target}\nSHA-256: ${sha(compressed)}`);
 }finally{rmSync(temporary,{recursive:true,force:true});}

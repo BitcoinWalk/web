@@ -5,14 +5,34 @@ city-zap wallet, sponsorship checkout connection or either payment ledger.
 
 ## Disabled deployment package
 
-### Single-order staging runner candidate — 23 October 2026
+### Single-order runner candidate — 23 October 2026
 
-Runner `0.1.2` is a separate executable, not an update to the running disabled
+Runner `0.1.3` is a separate executable, not an update to the running disabled
 service. Build with `npm run sponsor-payout-order:package`. The archive contains
 only the bundled runner, these instructions and checksums; no credentials,
 database, signed approval or deployment configuration. It requires Node 24.
 No installer, listener, recurring job, wallet funding, invoice issuance or
 journal activation is included.
+
+### Staging acceptance and production follow-up — 24 October 2026
+
+The authorized Madeira staging order paid the exact 16,590-sat host share with
+an 11.437-sat routing fee, below the 165.9-sat ceiling. The canonical ledger,
+authenticated settlement/preimage proof and off-host journal agree. The sender
+returned disabled, the journal returned paused, and a process restart retained
+one outgoing transaction without another send. This completes BW-92's defined
+staging acceptance.
+
+Production order `a7767b91-fc4f-40a6-877d-5533a7d626d6` separately records a
+21,000-sat settled host invitation, split into 16,590 sats owed to the host and
+4,410 sats retained by BitcoinWalk. No payout-attempt table exists yet. New
+production host invitations are paused while that debt is reconciled. The
+installed production wallet connection is distinct from checkout, zaps and the
+staging sender, but is read-only and has a zero balance; it cannot send until a
+dedicated production connection is provisioned with the reviewed payment and
+recovery-read permissions, funded within the approved bound, and bound to a
+fresh exact-order operation. The production obligation must not reuse the
+staging connection or be marked paid from the staging evidence.
 
 The integration now connects the canonical sponsorship database, exact signed
 order authority, owner-signed destination, dedicated NWC wallet, authenticated
@@ -34,7 +54,8 @@ all input files and the existing database must be regular, owner-owned `0600`
 files, with no symlinks or hard links. The runner never reads an admin private
 key. It takes these files from its explicit private configuration directory:
 
-- `config.json`: `environment: "staging"`, the absolute canonical `database`
+- `config.json`: exact `environment: "staging"` or `"production"`, the corresponding
+  canonical `database`
   path, `binding`, `walletRef: "bitcoinwalk-sponsor-payout"`,
   `journalServiceId`, private `journalOrigin`, `budgetMsat`,
   `maximumPayoutMsat`, `maximumFeeMsat`, exactly one `cityIds` entry, public
@@ -47,7 +68,7 @@ key. It takes these files from its explicit private configuration directory:
 - `mode`: exactly `preflight` or `single-order`. Missing, changed or disabled
   mode prevents a send. Removing the signed approval also prevents new sends.
 - `operation.json`: a super-admin-signed kind-30312 operation matching release
-  `0.1.2`, the exact wallet, journal, limits, city **and order**. An existing
+  `0.1.3`, the exact wallet, journal, limits, city **and order**. An existing
   broad city grant is insufficient. The review template expires after one hour.
 - `wallet-evidence.json`: `{binding, readiness}` using
   `SponsorWalletReadinessEvidence`. Supply fresh independently verified Hub

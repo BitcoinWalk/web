@@ -10,11 +10,12 @@ import {requireSponsorPayoutOrder} from "../src/payments/sponsor-payout-order";
 import type {SponsorWalletReadinessEvidence} from "../src/payments/sponsor-wallet-readiness";
 import type {RecoveryCoverage} from "../src/rustress/recovery-history";
 
-const release="0.1.2",admin="90cf043861e5b5a9972cb7b529a5ba71b215d6d1e314c749d5526ec133f1db73";
+const release="0.1.3",admin="90cf043861e5b5a9972cb7b529a5ba71b215d6d1e314c749d5526ec133f1db73";
 const hex=z.string().regex(/^[0-9a-f]{64}$/),money=z.string().regex(/^[1-9][0-9]{0,15}$/);
-const configSchema=z.object({environment:z.literal("staging"),database:z.string().min(1),binding:hex,walletRef:z.literal("bitcoinwalk-sponsor-payout"),
+const configSchema=z.object({environment:z.enum(["staging","production"]),database:z.string().min(1),binding:hex,walletRef:z.literal("bitcoinwalk-sponsor-payout"),
  journalServiceId:z.uuid(),journalOrigin:z.string().url(),budgetMsat:money,maximumPayoutMsat:money,maximumFeeMsat:money,cityIds:z.array(z.uuid()).length(1),
  order:sponsorPayoutOrderScopeSchema,checkoutClientPubkey:hex,zapClientPubkey:hex}).strict();
+const canonicalDatabases={staging:"/var/lib/bitcoinwalk-app-staging/payments.sqlite",production:"/home/bitcoinwalk/.local/state/bitcoinwalk-production/payments.sqlite"} as const;
 
 function protectedPath(path:string,directory=false){
  const stat=lstatSync(path);
@@ -29,6 +30,7 @@ async function main(){
  if(extra.length||!["--review","--preflight","--send"].includes(command)||!root||!process.getuid)throw new Error();
  process.umask(0o077);protectedPath(root,true);
  const configText=read(join(root,"config.json")),config=configSchema.parse(JSON.parse(configText));
+ if(config.database!==canonicalDatabases[config.environment])throw new Error();
  protectedPath(config.database);protectedPath(dirname(config.database),true);
  const expected={admin,release,binding:config.binding,walletRef:config.walletRef,journalServiceId:config.journalServiceId,budgetMsat:config.budgetMsat,maximumPayoutMsat:config.maximumPayoutMsat,maximumFeeMsat:config.maximumFeeMsat,cityIds:config.cityIds,order:config.order};
  if(command==="--review"){
@@ -67,7 +69,7 @@ async function main(){
     journalOrigin:config.journalOrigin,journalToken:read(join(root,"journal-token"),256),serviceId:config.journalServiceId,binding:config.binding},permit,active),
   },enabled);
   const result=await runtime.execute(command==="--send");
-  process.stdout.write(JSON.stringify({service:"bitcoinwalk-sponsor-payout-order",release,environment:"staging",mode,...result})+"\n");
+  process.stdout.write(JSON.stringify({service:"bitcoinwalk-sponsor-payout-order",release,environment:config.environment,mode,...result})+"\n");
   if(result.state!=="ready"&&result.state!=="paid")process.exitCode=2;
  }finally{runtime?.pause();db?.close();process.off("SIGTERM",stop);process.off("SIGINT",stop);rmdirSync(lock);}
 }
