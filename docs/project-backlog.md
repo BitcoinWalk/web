@@ -1,6 +1,6 @@
 # BitcoinWalk delivery backlog
 
-Last reviewed: 24 October 2026 (BW-50 implementation started; dependencies satisfied)
+Last reviewed: 24 October 2026 (BW-138 reconciled after production acceptance)
 Preproduction housekeeping: 2–3 October 2026. See `preproduction-review-2026-10-02.md`
 and `development-handover.md` for current evidence and operating context.
 Tracking rule: keep this file current whenever an item changes status, scope, dependency, or verification result. The file is the maintained source; a separate Plan task is not automatically synchronized.
@@ -28,28 +28,27 @@ BW-141 is the continuous release gate for this lane: prepare and run its cross-r
 
 | Order | ID | Sequence rationale |
 |---:|---|---|
-| 8 | BW-158 | Claim the same HTTPS routes as Android App Links and iOS Universal Links, with verified installed/uninstalled recovery. |
-| 9 | BW-93 | Add installability and consent-based notifications; this then unlocks BW-125 notification/BLE completion. |
-| 10 | BW-151 | Finish once-only Guide welcomes against a real Pro transition; retired Rye data is not an acceptance target. |
-| 11 | BW-153 | Improve payment-first sponsor checkout and recovery now that BW-92's separately authorized staging payout proof is accepted. |
-| 12 | BW-150 | Instrument bounded onboarding outcomes alongside BW-153 without collecting secrets or chat content. |
-| 13 | BW-91 | Establish the signed sponsor catalogue before more sponsor lifecycle UI or placement expansion. |
-| 14 | BW-138 | Build sponsor self-service and asset-state clarity on BW-91's canonical identities. |
-| 15 | BW-76 | Make relay and inbox configuration understandable before exposing organizer-owned relay controls. |
-| 16 | BW-112 | Add bounded organizer reminders only after BW-128 proves the receiving path. |
-| 17 | BW-140 | Simplify contextual operations after the real Guide/notification paths are stable. |
-| 18 | BW-139 | Apply the shared admin system to People, invitations and Content. |
-| 19 | BW-118 | Add future-walk publication by the saved city signer only after the current Pro setup/transfer paths are accepted. |
-| 20 | BW-28 | Complete explicit paid-infrastructure retirement before offering broader relay transfer or self-host lifecycle controls. |
-| 21 | BW-110 | Finish text/landmark search in Edit walk; coordinate-to-meeting-point refresh is already live. |
-| 22 | BW-69 | Add pagination when the seeded large-inventory acceptance fixture exists; do not pre-empt correctness work. |
+| 5 | BW-158 | Claim the same HTTPS routes as Android App Links and iOS Universal Links, with verified installed/uninstalled recovery. |
+| 6 | BW-93 | Add installability and consent-based notifications; this then unlocks BW-125 notification/BLE completion. |
+| 7 | BW-151 | Finish once-only Guide welcomes against a real Pro transition; retired Rye data is not an acceptance target. |
+| 8 | BW-153 | Improve payment-first sponsor checkout and recovery now that BW-92's separately authorized staging payout proof is accepted. |
+| 9 | BW-150 | Instrument bounded onboarding outcomes alongside BW-153 without collecting secrets or chat content. |
+| 10 | BW-91 | Establish the signed sponsor catalogue before more sponsor lifecycle UI or placement expansion. |
+| 11 | BW-76 | Make relay and inbox configuration understandable before exposing organizer-owned relay controls. |
+| 12 | BW-112 | Add bounded organizer reminders only after BW-128 proves the receiving path. |
+| 13 | BW-140 | Simplify contextual operations after the real Guide/notification paths are stable. |
+| 14 | BW-139 | Apply the shared admin system to People, invitations and Content. |
+| 15 | BW-118 | Add future-walk publication by the saved city signer only after the current Pro setup/transfer paths are accepted. |
+| 16 | BW-28 | Complete explicit paid-infrastructure retirement before offering broader relay transfer or self-host lifecycle controls. |
+| 17 | BW-110 | Finish text/landmark search in Edit walk; coordinate-to-meeting-point refresh is already live. |
+| 18 | BW-69 | Add pagination when the seeded large-inventory acceptance fixture exists; do not pre-empt correctness work. |
 
-The 16 October onboarding reconciliation below adds the next product lane: BW-153 → BW-154 → BW-155 → BW-78 → BW-148 → BW-149, with BW-150 instrumentation beginning alongside BW-153. Finish available acceptance work above first; a named host or separately authorized payment wait does not prevent starting BW-153. BW-102's accepted durable portfolio authority superseded the earlier per-city expiry premise in BW-111, so BW-111 is no longer a prerequisite. BW-91 and BW-138 supply catalogue and asset-management work within this lane; BW-125/BW-128 supply the app and messaging foundations. BW-78 is now Planned, superseding its previous deferral.
+The 16 October onboarding reconciliation below adds the next product lane: BW-153 → BW-154 → BW-155 → BW-78 → BW-148 → BW-149, with BW-150 instrumentation beginning alongside BW-153. Finish available acceptance work above first; a named host or separately authorized payment wait does not prevent starting BW-153. BW-102's accepted durable portfolio authority superseded the earlier per-city expiry premise in BW-111, so BW-111 is no longer a prerequisite. BW-91 supplies the remaining catalogue work, while the completed BW-138 supplies the accepted asset lifecycle and BW-125/BW-128 supply the app and messaging foundations. BW-78 is now Planned, superseding its previous deferral.
 
 ### 3. Later dependency-ordered work
 
 1. BW-126 event syndication, then BW-73 cross-device recurring plans.
-2. BW-115 additional sponsorship placements only after BW-91, BW-92 and BW-138 are accepted.
+2. BW-115 additional sponsorship placements only after BW-91; BW-92 and BW-138 are already accepted.
 3. BW-127 private Marmot groups only after BW-125 and BW-128 interoperability is stable.
 4. Organizer-owned infrastructure: BW-97 verification → BW-98 mirrors → BW-62 appliance package → BW-29 owner-node transfer → BW-63 independent operation → BW-64 portable private chat → BW-65 sustainable self-host entitlements.
 5. BW-67 conversational Guide only after BW-112 and BW-128; then BW-30 merchandise if a separate commerce/fulfilment design exists.
@@ -74,7 +73,7 @@ BW-142 completed on 18 October 2026: the preserved London version-5 liability wa
 
 Scope: make sponsorship payment possible before Nostr onboarding, then offer useful account/community access; let an eligible host complete every required city-setup action in one session. Background work must survive leaving the browser. This is planned product work, not permission to activate financial services, publish identities, enrol cities into wallets or remove current approval checks.
 
-Reconciliation: keep BW-17/BW-89 payment engines, BW-105/BW-106 identity binding, BW-19 public addresses, BW-20 managed relays and BW-23 shared city groups Done. Extend them through the items below. BW-137 and BW-143 now supply the accepted current-flow and paid-Pro handoff foundations; BW-78 owns approval automation, BW-91 owns the signed sponsor catalogue, BW-138 owns asset lifecycle, BW-125 owns the app, BW-128 owns DM interoperability and BW-93 owns notification delivery. BW-102's durable portfolio authority has no calendar expiry and closes the obsolete per-city renewal premise in BW-111. BW-118 future city-signed walks and BW-127 private mesh remain later work; neither blocks the default onboarding journey. BW-142 completed on 18 October with the London owner's actual Wallet of Satoshi destination.
+Reconciliation: keep BW-17/BW-89 payment engines, BW-105/BW-106 identity binding, BW-19 public addresses, BW-20 managed relays and BW-23 shared city groups Done. Extend them through the items below. BW-137 and BW-143 now supply the accepted current-flow and paid-Pro handoff foundations; BW-78 owns approval automation, BW-91 owns the signed sponsor catalogue, completed BW-138 supplies the accepted asset lifecycle, BW-125 owns the app, BW-128 owns DM interoperability and BW-93 owns notification delivery. BW-102's durable portfolio authority has no calendar expiry and closes the obsolete per-city renewal premise in BW-111. BW-118 future city-signed walks and BW-127 private mesh remain later work; neither blocks the default onboarding journey. BW-142 completed on 18 October with the London owner's actual Wallet of Satoshi destination.
 
 | ID | Stage | Item | Status | Dependencies / acceptance |
 |---|---:|---|---|---|
@@ -88,9 +87,9 @@ Reconciliation: keep BW-17/BW-89 payment engines, BW-105/BW-106 identity binding
 Implementation gates:
 
 1. BW-137, BW-143 and BW-92 are complete. Continue BW-153 UI/recovery work and start BW-150 instrumentation now; track the later production sponsor payout as a separate operational obligation.
-2. Deliver BW-153 then BW-154; implement BW-91 catalogue integration and BW-138 asset lifecycle without moving authentication ahead of payment. Refresh public sponsor documentation to distinguish verified invitation-based 79/21 from ordinary platform-only bookings.
+2. Deliver BW-153 then BW-154; integrate BW-91's catalogue with the accepted BW-138 asset lifecycle without moving authentication ahead of payment. Refresh public sponsor documentation to distinguish verified invitation-based 79/21 from ordinary platform-only bookings.
 3. Deliver BW-155 using existing approved paid cities, including new, gifted and legacy entitlement fixtures. First verify the unified journey with current authority; then enable BW-78 for a bounded existing-city pilot after delegated-signature verification works across all consumers.
-4. Complete BW-111 renewal and BW-148 initial financial enrolment. Existing approved-city pilots must demonstrate interruption recovery, public read-back, moderation override and no duplicate obligation/send before broader enrolment.
+4. BW-111 is closed as superseded by the accepted durable portfolio authority; deliver BW-148 initial financial enrolment within that existing boundary. Approved-city pilots must demonstrate interruption recovery, public read-back, moderation override and no duplicate obligation/send before broader enrolment.
 5. Deliver BW-149 against the accepted online BW-125 foundations; complete BW-128 before promising Guide/DM compatibility. Keep app installation optional.
 6. Extend BW-78 to new-city registration only after the approved-city pilot passes duplicate/reserved-name, ownership-conflict, quota and first-walk checks. Route exceptions through existing Requests; do not silently relax rules to achieve a one-session metric.
 
