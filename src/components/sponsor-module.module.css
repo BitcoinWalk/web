@@ -76,10 +76,6 @@
   text-decoration: none;
   transition: background-color 150ms ease, box-shadow 150ms ease;
 }
-.npub { overflow-wrap: anywhere; }
-.npub code { font-size: .82rem; }
-.ogImage { display: block; width: 100%; height: auto; margin: 1rem 0; border-radius: .65rem; outline: 1px solid oklch(0 0 0 / .1); outline-offset: -1px; }
-
 @media (hover: hover) and (pointer: fine) {
   .options:hover { background: #ffad3b; box-shadow: 0 .6rem 1.25rem rgb(138 71 0 / .2); }
 }
