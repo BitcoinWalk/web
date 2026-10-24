@@ -66,9 +66,8 @@ does not say Joined or enable sending until the relay's signed roster contains
 the connected pubkey. Pending requests offer a read-only membership recheck
 instead of publishing duplicate joins. Hosts remains gated by current verified
 city authority and the private relay; Guide opens the connected account's own
-NIP-17 inbox. Staging deployment is complete; cross-role authenticated human
-acceptance remains before BW-157 can be marked Done. OS App/Universal Link
-association remains **BW-158**.
+NIP-17 inbox. Production acceptance completed and the user closed BW-157 on
+24 October 2026. OS App/Universal Link association remains **BW-158**.
 
 BW-157 staging verification, 24 October 2026: the ancestry-safe source
 `0337df17ace513d34c5d904a9f49a88ecc56edd3` was deployed as
@@ -105,6 +104,10 @@ exactly to `/admin/chat?city=madeira`, the disconnected page renders **Open
 Walkie Talkie**, and the strict resolver returns Madeira's current production
 NIP-29 destination without changing membership or messages. Deployment evidence
 is `/home/bitcoinwalk/backups/app-production-deploy.qtLfgA`.
+
+The user reviewed this production behavior and explicitly accepted closure on
+24 October 2026. BW-157 is complete; installed-app handoff remains separate
+under BW-158.
 
 ## Cross-client fixtures and acceptance
 
