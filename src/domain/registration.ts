@@ -15,7 +15,7 @@ export const PLAN_BENEFITS = [
 
 export function registrationDocument(input: {
   cityId: string; cityName: string; startAt: string; description: string;
-  location: { latitude: number; longitude: number; description: string } | null;
+  location: { latitude: number; longitude: number; description: string; countryCode?: string } | null;
   meetingDescription: string; requestedTier: RequestedTier; chatUrl?: string;
   initialWalkStarts?: string[];
 }) {
@@ -23,8 +23,10 @@ export function registrationDocument(input: {
   if (!input.location || Number.isNaN(date.getTime())) {
     throw new Error("Choose a map pin and a valid date and time before continuing.");
   }
+  if(!input.location.countryCode)throw new Error("Select the city from the search results so its country can be verified.");
   const result = cityDocumentSchema.safeParse({
     cityId: input.cityId, cityName: input.cityName.trim(), slug: registrationSlug(input.cityName),
+    ...(input.location.countryCode?{countryCode:input.location.countryCode}:{}),
     startAt: date.toISOString(), description: input.description.trim(),
     ...(input.initialWalkStarts?{initialWalkStarts:input.initialWalkStarts}:{}),
     meetingPoint: { ...input.location, description: input.meetingDescription.trim() || input.location.description },

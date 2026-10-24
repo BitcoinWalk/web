@@ -5,7 +5,7 @@ import { registrationDocument, registrationSlug, PAID_PRICE_SATS, PLAN_BENEFITS 
 import { createCityUpdateEvent } from "../nostr/city-event";
 import type { CityRevision, ApprovalRecord } from "../nostr/city-records";
 
-const input = { cityId: "6302b5c2-b579-4441-a828-9bffce073f97", cityName: "Funchal", startAt: "2026-10-03T10:00:00Z", description: "Walk with us", location: { latitude: 32.6, longitude: -16.9, description: "Square" }, meetingDescription: "", requestedTier: "free" as const };
+const input = { cityId: "6302b5c2-b579-4441-a828-9bffce073f97", cityName: "Funchal", startAt: "2026-10-03T10:00:00Z", description: "Walk with us", location: { latitude: 32.6, longitude: -16.9, description: "Square", countryCode:"PT" }, meetingDescription: "", requestedTier: "free" as const };
 describe("two-step registration", () => {
   it("transliterates non-ASCII Latin city letters instead of replacing them with separators", () => {
     expect(registrationSlug("Szydłowiec")).toBe("szydlowiec");
@@ -15,12 +15,12 @@ describe("two-step registration", () => {
     expect(registrationSlug("Straße")).toBe("strasse");
   });
   it("validates details before account connection and preserves selected values", () => {
-    expect(registrationDocument(input)).toMatchObject({ cityId: input.cityId, cityName: "Funchal", slug: "funchal", startAt: new Date(input.startAt).toISOString(), requestedTier: "free", meetingPoint: input.location });
+    expect(registrationDocument(input)).toMatchObject({ cityId: input.cityId, cityName: "Funchal", slug: "funchal", countryCode:"PT", startAt: new Date(input.startAt).toISOString(), requestedTier: "free", meetingPoint: {latitude:32.6,longitude:-16.9,description:"Square"} });
     expect(registrationDocument(input)).not.toHaveProperty("heroImageUrl");
     expect(registrationDocument({ ...input, meetingDescription: "Cafe" }).meetingPoint.description).toBe("Cafe");
   });
   it("blocks missing pin, invalid dates and blank required text", () => {
-    for (const change of [{ location: null }, { startAt: "bad" }, { description: " " }, { cityName: "" }]) expect(() => registrationDocument({ ...input, ...change })).toThrow();
+    for (const change of [{ location: null }, {location:{...input.location,countryCode:undefined}}, { startAt: "bad" }, { description: " " }, { cityName: "" }]) expect(() => registrationDocument({ ...input, ...change })).toThrow();
   });
   it("includes the Paid preference in signed event content, without payment claims", () => {
     const city = registrationDocument({ ...input, requestedTier: "paid" });
