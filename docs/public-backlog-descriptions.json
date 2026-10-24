@@ -124,7 +124,7 @@
   "BW-125": "Build the Walkie Talkie city companion, then validate optional proximity discovery.",
   "BW-126": "Explore publishing walk information to Luma and Meetup with explicit integration support.",
   "BW-127": "Add invitation-only encrypted walk groups and separately tested offline mesh messaging.",
-  "BW-128": "Verify Guide delivery and standard encrypted direct messaging across supported Nostr clients.",
+  "BW-128": "Standard encrypted text messaging and Guide receipt paths are implemented and user-accepted; wider conversational Guide support remains separate.",
   "BW-129": "Tailor dashboard navigation and the home screen to the actions each account can perform.",
   "BW-130": "Make loading, unavailable data and retry states clear across the dashboard.",
   "BW-131": "Help organizers understand requested corrections and resubmit the right city revision.",
