@@ -1,5 +1,5 @@
 import {describe,expect,it} from "vitest";
-import {ACCEPTED_IMAGE_TYPES,MAX_IMAGE_UPLOAD_BYTES,assertAcceptedImageFile,isManagedImageURL} from "./media-client";
+import {ACCEPTED_IMAGE_TYPES,MAX_IMAGE_UPLOAD_BYTES,assertAcceptedImageFile,cityActivationFinished,isManagedImageURL,type CityActivationChecks} from "./media-client";
 
 describe("managed image upload validation",()=>{
  it.each(ACCEPTED_IMAGE_TYPES)("accepts non-empty %s files up to 5 MB",type=>{
@@ -14,4 +14,5 @@ describe("managed image upload validation",()=>{
   expect(()=>assertAcceptedImageFile({type:"image/png",size:MAX_IMAGE_UPLOAD_BYTES+1})).toThrow("up to 5 MB");
  });
  it("recognizes only protected BitcoinWalk media URLs as already uploaded",()=>{expect(isManagedImageURL(`https://bitcoinwalk.org/api/media/files/${"a".repeat(64)}.webp`)).toBe(true);expect(isManagedImageURL(`https://app-staging.bitcoinwalk.org/api/media/files/${"b".repeat(64)}.webp`)).toBe(true);expect(isManagedImageURL(`https://example.com/api/media/files/${"a".repeat(64)}.webp`)).toBe(false);expect(isManagedImageURL("https://bitcoinwalk.org/photo.jpg")).toBe(false);});
+ it("finishes rollout only when every activation check is green or not applicable",()=>{const green={status:"green" as const,message:"Ready"},checks:CityActivationChecks={logos:green,og:green,meta:green,payment:{status:"na",message:"Not required"},paymentAuthorization:{status:"na",message:"Not required"},nip05:{status:"na",message:"Not required"},lnurl:{status:"na",message:"Not required"},relay:{status:"na",message:"Not required"},walkieTalkie:green,community:{status:"na",message:"Not required"}};expect(cityActivationFinished(checks)).toBe(true);expect(cityActivationFinished({...checks,walkieTalkie:{status:"amber",message:"Waiting"}})).toBe(false);expect(cityActivationFinished({...checks,og:{status:"red",message:"Failed"}})).toBe(false);});
 });
