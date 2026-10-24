@@ -26,3 +26,14 @@ BW-50 prepares a public kind-1 Nostr announcement only after BitcoinWalk can ver
 ## Production activation
 
 Set a reviewed relay list and rollout cutoff in the production build only after staging acceptance. Approve a genuinely new city after that cutoff, review the prepared copy, then sign it separately. Record the exact event ID and independent read-back from every configured relay. A failed destination must leave the same signed event available for retry; do not sign a replacement.
+
+Release `0.3.521` activates the reviewed production configuration at exact source
+`e355884dfcf64a7b8bc8fd3f4fdb8aa6f8b2a966`: Damus and Primal are the two
+announcement destinations and `1792886400` (25 October 2026 00:00 UTC) is the
+rollout cutoff. The build contains no staging relay hostnames and packaging now
+rejects them explicitly. Staging and production retain the accepted BW-138
+sponsor lifecycle through the same reconciled ancestry. Staging evidence is
+`/home/bitcoinwalk/backups/app-staging-deploy.kLXsgl`; production evidence is
+`/home/bitcoinwalk/backups/app-production-deploy.Y0Aekm`. Activation published
+nothing. One post-cutoff city announcement and partial-delivery retry remain the
+acceptance gates.
