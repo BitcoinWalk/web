@@ -161,29 +161,32 @@ The service is not acceptance evidence for live payout authority. Its
 `restartReconciliation` value remains `blocked-disabled` until the separately
 reviewed wallet-history and off-host journal reconciliation can complete.
 
-## Activation gates still required
+## Historical activation gates (completed 24 October 2026)
 
 ### Source verification — 23 October 2026
 
-The remaining work is not payment authorization alone. Source inspection found
+At this point the remaining work was not payment authorization alone. Source inspection found
 that `run-sponsor-payout-service.ts` accepts only `disabled` mode, and the
 `SponsorPayoutFlow`, `SponsorPayoutRecovery` and signed-operation verifier are
 not wired into an operational sender entry point. The five focused sender,
 flow, recovery, operation and deployment test suites pass (33 tests), but that
 is component evidence, not live end-to-end acceptance.
 
-Before funding or enabling anything, assemble and review the operational
+The accepted operation subsequently assembled and reviewed the operational
 adapter with exact settled-order/destination access, signed operation checking,
 fresh wallet readiness, off-host reconciliation, bounded execution and safe
-shutdown. Then obtain explicit authorization for the selected staging city,
-recipient, funding amount, payout and fee limits. Acceptance must record the
-79/21 result and restart/no-duplicate evidence. Existing city-zap success does
-not satisfy this separate sponsorship rail. BW-92 remains in progress.
+shutdown. It used explicit authorization for the selected staging city,
+recipient, funding amount, payout and fee limits. Acceptance recorded the
+79/21 result and restart/no-duplicate evidence. Existing city-zap success did
+not satisfy this separate sponsorship rail; the accepted evidence above does,
+so BW-92 is complete.
 
 ### Madeira acceptance preparation — 23 October 2026
 
 The user selected Madeira and its existing confirmed payout address for the
-staging test. A funding amount and payment limit have not yet been approved.
+staging test. At this preparation point a funding amount and payment limit had
+not yet been approved; both were later bounded and explicitly authorized for
+the accepted operation recorded above.
 Read-only host inspection returned `disabled|none|running`. The installed Hub
 safety probe returned `SPONSOR_PAYOUT_REVIEWED_NATIVE_FEE_CAP_VERIFIED` without
 creating an invoice, funding a wallet or sending a payment.
