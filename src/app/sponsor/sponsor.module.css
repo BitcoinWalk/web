@@ -80,6 +80,11 @@
 .logoPicker input { max-width: 100%; }
 .artworkSecondary { display: block; margin-top: 1rem; padding: .5rem 0; background: transparent; border: 0; text-decoration: underline; cursor: pointer; }
 .artworkStatus { color: #57515f; line-height: 1.5; }
+.sponsorComplete { padding-bottom: 1.5rem; border-bottom: 1px solid #d9dee3; }
+.sponsorComplete p { max-width: 42rem; line-height: 1.5; }
+.optionalHeading { display: flex; align-items: center; flex-wrap: wrap; gap: .75rem; margin: 1.5rem 0 .5rem; }
+.optionalHeading span { color: #57515f; font-size: .85rem; font-weight: 400; }
+.artwork a.artworkSecondary { display: inline-block; color: #57515f; min-height: 2.75rem; box-sizing: border-box; }
 .artwork button:focus-visible { outline: 2px solid #6641a5; outline-offset: 3px; }
 @media (prefers-reduced-motion: no-preference) {
   .artwork .action { transition: transform 150ms ease-out; }
