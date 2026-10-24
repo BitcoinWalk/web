@@ -16,6 +16,11 @@ import styles from "./pro-setup.module.css";
 
 export type ProSetupJourney={mode:"resume"|"waiting"|"complete"|"manage"|"attention";title:string;badge:string;actor:"You"|"BitcoinWalk";nextTitle:string;nextDetail:string;target?:"payout"|"signer";completed:number;total:number};
 type SavedPayout={destination:string;version:number;update:"not-required"|"queued"|"deferred";message:string};
+export function payoutErrorMessage(message:string){
+  if(message.includes("reviewed payment service"))return "This wallet uses a payment service BitcoinWalk has not approved yet. Your address was not saved. Contact BitcoinWalk with your wallet provider’s name, or use another Lightning address. No funds were sent.";
+  if(/timed out|timeout|failed to fetch/i.test(message))return "We could not finish checking your wallet. Check your connection and try again. If you already approved the request, reload Pro services to check whether it was saved. No funds were sent.";
+  return message;
+}
 export function withSavedPayout(preview:ProSetupPreview,payout:SavedPayout):ProSetupPreview{
   const detail=payout.update==="queued"?`Destination version ${payout.version} is being verified. The current destination remains active until it passes.`:
     payout.update==="deferred"?`Destination version ${payout.version} is saved. Automatic verification will retry safely.`:
@@ -73,7 +78,7 @@ export function ProCitySetup({enabled,cityId,active=true,onClose}:{enabled:boole
   if(!mounted||!active)return null;
   return createPortal(<div className={styles.modalBackdrop} onMouseDown={event=>{if(event.target===event.currentTarget)onClose?.();}}>
     <section ref={dialog} className={styles.modal} role="dialog" aria-modal="true" aria-labelledby="pro-setup-dialog-title" tabIndex={-1}>
-      <header className={styles.modalHeader}><div><p className={styles.eyebrow}>Your city</p><h2 id="pro-setup-dialog-title">Pro city services</h2></div><button className={styles.modalClose} type="button" aria-label="Close Pro services" onClick={onClose}>×</button></header>
+      <header className={styles.modalHeader}><div><p className={styles.eyebrow}>{cities.find(city=>city.id===cityId)?.name??"Your city"}</p><h2 id="pro-setup-dialog-title">Pro city services</h2></div><button className={styles.modalClose} type="button" aria-label="Close Pro services" onClick={onClose}>×</button></header>
       <div className={styles.modalBody}><ProSetupForm key={`${pubkey}:${cityId}`} enabled={enabled} actor={pubkey} cities={cities} fixedCityId={cityId} embedded modal onExit={onClose}/></div>
     </section>
   </div>,document.body);
@@ -82,6 +87,7 @@ function ProSetupForm({enabled, actor, cities, fixedCityId="", embedded=false,mo
   const [cityId, setCityId] = useState(fixedCityId), [preview, setPreview] = useState<ProSetupPreview | null>(null);
   const [busy, setBusy] = useState(false), [message, setMessage] = useState(""), [destination, setDestination] = useState(""), [payoutMessage,setPayoutMessage]=useState("");
   const [payoutValidation,setPayoutValidation]=useState<{amountMsat:number;payment:"verified";nip57:"verified"|"unverified"|"not-advertised"}|null>(null);
+  const [payoutPhase,setPayoutPhase]=useState<"idle"|"signing"|"checking"|"success"|"error">("idle");
   const [selectedStep,setSelectedStep]=useState<1|2|3|null>(null);
   const inFlight = useRef(false);
   const deepLinkApplied = useRef(false);
@@ -108,24 +114,25 @@ function ProSetupForm({enabled, actor, cities, fixedCityId="", embedded=false,mo
         body: JSON.stringify({event}), signal: AbortSignal.timeout(60_000)});
       const body = await responseJSON<{error?:string;preview:ProSetupPreview}>(response);
       if (!response.ok) throw new Error(body.error || "Pro setup could not be prepared.");
-      setPreview(body.preview); setDestination(body.preview.payout.destination ?? body.preview.payout.suggestedDestination ?? ""); setPayoutMessage(""); setPayoutValidation(null); setMessage("Pro services loaded.");
+      setPreview(body.preview); setDestination(body.preview.payout.destination ?? body.preview.payout.suggestedDestination ?? ""); setPayoutMessage(""); setPayoutPhase("idle");setSelectedStep(null);setPayoutValidation(null); setMessage("Pro services loaded.");
     } catch (error) {setMessage(error instanceof Error ? error.message : "Preparation failed; no account or payment was changed.");}
     finally {inFlight.current = false; setBusy(false);}
   },[actor,cityId,embedded]);
   async function savePayout() {
     if (!preview || !destination.trim() || !actor || inFlight.current) return;
-    inFlight.current = true; setBusy(true); setMessage(""); setPayoutMessage("Confirm the payout update in your signer…");
+    inFlight.current = true; setBusy(true); setMessage(""); setPayoutPhase("signing");setPayoutValidation(null);setPayoutMessage("Open your signer and approve this address. This does not send a payment.");
     try {
       const command = {action: "save-payout" as const, cityId: preview.cityId, destination: destination.trim()}, origin = window.location.origin;
-      const event = await signWithBrowserExtension(proSetupTemplate(command, origin));
+      const event = await signProSetup(proSetupTemplate(command, origin));
       if (event.pubkey !== actor || JSON.stringify(authorizeProSetup(event, origin)) !== JSON.stringify(command)) throw new Error("Your signer changed the payout request. Reconnect and try again.");
+      setPayoutPhase("checking");setPayoutMessage("Checking that your wallet can receive payments…");
       const response = await fetch("/api/pro-setup", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({event}), signal: AbortSignal.timeout(60_000)});
       const body = await response.json(); if (!response.ok) throw new Error(body.error || "Payout destination could not be saved.");
       setPreview(value => value ? {...value, payout: {configured: true, destination: body.payout.destination, version: body.payout.version,
         ...(body.payout.update==="not-required"&&value.payout.activation?{activation:value.payout.activation}:body.payout.update!=="not-required"?{activation:{activeVersion:value.payout.activation?.activeVersion,pendingVersion:body.payout.version,state:"pending"}}:{})},
         steps: value.steps.map(step => step.label === "Personal payout destination" ? {...step, state: "ready", detail: body.payout.update==="queued"?`Destination version ${body.payout.version} is being verified. The current destination remains active until it passes.`:`Owner-confirmed destination version ${body.payout.version} is saved privately. It is not active until provisioning is verified.`} : step)} : value);
-      setDestination(body.payout.destination); setPayoutValidation(body.payout.validation); setPayoutMessage(body.payout.message); setMessage(body.payout.message);
-    } catch (error) {const note=error instanceof Error ? error.message : "Destination was not saved.";setPayoutMessage(note);setMessage(note);}
+      setDestination(body.payout.destination);setSelectedStep(1); setPayoutValidation(body.payout.validation);setPayoutPhase("success"); setPayoutMessage("Address saved. No funds were sent. Activation checks still need to finish before it receives payments.");
+    } catch (error) {const note=error instanceof Error ? error.message : "Destination was not saved. Try again.";setPayoutPhase("error");setPayoutMessage(payoutErrorMessage(note));}
     finally {inFlight.current = false; setBusy(false);}
   }
   async function setCommunityVisibility(surface:"walkie-talkie"|"armada",enabled:boolean){
@@ -145,7 +152,7 @@ function ProSetupForm({enabled, actor, cities, fixedCityId="", embedded=false,mo
   const journey=preview?proSetupJourney(preview):null,manage=journey?.mode==="manage",setupComplete=journey?.mode==="complete";
   const savedDestination=preview?.payout.destination?.trim()??"",destinationChanged=destination.trim()!==savedDestination;
   const payoutState=preview?.payout.activation?.state??"not-active";
-  const payoutStatus=payoutState==="active"?"Active":payoutState==="pending"?"Verifying":payoutState==="needs-attention"?"Needs attention":preview?.payout.configured?"Saved":"Not set";
+  const payoutStatus=payoutState==="active"?"Active":payoutState==="pending"?"Verifying":payoutState==="needs-attention"?"Needs attention":preview?.payout.configured?"Saved":preview?.payout.suggestedDestination?"Confirm address":"Add address";
   const showCommunity=!!preview&&(preview.community.walkieTalkieActive||preview.community.armadaActive);
   const wizardStep=!preview?.payout.configured?1:!preview?.signer.configured?2:3;
   const displayedStep=selectedStep??wizardStep;
@@ -161,7 +168,7 @@ function ProSetupForm({enabled, actor, cities, fixedCityId="", embedded=false,mo
         onChange={id => {setCityId(id); setPreview(null); setDestination(""); setMessage("");}}/>}
       {!embedded&&<button type="button" onClick={() => void prepare()} disabled={busy || !cityId || !actor}>{busy ? "Preparing…" : "Verify and preview Pro setup"}</button>}
       <p className={styles.privateCheck}><ShieldIcon/>{embedded?"This private status check is read-only and is never published to Nostr.":"Your signer confirms a private, read-only request. It is not published to Nostr."}</p>
-      {message && <p className={styles.message} role="alert">{message}</p>}
+      {!preview&&message && <p className={styles.message} role="alert">{message}</p>}
       {embedded&&!preview&&<button className={styles.retry} type="button" onClick={()=>void prepare()} disabled={busy||!cityId||!actor}>{busy?"Waiting for signer…":message?"Retry Pro services":"Verify and load Pro services"}</button>}
       {preview && <section aria-label="Prepared city profile">
         {setupComplete&&journey?<section className={styles.completeState} aria-label="Pro setup complete">
@@ -206,18 +213,21 @@ function ProSetupForm({enabled, actor, cities, fixedCityId="", embedded=false,mo
             </div>
           </div>
         </fieldset>}
-        {journey&&<fieldset className={`${styles.section} ${styles.payoutCard}`} id={`pro-payout-${cityId}`} disabled={busy}>
-          <legend>Payout LNURL</legend>
+        {journey&&(journey.mode!=="resume"||displayedStep===1)&&<fieldset className={`${styles.section} ${styles.payoutCard}`} id={`pro-payout-${cityId}`} disabled={busy}>
+          <legend>Your receiving wallet</legend>
           <div className={styles.payoutHeader}><span className={styles.payoutIcon}><BoltIcon/></span><span><strong>Host payout destination</strong><small>Receives your 79% share of city payments</small></span><span className={styles.payoutState} data-state={payoutState}>{payoutStatus}</span></div>
           {preview.payout.configured&&<div className={styles.currentPayout}><span>Current saved destination</span><strong>{preview.payout.destination}</strong><small>Version {preview.payout.version}{preview.payout.activation?.activeVersion?` · active version ${preview.payout.activation.activeVersion}`:""}</small></div>}
           <label>{preview.payout.configured?"New Lightning address or LNURL-pay":"Lightning address or LNURL-pay"}
-            <input value={destination} onChange={event => {setDestination(event.target.value);setPayoutMessage("");setPayoutValidation(null);}} placeholder="you@example.com or lnurl1…" autoComplete="off" spellCheck={false}/>
+            <input value={destination} onChange={event => {setDestination(event.target.value);setPayoutMessage("");setPayoutValidation(null);setPayoutPhase("idle");}} placeholder="you@example.com or lnurl1…" autoComplete="off" autoCapitalize="none" spellCheck={false} aria-describedby={`payout-help-${cityId}`} aria-invalid={payoutPhase==="error"||undefined}/>
           </label>
-          <p className={styles.payoutHelp}>BitcoinWalk validates the endpoint without sending funds. The current destination stays active until the signed replacement passes provider and public read-back checks. BitcoinWalk retains 21%.</p>
-          {!preview.payout.configured && preview.payout.suggestedDestination && <p><strong>Recovered from your Pro checkout:</strong> {preview.payout.suggestedDestination}. Confirm it below with the current city owner’s signer; checkout alone cannot activate it.</p>}
-          <div className={styles.payoutActions}><button type="button" onClick={() => void savePayout()} disabled={busy || !destination.trim() || (preview.payout.configured&&!destinationChanged)}>{busy ? "Validating…" : preview.payout.configured ? "Verify and update payout" : "Verify and save payout"}</button>{preview.payout.configured&&!destinationChanged&&<small>Enter a different destination to update it.</small>}</div>
+          <p className={styles.payoutHelp} id={`payout-help-${cityId}`}>Your wallet receives 79%; BitcoinWalk retains 21%. This check sends no funds.</p>
+          {!preview.payout.configured && preview.payout.suggestedDestination && <p className={styles.payoutHelp}>Filled in from checkout. Check the address, then confirm it with your signer.</p>}
+          <div className={styles.payoutActions}><button type="button" onClick={() => void savePayout()} disabled={busy || !destination.trim() || (preview.payout.configured&&!destinationChanged)}>{payoutPhase==="signing" ? "Waiting for signer…" : payoutPhase==="checking" ? "Checking wallet…" : preview.payout.configured ? "Save new address" : "Confirm receiving address"}</button>{preview.payout.configured&&!destinationChanged&&<small>Enter a different destination to update it.</small>}</div>
+          {payoutMessage&&<p className={styles.payoutFeedback} data-state={payoutPhase} role={payoutPhase==="error"?"alert":"status"}>{payoutMessage}</p>}
+          {payoutPhase==="success"&&journey.mode==="resume"&&<button type="button" onClick={()=>setSelectedStep(preview.signer.configured?3:2)}>Continue to {preview.signer.configured?"activation":"city identity"} →</button>}
+          <details className={styles.payoutDetails}><summary>How verification works</summary><p className={styles.payoutHelp}>BitcoinWalk checks that your wallet can create a valid invoice, but does not pay it. Your current destination stays active until the signed replacement passes provider and public read-back checks.</p>
           {payoutValidation&&<div className={styles.validationResult} aria-label="Payout validation result"><strong>✓ Lightning receive check passed</strong><span>The provider issued a valid, unpaid {payoutValidation.amountMsat/1000}-sat mainnet invoice with the correct amount, expiry and metadata commitment.</span><small>{payoutValidation.nip57==="verified"?"NIP-57 zap invoice verified (unpaid).":payoutValidation.nip57==="unverified"?"The provider advertises NIP-57, but its zap invoice could not be verified. Ordinary Lightning payouts remain valid.":"NIP-57 zap support is not advertised. Ordinary Lightning payouts remain valid."}</small></div>}
-          {payoutMessage&&<p className={styles.payoutFeedback} role="status" aria-live="polite">{payoutMessage}</p>}
+          </details>
         </fieldset>}
         {journey&&(manage||journey.mode==="resume"&&(displayedStep===2||displayedStep===3))&&<div className={styles.section} id={`pro-signer-${cityId}`} tabIndex={-1}><CitySignerSetup cityId={preview.cityId} cityName={preview.cityName} actor={actor} saved={preview.signer} activation={preview.activation?.status==="pending"?preview.activation:undefined} profile={preview.profile} stage={manage?undefined:displayedStep===2?2:3}
           setupReady={preview.payout.configured&&preview.signer.configured} busy={busy}
@@ -225,7 +235,7 @@ function ProSetupForm({enabled, actor, cities, fixedCityId="", embedded=false,mo
           onContinue={()=>setSelectedStep(preview.payout.configured?3:1)}
           onActivation={(activation,note)=>{setPreview(value=>value?{...value,activation}:value);setMessage(note);}}/></div>}
         {manage&&journey&&<details className={styles.disclosure}><summary>Completed setup details <span>{journey.completed}</span></summary><div className={styles.disclosureBody}><ol className={styles.stepList}>{preview.steps.filter(step=>step.state==="ready").map(step=><li key={step.label}><b>✓</b><div><strong>{step.label}</strong><p>{step.detail}</p></div></li>)}</ol></div></details>}
-        {!setupComplete&&<p className={styles.safeReturn}>BitcoinWalk never stores the city private key or remote-signer connection. Saved payout and identity details remain private until reviewed activation succeeds.</p>}
+        {!setupComplete&&<details className={styles.payoutDetails}><summary>Privacy and security</summary><p className={styles.safeReturn}>BitcoinWalk never stores the city private key or remote-signer connection. Saved payout and identity details remain private until reviewed activation succeeds.</p></details>}
       </section>}
     </>}
   </section>;

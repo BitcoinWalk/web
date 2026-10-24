@@ -1,5 +1,5 @@
 import {describe,expect,it} from "vitest";
-import {proSetupJourney,withSavedPayout} from "./screen";
+import {proSetupJourney,withSavedPayout,payoutErrorMessage} from "./screen";
 import type {ProSetupPreview} from "../../../server/pro-setup";
 
 function preview(overrides:Partial<ProSetupPreview>={}):ProSetupPreview{
@@ -12,6 +12,11 @@ function preview(overrides:Partial<ProSetupPreview>={}):ProSetupPreview{
 }
 
 describe("Pro setup journey",()=>{
+  it("turns provider failures into an actionable explanation without claiming a save",()=>{
+    expect(payoutErrorMessage("The payout callback must stay on the destination provider or its reviewed payment service.")).toContain("Contact BitcoinWalk");
+    expect(payoutErrorMessage("Lightning endpoint timed out.")).toContain("reload Pro services");
+    expect(payoutErrorMessage("Signature rejected")).toBe("Signature rejected");
+  });
   it("asks the host for only the first incomplete action",()=>{expect(proSetupJourney(preview())).toMatchObject({mode:"resume",actor:"You",target:"payout",nextTitle:"Confirm the payout destination"});});
   it("advances progress and guides the host to the city identity after payout save",()=>{
     const saved=withSavedPayout(preview(),{destination:"host@example.com",version:1,update:"not-required",message:"Destination saved."});

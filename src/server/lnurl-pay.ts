@@ -15,6 +15,13 @@ const reviewedCallbackProviders=new Map([
 ]);
 export function reviewedPayoutProvider(endpoint:URL,callback:URL):ReviewedPayoutProvider|null|undefined{
   if(callback.origin===endpoint.origin)return null;
+  // Coinos delegates Lightning addresses to its names service. Bind the route
+  // to the exact account, not arbitrary subdomains or callback paths. Returning
+  // null retains standard invoice metadata/expiry verification (no exception).
+  const coinosAccount=/^\/\.well-known\/lnurlp\/([a-zA-Z0-9_-]+)$/.exec(endpoint.pathname)?.[1];
+  if(endpoint.origin==="https://coinos.io"&&coinosAccount&&!endpoint.search&&
+    callback.origin==="https://names.coinos.io"&&callback.pathname===`/lnurlp/${coinosAccount}/cb`&&
+    callback.search==="?domain=coinos.io"&&!callback.username&&!callback.password&&!callback.hash)return null;
   const reviewed=reviewedCallbackProviders.get(endpoint.origin);
   return reviewed&&callback.origin===reviewed.origin&&callback.pathname.startsWith(reviewed.pathPrefix)&&callback.pathname.length>reviewed.pathPrefix.length?reviewed.policy:undefined;
 }
