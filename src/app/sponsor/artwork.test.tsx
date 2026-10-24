@@ -9,10 +9,9 @@ it("shows only upload before a logo is saved",()=>{
  const html=renderToStaticMarkup(<PaidSponsorArtwork order={order} token="private" onUploaded={()=>{}} onSponsorMore={()=>{}}/>);
  expect(html).toContain("Add your sponsor logo");expect(html).toContain("Sign and upload logo");expect(html).not.toContain("Create share image");expect(html).not.toContain("You’re all set");
 });
-it("resumes at image creation without a competing upload button",()=>{
+it("automatically prepares the sponsored link preview without a competing build button",()=>{
  const html=renderToStaticMarkup(<PaidSponsorArtwork order={{...order,logoHash:"b".repeat(64)}} token="private" onUploaded={()=>{}} onSponsorMore={()=>{}}/>);
- expect(html).toContain("You’re all set — thank you!");expect(html).toContain("There’s nothing else you need to do.");expect(html).toContain("Optional");expect(html).toContain("Sponsor more walks");expect(html).toContain("Create share image");expect(html).toContain("Change logo");expect(html).not.toContain("Sign and upload logo");expect(html).not.toContain('type="file"');
- expect(html.indexOf("Sponsor more walks")).toBeLessThan(html.indexOf("Create share image"));
+ expect(html).toContain("You’re all set — thank you!");expect(html).toContain("There’s nothing else you need to do.");expect(html).toContain("Sponsor more walks");expect(html).toContain("Creating your sponsored link preview");expect(html).not.toContain("Create share image");expect(html).toContain("Change logo");expect(html).not.toContain("Sign and upload logo");expect(html).not.toContain('type="file"');
 });
 it("does not claim completion when the booking requires date review",()=>{
  const html=renderToStaticMarkup(<PaidSponsorArtwork order={{...order,logoHash:"b".repeat(64),needsReview:true}} token="private" onUploaded={()=>{}} onSponsorMore={()=>{}}/>);
