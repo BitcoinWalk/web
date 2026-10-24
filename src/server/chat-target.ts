@@ -57,10 +57,21 @@ export function chatResolutionStatus(result:ChatTargetResolution):number {
   return result.state==="invalid"?400:result.state==="not-found"?404:result.state==="unavailable"?503:200;
 }
 
+function requestedChatWebPath(path:string):string|null {
+  const intent=parseChatPath(path);
+  if(!intent)return null;
+  if(intent.kind==="city")return `/admin/chat?city=${encodeURIComponent(intent.city)}`;
+  return `/admin/chat?room=${intent.kind}`;
+}
+
 export async function serveChatLink(request:Request):Promise<Response> {
   const path=new URL(request.url).pathname,result=await loadChatTarget(path);
   const headers={"Cache-Control":"no-store","X-Robots-Tag":"noindex"};
-  if(result.state!=="resolved")return Response.json(result,{status:chatResolutionStatus(result),headers});
+  if(result.state==="invalid")return Response.json(result,{status:chatResolutionStatus(result),headers});
+  // The resolver API remains strict (404/503), but a syntactically valid
+  // human-facing link must reach the dashboard's explicit recovery state.
+  // Keep the requested target exact; never substitute Global or another city.
+  if(result.state!=="resolved")return new Response(null,{status:307,headers:{...headers,Location:requestedChatWebPath(path)!}});
   // Query parameters cannot override the resolved target or convey authority.
   const destination=path===result.canonicalPath?result.webPath:result.canonicalPath;
   // Relative redirects retain the browser's HTTPS origin behind a reverse

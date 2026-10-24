@@ -18,7 +18,10 @@ City links use the short form, for example `/chat/madeira`. The former
 `/chat/city/madeira` form remains accepted and redirects to `/chat/madeira`.
 `guide`, `global`, `hosts` and the legacy prefix `city` are reserved chat path
 segments, case-insensitively; cities and their aliases cannot shadow them.
-Unknown well-formed short city paths return 404, not a fallback conversation.
+Unknown well-formed short city paths return 404 from the strict resolver API,
+not a fallback conversation. The human-facing `/chat/...` route carries a valid
+unknown or temporarily unavailable target into the dashboard so the user sees
+an explicit recovery state instead of raw resolver JSON.
 This short-path follow-up is deployed to staging and production as 0.3.458. The shared
 fixtures now include the legacy path and its short canonical destination.
 Verification: all 2,009 tests passed (45 focused contract/endpoint tests), plus
@@ -75,6 +78,12 @@ HTTPS health, the exact Hosts redirect, removal of URL role claims and the
 contextual disconnected recovery screen passed. Deployment evidence is
 `/home/bitcoinwalk/backups/app-staging-deploy.JWpPp1`; no signed membership or
 message action was performed by deployment verification.
+
+The first human check then exposed raw `{state:"unavailable"}` JSON for Madeira,
+whose staging group transport was absent. The follow-up keeps resolver API
+404/503 semantics while redirecting every syntactically valid human chat link
+to its exact dashboard intent; malformed paths still return 400 and no fallback
+room is selected. Release `0.3.505` carries this correction.
 
 ## Cross-client fixtures and acceptance
 
