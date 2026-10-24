@@ -6,11 +6,14 @@ import {loadSharedCities,resolveSharedWalk,walkShareMetadata} from "../../../ser
 import {getLogoCatalog} from "../../../logos/runtime";
 import {logoVariantAsset,type LogoVariantAsset} from "../../../logos/catalog";
 import {resolvedFeatureFlags} from "../../../nostr/feature-flags";
-import {querySponsorships} from "../../../nostr/sponsorships";
+import {calendarAddress,querySponsorships,sponsorshipPriceOverride} from "../../../nostr/sponsorships";
 import {publicSponsorship} from "../../../server/public-sponsorship";
 import {DEFAULT_FEATURE_FLAGS} from "../../../domain/feature-flags";
 import {cityRouteFamily,resolveCityRoute} from "../../../domain/city-route";
 import {serverChatConfig} from "../../../server/chat-config";
+import {calendarOccurrence} from "../../../nostr/calendar-records";
+import {DEFAULT_SPONSOR_WALK_SATS} from "../../../payments/sponsor-types";
+import {isLuganoSponsorEvent,LUGANO_EVENT_SATS} from "../../../payments/lugano-event";
 
 export const dynamic="force-dynamic";
 export async function generateMetadata({params}:{params:Promise<{city:string;event:string}>}){const {city,event}=await params;return walkShareMetadata(city,event);}
@@ -30,5 +33,6 @@ export default async function FreeTierEventPage({params,searchParams}:{params:Pr
   const [featureFlagResult,sponsorshipResult]=await Promise.allSettled([resolvedFeatureFlags(serverReadRelays()),querySponsorships(serverReadRelays())]),featureFlags=featureFlagResult.status==="fulfilled"?featureFlagResult.value:DEFAULT_FEATURE_FLAGS,sponsorshipRows=sponsorshipResult.status==="fulfilled"?sponsorshipResult.value:[];
   let logoHref:string|undefined,titleLogo:LogoVariantAsset|undefined;try{const revision=currentProfile.revision,pack=await getLogoCatalog().readyForCity({cityId:revision.city.cityId,slug:revision.city.slug});if(pack){titleLogo=logoVariantAsset(pack,cityWalkTitleLogoVariant)??undefined;if(pack.publiclyListed)logoHref=`/${encodeURIComponent(pack.slug)}/logo`;}}catch{}
   const sponsorship=publicSponsorship(sponsorshipRows,featureFlags.sponsorships&&sponsorshipResult.status==="fulfilled",currentProfile.revision.city.cityId,result.event);
-  return <WalkEvent event={result.event} walk={result.walk} currentProfile={currentProfile} logoHref={logoHref} titleLogo={titleLogo} sponsorship={sponsorship} chatConfig={serverChatConfig()} embedded={embedded}/>;
+  const occurrence=calendarOccurrence(result.event),address=calendarAddress(result.event),fallback=occurrence&&isLuganoSponsorEvent(currentProfile.revision.city.slug,occurrence.start)?LUGANO_EVENT_SATS:DEFAULT_SPONSOR_WALK_SATS,sponsorPriceSats=address?sponsorshipPriceOverride(sponsorshipRows,currentProfile.revision.city.cityId,address)??fallback:fallback;
+  return <WalkEvent event={result.event} walk={result.walk} currentProfile={currentProfile} logoHref={logoHref} titleLogo={titleLogo} sponsorship={sponsorship} sponsorPriceSats={sponsorPriceSats} chatConfig={serverChatConfig()} embedded={embedded}/>;
 }

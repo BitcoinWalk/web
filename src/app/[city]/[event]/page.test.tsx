@@ -7,7 +7,8 @@ vi.mock("../../../server/share-preview",()=>({loadSharedCities:mocks.cities,reso
 vi.mock("../../../components/walk-event",()=>({default:({currentProfile,sponsorship}:{currentProfile:{revision:{city:{cityId:string}}};sponsorship:{logoHash?:string}})=><div data-city-id={currentProfile.revision.city.cityId} data-logo-hash={sponsorship.logoHash}/> }));
 vi.mock("../../../logos/runtime",()=>({getLogoCatalog:()=>({readyForCity:mocks.logos})}));
 vi.mock("../../../nostr/feature-flags",()=>({resolvedFeatureFlags:async()=>({sponsorships:true})}));
-vi.mock("../../../nostr/sponsorships",()=>({querySponsorships:async()=>[]}));
+vi.mock("../../../nostr/sponsorships",()=>({querySponsorships:async()=>[],calendarAddress:()=>null,sponsorshipPriceOverride:()=>undefined}));
+vi.mock("../../../nostr/calendar-records",()=>({calendarOccurrence:()=>null}));
 vi.mock("../../../server/public-sponsorship",()=>({publicSponsorship:mocks.sponsorship}));
 vi.mock("../../../server/chat-config",()=>({serverChatConfig:()=>undefined}));
 import FreeTierEventPage from "./page";

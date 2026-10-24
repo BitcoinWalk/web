@@ -15,12 +15,14 @@ export const sponsorshipSchema=z.object({
  logoHash:hex64.optional(),
  startsAt:z.number().int().nonnegative().optional(),
  endsAt:z.number().int().positive().optional(),
+ priceSats:z.number().int().min(1_000).max(10_000_000).optional(),
  previousRevisionId:hex64.optional(),
 }).superRefine((value,context)=>{
  if(value.logoHash&&(value.version!==2||value.mode!=="sponsor"))context.addIssue({code:"custom",path:["logoHash"],message:"Logo approval requires a version 2 sponsor assignment."});
  if(value.scope.type==="city"&&value.mode==="inherit")context.addIssue({code:"custom",path:["mode"],message:"A city cannot inherit sponsorship."});
  if(value.mode==="sponsor"&&!value.sponsorPubkey)context.addIssue({code:"custom",path:["sponsorPubkey"],message:"Choose a sponsor."});
  if(value.mode!=="sponsor"&&(value.sponsorPubkey||value.website))context.addIssue({code:"custom",path:["mode"],message:"Only sponsor assignments can contain sponsor details."});
+ if(value.scope.type==="city"&&value.priceSats!==undefined)context.addIssue({code:"custom",path:["priceSats"],message:"Sponsorship prices must be set for an individual walk."});
  if(value.startsAt!==undefined&&value.endsAt!==undefined&&value.endsAt<=value.startsAt)context.addIssue({code:"custom",path:["endsAt"],message:"End must be after start."});
 });
 export type Sponsorship=z.infer<typeof sponsorshipSchema>;

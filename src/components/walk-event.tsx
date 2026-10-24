@@ -23,7 +23,7 @@ import PublicCitySupport from "./public-city-support";
 import type {ChatConfig} from "../domain/chat";
 import styles from "./walk-event.module.css";
 
-export default async function WalkEvent({event,walk,currentProfile,logoHref,titleLogo,sponsorship={state:"hidden"},chatConfig,embedded=false}:{event:Event;walk:CalendarWalk;currentProfile:CalendarSource;logoHref?:string;titleLogo?:LogoVariantAsset;sponsorship?:SponsorshipPresentation;chatConfig?:ChatConfig;embedded?:boolean}) {
+export default async function WalkEvent({event,walk,currentProfile,logoHref,titleLogo,sponsorship={state:"hidden"},sponsorPriceSats=21000,chatConfig,embedded=false}:{event:Event;walk:CalendarWalk;currentProfile:CalendarSource;logoHref?:string;titleLogo?:LogoVariantAsset;sponsorship?:SponsorshipPresentation;sponsorPriceSats?:number;chatConfig?:ChatConfig;embedded?:boolean}) {
   const city=walk.revision.city,occurrence=calendarOccurrence(event),point=occurrence?.meetingPoint??city.meetingPoint;
   const startSeconds=occurrence?.start??Math.floor(new Date(city.startAt).getTime()/1000),endSeconds=occurrence?.end??startSeconds+3600,start=startSeconds*1000;
   const [weather,host]=await Promise.all([
@@ -56,7 +56,7 @@ export default async function WalkEvent({event,walk,currentProfile,logoHref,titl
     footer={weather.kind!=="past"&&<footer className="walk-event-footer"><WeatherAttribution/></footer>}>
     <WalkDescriptions cityName={currentProfile.revision.city.cityName} cityDescription={currentProfile.revision.city.description} eventDescription={event.content}/>
     {calendarContentImage(event)&&<figure className={styles.contentImage}><Image src={calendarContentImage(event)!} width={1600} height={900} sizes="(max-width: 960px) 100vw, 960px" unoptimized alt={`BitcoinWalk ${city.cityName} walk`}/></figure>}
-    <div className={styles.sponsorshipSlot}><SponsorModule presentation={sponsorship} cityName={city.cityName} cityLogo={titleLogo} endsAt={endSeconds} luganoEvent={isLuganoSponsorEvent(city.slug,startSeconds)}/></div>
+    <div className={styles.sponsorshipSlot}><SponsorModule presentation={sponsorship} cityName={city.cityName} cityLogo={titleLogo} endsAt={endSeconds} luganoEvent={isLuganoSponsorEvent(city.slug,startSeconds)} priceSats={sponsorPriceSats}/></div>
     {calendarRoute(event)&&<WalkRoute url={calendarRoute(event)!}/>}
   </CityPageLayout>;
 }
