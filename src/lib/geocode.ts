@@ -1,4 +1,4 @@
-export type CitySearchResult={name:string;cityName:string;latitude:number;longitude:number};
+export type CitySearchResult={name:string;cityName:string;latitude:number;longitude:number;countryCode?:string};
 type Result={status:number;results:CitySearchResult[];error?:string};
 export type CitySearchOptions={locationIqToken?:string;photonEndpoint?:string};
 export type ReverseGeocodeResult={name:string};
@@ -19,6 +19,7 @@ function coordinates(latitude:unknown,longitude:unknown){
  const lat=typeof latitude==="string"?Number(latitude):latitude,lon=typeof longitude==="string"?Number(longitude):longitude;
  return typeof lat==="number"&&typeof lon==="number"&&Number.isFinite(lat)&&Number.isFinite(lon)&&Math.abs(lat)<=90&&Math.abs(lon)<=180?{latitude:lat,longitude:lon}:null;
 }
+function countryCode(value:unknown){const code=typeof value==="string"?value.trim().toUpperCase():"";return /^[A-Z]{2}$/.test(code)?code:undefined;}
 function label(cityName:string,parts:unknown[]){return [...new Set([cityName,...parts].map(value=>latinName(value,150)).filter(Boolean))].join(", ");}
 
 function addressLabel(parts:unknown[]){
@@ -51,7 +52,7 @@ function locationIqResults(data:unknown):CitySearchResult[]{
   if(record.class!=="place"||typeof record.type!=="string"||!PLACE_TYPES.has(record.type))return [];
   const point=coordinates(record.lat,record.lon),cityName=latinName(address.city??record.display_place,100);
   if(!point||!cityName)return [];
-  return [{name:label(cityName,[address.county,address.state,address.country]),cityName,...point}];
+  return [{name:label(cityName,[address.county,address.state,address.country]),cityName,...point,...(countryCode(address.country_code)?{countryCode:countryCode(address.country_code)}:{})}];
  });
 }
 function photonResults(data:unknown):CitySearchResult[]{
@@ -63,7 +64,7 @@ function photonResults(data:unknown):CitySearchResult[]{
   const [longitude,latitude]=record.geometry.coordinates,point=coordinates(latitude,longitude),properties=record.properties;
   if(!point||!properties||properties.osm_key!=="place"||typeof properties.osm_value!=="string"||!PLACE_TYPES.has(properties.osm_value))return [];
   const cityName=latinName(properties.name,100);if(!cityName)return [];
-  return [{name:label(cityName,[properties.county,properties.state,properties.country]),cityName,...point}];
+  return [{name:label(cityName,[properties.county,properties.state,properties.country]),cityName,...point,...(countryCode(properties.countrycode)?{countryCode:countryCode(properties.countrycode)}:{})}];
  });
 }
 

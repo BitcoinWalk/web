@@ -24,6 +24,10 @@ const readRelays=parseRelayList(configuredOrDefault(process.env.NEXT_PUBLIC_READ
 const writeRelays=parseRelayList(configuredOrDefault(process.env.NEXT_PUBLIC_WRITE_RELAYS,stagingApplicationRelays));
 const directoryRelays=parseRelayList(configuredOrDefault(process.env.NEXT_PUBLIC_DIRECTORY_RELAYS,stagingDirectoryRelays));
 const calendarDiscoveryRelays=parseRelayList(configuredOrDefault(process.env.NEXT_PUBLIC_CALENDAR_DISCOVERY_RELAYS,stagingCalendarDiscoveryRelays));
+// Intentionally no default. Staging and an unreviewed production build must
+// never broadcast a public launch announcement merely because it rendered one.
+const announcementRelays=parseRelayList(process.env.NEXT_PUBLIC_ANNOUNCEMENT_RELAYS);
+const announcementNotBefore=/^\d{10}$/.test(process.env.NEXT_PUBLIC_ANNOUNCEMENT_NOT_BEFORE??"")?Number(process.env.NEXT_PUBLIC_ANNOUNCEMENT_NOT_BEFORE):0;
 const zapReceiptRelays=parseRelayList(configuredOrDefault(process.env.NEXT_PUBLIC_ZAP_RECEIPT_RELAYS,["wss://relay.ditto.pub/","wss://nos.lol/","wss://relay.damus.io/"]));
 
 export const relayConfig = {
@@ -31,6 +35,8 @@ export const relayConfig = {
   writeRelays,
   directoryRelays,
   calendarDiscoveryRelays,
+  announcementRelays,
+  announcementNotBefore,
   // Relay hints may include public discovery copies, but authoritative app reads
   // remain scoped to readRelays so third-party copies cannot bypass moderation.
   calendarRelayHints:[...new Set([...readRelays,...calendarDiscoveryRelays])],

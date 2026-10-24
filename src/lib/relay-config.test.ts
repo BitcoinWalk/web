@@ -4,6 +4,8 @@ const originalDirectoryRelays=process.env.NEXT_PUBLIC_DIRECTORY_RELAYS;
 const originalReadRelays=process.env.NEXT_PUBLIC_READ_RELAYS;
 const originalWriteRelays=process.env.NEXT_PUBLIC_WRITE_RELAYS;
 const originalCalendarDiscoveryRelays=process.env.NEXT_PUBLIC_CALENDAR_DISCOVERY_RELAYS;
+const originalAnnouncementRelays=process.env.NEXT_PUBLIC_ANNOUNCEMENT_RELAYS;
+const originalAnnouncementNotBefore=process.env.NEXT_PUBLIC_ANNOUNCEMENT_NOT_BEFORE;
 
 afterEach(()=>{
   if(originalDirectoryRelays===undefined)delete process.env.NEXT_PUBLIC_DIRECTORY_RELAYS;
@@ -14,6 +16,8 @@ afterEach(()=>{
   else process.env.NEXT_PUBLIC_WRITE_RELAYS=originalWriteRelays;
   if(originalCalendarDiscoveryRelays===undefined)delete process.env.NEXT_PUBLIC_CALENDAR_DISCOVERY_RELAYS;
   else process.env.NEXT_PUBLIC_CALENDAR_DISCOVERY_RELAYS=originalCalendarDiscoveryRelays;
+  if(originalAnnouncementRelays===undefined)delete process.env.NEXT_PUBLIC_ANNOUNCEMENT_RELAYS;else process.env.NEXT_PUBLIC_ANNOUNCEMENT_RELAYS=originalAnnouncementRelays;
+  if(originalAnnouncementNotBefore===undefined)delete process.env.NEXT_PUBLIC_ANNOUNCEMENT_NOT_BEFORE;else process.env.NEXT_PUBLIC_ANNOUNCEMENT_NOT_BEFORE=originalAnnouncementNotBefore;
   vi.resetModules();
 });
 
@@ -23,6 +27,8 @@ describe("directory relay configuration",()=>{
     delete process.env.NEXT_PUBLIC_WRITE_RELAYS;
     delete process.env.NEXT_PUBLIC_DIRECTORY_RELAYS;
     delete process.env.NEXT_PUBLIC_CALENDAR_DISCOVERY_RELAYS;
+    delete process.env.NEXT_PUBLIC_ANNOUNCEMENT_RELAYS;
+    delete process.env.NEXT_PUBLIC_ANNOUNCEMENT_NOT_BEFORE;
     vi.resetModules();
 
     const {relayConfig}=await import("./relay-config");
@@ -38,12 +44,23 @@ describe("directory relay configuration",()=>{
       "wss://relay.primal.net/",
       "wss://relay.satlantis.io/",
     ]);
+    expect(relayConfig.announcementRelays).toEqual([]);
+    expect(relayConfig.announcementNotBefore).toBe(0);
     expect(relayConfig.calendarRelayHints).toEqual([
       "wss://relay-staging.bitcoinwalk.org/",
       "wss://relay.ditto.pub/",
       "wss://relay.primal.net/",
       "wss://relay.satlantis.io/",
     ]);
+  });
+
+  it("requires both explicit announcement relays and a ten-digit rollout cutoff",async()=>{
+    process.env.NEXT_PUBLIC_ANNOUNCEMENT_RELAYS="wss://relay.damus.io/,wss://nos.lol/";
+    process.env.NEXT_PUBLIC_ANNOUNCEMENT_NOT_BEFORE="1792886400";
+    vi.resetModules();
+    const {relayConfig}=await import("./relay-config");
+    expect(relayConfig.announcementRelays).toEqual(["wss://relay.damus.io/","wss://nos.lol/"]);
+    expect(relayConfig.announcementNotBefore).toBe(1792886400);
   });
 
   it("requires an explicit production override instead of rewriting the staging defaults",async()=>{

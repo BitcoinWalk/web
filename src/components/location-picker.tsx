@@ -16,8 +16,8 @@ const meetingPin = new Icon({
   iconSize: [25, 41], iconAnchor: [12, 41], shadowSize: [41, 41], shadowAnchor: [12, 41],
 });
 
-export type LocationValue = { description: string; latitude: number; longitude: number };
-type SearchResult = { name: string; cityName: string; latitude: number; longitude: number };
+export type LocationValue = { description: string; latitude: number; longitude: number; countryCode?:string };
+type SearchResult = { name: string; cityName: string; latitude: number; longitude: number; countryCode?:string };
 
 function ManualCoordinates({ value, onPick, open=false }: { value: LocationValue | null; onPick: (latitude:number,longitude:number) => void; open?:boolean }) {
   const [latitude, setLatitude] = useState(value ? String(value.latitude) : "");
@@ -92,11 +92,11 @@ export default function LocationPicker({
   function placePin(latitude: number, longitude: number) {
     reverseActive.current?.abort();
     const controller=new AbortController();reverseActive.current=controller;
-    onChange({description:value?.description??cityName,latitude,longitude});
+    onChange({description:value?.description??cityName,latitude,longitude,...(value?.countryCode?{countryCode:value.countryCode}:{})});
     setMeetingPointMessage("Finding the meeting-point name…");
     void fetchMeetingPointName(latitude,longitude,controller.signal).then(name=>{
       if(controller.signal.aborted)return;
-      onChange({description:name,latitude,longitude});
+      onChange({description:name,latitude,longitude,...(value?.countryCode?{countryCode:value.countryCode}:{})});
       setMeetingPointMessage("Meeting-point name updated from the pin location. You can still edit it manually.");
     }).catch(error=>{
       if(controller.signal.aborted)return;
@@ -129,7 +129,7 @@ export default function LocationPicker({
   function choose(result: SearchResult) {
     cancelSuggestions();setOpen(false);setSearchMessage("");
     setViewTarget({ center: [result.latitude, result.longitude], zoom: 13 });
-    onChange({ description: result.name, latitude: result.latitude, longitude: result.longitude });
+    onChange({ description: result.name, latitude: result.latitude, longitude: result.longitude, ...(result.countryCode?{countryCode:result.countryCode}:{}) });
     onCityNameChange(result.cityName);
     setResults([]);
   }
@@ -138,7 +138,7 @@ export default function LocationPicker({
     <section>
       <div className={styles.finder}>
       <label>City
-        <input value={cityName} readOnly={cityLocked} maxLength={120} role="combobox" aria-autocomplete="list" aria-expanded={open&&!cityLocked&&suggestions.length>0} aria-controls={listId} aria-activedescendant={open&&resultIndex>=0&&suggestions[resultIndex]?`${listId}-${resultIndex}`:undefined} onFocus={()=>setOpen(true)} onBlur={()=>setOpen(false)} onCompositionStart={()=>{composing.current=true;cancelSuggestions();}} onCompositionEnd={event=>{composing.current=false;setQuery(event.currentTarget.value);}} onChange={(event) => {active.current?.abort();if(debounce.current)clearTimeout(debounce.current);setIsSearching(false);setOpen(true);setResultIndex(-1);setSearchMessage("");onCityNameChange(event.target.value);if(!composing.current)setQuery(event.target.value);}} onKeyDown={event=>{if(cityLocked||event.nativeEvent.isComposing)return;if(event.key==="ArrowDown"&&suggestions.length){event.preventDefault();setOpen(true);setResultIndex(index=>Math.min(index+1,suggestions.length-1));}else if(event.key==="ArrowUp"&&suggestions.length){event.preventDefault();setResultIndex(index=>Math.max(index-1,0));}else if(event.key==="Escape"){cancelSuggestions();setOpen(false);}else if(event.key==="Enter"){event.preventDefault();if(open&&suggestions.length)choose(suggestions[Math.max(0,resultIndex)]);else {setOpen(true);searchNow();}}}} placeholder="Type a city name…" required autoComplete="off" />
+        <input value={cityName} readOnly={cityLocked} maxLength={120} role="combobox" aria-autocomplete="list" aria-expanded={open&&!cityLocked&&suggestions.length>0} aria-controls={listId} aria-activedescendant={open&&resultIndex>=0&&suggestions[resultIndex]?`${listId}-${resultIndex}`:undefined} onFocus={()=>setOpen(true)} onBlur={()=>setOpen(false)} onCompositionStart={()=>{composing.current=true;cancelSuggestions();}} onCompositionEnd={event=>{composing.current=false;setQuery(event.currentTarget.value);}} onChange={(event) => {active.current?.abort();if(debounce.current)clearTimeout(debounce.current);setIsSearching(false);setOpen(true);setResultIndex(-1);setSearchMessage("");onCityNameChange(event.target.value);if(value?.countryCode)onChange({description:value.description,latitude:value.latitude,longitude:value.longitude});if(!composing.current)setQuery(event.target.value);}} onKeyDown={event=>{if(cityLocked||event.nativeEvent.isComposing)return;if(event.key==="ArrowDown"&&suggestions.length){event.preventDefault();setOpen(true);setResultIndex(index=>Math.min(index+1,suggestions.length-1));}else if(event.key==="ArrowUp"&&suggestions.length){event.preventDefault();setResultIndex(index=>Math.max(index-1,0));}else if(event.key==="Escape"){cancelSuggestions();setOpen(false);}else if(event.key==="Enter"){event.preventDefault();if(open&&suggestions.length)choose(suggestions[Math.max(0,resultIndex)]);else {setOpen(true);searchNow();}}}} placeholder="Type a city name…" required autoComplete="off" />
       </label>
       {open&&!cityLocked&&suggestions.length>0&&<ul className={styles.suggestions} id={listId} role="listbox" aria-label="City suggestions">
         {suggestions.map((result,index)=><li key={`${result.latitude}:${result.longitude}`} id={`${listId}-${index}`} role="option" aria-selected={resultIndex===index} onMouseDown={event=>event.preventDefault()} onClick={()=>choose(result)}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12S4 16 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg><span><strong>{result.cityName}</strong><small>{result.name.startsWith(result.cityName+", ")?result.name.slice(result.cityName.length+2):result.name}</small></span></li>)}

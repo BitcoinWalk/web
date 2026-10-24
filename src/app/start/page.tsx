@@ -23,6 +23,7 @@ import {registrationSubmissionMessage} from "../../domain/registration-flow";
 import {registrationDashboardHref,setRegistrationHandoff} from "../../domain/registration-handoff";
 import {REGISTRATION_SERIES_SIZE,registrationSeriesDates,registrationSeriesStarts,type RegistrationRepeat} from "../../domain/registration-recurrence";
 import {WEEKDAYS} from "../../domain/walk-schedule";
+import {cityTimeZone} from "../../domain/city-time";
 
 const LocationPicker = dynamic(() => import("../../components/location-picker"), { ssr: false });
 const DEFAULT_DESCRIPTION = "Join us for a friendly local BitcoinWalk: a relaxed way to meet fellow Bitcoiners, share ideas, and explore the city together. Everyone is welcome, whether you are new to Bitcoin or have been following it for years. Bring your questions, good shoes, and curiosity. We often continue the conversation over coffee or food after the walk.";
@@ -90,7 +91,7 @@ export default function StartWalkPage() {
       }
       if (!pendingSubmission.current) {
         setState({ kind: "working", message: "Please sign your walk series, followed by the city submission…" });
-        const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+        const timeZone = cityTimeZone(candidate.meetingPoint);
         const walks:Event[]=[];
         for(const [index,startAt] of (candidate.initialWalkStarts??[candidate.startAt]).entries()){
           setState({kind:"working",message:`Please sign walk ${index+1} of ${candidate.initialWalkStarts?.length??1}…`});

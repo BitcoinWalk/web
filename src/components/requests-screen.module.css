@@ -46,3 +46,5 @@
 .profilePreview {display:flex;align-items:center;gap:1rem;margin:1rem 0;min-width:0;overflow-wrap:anywhere;}
 .profilePreview img {flex:none;border-radius:50%;object-fit:cover;outline:1px solid oklch(0 0 0 / .1);outline-offset:-1px;}
 .profilePreview p {margin:.25rem 0;}
+.announcementModule{margin-top:1rem!important}.announcementList{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.75rem}.announcementCard{display:grid;gap:.75rem;margin:0!important;padding:1rem!important}.announcementCard h3,.announcementCard p{margin:0}.announcementCard pre{margin:0;padding:.85rem;border-radius:.5rem;background:#f6f7f8;white-space:pre-wrap;overflow-wrap:anywhere;font:inherit;line-height:1.5}.announcementCard button{justify-self:start}
+@media(max-width:62rem){.announcementList{grid-template-columns:1fr}}
