@@ -104,3 +104,13 @@ standard NIP-17 client, switch accounts, reconnect and restart without duplicate
 and record bounded feedback for an unreadable/unsupported message. iOS remains
 unverified until a real iPhone and supported signer are available. Guide stays
 notification-only; conversational support remains BW-67.
+
+## User acceptance closure — 24 October 2026
+
+The user explicitly accepted the implemented compatibility scope and closed
+BW-128 without requiring the remaining physical/versioned matrix above. This is
+an acceptance decision, not evidence that the Pixel/Amber Guide receipt,
+independent-client round trip, signer variants, restart/account-switch cases or
+iOS path were executed. The completed claim is limited to the implemented and
+automated standard kind-14 text contract. Guide remains notification-only, and
+conversational support or bot replies remain BW-67.
