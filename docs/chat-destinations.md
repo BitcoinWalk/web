@@ -86,6 +86,13 @@ to its exact dashboard intent; malformed paths still return 400 and no fallback
 room is selected. Release `0.3.506` carries this correction after inheriting
 the concurrently activated sponsor-card `0.3.505` source.
 
+Staging `0.3.506` at source `a5d9da2` passed CI run `40084527957`, standalone
+package smoke and guarded activation on 24 October. Public verification confirms
+`/chat/madeira` now redirects to `/admin/chat?city=madeira` and renders the
+contextual connection screen, while `/api/chat/destination` truthfully remains
+`503 {state:"unavailable"}` until Madeira has a configured group. Evidence is
+`/home/bitcoinwalk/backups/app-staging-deploy.m5qE7H`.
+
 ## Cross-client fixtures and acceptance
 
 `src/domain/fixtures/chat-targets-v1.json` is the shared versioned fixture set for
