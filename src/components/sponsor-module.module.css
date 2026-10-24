@@ -8,6 +8,15 @@
 }
 .sponsor h2 { margin-top: 0; }
 .sponsor > p:last-child { margin-bottom: 0; }
+.sponsorLogo {
+  display: block;
+  width: min(100%, 25rem);
+  height: auto;
+  max-height: 6.25rem;
+  margin: 0 0 1rem;
+  object-fit: contain;
+  object-position: left center;
+}
 .invitation {
   position: relative;
   display: grid;

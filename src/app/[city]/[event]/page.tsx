@@ -2,14 +2,14 @@ import {notFound,redirect} from "next/navigation";
 import WalkEvent from "../../../components/walk-event";
 import {cityWalkTitleLogoVariant} from "../../../components/city-walk-title";
 import {serverReadRelays} from "../../../lib/server-relay-config";
-import {resolveSharedWalk,walkShareMetadata} from "../../../server/share-preview";
+import {loadSharedCities,resolveSharedWalk,walkShareMetadata} from "../../../server/share-preview";
 import {getLogoCatalog} from "../../../logos/runtime";
 import {logoVariantAsset,type LogoVariantAsset} from "../../../logos/catalog";
 import {resolvedFeatureFlags} from "../../../nostr/feature-flags";
 import {querySponsorships} from "../../../nostr/sponsorships";
 import {publicSponsorship} from "../../../server/public-sponsorship";
 import {DEFAULT_FEATURE_FLAGS} from "../../../domain/feature-flags";
-import {resolveCityRoute} from "../../../domain/city-route";
+import {cityRouteFamily,resolveCityRoute} from "../../../domain/city-route";
 import {serverChatConfig} from "../../../server/chat-config";
 
 export const dynamic="force-dynamic";
@@ -22,10 +22,13 @@ export default async function FreeTierEventPage({params,searchParams}:{params:Pr
   let result;
   try{result=await resolveSharedWalk(event);}catch{return <main><h1>Event temporarily unavailable</h1><p>The relay could not be read. Please try again later.</p></main>;}
   if(!result)notFound();
-  const route=resolveCityRoute([result.currentProfile],city);if(!route)notFound();
+  let cities:Awaited<ReturnType<typeof loadSharedCities>>;
+  try{cities=await loadSharedCities();}catch{return <main><h1>Event temporarily unavailable</h1><p>The relay could not be read. Please try again later.</p></main>;}
+  const route=resolveCityRoute(cities,city);if(!route||!cityRouteFamily(cities,route.row).some(row=>row.revision.city.cityId===result.currentProfile.revision.city.cityId))notFound();
+  const currentProfile=route.row;
   if(route.redirect)redirect(`/${encodeURIComponent(route.canonicalSlug)}/${encodeURIComponent(event)}${embedded?"?view=app":""}`);
   const [featureFlagResult,sponsorshipResult]=await Promise.allSettled([resolvedFeatureFlags(serverReadRelays()),querySponsorships(serverReadRelays())]),featureFlags=featureFlagResult.status==="fulfilled"?featureFlagResult.value:DEFAULT_FEATURE_FLAGS,sponsorshipRows=sponsorshipResult.status==="fulfilled"?sponsorshipResult.value:[];
-  let logoHref:string|undefined,titleLogo:LogoVariantAsset|undefined;try{const revision=result.walk.revision,pack=await getLogoCatalog().readyForCity({cityId:revision.city.cityId,slug:revision.city.slug});if(pack){titleLogo=logoVariantAsset(pack,cityWalkTitleLogoVariant)??undefined;if(pack.publiclyListed)logoHref=`/${encodeURIComponent(pack.slug)}/logo`;}}catch{}
-  const sponsorship=publicSponsorship(sponsorshipRows,featureFlags.sponsorships&&sponsorshipResult.status==="fulfilled",result.walk.revision.city.cityId,result.event);
-  return <WalkEvent event={result.event} walk={result.walk} currentProfile={result.currentProfile} logoHref={logoHref} titleLogo={titleLogo} sponsorship={sponsorship} chatConfig={serverChatConfig()} embedded={embedded}/>;
+  let logoHref:string|undefined,titleLogo:LogoVariantAsset|undefined;try{const revision=currentProfile.revision,pack=await getLogoCatalog().readyForCity({cityId:revision.city.cityId,slug:revision.city.slug});if(pack){titleLogo=logoVariantAsset(pack,cityWalkTitleLogoVariant)??undefined;if(pack.publiclyListed)logoHref=`/${encodeURIComponent(pack.slug)}/logo`;}}catch{}
+  const sponsorship=publicSponsorship(sponsorshipRows,featureFlags.sponsorships&&sponsorshipResult.status==="fulfilled",currentProfile.revision.city.cityId,result.event);
+  return <WalkEvent event={result.event} walk={result.walk} currentProfile={currentProfile} logoHref={logoHref} titleLogo={titleLogo} sponsorship={sponsorship} chatConfig={serverChatConfig()} embedded={embedded}/>;
 }
