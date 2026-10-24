@@ -7,6 +7,7 @@ import {serverReadRelays} from "../../../../lib/server-relay-config";
 import {storePendingSponsorLogo} from "../../../../server/sponsor-logo-store";
 import {MAX_SPONSOR_LOGO_BYTES} from "../../../../server/sponsor-logo";
 import {getPaymentRuntime} from "../../../../payments/runtime";
+import {paidSponsorLinkPreview} from "../../../../server/paid-sponsor-preview";
 export const runtime="nodejs",dynamic="force-dynamic";
 const limit=Math.ceil(MAX_SPONSOR_LOGO_BYTES/3)*4+16384;
 const reply=(error:string,status:number)=>Response.json({error},{status,headers:{"Cache-Control":"no-store"}});
@@ -47,7 +48,7 @@ export async function POST(request:Request) {
     if(createHash("sha256").update(bytes).digest("hex")!==command.sha256)return reply("Upload does not match the signed file hash.",400);
     let result;
     try{result=await storePendingSponsorLogo({bytes,mime:command.mime,cityId:command.cityId,sponsorPubkey:command.sponsorPubkey,actor,signedRequestId:body.event.id});}catch(error){const safe=safeUploadError(error);return reply(safe??"The logo could not be processed. Use a valid PNG, WebP or outlined SVG.",safe?.includes("busy")||safe?.includes("one minute")?429:400);}
-    if(command.action==="upload-paid-sponsor-logo")getPaymentRuntime().sponsors.recordLogo(command.orderId,body.token!,actor,command.cityId,result.hash);
-    return Response.json({status:result.status,hash:result.hash,message:"Logo stored privately pending super-admin approval."},{headers:{"Cache-Control":"no-store"}});
+    let linkPreview=null;if(command.action==="upload-paid-sponsor-logo"){const order=getPaymentRuntime().sponsors.recordLogo(command.orderId,body.token!,actor,command.cityId,result.hash);try{linkPreview=await paidSponsorLinkPreview(order,actor,result.hash);}catch{/* The saved logo remains recoverable and preview generation can be retried. */}}
+    return Response.json({status:result.status,hash:result.hash,message:"Logo stored privately pending super-admin approval.",linkPreview},{headers:{"Cache-Control":"no-store"}});
   }catch {return reply("Logo upload failed. Use a valid paid sponsor or super-admin authorization and a valid PNG, WebP or outlined SVG.",400);}
 }
