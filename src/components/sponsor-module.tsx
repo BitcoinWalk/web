@@ -26,5 +26,5 @@ export default function SponsorModule({presentation,cityName,cityLogo,endsAt,lug
  </section>;
  if(!sponsor)return null;
  const website=sponsor.website;
- return <section className={styles.sponsor} aria-labelledby="sponsor-heading"><h2 id="sponsor-heading">Sponsored by</h2><NostrUser pubkey={sponsor.pubkey} profile={profile} resolveProfile={false}/>{website&&<p>Visit our website to <a href={website} target="_blank" rel="noopener noreferrer">learn more</a>.</p>}</section>;
+ return <section className={styles.sponsor} aria-labelledby="sponsor-heading"><h2 id="sponsor-heading">Sponsored by</h2>{sponsor.logoHash&&<Image className={styles.sponsorLogo} src={`/api/sponsors/logo/files/${sponsor.logoHash}`} width={400} height={100} unoptimized alt="Sponsor logo"/>}<NostrUser pubkey={sponsor.pubkey} profile={profile} resolveProfile={false}/>{website&&<p>Visit our website to <a href={website} target="_blank" rel="noopener noreferrer">learn more</a>.</p>}</section>;
 }
