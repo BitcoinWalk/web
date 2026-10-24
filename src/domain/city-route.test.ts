@@ -1,7 +1,7 @@
 import {describe,expect,it} from "vitest";
-import {resolveCityRoute} from "./city-route";
+import {cityRouteFamily,resolveCityRoute} from "./city-route";
 
-const row=(cityId:string,slug:string,aliases:string[]=[])=>({revision:{city:{cityId,slug,aliases}}});
+const row=(cityId:string,slug:string,aliases:string[]=[],cityName=slug)=>({revision:{city:{cityId,cityName,slug,aliases}}});
 
 describe("public city route aliases",()=>{
  it("redirects every URL-safe alternative name to the canonical slug",()=>{
@@ -20,5 +20,9 @@ describe("public city route aliases",()=>{
   expect(resolveCityRoute([a,canonical],"warsaw")?.row).toBe(canonical);
   expect(resolveCityRoute([a,b],"warsaw")).toBeNull();
   expect(resolveCityRoute([a],"---")).toBeNull();
+ });
+ it("groups only exact route-and-name duplicates for historical event lookup",()=>{
+  const canonical=row("paid","madeira",[],"Madeira"),historical=row("old","madeira",[],"Madeíra"),other=row("other","madeira",[],"Other Madeira");
+  expect(cityRouteFamily([canonical,historical,other],canonical)).toEqual([canonical,historical]);
  });
 });

@@ -29,16 +29,23 @@ function routableOccurrence(walk:CalendarWalk,event:Event){
  * Retained approved occurrences survive profile edits; invalid, foreign-city and
  * unapproved events never enter the choice. Input events come from public relay reads. */
 export function currentOrNextEvent(walk:CalendarWalk,events:Event[],now=Math.floor(Date.now()/1000)):Event|null {
+  return currentOrNextEventAcrossSources([walk],events,now);
+}
+
+/** Select one route target across equivalent approved city identities. This is
+ * needed during durable-identity reconciliation, when future events can still
+ * be signed against an older approved city record. */
+export function currentOrNextEventAcrossSources(walks:CalendarWalk[],events:Event[],now=Math.floor(Date.now()/1000)):Event|null {
   if(!Number.isSafeInteger(now)||now<0)return null;
-  const candidates=events.flatMap(event=>{
+  const candidates=walks.flatMap(walk=>events.flatMap(event=>{
     const source=calendarEventSource(event,walk);if(!source)return [];
-    const occurrence=routableOccurrence(source,event);
-    if(!occurrence)return [];
+    const occurrence=routableOccurrence(source,event);if(!occurrence)return [];
     return [{event,start:occurrence.start,end:occurrence.end}];
-  });
-  const active=candidates.filter(item=>item.start<=now&&item.end+WALK_REDIRECT_GRACE_SECONDS>now).sort((a,b)=>b.start-a.start)[0];
+  }));
+  const unique=[...new Map(candidates.map(candidate=>[candidate.event.id,candidate])).values()];
+  const active=unique.filter(item=>item.start<=now&&item.end+WALK_REDIRECT_GRACE_SECONDS>now).sort((a,b)=>b.start-a.start)[0];
   if(active)return active.event;
-  return candidates.filter(item=>item.start>now).sort((a,b)=>a.start-b.start)[0]?.event??null;
+  return unique.filter(item=>item.start>now).sort((a,b)=>a.start-b.start)[0]?.event??null;
 }
 
 export function managedCalendarEvents(walk:CalendarWalk,events:Event[],now=Math.floor(Date.now()/1000)):ManagedCalendarEvent[]{

@@ -4,7 +4,7 @@ import Link from "next/link";
 import {directoryConfig} from "../../lib/directory-config";
 import {relayConfig} from "../../lib/relay-config";
 import {serverReadRelays} from "../../lib/server-relay-config";
-import {currentOrNextEvent,paidCityForHost} from "../../domain/event-routing";
+import {currentOrNextEventAcrossSources,paidCityForHost} from "../../domain/event-routing";
 import {calendarNevent,resolveCalendarLink,type CalendarSource} from "../../nostr/calendar-records";
 import {queryCalendarEvents} from "../../nostr/city-records";
 import {contentRoute,queryContentRevisions} from "../../nostr/content-records";
@@ -24,7 +24,7 @@ import {publicSponsorship} from "../../server/public-sponsorship";
 import {DEFAULT_FEATURE_FLAGS} from "../../domain/feature-flags";
 import {cityShareMetadata,loadSharedCities} from "../../server/share-preview";
 import {previewText} from "../../domain/share-preview";
-import {resolveCityRoute} from "../../domain/city-route";
+import {cityRouteFamily,resolveCityRoute} from "../../domain/city-route";
 import PublicCityHost from "../../components/public-city-host";
 import PublicCitySupport from "../../components/public-city-support";
 import CityChat from "../../components/city-chat";
@@ -64,9 +64,9 @@ export default async function CityOrEventPage({params,searchParams}:{params:Prom
     if(!route)outcome={state:"missing"};
     else if(route.redirect)outcome={state:"redirect",href:`/${encodeURIComponent(route.canonicalSlug)}`};
     else{
-      const walk=route.row;
-      const events=await queryCalendarEvents(serverReadRelays(),{cityId:walk.revision.city.cityId});
-      const event=currentOrNextEvent(walk,events);
+      const walk=route.row,routeFamily=cityRouteFamily(walks,walk);
+      const events=await queryCalendarEvents(serverReadRelays(),{cityIds:routeFamily.map(row=>row.revision.city.cityId)});
+      const event=currentOrNextEventAcrossSources(routeFamily,events);
       let logoHref:string|undefined,titleLogo:LogoVariantAsset|undefined;try{const revision=walk.revision,pack=await getLogoCatalog().readyForCity({cityId:revision.city.cityId,slug:revision.city.slug});if(pack){titleLogo=logoVariantAsset(pack,cityWalkTitleLogoVariant)??undefined;if(pack.publiclyListed)logoHref=`/${encodeURIComponent(pack.slug)}/logo`;}}catch{}
       const profile=walk.revision.city,sponsorship=publicSponsorship(sponsorships,flags.sponsorships&&sponsorshipResult.status==="fulfilled",profile.cityId,event);
       outcome={state:"ready",profile:walk,cityId:profile.cityId,cityName:profile.cityName,slug:profile.slug,revisionId:walk.revision.event.id,requestedTier:profile.requestedTier,eventHref:event?`/${encodeURIComponent(profile.slug)}/${calendarNevent(event,relayConfig.calendarRelayHints)}`:undefined,logoHref,titleLogo,sponsorship};
