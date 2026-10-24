@@ -93,6 +93,19 @@ contextual connection screen, while `/api/chat/destination` truthfully remains
 `503 {state:"unavailable"}` until Madeira has a configured group. Evidence is
 `/home/bitcoinwalk/backups/app-staging-deploy.m5qE7H`.
 
+Production promotion, 24 October 2026: source
+`c3a6b1c53179f47dbbac5efbbecfcb0e8d78c0d2`, whose runtime includes the exact
+staging-accepted correction at `a5d9da2`, was rebuilt with production relay and
+invitation settings and activated as `app-production-0.3.506`. The production
+archive SHA-256 is
+`5676775a1b6d1f53ce31777a4a0e379eb7abc45b2c1f92b1d6bfbcfa0ca0573a`;
+package smoke, CI run `40084814855` and the guarded current-release check passed.
+Public verification confirms health reports `0.3.506`, `/chat/madeira` redirects
+exactly to `/admin/chat?city=madeira`, the disconnected page renders **Open
+Walkie Talkie**, and the strict resolver returns Madeira's current production
+NIP-29 destination without changing membership or messages. Deployment evidence
+is `/home/bitcoinwalk/backups/app-production-deploy.qtLfgA`.
+
 ## Cross-client fixtures and acceptance
 
 `src/domain/fixtures/chat-targets-v1.json` is the shared versioned fixture set for
