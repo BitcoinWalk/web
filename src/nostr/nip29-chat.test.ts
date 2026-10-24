@@ -1,6 +1,6 @@
 import {finalizeEvent,getPublicKey,type EventTemplate} from "nostr-tools";
 import {describe,expect,it} from "vitest";
-import {configuredNip29Room,dashboardNip29CityRooms,dashboardNip29Rooms,mergeNip29Messages,nip29ComposerKey,nip29JoinTemplate,nip29MessageTemplate,nip29ParticipantCount,nip29RoomName,uniqueNip29Rooms,updateNip29Composer,validNip29Destination} from "./nip29-chat";
+import {configuredNip29Room,dashboardNip29CityRooms,dashboardNip29Rooms,mergeNip29Messages,nip29ComposerKey,nip29HasParticipant,nip29JoinTemplate,nip29MessageTemplate,nip29ParticipantCount,nip29RoomName,uniqueNip29Rooms,updateNip29Composer,validNip29Destination} from "./nip29-chat";
 
 const key=new Uint8Array(32).fill(4),pubkey=getPublicKey(key),group="bitcoinwalk-london";
 const signed=(template:EventTemplate)=>finalizeEvent(template,key);
@@ -61,6 +61,9 @@ describe("NIP-29 dashboard chat",()=>{
  it("counts unique participants from the latest valid signed membership record",()=>{
   const first="11".repeat(32),second="22".repeat(32),old=signed({kind:39002,created_at:10,tags:[["d",group],["p",first]],content:""}),latest=signed({kind:39002,created_at:11,tags:[["d",group],["p",first],["p",first,"admin"],["p",second],["p","invalid"]],content:""});
   expect(nip29ParticipantCount([old,latest],group)).toBe(2);
+  expect(nip29HasParticipant([old,latest],group,second)).toBe(true);
+  expect(nip29HasParticipant([old,latest],group,"33".repeat(32))).toBe(false);
+  expect(nip29HasParticipant([],group,second)).toBeNull();
   expect(nip29ParticipantCount([latest],"other")).toBeNull();
  });
  it("isolates composer text and attachments by account and exact room",()=>{

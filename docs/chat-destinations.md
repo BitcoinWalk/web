@@ -51,9 +51,20 @@ not mean that its requester is authorized or has joined it.
 
 The HTTPS entry points redirect to the existing `/admin/chat` destination, or
 first to the canonical city path for an alias. They perform no signed actions.
-Exact-room recovery through login, cancellation, refresh and account changes is
-**BW-157**, not an acceptance claim of this contract. OS App/Universal Link
-association and installed-app delivery remain **BW-158**.
+BW-157 now keeps that exact City, Guide, Global or Hosts intent in the browser
+URL through initial connection, signer cancellation, refresh and account
+switching. Ambiguous links, unknown cities and unauthorized Hosts requests show
+an explicit recovery state instead of substituting another room. Manual room
+changes replace the URL with the newly selected exact destination.
+
+Public City and Global membership is rederived from the latest signed kind-39002
+roster. A join request is sent only from the explicit Join action, and the UI
+does not say Joined or enable sending until the relay's signed roster contains
+the connected pubkey. Pending requests offer a read-only membership recheck
+instead of publishing duplicate joins. Hosts remains gated by current verified
+city authority and the private relay; Guide opens the connected account's own
+NIP-17 inbox. Staging and cross-role human acceptance remain before BW-157 can
+be marked Done. OS App/Universal Link association remains **BW-158**.
 
 ## Cross-client fixtures and acceptance
 
@@ -65,8 +76,9 @@ are in `src/domain/chat-target.ts`; registry resolution is server-only.
 Executable web coverage includes Basic/Pro isolation, group rotation, signed
 rename aliases, archived/ambiguous cities, missing transport, Hosts privacy,
 query-parameter claims, exact browser redirect paths and endpoint status codes.
-Mobile fixture execution and real installed-app acceptance remain a handoff to
-the Walkie Talkie workstream; no mobile changes or app-link claims ship here.
+The byte-identical mobile fixture and installed Android app acceptance completed
+on 24 October 2026 in Walkie Talkie commit `ccbfdb2`. No app-link claim ships in
+BW-157; installed-app delivery remains BW-158.
 
 Local verification, 20 October 2026: all 1,998 tests passed, including 34 focused
 contract/endpoint checks. Type checking, changed-file lint, backlog generation
