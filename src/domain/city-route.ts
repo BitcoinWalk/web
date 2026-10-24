@@ -1,6 +1,6 @@
 import {registrationSlug} from "./registration";
 
-type CityRouteRow={revision:{city:{cityId:string;slug:string;aliases?:string[]}}};
+type CityRouteRow={revision:{city:{cityId:string;cityName?:string;slug:string;aliases?:string[]}}};
 
 export type ResolvedCityRoute<T extends CityRouteRow>={row:T;canonicalSlug:string;redirect:boolean};
 
@@ -14,4 +14,19 @@ export function resolveCityRoute<T extends CityRouteRow>(rows:T[],requestedPath:
  const unique=[...new Map(aliases.map(row=>[row.revision.city.cityId,row])).values()];
  if(unique.length!==1)return null;
  return {row:unique[0],canonicalSlug:unique[0].revision.city.slug,redirect:true};
+}
+
+/** Approved duplicate records can temporarily coexist while a paid city is
+ * reconciled onto its durable identity. Treat them as one route only when both
+ * the canonical slug and normalized display name agree; the selected row still
+ * owns presentation while every member remains available for signed-event
+ * verification. */
+export function cityRouteFamily<T extends CityRouteRow>(rows:T[],selected:T):T[]{
+ const city=selected.revision.city,name=city.cityName?.normalize("NFKD").replace(/\p{M}/gu,"").toLowerCase().trim();
+ return rows.filter(row=>{
+  const candidate=row.revision.city;
+  if(candidate.cityId===city.cityId)return true;
+  const candidateName=candidate.cityName?.normalize("NFKD").replace(/\p{M}/gu,"").toLowerCase().trim();
+  return candidate.slug===city.slug&&!!name&&candidateName===name;
+ });
 }

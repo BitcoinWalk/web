@@ -3,7 +3,7 @@ import {finalizeEvent,type Event} from "nostr-tools";
 import {createOrganizerCalendarEvent} from "../nostr/calendar-event";
 import {approvedCalendarWalks,calendarEventSource,type CalendarWalk} from "../nostr/calendar-records";
 import {reconcileOccurrences} from "./recurrence-reconciliation";
-import {currentOrNextEvent,eventPageHref,managedCalendarEvents,paidCityForHost} from "./event-routing";
+import {currentOrNextEvent,currentOrNextEventAcrossSources,eventPageHref,managedCalendarEvents,paidCityForHost} from "./event-routing";
 import {cityDocumentSchema} from "./city";
 
 const city=cityDocumentSchema.parse({cityId:"550e8400-e29b-41d4-a716-446655440000",slug:"warsaw",cityName:"Warsaw",startAt:"2026-01-01T10:00:00Z",description:"Walk",meetingPoint:{description:"Square",latitude:52.2,longitude:21},chatUrl:"https://chat.example",heroImageUrl:"https://image.example/a.jpg"});
@@ -48,6 +48,11 @@ describe("event root routing",()=>{
  expect(currentOrNextEvent(walk,[second,first],12201)).toBeNull();
   expect(managedCalendarEvents(walk,[second,first],3701).map(row=>row.status)).toEqual(["grace","upcoming"]);
   expect(managedCalendarEvents(walk,[second,first],9000).map(row=>row.status)).toEqual(["grace","past"]);
+ });
+ it("selects the earliest valid walk across equivalent approved city identities",()=>{
+  const otherCity={...city,cityId:"0ccc182e-74c1-4f2a-a721-eafd18b65d6d"},otherWalk={revision:{city:otherCity,event:{id:"c".repeat(64)} as Event},approval:{approval:{cityId:otherCity.cityId,cityRevisionId:"c".repeat(64),status:"approved"},event:{id:"d".repeat(64)} as Event}} as CalendarWalk;
+  const later=signed("123e4567-e89b-42d3-a456-426614174000:2026-09-28",5000,8600),earlier=finalizeEvent(createOrganizerCalendarEvent(otherWalk,{id:"223e4567-e89b-42d3-a456-426614174000:2026-09-21",seriesId:"223e4567-e89b-42d3-a456-426614174000",start:4000,end:7600,localDate:"2026-09-21",localTime:"10:00",timeZone:"Europe/Warsaw",meetingPoint:otherCity.meetingPoint}),new Uint8Array(32).fill(2));
+  expect(currentOrNextEventAcrossSources([walk,otherWalk],[later,earlier],150)?.id).toBe(earlier.id);
  });
  it("uses paid subdomains only for legacy-host recognition while keeping public links canonical",()=>{
   const paid={x:{slug:"warsaw",featured:false,subdomainReady:true},y:{slug:"funchal",featured:false,subdomainReady:false}};
