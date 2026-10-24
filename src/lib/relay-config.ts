@@ -5,12 +5,13 @@ function parseRelayList(value: string | undefined): string[] {
     .filter((relay) => relay.startsWith("wss://"));
 }
 
-export const stagingDirectoryRelays = [
+const productionBuild=process.env.NEXT_PUBLIC_DEPLOYMENT_PROFILE==="production";
+const stagingDirectoryRelays:readonly string[] = productionBuild?[]:[
   "wss://directory-staging.bitcoinwalk.org/",
   "wss://directory-2-staging.bitcoinwalk.org/",
-] as const;
-export const stagingApplicationRelays = ["wss://relay-staging.bitcoinwalk.org/"] as const;
-export const stagingCalendarDiscoveryRelays = [
+];
+const stagingApplicationRelays:readonly string[] = productionBuild?[]:["wss://relay-staging.bitcoinwalk.org/"];
+const stagingCalendarDiscoveryRelays = [
   "wss://relay.ditto.pub/",
   "wss://relay.primal.net/",
   "wss://relay.satlantis.io/",

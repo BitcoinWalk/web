@@ -14,6 +14,7 @@ describe("reproducible environment-specific releases",()=>{
       "wss://directory.bitcoinwalk.org/",
       "wss://directory-2.bitcoinwalk.org/",
       "Required ${profile} relay is absent from the browser bundle",
+      "Production browser bundle contains a staging relay",
     ])expect(packager).toContain(required);
   });
 

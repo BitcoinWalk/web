@@ -64,6 +64,15 @@ async function requireProfileRelays(path){
   ]){
     if(!await treeContains(path,relay))throw new Error(`Required ${profile} relay is absent from the browser bundle: ${relay}`);
   }
+  if(profile==="production"){
+    for(const relay of [
+      "wss://relay-staging.bitcoinwalk.org/",
+      "wss://directory-staging.bitcoinwalk.org/",
+      "wss://directory-2-staging.bitcoinwalk.org/",
+    ]){
+      if(await treeContains(path,relay))throw new Error(`Production browser bundle contains a staging relay: ${relay}`);
+    }
+  }
 }
 
 const health=await readFile(join(root,"src","app","api","healthz","route.ts"),"utf8");

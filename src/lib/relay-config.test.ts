@@ -6,6 +6,7 @@ const originalWriteRelays=process.env.NEXT_PUBLIC_WRITE_RELAYS;
 const originalCalendarDiscoveryRelays=process.env.NEXT_PUBLIC_CALENDAR_DISCOVERY_RELAYS;
 const originalAnnouncementRelays=process.env.NEXT_PUBLIC_ANNOUNCEMENT_RELAYS;
 const originalAnnouncementNotBefore=process.env.NEXT_PUBLIC_ANNOUNCEMENT_NOT_BEFORE;
+const originalDeploymentProfile=process.env.NEXT_PUBLIC_DEPLOYMENT_PROFILE;
 
 afterEach(()=>{
   if(originalDirectoryRelays===undefined)delete process.env.NEXT_PUBLIC_DIRECTORY_RELAYS;
@@ -18,6 +19,7 @@ afterEach(()=>{
   else process.env.NEXT_PUBLIC_CALENDAR_DISCOVERY_RELAYS=originalCalendarDiscoveryRelays;
   if(originalAnnouncementRelays===undefined)delete process.env.NEXT_PUBLIC_ANNOUNCEMENT_RELAYS;else process.env.NEXT_PUBLIC_ANNOUNCEMENT_RELAYS=originalAnnouncementRelays;
   if(originalAnnouncementNotBefore===undefined)delete process.env.NEXT_PUBLIC_ANNOUNCEMENT_NOT_BEFORE;else process.env.NEXT_PUBLIC_ANNOUNCEMENT_NOT_BEFORE=originalAnnouncementNotBefore;
+  if(originalDeploymentProfile===undefined)delete process.env.NEXT_PUBLIC_DEPLOYMENT_PROFILE;else process.env.NEXT_PUBLIC_DEPLOYMENT_PROFILE=originalDeploymentProfile;
   vi.resetModules();
 });
 
@@ -29,6 +31,7 @@ describe("directory relay configuration",()=>{
     delete process.env.NEXT_PUBLIC_CALENDAR_DISCOVERY_RELAYS;
     delete process.env.NEXT_PUBLIC_ANNOUNCEMENT_RELAYS;
     delete process.env.NEXT_PUBLIC_ANNOUNCEMENT_NOT_BEFORE;
+    delete process.env.NEXT_PUBLIC_DEPLOYMENT_PROFILE;
     vi.resetModules();
 
     const {relayConfig}=await import("./relay-config");
@@ -64,6 +67,7 @@ describe("directory relay configuration",()=>{
   });
 
   it("requires an explicit production override instead of rewriting the staging defaults",async()=>{
+    process.env.NEXT_PUBLIC_DEPLOYMENT_PROFILE="production";
     process.env.NEXT_PUBLIC_READ_RELAYS="wss://relay.bitcoinwalk.org/";
     process.env.NEXT_PUBLIC_WRITE_RELAYS="wss://relay.bitcoinwalk.org/";
     process.env.NEXT_PUBLIC_DIRECTORY_RELAYS="wss://directory.bitcoinwalk.org/,wss://directory-2.bitcoinwalk.org/";
@@ -84,6 +88,20 @@ describe("directory relay configuration",()=>{
       "wss://events.example/",
       "wss://events-2.example/",
     ]);
+  });
+
+  it("fails closed instead of falling back to staging transports in a production build",async()=>{
+    process.env.NEXT_PUBLIC_DEPLOYMENT_PROFILE="production";
+    delete process.env.NEXT_PUBLIC_READ_RELAYS;
+    delete process.env.NEXT_PUBLIC_WRITE_RELAYS;
+    delete process.env.NEXT_PUBLIC_DIRECTORY_RELAYS;
+    vi.resetModules();
+
+    const {relayConfig}=await import("./relay-config");
+
+    expect(relayConfig.readRelays).toEqual([]);
+    expect(relayConfig.writeRelays).toEqual([]);
+    expect(relayConfig.directoryRelays).toEqual([]);
   });
 
   it("does not let blank build variables erase the staging transport baseline",async()=>{
