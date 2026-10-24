@@ -91,6 +91,13 @@ export function nip29ParticipantCount(events:Event[],groupId:string):number|null
  return new Set(membership.tags.filter(tag=>tag[0]==="p"&&tag.length>=2&&hex.test(tag[1])).map(tag=>tag[1])).size;
 }
 
+export function nip29HasParticipant(events:Event[],groupId:string,pubkey:string):boolean|null{
+ if(!hex.test(pubkey))return false;
+ const membership=events.filter(event=>event.kind===39002&&verifyEvent(event)&&exactTag(event,"d",groupId)).sort(compareEvents)[0];
+ if(!membership)return null;
+ return membership.tags.some(tag=>tag[0]==="p"&&tag.length>=2&&tag[1]===pubkey);
+}
+
 export function mergeNip29Messages(current:Nip29Message[],events:Event[],groupId:string,now=Math.floor(Date.now()/1000)):Nip29Message[]{
  const rows=new Map(current.map(row=>[row.id,row]));
  for(const event of events){

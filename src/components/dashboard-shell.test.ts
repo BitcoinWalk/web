@@ -4,10 +4,12 @@ import {describe,expect,it,vi} from "vitest";
 import DashboardShell,{DashboardBrand,DashboardDataHealth} from "./dashboard-shell";
 import {combinedPendingRequestCount} from "./pending-request-count";
 
-vi.mock("next/navigation",()=>({usePathname:()=>"/admin"}));
+const navigation=vi.hoisted(()=>({path:"/admin"}));
+vi.mock("next/navigation",()=>({usePathname:()=>navigation.path}));
 
 describe("dashboard entry",()=>{
   it("shows only the shared account module while disconnected",()=>{
+    navigation.path="/admin";
     const html=renderToStaticMarkup(createElement(DashboardShell,null,createElement("p",null,"Dashboard content")));
     expect(html).toContain("Create new account");
     expect(html).toContain("Connect with browser extension");
@@ -23,6 +25,14 @@ describe("dashboard entry",()=>{
     expect(html).not.toContain("Public site");
     expect(html).not.toContain("All available cities");
     expect(html).not.toContain("<select");
+  });
+  it("keeps a canonical chat fallback contextual while the account connects",()=>{
+    navigation.path="/admin/chat";
+    const html=renderToStaticMarkup(createElement(DashboardShell,null,createElement("p",null,"Chat content")));
+    expect(html).toContain("Open Walkie Talkie");
+    expect(html).toContain("continue to the requested conversation");
+    expect(html).not.toContain("Chat content");
+    navigation.path="/admin";
   });
 });
 
