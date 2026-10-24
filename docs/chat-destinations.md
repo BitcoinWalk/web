@@ -83,7 +83,8 @@ The first human check then exposed raw `{state:"unavailable"}` JSON for Madeira,
 whose staging group transport was absent. The follow-up keeps resolver API
 404/503 semantics while redirecting every syntactically valid human chat link
 to its exact dashboard intent; malformed paths still return 400 and no fallback
-room is selected. Release `0.3.505` carries this correction.
+room is selected. Release `0.3.506` carries this correction after inheriting
+the concurrently activated sponsor-card `0.3.505` source.
 
 ## Cross-client fixtures and acceptance
 
