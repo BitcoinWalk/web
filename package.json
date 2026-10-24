@@ -6,6 +6,8 @@
     "documentation"
   ],
   "scripts": {
+    "sponsor-payout-order:build": "esbuild scripts/run-sponsor-payout-order.ts --bundle --platform=node --target=node24 --format=cjs --outfile=release-build/sponsor-payout-order.cjs",
+    "sponsor-payout-order:package": "npm run sponsor-payout-order:build && node scripts/package-sponsor-payout-order.mjs",
     "docs:check": "npm --workspace documentation run check",
     "docs:build": "npm --workspace documentation run build",
     "docs:package": "npm run docs:build && node scripts/package-documentation.mjs",

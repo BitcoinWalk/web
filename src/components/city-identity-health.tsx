@@ -22,10 +22,10 @@ function IdentityActions({row,busy=false,onRecheck,onOpenCity}:{row:CityIdentity
  return <div style={{borderTop:"1px solid #d7dce2",marginTop:"0.8rem",paddingTop:"0.8rem"}}><strong>Next action</strong>
   {organizerRequired?<>{expiredRequest?<p>The saved city signer is confirmed, but its activation request expired before review. The organizer must reopen Pro city services and sign and submit a fresh activation request.</p>:<p>The city host must create or reconnect the exact city signer and confirm its recovery method. The super-admin can send the setup link, but cannot create or hold that private key.</p>}<p><OrganizerSetupLink row={row}/></p></>:null}
   {bindingRequired?<p>Review and sign the exact city-identity activation request after the host proof is complete.</p>:null}
-  {provisioningRequired?<p>Review the activation record and retry provisioning only after its identity, NIP-05 and Lightning evidence agree.</p>:null}
+  {provisioningRequired?<p>{failed.has("profile")?"Preview and accept the city name and avatar in Identity reviews. This does not approve payment or identity changes.":"NIP-05 and Lightning are checked automatically. An unavailable or failed service check is an operational issue, not an approval request."}</p>:null}
   {unknown?<><p>Recheck before changing anything. Missing relay evidence is not proof that the setup failed.</p>{onRecheck?<p><button type="button" disabled={busy} onClick={onRecheck}>{busy?"Checking…":"Recheck this evidence"}</button></p>:null}</>:null}
   {row.status==="complete"?<p>No corrective action is required.</p>:null}
-  <p>{bindingRequired?<><Link href="/admin/requests">Review activation request</Link>{" · "}</>:null}{provisioningRequired?<><Link href="/admin/requests">Review provisioning status</Link>{" · "}</>:null}<Link href={publicHref} target="_blank" rel="noreferrer">Open public city ↗</Link>{onOpenCity&&row.availableInEnvironment?<>{" · "}<button type="button" onClick={onOpenCity}>Open full city record</button></>:null}</p>
+  <p>{bindingRequired?<><Link href="/admin/requests">Review activation request</Link>{" · "}</>:null}{provisioningRequired&&failed.has("profile")?<><Link href="/admin/requests#post-approval-follow-ups">Review name and avatar</Link>{" · "}</>:null}<Link href={publicHref} target="_blank" rel="noreferrer">Open public city ↗</Link>{onOpenCity&&row.availableInEnvironment?<>{" · "}<button type="button" onClick={onOpenCity}>Open full city record</button></>:null}</p>
  </div>;
 }
 

@@ -12,16 +12,18 @@ import type {ProSetupTask} from "../payments/pro-setup-task-store";
 import {cityProvisioningCapabilities, type CityProvisioningCapabilities} from "../rustress/provisioning-capabilities";
 import {citySetupEvidence} from "./city-setup-evidence";
 import {activeNamedIdentity} from "../rustress/public-identity-store";
+import {profileAccepted,profileFingerprint,saveProfileReview,type CityProfilePreview} from "./city-profile-review-store";
 
 export type IdentityHealthCheckState="pass"|"fail"|"unknown"|"future"|"not-applicable";
 export type IdentityHealthStatus="complete"|"action-required"|"not-configured"|"unknown"|"not-applicable";
 export type CityIdentityHealthCheck={key:"identity"|"profile"|"nip05"|"lightning"|"binding"|"recovery"|"publishing";label:string;state:IdentityHealthCheckState;detail:string};
-export type CityIdentityHealth={cityId:string;cityName:string;slug:string;availableInEnvironment:boolean;tier:"basic"|"pro"|"pilot";status:IdentityHealthStatus;activationState?:"pending"|"approved"|"active"|"expired";checks:CityIdentityHealthCheck[];checkedAt:number;lastVerifiedAt?:number};
+export type CityIdentityHealth={cityId:string;cityName:string;slug:string;availableInEnvironment:boolean;tier:"basic"|"pro"|"pilot";status:IdentityHealthStatus;activationState?:"pending"|"approved"|"active"|"expired";checks:CityIdentityHealthCheck[];checkedAt:number;lastVerifiedAt?:number;profilePreview?:CityProfilePreview};
 
 type ActiveBrand={eventId:string;verifiedAt:number;challenge:CityBrandChallenge};
 type ProfileEvidence={reachable:number;matching:number;nip05:number;lightning:number};
 export type CityIdentityHealthEvidence={
   cityId:string;cityName:string;slug:string;availableInEnvironment:boolean;tier:"basic"|"pro"|"pilot";checkedAt:number;task:ProSetupTask|null;active:ActiveBrand|null;
+  identifier?:string;profilePreview?:CityProfilePreview;
   activationState?:"pending"|"approved"|"active"|"expired";preparedBrandPubkey?:string;binding:"pass"|"fail"|"unknown";profile:ProfileEvidence;capabilities:CityProvisioningCapabilities;nip05Verified:boolean;activationUpdatedAt?:number;
 };
 
@@ -46,10 +48,10 @@ export function summarizeCityIdentityHealth(input:CityIdentityHealthEvidence):Ci
     check("identity","Dedicated city npub","not-applicable","Basic cities continue to use the organizer identity; a separate Pro city identity is not required."),
     check("publishing","City-signed publication","not-applicable","Basic walks continue to use the organizer's existing publishing flow."),
   ]};
-  const task=input.task,active=input.active,preparedBrand=input.preparedBrandPubkey,identifier=`${input.slug}@bitcoinwalk.org`;
+  const task=input.task,active=input.active,preparedBrand=input.preparedBrandPubkey,identifier=input.identifier??`${input.slug}@bitcoinwalk.org`;
   const expectedBrand=active?.challenge.binding.brandPubkey??(input.activationState==="expired"?undefined:preparedBrand);
   const identityOk=!!task?.signer&&(!expectedBrand||task.signer.pubkey===expectedBrand);
-  const profileState:IdentityHealthCheckState=input.profile.matching>=2?"pass":input.profile.reachable>=2?"fail":"unknown";
+  const profileState:IdentityHealthCheckState=input.profilePreview?.accepted&&input.profilePreview.eligible||input.profile.matching>=2?"pass":input.profile.reachable>=2?"fail":"unknown";
   const profileDetail=profileState==="pass"?"The city-signed name, avatar and approved website were read back from at least two public profile relays.":
     profileState==="fail"?"The public city profile is missing a valid city name or avatar, or its website differs from the approved city identity on the readable profile relays.":"Fewer than two profile relays could be checked; no failure is inferred.";
   // Managed NIP-05 and Lightning activation already perform independent public
@@ -66,7 +68,7 @@ export function summarizeCityIdentityHealth(input:CityIdentityHealthEvidence):Ci
   const lightningState:IdentityHealthCheckState=input.capabilities.lightning==="active"?"pass":"fail";
   const checks:CityIdentityHealthCheck[]=[
     check("identity","Dedicated city npub",identityOk?"pass":"fail",identityOk?(input.activationState==="active"?"The saved city signer matches the active BitcoinWalk city binding.":"The saved city signer matches the submitted BitcoinWalk city identity."):"A distinct saved city signer matching the submitted city identity is required."),
-    check("profile","Profile and avatar",profileState,profileDetail),
+    check("profile","Profile and avatar",profileState,input.profilePreview?.accepted&&input.profilePreview.eligible?"The super-admin accepted this exact city name and avatar. Identity and payment checks remain independent.":profileDetail),
     check("nip05","NIP-05 verification",nip05State,nip05State==="pass"?`${identifier} resolves to the exact city npub.`:`${identifier} is not currently verified against the exact city npub.`),
     check("lightning","Lightning address",lightningState,lightningState==="pass"?`${identifier} has passed managed LNURL-pay verification.`:`${identifier} is not currently active.`),
     check("binding","City binding",input.binding,input.binding==="pass"?"The signed city binding is active and its exact head agrees across authoritative read relays.":input.binding==="unknown"?"Authoritative relays could not all be checked; the existing binding was not changed.":input.activationState==="expired"?"The previous signed activation request expired before approval. The organizer must sign and submit a fresh request; the saved identity remains unchanged.":"No active binding with exact authoritative relay read-back was found."),
@@ -76,10 +78,19 @@ export function summarizeCityIdentityHealth(input:CityIdentityHealthEvidence):Ci
   const required=checks.filter(item=>item.state!=="future"&&item.state!=="not-applicable"),configured=!!task||!!active||input.capabilities.overall!=="setup-required";
   const status:IdentityHealthStatus=required.every(item=>item.state==="pass")?"complete":required.some(item=>item.state==="fail")?(configured?"action-required":"not-configured"):"unknown";
   const durable=[active?.verifiedAt,task?.updatedAt,input.activationUpdatedAt].filter((value):value is number=>typeof value==="number"&&value>0);
-  return {cityId:input.cityId,cityName:input.cityName,slug:input.slug,availableInEnvironment:input.availableInEnvironment,tier:input.tier,status,...(input.activationState?{activationState:input.activationState}:{}),checks,checkedAt:input.checkedAt,...(durable.length?{lastVerifiedAt:Math.max(...durable)}:{})};
+  return {cityId:input.cityId,cityName:input.cityName,slug:input.slug,availableInEnvironment:input.availableInEnvironment,tier:input.tier,status,...(input.profilePreview?{profilePreview:input.profilePreview}:{}),...(input.activationState?{activationState:input.activationState}:{}),checks,checkedAt:input.checkedAt,...(durable.length?{lastVerifiedAt:Math.max(...durable)}:{})};
 }
 
 const table=(db:DatabaseSync,name:string)=>!!db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?").get(name);
+export function managedIdentityIdentifier(db:DatabaseSync,cityId:string,brand:string|undefined,slug:string){
+ if(table(db,"rustress_activation_task")){
+  const row=db.prepare("SELECT activation_config FROM rustress_activation_task WHERE city=?").get(cityId) as {activation_config:string}|undefined;
+  try{const config=JSON.parse(row?.activation_config??"null");
+   if(brand&&config?.brandPubkey===brand&&config.domain==="bitcoinwalk.org"&&/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(config.localPart)&&config.localPart.length<=63)return `${config.localPart}@${config.domain}`;
+  }catch{/* Missing or malformed configuration is not public verification. */}
+ }
+ return `${slug}@bitcoinwalk.org`;
+}
 function setupTask(db:DatabaseSync,cityId:string):ProSetupTask|null{
   if(!table(db,"pro_setup_task"))return null;
   const row=db.prepare("SELECT * FROM pro_setup_task WHERE cityId=?").get(cityId) as {cityId:string;state:ProSetupTask["state"];createdAt:number;updatedAt:number;
@@ -147,11 +158,32 @@ export async function listProCityIdentityHealth(actor:string):Promise<CityIdenti
     const tier=classifyCityIdentityTier({operatorConfirmed:!!city.operator,settled:settled.has(cityId),hasSetup:!!task,hasActiveBinding:!!current,staging});
     let binding:CityIdentityHealthEvidence["binding"]="fail";
     if(current){if(!bindingRelays.length||bindingReads.some(read=>read.error))binding="unknown";else binding=bindingReads.every(read=>resolveCityBrand(read.events.filter(event=>event.tags.some(tag=>tag[0]==="i"&&tag[1]===cityId)),cityId)?.event.id===current.eventId)?"pass":"fail";}
-    const brand=publicBrands.get(cityId),identifier=`${slug}@bitcoinwalk.org`,profiles:ProfileEvidence={reachable:0,matching:0,nip05:0,lightning:0};
-    if(brand)for(const read of publicProfileReads){if(read.error)continue;profiles.reachable++;const profile=latestProfile(read.events,brand);if(managedCityProfileMatches(profile,current,cityName,`${publicOrigin}/${slug}`))profiles.matching++;if(profile?.nip05===identifier)profiles.nip05++;if(profile?.lnurl===identifier)profiles.lightning++;}
+    const brand=publicBrands.get(cityId),canonicalSlug=city.operator?.slug??slug,identifier=managedIdentityIdentifier(db,provisioningCityId,brand,canonicalSlug),profiles:ProfileEvidence={reachable:0,matching:0,nip05:0,lightning:0};
+    if(brand)for(const read of publicProfileReads){if(read.error)continue;profiles.reachable++;const profile=latestProfile(read.events,brand);if(managedCityProfileMatches(profile,current,cityName,`${publicOrigin}/${canonicalSlug}`))profiles.matching++;if(profile?.nip05===identifier)profiles.nip05++;if(profile?.lnurl===identifier)profiles.lightning++;}
+    let profilePreview:CityProfilePreview|undefined;
+    if(brand&&current){
+      const candidates=publicProfileReads.flatMap(read=>read.error?[]:read.events).filter(event=>event.pubkey===brand).sort((a,b)=>b.created_at-a.created_at||a.id.localeCompare(b.id));
+      const latest=candidates.find(event=>parsePublicProfile(event,new Set([brand]))),profile=latest?parsePublicProfile(latest,new Set([brand])):null;
+      if(profile?.name&&profile.picture&&profile.website){
+        const fingerprint=profileFingerprint(cityId,current.eventId,brand,profile.name,profile.picture,profile.website);
+        const agreement=publicProfileReads.filter(read=>{const p=read.error?null:latestProfile(read.events,brand);return p?.name===profile.name&&p?.picture===profile.picture&&p?.website===profile.website;}).length;
+        profilePreview={fingerprint,pubkey:brand,name:profile.name,picture:profile.picture,website:profile.website,eligible:binding==="pass"&&agreement>=2&&(profile.website===current.challenge.profile.website||profile.website===`${publicOrigin}/${canonicalSlug}`),accepted:profileAccepted(db,cityId,fingerprint)};
+      }
+    }
     const capabilities=tier!=="basic"?cityProvisioningCapabilities(db,provisioningCityId):{overall:"setup-required",nip05:"setup-required",lightning:"setup-required",retryable:false,detail:"Not applicable."} as CityProvisioningCapabilities;
     const activation=table(db,"rustress_activation_task")?db.prepare("SELECT updated_at FROM rustress_activation_task WHERE city=?").get(provisioningCityId) as {updated_at:number}|undefined:undefined;
     const nip05Verified=!!brand&&await verifyNip05(brand,identifier);
-    return summarizeCityIdentityHealth({cityId,cityName,slug,availableInEnvironment,tier,checkedAt,task,active:current,activationState:request?.state,preparedBrandPubkey:request?.brandPubkey??current?.challenge.binding.brandPubkey,binding,profile:profiles,capabilities,nip05Verified,activationUpdatedAt:activation?.updated_at});
+    return summarizeCityIdentityHealth({cityId,cityName,slug,identifier,profilePreview,availableInEnvironment,tier,checkedAt,task,active:current,activationState:request?.state,preparedBrandPubkey:request?.brandPubkey??current?.challenge.binding.brandPubkey,binding,profile:profiles,capabilities,nip05Verified,activationUpdatedAt:activation?.updated_at});
   }));
+}
+
+export async function acceptCityProfile(event:Event,origin:string,cityId:string){
+ if(event.pubkey!==SUPER_ADMIN_PUBKEY)throw new Error("Super-admin review required.");
+ const row=(await listProCityIdentityHealth(event.pubkey)).find(row=>row.cityId===cityId&&row.availableInEnvironment);
+ if(!row?.profilePreview)throw new Error("City identity preview is unavailable. Refresh before accepting.");
+ saveProfileReview(getPaymentRuntime().store.db,event,origin,row.profilePreview,cityId);
+ const checks=row.checks.map(check=>check.key==="profile"?{...check,state:"pass" as const,detail:"This exact name and avatar were accepted by the super-admin."}:check);
+ const required=checks.filter(check=>check.state!=="future"&&check.state!=="not-applicable");
+ const status:IdentityHealthStatus=required.every(check=>check.state==="pass")?"complete":required.some(check=>check.state==="fail")?"action-required":"unknown";
+ return {...row,status,profilePreview:{...row.profilePreview,accepted:true},checks};
 }

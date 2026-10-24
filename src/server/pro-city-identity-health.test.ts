@@ -1,4 +1,7 @@
 import {describe,expect,it} from "vitest";
+import {DatabaseSync} from "node:sqlite";
+import {managedIdentityIdentifier} from "./pro-city-identity-health";
+import {identityApprovalProblems} from "../domain/identity-review";
 import {classifyCityIdentityTier,identityHealthPubkey,managedCityProfileMatches,provisioningStatusCityId,summarizeCityIdentityHealth,type CityIdentityHealthEvidence} from "./pro-city-identity-health";
 
 const base=(overrides:Partial<CityIdentityHealthEvidence>={}):CityIdentityHealthEvidence=>({
@@ -9,6 +12,22 @@ const base=(overrides:Partial<CityIdentityHealthEvidence>={}):CityIdentityHealth
 });
 
 describe("Pro city identity health",()=>{
+ it("uses the managed address rather than Hannover's legacy page slug",()=>{
+  const db=new DatabaseSync(":memory:");db.exec("CREATE TABLE rustress_activation_task(city TEXT,activation_config TEXT)");
+  db.prepare("INSERT INTO rustress_activation_task VALUES(?,?)").run("city",JSON.stringify({brandPubkey:"a".repeat(64),domain:"bitcoinwalk.org",localPart:"hannover"}));
+  expect(managedIdentityIdentifier(db,"city","a".repeat(64),"hanover")).toBe("hannover@bitcoinwalk.org");
+  expect(managedIdentityIdentifier(db,"city","b".repeat(64),"hanover")).toBe("hanover@bitcoinwalk.org");db.close();
+ });
+ it("retains failed service evidence without generating an approval request",()=>{
+  const row=summarizeCityIdentityHealth(base({nip05Verified:false,profile:{reachable:3,matching:3,nip05:0,lightning:0},capabilities:{overall:"needs-attention",nip05:"needs-attention",lightning:"needs-attention",retryable:true,detail:"failed"}}));
+  expect(row.status).toBe("action-required");expect(identityApprovalProblems(row)).toEqual([]);
+ });
+ it("accepts appearance without overriding failed binding or service evidence",()=>{
+  const row=summarizeCityIdentityHealth(base({binding:"fail",profile:{reachable:3,matching:0,nip05:0,lightning:0},nip05Verified:false,profilePreview:{fingerprint:"a".repeat(64),pubkey:"a".repeat(64),name:"Custom",picture:"https://bitcoinwalk.org/avatar.webp",website:"https://bitcoinwalk.org/madeira",eligible:true,accepted:true}}));
+  expect(row.checks.find(check=>check.key==="profile")?.state).toBe("pass");
+  expect(identityApprovalProblems(row).map(check=>check.key)).toEqual(["binding"]);
+  expect(row.checks.find(check=>check.key==="nip05")?.state).toBe("fail");
+ });
  it("recognizes reviewed public identity without completing private onboarding",()=>{
   const row=summarizeCityIdentityHealth(base({task:null,active:null,preparedBrandPubkey:undefined,activationState:undefined,binding:"fail",capabilities:{overall:"setup-required",nip05:"setup-required",lightning:"setup-required",retryable:false,detail:"Not activated"},nip05Verified:true}));
   expect(row.checks.filter(check=>check.state==="pass").map(check=>check.key)).toEqual(["profile","nip05"]);

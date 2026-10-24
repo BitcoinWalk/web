@@ -7,6 +7,15 @@ const expected={admin,release:"0.1.0",binding:"ab".repeat(32),walletRef:"bitcoin
 function event(changes:Record<string,unknown>={}){const content={contract:SPONSOR_PAYOUT_OPERATION_CONTRACT,mode:"continuous",release:expected.release,binding:expected.binding,walletRef:expected.walletRef,journalServiceId:expected.journalServiceId,budgetMsat:expected.budgetMsat,maximumPayoutMsat:expected.maximumPayoutMsat,maximumFeeMsat:expected.maximumFeeMsat,cityIds:expected.cityIds,notBefore:now-60,expiresAt:now+MAXIMUM_SPONSOR_PAYOUT_OPERATION_SECONDS-60,nonce:"1a27d6f4-3cbe-4445-87e2-98607a2c28c9",...changes};return finalizeEvent({kind:30312,created_at:now-120,tags:[["d","bitcoinwalk-sponsor-payout-operation"],["expiration",String(content.expiresAt)]],content:JSON.stringify(content)},secret);}
 
 describe("sponsorship payout operation authority",()=>{
+ it("requires the exact signed one-order scope and cannot substitute a city-wide grant",()=>{
+  const order={orderId:"10000000-0000-4000-8000-000000000001",paymentHash:"aa".repeat(32),receivedMsat:"21000000",hostPubkey:"bb".repeat(32),payoutVersion:1,destinationFingerprint:"cc".repeat(32)};
+  const scoped={...expected,order};expect(verifySponsorPayoutOperation(event({order}),scoped,now).order).toEqual(order);
+  expect(()=>verifySponsorPayoutOperation(event(),scoped,now)).toThrow();
+  expect(()=>verifySponsorPayoutOperation(event({order}),expected,now)).toThrow();
+  for(const [field,value] of Object.entries({...order,orderId:"20000000-0000-4000-8000-000000000001",paymentHash:"dd".repeat(32),receivedMsat:"42000000",hostPubkey:"ee".repeat(32),payoutVersion:2,destinationFingerprint:"ff".repeat(32)})){
+   expect(()=>verifySponsorPayoutOperation(event({order}),{...scoped,order:{...order,[field]:value}},now)).toThrow();
+  }
+ });
  it("binds the exact release, isolated wallet, journal, budget and reviewed cities",()=>{expect(verifySponsorPayoutOperation(event(),expected,now)).toMatchObject({walletRef:expected.walletRef,cityIds:[cityId]});});
  it.each(["release","binding","walletRef","journalServiceId","budgetMsat","maximumPayoutMsat","maximumFeeMsat"])("rejects changed %s",field=>{const value=field==="journalServiceId"?"cc72e914-5890-4902-8e8c-16fb30d80f11":field==="binding"?"cd".repeat(32):"different";expect(()=>verifySponsorPayoutOperation(event(),{...expected,[field]:value},now)).toThrow();});
  it("rejects foreign, duplicate and non-canonical city authority",()=>{expect(()=>verifySponsorPayoutOperation(event(),{...expected,cityIds:["bd8b95c8-8345-459a-b7db-1d1e700a8472"]},now)).toThrow();expect(()=>verifySponsorPayoutOperation(event({cityIds:[cityId,cityId]}),{...expected,cityIds:[cityId,cityId]},now)).toThrow("cities");const second="bd8b95c8-8345-459a-b7db-1d1e700a8472";expect(()=>verifySponsorPayoutOperation(event({cityIds:[second,cityId]}),{...expected,cityIds:[second,cityId]},now)).toThrow("cities");});

@@ -1,74 +1,50 @@
 "use client";
-
 import Link from "next/link";
 import {useCallback,useRef,useState} from "react";
-import type {CityIdentityHealth,CityIdentityHealthCheck} from "../server/pro-city-identity-health";
+import type {CityIdentityHealth} from "../server/pro-city-identity-health";
+import {identityApprovalProblems} from "../domain/identity-review";
 import {authorizeProSetup,proSetupTemplate} from "../nostr/pro-setup-command";
 import {signWithBrowserExtension} from "../nostr/signer";
 import {paymentFetch,signPayment} from "./city-payment";
 import {useDashboardAutoLoad} from "./dashboard-context";
 import styles from "./requests-screen.module.css";
 
-const checkSymbols:Record<CityIdentityHealthCheck["state"],string>={pass:"✓",fail:"!",unknown:"?",future:"○","not-applicable":"—"};
-const checkLabels:Record<CityIdentityHealthCheck["state"],string>={pass:"Verified",fail:"Action required",unknown:"Could not verify",future:"Planned","not-applicable":"Not required"};
-type ProvisioningStatus={reservation:{state:string}|null;activation:{state:string;nip05:string;lnurl:string;updatedAt?:number}|null;payoutUpdate:{state:string;payoutVersion:number;updatedAt?:number}|null;activationEnabled:boolean};
-type ActionReceipt={cityName:string;checkedAt:number;provisioning:ProvisioningStatus;changed:boolean;resolved:boolean;remaining:string[]};
-
-function setupUrl(row:CityIdentityHealth){
- const path=`/admin/my-cities?city=${encodeURIComponent(row.cityId)}#pro-city-services`;
- return row.availableInEnvironment?path:`https://bitcoinwalk.org${path}`;
-}
-
-function actionFor(row:CityIdentityHealth){
- const failed=new Set(row.checks.filter(check=>check.state==="fail").map(check=>check.key));
- const organizer=failed.has("identity")||failed.has("recovery");
- const activation=failed.has("binding")&&!organizer;
- const provisioning=!organizer&&!activation&&["profile","nip05","lightning"].some(key=>failed.has(key as CityIdentityHealthCheck["key"]));
- const unknown=row.checks.some(check=>check.state==="unknown");
- if(organizer)return {owner:"Host",kind:"organizer" as const,title:"City signer setup is incomplete",detail:"Send the host setup link. The host must connect the exact city signer and confirm its recovery method; the super-admin must never create or hold that key."};
- if(activation)return {owner:"Super-admin",kind:"activation" as const,title:"Official city identity needs activation",detail:"Review the signed identity proofs, attest the official city identity, then publish and verify the exact binding."};
- if(provisioning)return {owner:"Super-admin",kind:"provisioning" as const,title:"Managed identity services need attention",detail:"Verify the public profile evidence, then safely reconcile NIP-05 and Lightning-address provisioning from the existing durable records."};
- if(unknown)return {owner:"Super-admin",kind:"unknown" as const,title:"Evidence must be rechecked",detail:"A relay or provider check was inconclusive. Recheck before changing anything; missing evidence is not proof of failure."};
- return {owner:"Super-admin",kind:"review" as const,title:"Setup needs review",detail:"Review the verification checklist before taking another action."};
-}
-
 export default function SuperAdminActionQueue({actor}:{actor:string}){
- const lock=useRef(false),[busy,setBusy]=useState(false),[loaded,setLoaded]=useState(false),[rows,setRows]=useState<CityIdentityHealth[]>([]),[message,setMessage]=useState(""),[copyState,setCopyState]=useState<Record<string,"copied"|"failed">>({}),[workingCity,setWorkingCity]=useState(""),[receipt,setReceipt]=useState<ActionReceipt|null>(null);
- const load=useCallback(async()=>{if(lock.current||!actor)return;lock.current=true;setBusy(true);setMessage("");try{
-  const event=await signPayment({action:"list"},actor),body=await paymentFetch(event);
-  const next=body.identityHealth??[];setRows(next);setLoaded(true);
-  setMessage(body.identityHealthError||"Identity and managed-service evidence refreshed.");
- }catch(error){setLoaded(true);setMessage(error instanceof Error?error.message:"Post-approval checks could not be loaded.");}finally{lock.current=false;setBusy(false);}},[actor]);
- useDashboardAutoLoad(async()=>{await load();});
- const followUps=rows.filter(row=>row.tier!=="basic"&&row.status!=="complete"&&row.status!=="not-applicable");
- async function copySetup(row:CityIdentityHealth){try{await navigator.clipboard.writeText(new URL(setupUrl(row),window.location.origin).toString());setCopyState(value=>({...value,[row.cityId]:"copied"}));}catch{setCopyState(value=>({...value,[row.cityId]:"failed"}));}}
- async function retry(row:CityIdentityHealth){if(lock.current){setMessage(`${row.cityName}: wait for the current refresh to finish, then retry.`);return;}if(!actor){setMessage("Connect the BitcoinWalk super-admin identity.");return;}lock.current=true;setBusy(true);setWorkingCity(row.cityId);setReceipt(null);setMessage(`${row.cityName}: approve the provisioning check in your signer…`);try{
-  const origin=window.location.origin,command={action:"retry-city-provisioning" as const,cityId:row.cityId},event=await signWithBrowserExtension(proSetupTemplate(command,origin));
-  if(event.pubkey!==actor||JSON.stringify(authorizeProSetup(event,origin))!==JSON.stringify(command))throw new Error("Connect the BitcoinWalk super-admin identity.");
-  setMessage(`${row.cityName}: signature accepted. Reconciling the existing provider state…`);
-  const response=await fetch("/api/pro-setup",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({event}),signal:AbortSignal.timeout(60_000)}),body=await response.json();
-  if(!response.ok)throw new Error(body.error||"Provisioning status could not be checked.");
-  const after=body.identityHealth as CityIdentityHealth|null,remaining=after?.checks.filter(check=>check.state==="fail"||check.state==="unknown").map(check=>check.label)??[],fingerprint=(value?:CityIdentityHealth|null)=>JSON.stringify(value?.checks.map(check=>[check.key,check.state])??[]),changed=!!after&&fingerprint(row)!==fingerprint(after),resolved=!!after&&after.status==="complete";
-  if(after)setRows(current=>current.map(item=>item.cityId===after.cityId?after:item));
-  setReceipt({cityName:row.cityName,checkedAt:event.created_at*1000,provisioning:body.provisioning as ProvisioningStatus,changed,resolved,remaining});
-  setMessage(body.identityHealthError||`${row.cityName}: provisioning check finished. Review the result below.`);
-  lock.current=false;setBusy(false);setWorkingCity("");return;
- }catch(error){setMessage(error instanceof Error?error.message:"Provisioning recovery failed safely.");lock.current=false;setBusy(false);setWorkingCity("");return;}
+ const lock=useRef(false),[busy,setBusy]=useState(false),[loaded,setLoaded]=useState(false),[rows,setRows]=useState<CityIdentityHealth[]>([]),[message,setMessage]=useState("");
+ const [imageStates,setImageStates]=useState<Record<string,"loaded"|"failed">>({});
+ const load=useCallback(async()=>{if(lock.current||!actor)return;lock.current=true;setBusy(true);try{
+  const body=await paymentFetch(await signPayment({action:"list"},actor));setRows(body.identityHealth??[]);setLoaded(true);setMessage(body.identityHealthError||"");
+ }catch{setMessage("Checks are temporarily unavailable. No city settings changed.");}finally{lock.current=false;setBusy(false);}},[actor]);
+ useDashboardAutoLoad(load);
+ const followUps=rows.filter(row=>row.tier!=="basic"&&identityApprovalProblems(row).length>0);
+ const operational=(row:CityIdentityHealth)=>row.checks.filter(check=>(check.key==="nip05"||check.key==="lightning"||check.state==="unknown")&&(check.state==="fail"||check.state==="unknown"));
+ const serviceIssues=rows.filter(row=>operational(row).length);
+ async function accept(row:CityIdentityHealth){
+  if(lock.current||!row.profilePreview?.eligible||imageStates[row.profilePreview.fingerprint]!=="loaded")return;lock.current=true;setBusy(true);setMessage("Approve this name and avatar in your signer…");
+  try{
+   const origin=window.location.origin,command={action:"accept-city-profile" as const,cityId:row.cityId,fingerprint:row.profilePreview.fingerprint},event=await signWithBrowserExtension(proSetupTemplate(command,origin));
+   if(event.pubkey!==actor||JSON.stringify(authorizeProSetup(event,origin))!==JSON.stringify(command))throw new Error("Wrong signer or changed approval. Reconnect the super-admin account.");
+   const response=await fetch("/api/pro-setup",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({event}),signal:AbortSignal.timeout(60_000)}),body=await response.json();
+   if(!response.ok)throw new Error(body.error||"Profile could not be accepted.");
+   setRows(current=>current.map(item=>item.cityId===row.cityId?body.identityHealth:item));setMessage(`${row.cityName}: name and avatar accepted. Service checks remain independent.`);
+  }catch(error){setMessage(error instanceof Error?error.message:"Profile could not be accepted.");}finally{lock.current=false;setBusy(false);}
  }
  return <section className={`${styles.module} ${styles.followUpModule}`} id="post-approval-follow-ups">
-  <div className={styles.moduleHeader}><div><h2>Identity &amp; service follow-ups ({followUps.length})</h2><p>Post-approval work for city signers, public profiles, NIP-05, Lightning addresses and official identity bindings.</p></div><button className={styles.refresh} type="button" disabled={busy} onClick={()=>void load()}>{busy&&!workingCity?"Refreshing…":"Refresh"}</button></div>
-  {message&&<p className={styles.notice} role="status" aria-live="polite">{message}</p>}
-  {receipt&&<section className={styles.provisioningReceipt} data-resolved={receipt.resolved} aria-labelledby="provisioning-result-title">
-   <div className={styles.receiptHeading}><div><span className={styles.receiptIcon} aria-hidden="true">{receipt.resolved?"✓":"!"}</span><div><h3 id="provisioning-result-title">{receipt.cityName} provisioning result</h3><p>Checked {new Date(receipt.checkedAt).toLocaleString()}</p></div></div><button type="button" onClick={()=>setReceipt(null)} aria-label="Dismiss provisioning result">×</button></div>
-   <dl className={styles.receiptStates}><div><dt>Private reservation</dt><dd>{receipt.provisioning.reservation?.state??"Not started"}</dd></div><div><dt>Public activation</dt><dd>{receipt.provisioning.activation?.state??(receipt.provisioning.activationEnabled?"Not started":"Disabled")}</dd></div><div><dt>NIP-05</dt><dd>{receipt.provisioning.activation?.nip05??"Not active"}</dd></div><div><dt>Lightning address</dt><dd>{receipt.provisioning.activation?.lnurl??"Not active"}</dd></div>{receipt.provisioning.payoutUpdate&&<div><dt>Payout update</dt><dd>{receipt.provisioning.payoutUpdate.state}</dd></div>}</dl>
-   {receipt.resolved?<p><strong>Complete.</strong> The city no longer has an identity or managed-service follow-up.</p>:receipt.changed?<p><strong>Evidence changed.</strong> The queue now shows the checks that still require attention{receipt.remaining.length?`: ${receipt.remaining.join(", ")}.`:"."}</p>:<p><strong>No visible status changed.</strong> The provider already returned the same durable state, or public relay evidence has not caught up yet. No duplicate setup was created.{receipt.remaining.length?` Still waiting on: ${receipt.remaining.join(", ")}.`:""}</p>}
-  </section>}
-  {!loaded?<div className={styles.empty}><strong>{busy?"Checking city services…":"Follow-ups not loaded"}</strong><span>{busy?"Reading durable setup and public verification evidence.":"Use Refresh to try again."}</span></div>:!followUps.length?<div className={styles.empty}><strong>All caught up</strong><span>No Pro city identity or managed-service follow-ups need attention.</span></div>:<div className={styles.followUpList}>{followUps.map(row=>{const action=actionFor(row),problems=row.checks.filter(check=>check.state==="fail"||check.state==="unknown");return <article className={styles.followUpCard} key={row.cityId}>
-   <div className={styles.followUpHeading}><div><h3>{row.cityName}</h3><p>/{row.slug} · {row.tier==="pro"?"Pro city":"Pilot setup"}</p></div><span className={action.owner==="Super-admin"?styles.ownerAdmin:styles.ownerHost}>{action.owner}</span></div>
-   <div className={styles.followUpSummary}><strong>{action.title}</strong><p>{action.detail}</p></div>
-   <details className={styles.followUpDetails}><summary>{problems.length} check{problems.length===1?"":"s"} need attention</summary><ul>{problems.map(check=><li key={check.key}><span aria-hidden="true">{checkSymbols[check.state]}</span><span><strong>{check.label}</strong><small>{checkLabels[check.state]} · {check.detail}</small></span></li>)}</ul></details>
-   <div className={styles.followUpActions}>{action.kind==="organizer"?<><button type="button" disabled={busy} onClick={()=>void copySetup(row)}>{copyState[row.cityId]==="copied"?"Host setup link copied":"Copy host setup link"}</button><Link href={setupUrl(row)} target="_blank" rel="noreferrer">Preview setup ↗</Link></>:action.kind==="activation"?<a className={styles.actionLink} href="#pro-city-activations">Review activation request</a>:action.kind==="provisioning"?<button className={styles.primaryAction} type="button" disabled={busy} onClick={()=>void retry(row)}>{workingCity===row.cityId?"Checking…":"Check / retry provisioning"}</button>:<button type="button" disabled={busy} onClick={()=>void load()}>{busy?"Checking…":"Recheck evidence"}</button>}<Link href={row.availableInEnvironment?`/${row.slug}`:`https://bitcoinwalk.org/${row.slug}`} target="_blank" rel="noreferrer">Open city ↗</Link></div>
-   {copyState[row.cityId]==="failed"&&<p role="alert">Copy failed. Open the setup page and copy its address.</p>}
-  </article>;})}</div>}
+  <div className={styles.moduleHeader}><div><h2>Identity reviews ({followUps.length})</h2><p>Only host setup, identity activation and profile decisions need attention. NIP-05 and Lightning addresses are checked automatically.</p></div><button type="button" disabled={busy} onClick={()=>void load()}>{busy?"Checking…":"Refresh"}</button></div>
+  {message&&<p role="status" aria-live="polite">{message}</p>}
+  {!loaded?<p>Loading identity reviews…</p>:!followUps.length?<p>No approvals needed.</p>:<div className={styles.followUpList}>{followUps.map(row=>{
+   const problems=identityApprovalProblems(row),host=problems.some(check=>check.key==="identity"||check.key==="recovery"),binding=problems.some(check=>check.key==="binding"),preview=row.profilePreview;
+   return <article className={styles.followUpCard} key={row.cityId}><h3>{row.cityName}</h3>
+    {host?<p>The host must connect the city signer and confirm its recovery method.</p>:binding?<p>Review the signed city identity activation request.</p>:<p>Preview and accept the city’s display name and avatar.</p>}
+    {preview&&<div className={styles.profilePreview}>
+     {/* eslint-disable-next-line @next/next/no-img-element */}
+     <img key={preview.fingerprint} src={preview.picture} alt={`${row.cityName} profile preview`} width={64} height={64} referrerPolicy="no-referrer" onLoad={()=>setImageStates(current=>({...current,[preview.fingerprint]:"loaded"}))} onError={()=>setImageStates(current=>({...current,[preview.fingerprint]:"failed"}))}/>
+     <div><strong>{preview.name}</strong><p>{preview.website}</p><small>{preview.accepted?"Accepted appearance":"City-signed profile"}</small></div></div>}
+    <div className={styles.followUpActions}>{host?<Link href={`${row.availableInEnvironment?"":"https://bitcoinwalk.org"}/admin/my-cities?city=${encodeURIComponent(row.cityId)}#pro-city-services`}>Open host setup</Link>:binding?<a href="#pro-city-activations">Review activation request</a>:preview?<button type="button" disabled={busy||!preview.eligible||preview.accepted||imageStates[preview.fingerprint]!=="loaded"} onClick={()=>void accept(row)}>Accept name and avatar</button>:<span>Waiting for a readable city profile.</span>}<Link href={row.availableInEnvironment?`/${row.slug}`:`https://bitcoinwalk.org/${row.slug}`} target="_blank" rel="noreferrer">Open city ↗</Link></div>
+    {preview&&imageStates[preview.fingerprint]==="failed"&&<p role="alert">The avatar could not be loaded. Acceptance is disabled until the preview is available.</p>}
+    {preview&&!preview.eligible&&<p>Waiting for matching public profile evidence and a verified city binding. Refresh to check again.</p>}
+   </article>;
+  })}</div>}
+  {!!serviceIssues.length&&<details><summary>Automatic checks — {serviceIssues.length} cities pending verification or reporting an issue (no approval required)</summary><p>These results do not create approval requests or change payment permissions.</p><ul>{serviceIssues.map(row=><li key={row.cityId}><strong>{row.cityName}</strong>{operational(row).map(check=><p key={check.key}>{check.label}: {check.detail}</p>)}</li>)}</ul><Link href="/admin/cities">View operational city details</Link></details>}
  </section>;
 }

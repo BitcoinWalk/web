@@ -1,15 +1,11 @@
 import {type Event} from "nostr-tools";
-import {createHash} from "node:crypto";
-import {readFile} from "node:fs/promises";
-import {join} from "node:path";
 import {parseMediaRequest} from "../../../../domain/media-request";
 import {isSuperAdmin} from "../../../../nostr/authority";
 import {listSponsorLogoUploads,previewSponsorLogo} from "../../../../server/sponsor-logo-store";
 import {loadCalendarWalks} from "../../../../nostr/calendar-records";
 import {serverReadRelays} from "../../../../lib/server-relay-config";
-import {bundledCityBackground,managedBackground,renderShareImage} from "../../../../server/share-image";
 import {renderedShareImage} from "../../../../server/share-preview";
-import {shareBackgroundPosition} from "../../../../domain/hero-presentation";
+import {paidSponsorLinkPreview} from "../../../../server/paid-sponsor-preview";
 import {getPaymentRuntime} from "../../../../payments/runtime";
 export const runtime="nodejs",dynamic="force-dynamic";
 export async function POST(request:Request){
@@ -24,11 +20,9 @@ export async function POST(request:Request){
   if(command.action==="generate-paid-sponsor-composite"){
    const origin=process.env.BITCOINWALK_PAYMENT_APP_ORIGIN,actor=body.event.pubkey;
    if(!origin||request.headers.get("origin")!==origin||actor!==command.sponsorPubkey||typeof body.token!=="string")return Response.json({error:"Paid sponsor authorization required."},{status:403,headers});
-   try{getPaymentRuntime().sponsors.authorizeArtwork(command.orderId,body.token,actor,command.cityId);}catch{return Response.json({error:"Paid sponsor authorization required."},{status:403,headers});}
-   const city=(await loadCalendarWalks(serverReadRelays())).find(row=>row.revision.city.cityId===command.cityId);if(!city)return Response.json({error:"Approved city unavailable."},{status:404,headers});
-   const sponsor=Buffer.from((await previewSponsorLogo({cityId:command.cityId,sponsorPubkey:actor,hash:command.hash})).base64,"base64"),images=[city.approval.approval.heroImageUrl,city.revision.city.heroImageUrl],background=await managedBackground(images)??await bundledCityBackground(city.revision.city.slug);
-   const icon=await readFile(join(process.cwd(),"public","brand","bitcoinwalk-share-icon.png")),label=await readFile(join(process.cwd(),"public","brand","bitcoinwalk-powered-by.png")),image=await renderShareImage(background,icon,sponsor,label,undefined,shareBackgroundPosition(images)),hash=createHash("sha256").update(image).digest("hex"),slug=city.revision.city.slug.replace(/[^a-z0-9-]/g,"");
-   return Response.json({base64:image.toString("base64"),hash,mime:"image/jpeg",width:1200,height:630,downloadName:`bitcoinwalk-${slug}-sponsor-og.jpg`},{headers});
+   let order;try{order=getPaymentRuntime().sponsors.authorizeArtwork(command.orderId,body.token,actor,command.cityId);}catch{return Response.json({error:"Paid sponsor authorization required."},{status:403,headers});}
+   const result=await paidSponsorLinkPreview(order,actor,command.hash);if(!result)return Response.json({error:"Your payment and logo are saved. BitcoinWalk needs to restore this booking’s city setup before your share image can be created. Contact BitcoinWalk with your order number; you do not need to pay or upload again.",code:"SPONSOR_CITY_UNAVAILABLE",orderId:command.orderId},{status:409,headers});
+   return Response.json(result,{headers});
   }
   if(!isSuperAdmin(body.event.pubkey)||!["list-sponsor-assets","preview-sponsor-asset","generate-sponsor-composite"].includes(command.action))return Response.json({error:"Signed super-admin authorization required."},{status:403,headers});
   if(command.action==="list-sponsor-assets")return Response.json({assets:await listSponsorLogoUploads()},{headers});

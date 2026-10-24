@@ -13,6 +13,19 @@ function walletInvoice(description="Wallet of Satoshi: bitcoinwalk",amount="1000
 }
 function options(){return {fetchJson:vi.fn().mockResolvedValueOnce(endpoint).mockResolvedValueOnce(invoice()),resolveHost:vi.fn().mockResolvedValue("203.0.114.1")};}
 describe("private payout destination validation", () => {
+  it("accepts only the exact Coinos account handoff and retains invoice verification",async()=>{
+    const callback="https://names.coinos.io/lnurlp/bitcoinwalkgraz/cb?domain=coinos.io";
+    const transport=()=>({fetchJson:vi.fn().mockResolvedValueOnce({...endpoint,callback}).mockResolvedValueOnce(invoice()),resolveHost:vi.fn().mockResolvedValue("203.0.114.1")});
+    await expect(validatePayoutDestination("bitcoinwalkgraz@coinos.io",transport())).resolves.toMatchObject({callback,probe:{payment:"verified"}});
+    for(const rejected of [callback.replace("bitcoinwalkgraz","other"),callback.replace("names.coinos.io","evil.coinos.io"),callback.replace("names.coinos.io","names.coinos.io.evil.example"),callback.replace("domain=coinos.io","domain=other.io"),callback+"&redirect=https://evil.example",callback.replace("/cb?","/other?")]){
+      const options=transport();options.fetchJson.mockReset().mockResolvedValueOnce({...endpoint,callback:rejected});
+      await expect(validatePayoutDestination("bitcoinwalkgraz@coinos.io",options)).rejects.toThrow("reviewed payment service");
+      expect(options.fetchJson).toHaveBeenCalledTimes(1);
+    }
+    const invalid=transport();invalid.fetchJson.mockReset().mockResolvedValueOnce({...endpoint,callback}).mockResolvedValueOnce(invoice("wrong metadata"));
+    await expect(validatePayoutDestination("bitcoinwalkgraz@coinos.io",invalid)).rejects.toThrow("unverifiable payout invoice");
+    await expect(validatePayoutDestination("bitcoinwalkgraz@coinos.io",{...transport(),resolveHost:vi.fn().mockRejectedValue(new Error("private network"))})).rejects.toThrow("private network");
+  });
   it("normalizes Lightning-address domains and validates LNURL-pay metadata without sending money", async () => {
     const transport=options(),result = await validatePayoutDestination("Alice@WALLET.Example", transport);
     expect(result).toMatchObject({normalized: "Alice@wallet.example", endpoint: "https://wallet.example/.well-known/lnurlp/Alice", callback: "https://wallet.example/pay", minSendable: 1000});

@@ -4,7 +4,7 @@ import {join} from "node:path";
 import sharp from "sharp";
 import {readMedia} from "./media-store";
 import type {ShareBackgroundPosition} from "../domain/hero-presentation";
-const VERSION="og-city-v12",WIDTH=1200,HEIGHT=630;
+const VERSION="og-city-v13",WIDTH=1200,HEIGHT=630;
 const digest=(body:Buffer)=>createHash("sha256").update(body).digest("hex");
 const root=()=>join(process.env.BITCOINWALK_MEDIA_ROOT||join(process.env.TMPDIR||"/tmp","bitcoinwalk-media"),"og");
 const pending=new Map<string,Promise<string>>();
@@ -30,9 +30,9 @@ export async function managedBackground(urls:Array<string|undefined|null>):Promi
 }
 export async function renderShareImage(background:Buffer|null,icon:Buffer,sponsor:Buffer|null=null,label?:Buffer,cityLogo?:Buffer,position:ShareBackgroundPosition="attention"):Promise<Buffer>{
   const base=background?sharp(background,{limitInputPixels:20_000_000}).rotate().resize(WIDTH,HEIGHT,{fit:"cover",position}):sharp({create:{width:WIDTH,height:HEIGHT,channels:3,background:"#25333a"}});
-  // Sponsored previews reserve the entire identity treatment for the sponsor.
-  // BitcoinWalk branding is already present in the surrounding page/card.
-  const localizedLogo=sponsor?undefined:cityLogo,mark=localizedLogo||!sponsor?await sharp(localizedLogo??icon,{limitInputPixels:16_000_000}).resize(localizedLogo?720:280,localizedLogo?560:280,{fit:"contain",background:{r:0,g:0,b:0,alpha:0}}).png().toBuffer({resolveWithObject:true}):null;
+  // Shared images must retain BitcoinWalk identity outside the website too.
+  // Keep the generic mark above the sponsor rather than using the large city lockup.
+  const localizedLogo=sponsor?undefined:cityLogo,mark=await sharp(localizedLogo??icon,{limitInputPixels:16_000_000}).resize(localizedLogo?720:280,localizedLogo?560:280,{fit:"contain",background:{r:0,g:0,b:0,alpha:0}}).png().toBuffer({resolveWithObject:true});
   const shade=Buffer.from('<svg width="1200" height="630"><defs><radialGradient id="s"><stop stop-color="#000" stop-opacity=".48"/><stop offset="1" stop-color="#000" stop-opacity=".12"/></radialGradient></defs><rect width="1200" height="630" fill="url(#s)"/></svg>');
   const layers:Array<{input:Buffer;left?:number;top?:number}>=[{input:shade}];
   if(sponsor){
@@ -45,6 +45,7 @@ export async function renderShareImage(background:Buffer|null,icon:Buffer,sponso
     const logo=await sharp(sponsor,{limitInputPixels:16_000_000}).resize(520,92,{fit:"contain",background:{r:255,g:255,b:255,alpha:0}}).png().toBuffer({resolveWithObject:true});
     layers.push(
       {input:wash},
+      {input:mark.data,left:Math.floor((WIDTH-mark.info.width)/2),top:100},
       {input:caption.data,left:Math.floor((WIDTH-caption.info.width)/2),top:456},
       {input:logo.data,left:Math.floor((WIDTH-logo.info.width)/2),top:492+Math.floor((92-logo.info.height)/2)},
     );

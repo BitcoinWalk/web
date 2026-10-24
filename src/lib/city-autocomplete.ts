@@ -20,3 +20,18 @@ export async function fetchCitySuggestions(query:string,signal:AbortSignal,fetch
  }
  return [];
 }
+
+export async function fetchMeetingPointName(latitude:number,longitude:number,signal:AbortSignal,fetcher:typeof fetch=fetch):Promise<string>{
+ for(let attempt=0;attempt<2;attempt++){
+  signal.throwIfAborted();
+  const response=await fetcher(`/api/geocode/reverse?lat=${encodeURIComponent(latitude)}&lon=${encodeURIComponent(longitude)}`,{signal});
+  if(response.status===429&&attempt===0){
+   await new Promise<void>((resolve,reject)=>{const abort=()=>{clearTimeout(timer);reject(new DOMException("Aborted","AbortError"));},timer=setTimeout(()=>{signal.removeEventListener("abort",abort);resolve();},2000);signal.addEventListener("abort",abort,{once:true});if(signal.aborted)abort();});
+   continue;
+  }
+  const data=await response.json() as {result?:{name?:string};error?:string};
+  if(!response.ok||!data.result?.name)throw new Error(data.error??"The meeting-point name could not be refreshed. You can still edit it manually.");
+  return data.result.name;
+ }
+ throw new Error("The meeting-point name could not be refreshed. You can still edit it manually.");
+}

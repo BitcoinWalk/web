@@ -22,7 +22,7 @@ import {resolvedFeatureFlags} from "../../nostr/feature-flags";
 import {querySponsorships} from "../../nostr/sponsorships";
 import {publicSponsorship} from "../../server/public-sponsorship";
 import {DEFAULT_FEATURE_FLAGS} from "../../domain/feature-flags";
-import {assignedSponsorShareImage,cityShareMetadata,loadSharedCities} from "../../server/share-preview";
+import {cityShareMetadata,loadSharedCities} from "../../server/share-preview";
 import {previewText} from "../../domain/share-preview";
 import {resolveCityRoute} from "../../domain/city-route";
 import PublicCityHost from "../../components/public-city-host";
@@ -57,7 +57,7 @@ export default async function CityOrEventPage({params,searchParams}:{params:Prom
   let staticRoute:ReturnType<typeof contentRoute>=null;
   try{staticRoute=contentRoute(await queryContentRevisions(serverReadRelays()),city);}catch{}
   if(staticRoute){if("redirect" in staticRoute)redirect(staticRoute.redirect);return <StaticContentPage page={staticRoute.page.page}/>;}
-  let outcome: {state:"unavailable"}|{state:"missing"}|{state:"redirect";href:string}|{state:"ready";profile:CalendarSource;cityId:string;cityName:string;slug:string;revisionId:string;requestedTier?:"free"|"paid";eventHref?:string;logoHref?:string;titleLogo?:LogoVariantAsset;sponsorship:SponsorshipPresentation;sponsorOgImage?:string};
+  let outcome: {state:"unavailable"}|{state:"missing"}|{state:"redirect";href:string}|{state:"ready";profile:CalendarSource;cityId:string;cityName:string;slug:string;revisionId:string;requestedTier?:"free"|"paid";eventHref?:string;logoHref?:string;titleLogo?:LogoVariantAsset;sponsorship:SponsorshipPresentation};
   try{
     const walks=await loadSharedCities(),[flagResult,sponsorshipResult]=await Promise.allSettled([resolvedFeatureFlags(serverReadRelays()),querySponsorships(serverReadRelays())]),flags=flagResult.status==="fulfilled"?flagResult.value:DEFAULT_FEATURE_FLAGS,sponsorships=sponsorshipResult.status==="fulfilled"?sponsorshipResult.value:[];
     const route=resolveCityRoute(walks,city);
@@ -68,8 +68,8 @@ export default async function CityOrEventPage({params,searchParams}:{params:Prom
       const events=await queryCalendarEvents(serverReadRelays(),{cityId:walk.revision.city.cityId});
       const event=currentOrNextEvent(walk,events);
       let logoHref:string|undefined,titleLogo:LogoVariantAsset|undefined;try{const revision=walk.revision,pack=await getLogoCatalog().readyForCity({cityId:revision.city.cityId,slug:revision.city.slug});if(pack){titleLogo=logoVariantAsset(pack,cityWalkTitleLogoVariant)??undefined;if(pack.publiclyListed)logoHref=`/${encodeURIComponent(pack.slug)}/logo`;}}catch{}
-      const profile=walk.revision.city,sponsorship=publicSponsorship(sponsorships,flags.sponsorships&&sponsorshipResult.status==="fulfilled",profile.cityId,event),sponsorOgImage=sponsorship.state==="sponsor"&&sponsorship.logoHash?await assignedSponsorShareImage(profile.cityId,profile.slug,[walk.approval.approval.heroImageUrl,profile.heroImageUrl],sponsorship.logoHash):undefined;
-      outcome={state:"ready",profile:walk,cityId:profile.cityId,cityName:profile.cityName,slug:profile.slug,revisionId:walk.revision.event.id,requestedTier:profile.requestedTier,eventHref:event?`/${encodeURIComponent(profile.slug)}/${calendarNevent(event,relayConfig.calendarRelayHints)}`:undefined,logoHref,titleLogo,sponsorship,sponsorOgImage};
+      const profile=walk.revision.city,sponsorship=publicSponsorship(sponsorships,flags.sponsorships&&sponsorshipResult.status==="fulfilled",profile.cityId,event);
+      outcome={state:"ready",profile:walk,cityId:profile.cityId,cityName:profile.cityName,slug:profile.slug,revisionId:walk.revision.event.id,requestedTier:profile.requestedTier,eventHref:event?`/${encodeURIComponent(profile.slug)}/${calendarNevent(event,relayConfig.calendarRelayHints)}`:undefined,logoHref,titleLogo,sponsorship};
     }
   }catch{
     outcome={state:"unavailable"};
@@ -92,6 +92,6 @@ export default async function CityOrEventPage({params,searchParams}:{params:Prom
     </>}
     utilities={<>{outcome.logoHref&&<p><Link href={outcome.logoHref}>Download the official city logo pack</Link></p>}<p><Link href="/">Browse BitcoinWalks</Link></p></>}>
     <WalkDescriptions cityName={outcome.cityName} cityDescription={profile.description} eventDescription={profile.description}/>
-    <div className={styles.sponsorshipSlot}><SponsorModule presentation={outcome.sponsorship} cityName={outcome.cityName} cityLogo={outcome.titleLogo} ogImageUrl={outcome.sponsorOgImage}/></div>
+    <div className={styles.sponsorshipSlot}><SponsorModule presentation={outcome.sponsorship} cityName={outcome.cityName} cityLogo={outcome.titleLogo}/></div>
   </CityPageLayout>;
 }

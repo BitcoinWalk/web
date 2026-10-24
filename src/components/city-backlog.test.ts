@@ -7,6 +7,13 @@ const revision=(cityId:string,cityName:string):CityRevision=>({event:{id:"a".rep
 const managed=(cityId:string,cityName:string,state:ManagedCity["state"]):ManagedCity=>({revision:revision(cityId,cityName),decision:{event:{id:"c".repeat(64)} as ManagedCity["decision"]["event"],approval:{cityId,cityRevisionId:"a".repeat(64),status:state==="approved"?"approved":"revoked"}},head:"c".repeat(64),state});
 
 describe("cityWorkflowRows",()=>{
+ it("does not put automated service failures or relay outages in the approval queue",()=>{
+  for(const key of ["nip05","lightning","profile"] as const){
+   const health={cityId:"h",cityName:"Hannover",slug:"hannover",availableInEnvironment:true,tier:"pro" as const,status:"action-required" as const,checkedAt:1,checks:[{key,label:key,state:key==="profile"?"unknown" as const:"fail" as const,detail:"check"}]};
+   const rows=cityWorkflowRows({managed:[managed("h","Hannover","approved")],pending:[],needsChanges:[],health:[health],paidCityIds:new Set(["h"]),paidCities:{}});
+   expect(rows[0].status).toBe("online");expect(cityWorkflowNextStep(rows[0])).toBeNull();
+  }
+ });
  it("orders admin work before host work, online and offline cities",()=>{
   const pending=revision("p","Pending"),awaiting={revision:revision("w","Waiting"),rejection:{event:{id:"d".repeat(64)},approval:{cityId:"w",cityRevisionId:"a".repeat(64),status:"rejected"}}} as NeedsChangesCity;
   const rows=cityWorkflowRows({managed:[managed("o","Online","approved"),managed("f","Offline","disapproved")],pending:[pending],needsChanges:[awaiting],health:[],paidCityIds:new Set(),paidCities:{}});

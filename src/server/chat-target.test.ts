@@ -71,6 +71,21 @@ describe("current chat destination resolver",()=>{
   it("returns not-found for an unknown short city rather than treating it as malformed",async()=>{
     expect(chatResolutionStatus(await loadChatTarget("/chat/unknown"))).toBe(404);
   });
+  it.each([
+    ["/chat/unknown","/admin/chat?city=unknown"],
+    ["/chat/city/unknown","/admin/chat?city=unknown"],
+    ["/chat/global","/admin/chat?room=global"],
+    ["/chat/guide","/admin/chat?room=guide"],
+  ])("opens a dashboard recovery state for unresolved human link %s",async(path,location)=>{
+    const registry=makeRegistry();registry.config.global=null;registry.guidePubkey="";mocks.cities.mockResolvedValue(registry.cities);mocks.config.mockReturnValue(registry.config);
+    const response=await serveChatLink(new Request(`https://bitcoinwalk.org${path}?role=super-admin&join=1`));
+    expect(response.status).toBe(307);expect(response.headers.get("location")).toBe(location);
+  });
+  it("opens the exact known city recovery state when its group is unavailable",async()=>{
+    const registry=makeRegistry();delete registry.config.paidCities["city-madeira"];mocks.config.mockReturnValue(registry.config);
+    const response=await serveChatLink(new Request("https://bitcoinwalk.org/chat/madeira?fallback=global"));
+    expect(response.status).toBe(307);expect(response.headers.get("location")).toBe("/admin/chat?city=madeira");
+  });
   it("does not let city names or aliases shadow reserved rooms",()=>{
     const registry=makeRegistry();registry.cities[0]=city("city-madeira","hosts",["Madeira"]);
     expect(resolveChatTarget("/chat/madeira",registry).state).toBe("unavailable");

@@ -18,7 +18,10 @@ City links use the short form, for example `/chat/madeira`. The former
 `/chat/city/madeira` form remains accepted and redirects to `/chat/madeira`.
 `guide`, `global`, `hosts` and the legacy prefix `city` are reserved chat path
 segments, case-insensitively; cities and their aliases cannot shadow them.
-Unknown well-formed short city paths return 404, not a fallback conversation.
+Unknown well-formed short city paths return 404 from the strict resolver API,
+not a fallback conversation. The human-facing `/chat/...` route carries a valid
+unknown or temporarily unavailable target into the dashboard so the user sees
+an explicit recovery state instead of raw resolver JSON.
 This short-path follow-up is deployed to staging and production as 0.3.458. The shared
 fixtures now include the legacy path and its short canonical destination.
 Verification: all 2,009 tests passed (45 focused contract/endpoint tests), plus
@@ -51,9 +54,60 @@ not mean that its requester is authorized or has joined it.
 
 The HTTPS entry points redirect to the existing `/admin/chat` destination, or
 first to the canonical city path for an alias. They perform no signed actions.
-Exact-room recovery through login, cancellation, refresh and account changes is
-**BW-157**, not an acceptance claim of this contract. OS App/Universal Link
-association and installed-app delivery remain **BW-158**.
+BW-157 now keeps that exact City, Guide, Global or Hosts intent in the browser
+URL through initial connection, signer cancellation, refresh and account
+switching. Ambiguous links, unknown cities and unauthorized Hosts requests show
+an explicit recovery state instead of substituting another room. Manual room
+changes replace the URL with the newly selected exact destination.
+
+Public City and Global membership is rederived from the latest signed kind-39002
+roster. A join request is sent only from the explicit Join action, and the UI
+does not say Joined or enable sending until the relay's signed roster contains
+the connected pubkey. Pending requests offer a read-only membership recheck
+instead of publishing duplicate joins. Hosts remains gated by current verified
+city authority and the private relay; Guide opens the connected account's own
+NIP-17 inbox. Production acceptance completed and the user closed BW-157 on
+24 October 2026. OS App/Universal Link association remains **BW-158**.
+
+BW-157 staging verification, 24 October 2026: the ancestry-safe source
+`0337df17ace513d34c5d904a9f49a88ecc56edd3` was deployed as
+`app-staging-0.3.504` after inheriting the concurrent sponsored-preview release.
+CI run `40083620989`, the standalone package smoke test, loopback and public
+HTTPS health, the exact Hosts redirect, removal of URL role claims and the
+contextual disconnected recovery screen passed. Deployment evidence is
+`/home/bitcoinwalk/backups/app-staging-deploy.JWpPp1`; no signed membership or
+message action was performed by deployment verification.
+
+The first human check then exposed raw `{state:"unavailable"}` JSON for Madeira,
+whose staging group transport was absent. The follow-up keeps resolver API
+404/503 semantics while redirecting every syntactically valid human chat link
+to its exact dashboard intent; malformed paths still return 400 and no fallback
+room is selected. Release `0.3.506` carries this correction after inheriting
+the concurrently activated sponsor-card `0.3.505` source.
+
+Staging `0.3.506` at source `a5d9da2` passed CI run `40084527957`, standalone
+package smoke and guarded activation on 24 October. Public verification confirms
+`/chat/madeira` now redirects to `/admin/chat?city=madeira` and renders the
+contextual connection screen, while `/api/chat/destination` truthfully remains
+`503 {state:"unavailable"}` until Madeira has a configured group. Evidence is
+`/home/bitcoinwalk/backups/app-staging-deploy.m5qE7H`.
+
+Production promotion, 24 October 2026: source
+`c3a6b1c53179f47dbbac5efbbecfcb0e8d78c0d2`, whose runtime includes the exact
+staging-accepted correction at `a5d9da2`, was rebuilt with production relay and
+invitation settings and activated as `app-production-0.3.506`. The production
+archive SHA-256 is
+`5676775a1b6d1f53ce31777a4a0e379eb7abc45b2c1f92b1d6bfbcfa0ca0573a`;
+package smoke, CI run `40084814855` and the guarded current-release check passed.
+Public verification confirms health reports `0.3.506`, `/chat/madeira` redirects
+exactly to `/admin/chat?city=madeira`, the disconnected page renders **Open
+Walkie Talkie**, and the strict resolver returns Madeira's current production
+NIP-29 destination without changing membership or messages. Deployment evidence
+is `/home/bitcoinwalk/backups/app-production-deploy.qtLfgA`.
+
+The user reviewed this production behavior and explicitly accepted closure on
+24 October 2026. BW-157 is complete; installed-app handoff remains separate
+under BW-158.
 
 ## Cross-client fixtures and acceptance
 
@@ -65,8 +119,9 @@ are in `src/domain/chat-target.ts`; registry resolution is server-only.
 Executable web coverage includes Basic/Pro isolation, group rotation, signed
 rename aliases, archived/ambiguous cities, missing transport, Hosts privacy,
 query-parameter claims, exact browser redirect paths and endpoint status codes.
-Mobile fixture execution and real installed-app acceptance remain a handoff to
-the Walkie Talkie workstream; no mobile changes or app-link claims ship here.
+The byte-identical mobile fixture and installed Android app acceptance completed
+on 24 October 2026 in Walkie Talkie commit `ccbfdb2`. No app-link claim ships in
+BW-157; installed-app delivery remains BW-158.
 
 Local verification, 20 October 2026: all 1,998 tests passed, including 34 focused
 contract/endpoint checks. Type checking, changed-file lint, backlog generation

@@ -1,5 +1,5 @@
 import {afterEach,describe,it,expect,vi} from "vitest";
-import {fetchCitySuggestions,narrowCitySuggestions} from "./city-autocomplete";
+import {fetchCitySuggestions,fetchMeetingPointName,narrowCitySuggestions} from "./city-autocomplete";
 import type {CitySearchResult} from "./geocode";
 afterEach(()=>vi.useRealTimers());
 describe("autocomplete request lifecycle",()=>{
@@ -10,4 +10,8 @@ describe("autocomplete request lifecycle",()=>{
  it("cancels a stale query while waiting to retry",async()=>{vi.useFakeTimers();const f=vi.fn(async()=>new Response("",{status:429})),controller=new AbortController(),result=fetchCitySuggestions("City",controller.signal,f);const assertion=expect(result).rejects.toThrow("Aborted");await vi.advanceTimersByTimeAsync(1);controller.abort();await assertion;await vi.advanceTimersByTimeAsync(3000);expect(f).toHaveBeenCalledTimes(1);});
  it("does not send already cancelled requests",async()=>{const controller=new AbortController();controller.abort();const f=vi.fn();await expect(fetchCitySuggestions("City",controller.signal,f)).rejects.toThrow();expect(f).not.toHaveBeenCalled();});
  it("shows failure after the bounded retry",async()=>{vi.useFakeTimers();const f=vi.fn(async()=>Response.json({error:"Busy"},{status:429})),result=fetchCitySuggestions("City",new AbortController().signal,f),assertion=expect(result).rejects.toThrow("Busy");await vi.advanceTimersByTimeAsync(2000);await assertion;expect(f).toHaveBeenCalledTimes(2);});
+});
+describe("meeting-point lookup lifecycle",()=>{
+ it("returns a reverse-geocoded meeting-point name through the same-origin proxy",async()=>{const f=vi.fn(async()=>Response.json({result:{name:"Parco Ciani, Lugano, Switzerland"}})),controller=new AbortController();expect(await fetchMeetingPointName(46.0043,8.9511,controller.signal,f)).toBe("Parco Ciani, Lugano, Switzerland");expect(f).toHaveBeenCalledWith("/api/geocode/reverse?lat=46.0043&lon=8.9511",{signal:controller.signal});});
+ it("keeps the provider error actionable",async()=>{const f=vi.fn(async()=>Response.json({error:"No address was found for this meeting point."},{status:404}));await expect(fetchMeetingPointName(46,8,new AbortController().signal,f)).rejects.toThrow("No address was found");});
 });

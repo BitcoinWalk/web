@@ -1,5 +1,5 @@
 import {describe,it,expect,vi} from "vitest";
-import {createCitySearch} from "./geocode";
+import {createCitySearch,createReverseGeocode} from "./geocode";
 const feature={geometry:{type:"Point",coordinates:[-16.9,32.65]},properties:{name:"Funchal",state:"Madeira",country:"Portugal",osm_key:"place",osm_value:"city"}};
 const data={features:[feature]};
 const locationIqData=[{lat:"52.2297",lon:"21.0122",class:"place",type:"city",display_place:"Warsaw",address:{city:"Warsaw",state:"Masovian Voivodeship",country:"Poland"}}];
@@ -31,4 +31,19 @@ describe("LocationIQ city autocomplete",()=>{
   const fetcher=vi.fn(async(input:RequestInfo|URL)=>String(input).includes("locationiq.com")?Response.json(malformed):Response.json({features:[]}));
   expect((await createCitySearch(fetcher as typeof fetch)("city",{locationIqToken:"token"})).results).toEqual([]);
  });
+});
+describe("meeting-point reverse geocoding",()=>{
+ it("builds a precise Photon meeting-point label",async()=>{
+  const reverse=createReverseGeocode(async()=>Response.json({features:[{properties:{name:"Satoshi Nakamoto Statue",street:"Viale Carlo Cattaneo",housenumber:"4",city:"Lugano",state:"Ticino",country:"Switzerland"}}]}));
+  const result=await reverse(46.0043,8.9511);
+  expect(result).toEqual({status:200,result:{name:"Satoshi Nakamoto Statue, Viale Carlo Cattaneo 4, Lugano, Ticino, Switzerland"}});
+ });
+ it("uses LocationIQ without exposing its token",async()=>{
+  let requested="";const fetcher:typeof fetch=async input=>{requested=String(input);return Response.json({name:"Parco Ciani",address:{road:"Viale Carlo Cattaneo",house_number:"4",city:"Lugano",state:"Ticino",country:"Switzerland"}});};
+  const result=await createReverseGeocode(fetcher)(46.0043,8.9511,{locationIqToken:"secret-token"}),url=new URL(requested);
+  expect(result.result?.name).toBe("Parco Ciani, Viale Carlo Cattaneo 4, Lugano, Ticino, Switzerland");
+  expect(url.origin+url.pathname).toBe("https://api.locationiq.com/v1/reverse");expect(url.searchParams.get("key")).toBe("secret-token");expect(JSON.stringify(result)).not.toContain("secret-token");
+ });
+ it("validates coordinates without a provider request",async()=>{const fetcher=vi.fn();expect((await createReverseGeocode(fetcher)(91,0)).status).toBe(400);expect(fetcher).not.toHaveBeenCalled();});
+ it("caches nearby repeat lookups and rate limits different points",async()=>{const time=10000,fetcher=vi.fn(async()=>Response.json({features:[{properties:{city:"Lugano",country:"Switzerland"}}]})),reverse=createReverseGeocode(fetcher,()=>time);expect((await reverse(46.0043,8.9511)).status).toBe(200);expect((await reverse(46.0043,8.9511)).status).toBe(200);expect(fetcher).toHaveBeenCalledTimes(1);expect((await reverse(45,8)).status).toBe(429);});
 });

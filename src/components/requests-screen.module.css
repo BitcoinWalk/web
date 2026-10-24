@@ -43,3 +43,6 @@
 @media(max-width:50rem){.receiptStates{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:38rem){.moduleHeader{display:grid}.refresh{width:100%}}
 @media(prefers-reduced-motion:reduce){.refresh,.primaryAction{transition:background-color 150ms ease-out}.refresh:not(:disabled):active,.primaryAction:not(:disabled):active{transform:none}}
+.profilePreview {display:flex;align-items:center;gap:1rem;margin:1rem 0;min-width:0;overflow-wrap:anywhere;}
+.profilePreview img {flex:none;border-radius:50%;object-fit:cover;outline:1px solid oklch(0 0 0 / .1);outline-offset:-1px;}
+.profilePreview p {margin:.25rem 0;}

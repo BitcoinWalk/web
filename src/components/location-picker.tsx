@@ -7,7 +7,7 @@ import markerRetinaImage from "leaflet/dist/images/marker-icon-2x.png";
 import markerShadow from "leaflet/dist/images/marker-shadow.png";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import MapBasemap from "./map-basemap";
-import {CITY_SEARCH_DELAY,fetchCitySuggestions,narrowCitySuggestions} from "../lib/city-autocomplete";
+import {CITY_SEARCH_DELAY,fetchCitySuggestions,fetchMeetingPointName,narrowCitySuggestions} from "../lib/city-autocomplete";
 import styles from "./location-picker.module.css";
 
 const assetUrl = (asset: string | { src: string }) => typeof asset === "string" ? asset : asset.src;
@@ -19,7 +19,7 @@ const meetingPin = new Icon({
 export type LocationValue = { description: string; latitude: number; longitude: number };
 type SearchResult = { name: string; cityName: string; latitude: number; longitude: number };
 
-function ManualCoordinates({ cityName, value, onChange, open=false }: { cityName: string; value: LocationValue | null; onChange: (value: LocationValue) => void; open?:boolean }) {
+function ManualCoordinates({ value, onPick, open=false }: { value: LocationValue | null; onPick: (latitude:number,longitude:number) => void; open?:boolean }) {
   const [latitude, setLatitude] = useState(value ? String(value.latitude) : "");
   const [longitude, setLongitude] = useState(value ? String(value.longitude) : "");
   const [message, setMessage] = useState("");
@@ -31,8 +31,8 @@ function ManualCoordinates({ cityName, value, onChange, open=false }: { cityName
       setMessage("Enter a latitude from −90 to 90 and longitude from −180 to 180.");
       return;
     }
-    onChange({ description: value?.description ?? cityName, latitude: nextLatitude, longitude: nextLongitude });
-    setMessage("Coordinates applied.");
+    onPick(nextLatitude,nextLongitude);
+    setMessage("Coordinates applied. Refreshing the meeting-point name…");
   }
 
   return <details className="coordinate-fallback" open={open}>
@@ -76,10 +76,12 @@ export default function LocationPicker({
   const [isSearching, setIsSearching] = useState(false);
   const [mapUnavailable, setMapUnavailable] = useState(false);
   const [searchMessage,setSearchMessage]=useState("");
+  const [meetingPointMessage,setMeetingPointMessage]=useState("");
   const [query,setQuery]=useState<string|null>(null),[resultIndex,setResultIndex]=useState(-1);
   const listId=useId(),debounce=useRef<ReturnType<typeof setTimeout>|null>(null),composing=useRef(false);
   const active=useRef<AbortController|null>(null);
-  useEffect(()=>()=>active.current?.abort(),[]);
+  const reverseActive=useRef<AbortController|null>(null);
+  useEffect(()=>()=>{active.current?.abort();reverseActive.current?.abort();},[]);
   // Viewport changes only on mount or an explicit city search selection. Pin
   // changes and unrelated parent renders must not reset the user's zoom/pan.
   const [viewTarget, setViewTarget] = useState<{ center: [number, number]; zoom: number }>(() => ({
@@ -88,7 +90,18 @@ export default function LocationPicker({
   const center: [number, number] = value ? [value.latitude, value.longitude] : viewTarget.center;
 
   function placePin(latitude: number, longitude: number) {
-    onChange({ description: value?.description ?? cityName, latitude, longitude });
+    reverseActive.current?.abort();
+    const controller=new AbortController();reverseActive.current=controller;
+    onChange({description:value?.description??cityName,latitude,longitude});
+    setMeetingPointMessage("Finding the meeting-point name…");
+    void fetchMeetingPointName(latitude,longitude,controller.signal).then(name=>{
+      if(controller.signal.aborted)return;
+      onChange({description:name,latitude,longitude});
+      setMeetingPointMessage("Meeting-point name updated from the pin location. You can still edit it manually.");
+    }).catch(error=>{
+      if(controller.signal.aborted)return;
+      setMeetingPointMessage(error instanceof Error?error.message:"The meeting-point name could not be refreshed. You can still edit it manually.");
+    });
   }
 
   const searchCity=useCallback(async(name:string)=>{
@@ -144,8 +157,9 @@ export default function LocationPicker({
           <MapClickHandler onPick={placePin} />
         </MapContainer>
       </div>}
+      {meetingPointMessage&&<p className={styles.status} role="status">{meetingPointMessage}</p>}
       {mapUnavailable && <p role="status">Your selected coordinates are preserved. WebGL2 is optional; continue with city search and the coordinate fields below.</p>}
-      <ManualCoordinates key={value ? `${value.latitude}:${value.longitude}` : "empty"} cityName={cityName} value={value} onChange={onChange} open={mapUnavailable}/>
+      <ManualCoordinates key={value ? `${value.latitude}:${value.longitude}` : "empty"} value={value} onPick={placePin} open={mapUnavailable}/>
       {value && <p>Pin: {value.latitude.toFixed(6)}, {value.longitude.toFixed(6)}</p>}
     </section>
   );
