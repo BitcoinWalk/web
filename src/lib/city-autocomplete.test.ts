@@ -1,5 +1,5 @@
 import {afterEach,describe,it,expect,vi} from "vitest";
-import {fetchCitySuggestions,fetchMeetingPointName,narrowCitySuggestions} from "./city-autocomplete";
+import {fetchCitySuggestions,fetchMeetingPointName,fetchMeetingPointSuggestions,narrowCitySuggestions,narrowMeetingPointSuggestions,parseCoordinateSearch} from "./city-autocomplete";
 import type {CitySearchResult} from "./geocode";
 afterEach(()=>vi.useRealTimers());
 describe("autocomplete request lifecycle",()=>{
@@ -14,4 +14,8 @@ describe("autocomplete request lifecycle",()=>{
 describe("meeting-point lookup lifecycle",()=>{
  it("returns a reverse-geocoded meeting-point name through the same-origin proxy",async()=>{const f=vi.fn(async()=>Response.json({result:{name:"Parco Ciani, Lugano, Switzerland"}})),controller=new AbortController();expect(await fetchMeetingPointName(46.0043,8.9511,controller.signal,f)).toBe("Parco Ciani, Lugano, Switzerland");expect(f).toHaveBeenCalledWith("/api/geocode/reverse?lat=46.0043&lon=8.9511",{signal:controller.signal});});
  it("keeps the provider error actionable",async()=>{const f=vi.fn(async()=>Response.json({error:"No address was found for this meeting point."},{status:404}));await expect(fetchMeetingPointName(46,8,new AbortController().signal,f)).rejects.toThrow("No address was found");});
+ it("parses comma or space separated coordinates and rejects out-of-range pairs",()=>{expect(parseCoordinateSearch("46.0043, 8.9511")).toEqual({latitude:46.0043,longitude:8.9511});expect(parseCoordinateSearch("32.65 -16.9")).toEqual({latitude:32.65,longitude:-16.9});expect(parseCoordinateSearch("Parco Ciani, Lugano")).toBeNull();expect(()=>parseCoordinateSearch("91, 8")).toThrow("latitude");});
+ it("resolves pasted coordinates before presenting an explicit result",async()=>{const f=vi.fn(async()=>Response.json({result:{name:"Parco Ciani, Lugano, Switzerland"}})),controller=new AbortController();expect(await fetchMeetingPointSuggestions("46.0043, 8.9511",controller.signal,f)).toEqual([{name:"Parco Ciani, Lugano, Switzerland",latitude:46.0043,longitude:8.9511}]);expect(f).toHaveBeenCalledWith("/api/geocode/reverse?lat=46.0043&lon=8.9511",{signal:controller.signal});});
+ it("searches text through the meeting-point endpoint",async()=>{const f=vi.fn(async()=>Response.json({results:[{name:"Parco Ciani, Lugano, Switzerland",latitude:46,longitude:8}]})),controller=new AbortController();expect(await fetchMeetingPointSuggestions("Parco Ciani",controller.signal,f)).toHaveLength(1);expect(f).toHaveBeenCalledWith("/api/geocode/places?q=Parco%20Ciani",{signal:controller.signal});});
+ it("narrows returned landmarks immediately while a longer query is pending",()=>{const rows=[{name:"Parco Ciani, Lugano",latitude:46,longitude:8},{name:"Paradiso Station, Ticino",latitude:46,longitude:8}] as const;expect(narrowMeetingPointSuggestions([...rows],"Par","Par")).toHaveLength(2);expect(narrowMeetingPointSuggestions([...rows],"Parco","Par")).toEqual([rows[0]]);expect(narrowMeetingPointSuggestions([...rows],"Museum","Par")).toEqual([]);});
 });

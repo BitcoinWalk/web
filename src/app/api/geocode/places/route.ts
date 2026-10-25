@@ -1,0 +1,13 @@
+import {NextResponse} from "next/server";
+import {createPlaceSearch} from "../../../../lib/geocode";
+
+const search=createPlaceSearch();
+export const runtime="nodejs";
+
+export async function GET(request:Request){
+ const result=await search(new URL(request.url).searchParams.get("q")??"",{
+  locationIqToken:process.env.LOCATIONIQ_ACCESS_TOKEN,
+  photonEndpoint:process.env.PHOTON_SEARCH_URL,
+ });
+ return NextResponse.json({results:result.results,...(result.error?{error:result.error}:{})},{status:result.status,headers:{"Cache-Control":"no-store",...(result.status===429?{"Retry-After":"2"}:{})}});
+}
