@@ -1,5 +1,5 @@
 import {describe,it,expect,vi} from "vitest";
-import {createCitySearch,createReverseGeocode} from "./geocode";
+import {createCitySearch,createPlaceSearch,createReverseGeocode} from "./geocode";
 const feature={geometry:{type:"Point",coordinates:[-16.9,32.65]},properties:{name:"Funchal",state:"Madeira",country:"Portugal",countrycode:"PT",osm_key:"place",osm_value:"city"}};
 const data={features:[feature]};
 const locationIqData=[{lat:"52.2297",lon:"21.0122",class:"place",type:"city",display_place:"Warsaw",address:{city:"Warsaw",state:"Masovian Voivodeship",country:"Poland",country_code:"pl"}}];
@@ -30,6 +30,26 @@ describe("LocationIQ city autocomplete",()=>{
   const malformed=[{...locationIqData[0],lat:"NaN"},{...locationIqData[0],class:"amenity"},{...locationIqData[0],address:{city:"Երևան"}}];
   const fetcher=vi.fn(async(input:RequestInfo|URL)=>String(input).includes("locationiq.com")?Response.json(malformed):Response.json({features:[]}));
   expect((await createCitySearch(fetcher as typeof fetch)("city",{locationIqToken:"token"})).results).toEqual([]);
+ });
+});
+describe("meeting-point address and landmark search",()=>{
+ it("returns labelled Photon landmarks without changing city identity",async()=>{
+  const search=createPlaceSearch(async()=>Response.json({features:[{geometry:{type:"Point",coordinates:[8.9511,46.0043]},properties:{name:"Satoshi Nakamoto Statue",street:"Viale Carlo Cattaneo",city:"Lugano",state:"Ticino",country:"Switzerland",countrycode:"CH",osm_key:"tourism",osm_value:"attraction"}}]}));
+  expect(await search("Satoshi Nakamoto Statue")).toEqual({status:200,results:[{name:"Satoshi Nakamoto Statue, Viale Carlo Cattaneo, Lugano, Ticino, Switzerland",latitude:46.0043,longitude:8.9511,countryCode:"CH"}]});
+ });
+ it("uses LocationIQ first and falls back to Photon",async()=>{
+  const fetcher=vi.fn(async(input:RequestInfo|URL)=>String(input).includes("locationiq.com")?new Response("",{status:503}):Response.json({features:[{geometry:{type:"Point",coordinates:[-16.9,32.65]},properties:{name:"Parque de Santa Catarina",city:"Funchal",country:"Portugal"}}]}));
+  const result=await createPlaceSearch(fetcher as typeof fetch)("Parque de Santa Catarina",{locationIqToken:"secret"});
+  expect(result.results[0]?.name).toBe("Parque de Santa Catarina, Funchal, Portugal");expect(fetcher).toHaveBeenCalledTimes(2);expect(JSON.stringify(result)).not.toContain("secret");
+ });
+ it("keeps a LocationIQ display label and hides the provider token",async()=>{
+  let requested="";const fetcher:typeof fetch=async input=>{requested=String(input);return Response.json([{lat:"38.8895",lon:"-77.0353",display_name:"Washington Monument, Washington, United States",address:{country_code:"us"}}]);};
+  const result=await createPlaceSearch(fetcher)("Washington Monument",{locationIqToken:"private-token"}),url=new URL(requested);
+  expect(result.results).toEqual([{name:"Washington Monument, Washington, United States",latitude:38.8895,longitude:-77.0353,countryCode:"US"}]);expect(url.searchParams.get("layers")).toBeNull();expect(JSON.stringify(result)).not.toContain("private-token");
+ });
+ it("validates, caches and rate limits independently",async()=>{
+  let time=10000;const fetcher=vi.fn(async()=>Response.json({features:[]})),search=createPlaceSearch(fetcher,()=>time);
+  expect((await search("x")).status).toBe(400);expect(fetcher).not.toHaveBeenCalled();expect((await search("Central Park")).status).toBe(200);expect((await search(" central park ")).status).toBe(200);expect(fetcher).toHaveBeenCalledTimes(1);expect((await search("Museum")).status).toBe(429);time+=1100;expect((await search("Museum")).status).toBe(200);
  });
 });
 describe("meeting-point reverse geocoding",()=>{

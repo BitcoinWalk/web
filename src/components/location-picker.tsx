@@ -7,7 +7,8 @@ import markerRetinaImage from "leaflet/dist/images/marker-icon-2x.png";
 import markerShadow from "leaflet/dist/images/marker-shadow.png";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import MapBasemap from "./map-basemap";
-import {CITY_SEARCH_DELAY,fetchCitySuggestions,fetchMeetingPointName,narrowCitySuggestions} from "../lib/city-autocomplete";
+import {CITY_SEARCH_DELAY,fetchCitySuggestions,fetchMeetingPointName,fetchMeetingPointSuggestions,narrowCitySuggestions,narrowMeetingPointSuggestions} from "../lib/city-autocomplete";
+import type {PlaceSearchResult} from "../lib/geocode";
 import styles from "./location-picker.module.css";
 
 const assetUrl = (asset: string | { src: string }) => typeof asset === "string" ? asset : asset.src;
@@ -57,6 +58,35 @@ function Recenter({ target }: { target: { center: [number, number]; zoom: number
   return null;
 }
 
+function MeetingPointSearch({onChoose}:{onChoose:(result:PlaceSearchResult)=>void}){
+  const [query,setQuery]=useState(""),[results,setResults]=useState<PlaceSearchResult[]>([]),[resultsQuery,setResultsQuery]=useState(""),[open,setOpen]=useState(false),[activeIndex,setActiveIndex]=useState(-1),[message,setMessage]=useState("");
+  const [searching,setSearching]=useState(false),listId=useId(),active=useRef<AbortController|null>(null),debounce=useRef<ReturnType<typeof setTimeout>|null>(null);
+  const visible=open?narrowMeetingPointSuggestions(results,query,resultsQuery):[];
+  useEffect(()=>()=>{active.current?.abort();if(debounce.current)clearTimeout(debounce.current);},[]);
+  const search=useCallback(async(value:string)=>{
+    active.current?.abort();const controller=new AbortController();active.current=controller;setSearching(true);setMessage("");setActiveIndex(-1);
+    try{
+      const matches=await fetchMeetingPointSuggestions(value,controller.signal);
+      if(controller.signal.aborted)return;
+      setResults(matches.slice(0,5));setResultsQuery(value.trim());setOpen(true);setMessage(matches.length?"Choose a result to move the meeting-point pin.":"No matching place found. Try a fuller address or enter coordinates below.");
+    }catch(error){if(!controller.signal.aborted){setResults([]);setResultsQuery("");setMessage(error instanceof Error?error.message:"Meeting-point search failed.");}}
+    finally{if(!controller.signal.aborted)setSearching(false);}
+  },[]);
+  function update(value:string){active.current?.abort();if(debounce.current)clearTimeout(debounce.current);setQuery(value);setActiveIndex(-1);setOpen(true);setMessage("");setSearching(false);if(value.trim().length>=2)debounce.current=setTimeout(()=>void search(value.trim()),CITY_SEARCH_DELAY);else {setResults([]);setResultsQuery("");}}
+  function choose(result:PlaceSearchResult){active.current?.abort();if(debounce.current)clearTimeout(debounce.current);onChoose(result);setQuery("");setResults([]);setResultsQuery("");setOpen(false);setActiveIndex(-1);setMessage("Meeting point selected. Review the description and pin before saving.");}
+  return <div className={styles.placeSearch}>
+    <div className={styles.finder}>
+      <label>Find an address or landmark
+        <input type="search" value={query} role="combobox" aria-autocomplete="list" aria-expanded={visible.length>0} aria-controls={listId} aria-activedescendant={activeIndex>=0&&visible[activeIndex]?`${listId}-${activeIndex}`:undefined} placeholder="Park, venue, street or 46.0043, 8.9511" autoComplete="off" onFocus={()=>setOpen(true)} onBlur={()=>setOpen(false)} onChange={event=>update(event.target.value)} onKeyDown={event=>{if(event.nativeEvent.isComposing)return;if(event.key==="ArrowDown"&&visible.length){event.preventDefault();setActiveIndex(index=>Math.min(index+1,visible.length-1));}else if(event.key==="ArrowUp"&&visible.length){event.preventDefault();setActiveIndex(index=>Math.max(index-1,0));}else if(event.key==="Escape"){active.current?.abort();setOpen(false);}else if(event.key==="Enter"){event.preventDefault();if(visible.length)choose(visible[Math.max(0,activeIndex)]);else if(query.trim().length>=2){if(debounce.current)clearTimeout(debounce.current);void search(query.trim());}}}}/>
+      </label>
+      {visible.length>0&&<ul className={styles.suggestions} id={listId} role="listbox" aria-label="Meeting-point suggestions">
+        {visible.map((result,index)=>{const [name,...context]=result.name.split(", ");return <li key={`${result.latitude}:${result.longitude}:${result.name}`} id={`${listId}-${index}`} role="option" aria-selected={activeIndex===index} onMouseDown={event=>event.preventDefault()} onClick={()=>choose(result)}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12S4 16 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg><span><strong>{name}</strong>{context.length>0&&<small>{context.join(", ")}</small>}</span></li>;})}
+      </ul>}
+    </div>
+    <p className={styles.status} role="status">{searching?"Searching meeting points…":message}</p>
+  </div>;
+}
+
 export default function LocationPicker({
   cityName,
   onCityNameChange,
@@ -104,6 +134,13 @@ export default function LocationPicker({
     });
   }
 
+  function chooseMeetingPoint(result:PlaceSearchResult){
+    reverseActive.current?.abort();
+    setViewTarget({center:[result.latitude,result.longitude],zoom:16});
+    onChange({description:result.name,latitude:result.latitude,longitude:result.longitude,...(result.countryCode?{countryCode:result.countryCode}:value?.countryCode?{countryCode:value.countryCode}:{})});
+    setMeetingPointMessage("Meeting point selected from search. You can still make the description more precise.");
+  }
+
   const searchCity=useCallback(async(name:string)=>{
     if(cityLocked||name.trim().length<2)return;
     active.current?.abort();
@@ -145,6 +182,7 @@ export default function LocationPicker({
       </ul>}
       </div>
       {!cityLocked&&<p className={styles.status} role="status">{isSearching?"Searching cities…":searchMessage}</p>}
+      {cityLocked&&<MeetingPointSearch onChoose={chooseMeetingPoint}/>}
       <p>{mapUnavailable?"Interactive map unavailable. Search for the city to set its coordinates, then adjust them manually if needed.":cityLocked ? "Click the map or drag the pin to move the meeting point. The city and its URL stay unchanged." : isSearching ? "Finding cities…" : "Select a city, then click the map or drag the pin to place the meeting point precisely."}</p>
       {!mapUnavailable&&<div className="map">
         <MapContainer center={viewTarget.center} zoom={viewTarget.zoom} minZoom={1} className="map" scrollWheelZoom>
