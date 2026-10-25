@@ -1,6 +1,6 @@
 # BitcoinWalk delivery backlog
 
-Last reviewed: 25 October 2026 (BW-91 reusable sponsor catalogue implementation started; BW-140 reconciled around docs.bitcoinwalk.org; BW-76 closed as superseded; BW-70 dependency status presentation updated)
+Last reviewed: 25 October 2026 (BW-91 reusable sponsor catalogue implementation started; BW-140 reconciled around docs.bitcoinwalk.org; BW-76 and BW-50 closed; BW-70 dependency status presentation updated)
 Preproduction housekeeping: 2–3 October 2026. See `preproduction-review-2026-10-02.md`
 and `development-handover.md` for current evidence and operating context.
 Tracking rule: keep this file current whenever an item changes status, scope, dependency, or verification result. The file is the maintained source; a separate Plan task is not automatically synchronized.
