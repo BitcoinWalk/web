@@ -102,9 +102,9 @@ App 0.3.108 extends the sidebar badges without changing permissions. Super-admin
 
 App 0.3.108 was activated on staging on 30 September 2026 through the ordinary `bitcoinwalk` deployment account. Artifact SHA-256: `6b1c83da55b0248c404bff4de783c24e19b4dd9299d46384b2f15dace0e90fef`; deployment evidence: `/home/bitcoinwalk/backups/app-staging-deploy.7nAcUt`; active release: `/opt/bitcoinwalk-app-staging/releases/0.3.108-6b1c83da55b0`. All 451 tests, source lint, production build, packaged smoke, public health and dashboard route checks passed. Signer-connected count acceptance remains under BW-75.
 
-## App 0.3.109 — relay directory deferred
+## App 0.3.109 — generic relay directory retired
 
-The organizer **Relay directory** entry and direct role access are hidden while its task model and language are redesigned under BW-76. The existing implementation is retained for future rework; no relay records, defaults or policies are changed by hiding the screen.
+The organizer **Relay directory** entry and direct role access are hidden. BW-76 was closed as superseded on 25 October 2026: managed relay policy remains centrally enforced, DM inbox setup now lives in the focused Chat flow, and verified organizer-owned relay control remains with BW-97 and its downstream self-hosting work. The retained route is used only by focused signed directory-successor and ownership-transfer links; it is not a generic settings screen. No relay records, defaults or policies were changed by hiding it.
 
 App 0.3.109 was activated on staging on 30 September 2026 through the ordinary `bitcoinwalk` deployment account. Artifact SHA-256: `daea42ea6816caafe2a71e522e15e803cd4f009b834e783ac1b8efc5108de405`; deployment evidence: `/home/bitcoinwalk/backups/app-staging-deploy.xVj9N5`; active release: `/opt/bitcoinwalk-app-staging/releases/0.3.109-daea42ea6816`. All 451 tests, source lint, production build, packaged smoke and public health/dashboard checks passed.
 
