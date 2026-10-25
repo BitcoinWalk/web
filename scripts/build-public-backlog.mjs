@@ -133,13 +133,23 @@ for (const id of Object.keys(descriptions)) {
 }
 
 items.sort((a, b) => a.number - b.number);
+const itemsById = new Map(items.map((item) => [item.id, item]));
+for (const item of items) {
+  for (const dependency of item.dependencies) {
+    if (!itemsById.has(dependency)) throw new Error(`Unknown dependency for ${item.id}: ${dependency}`);
+  }
+}
 const counts = Object.fromEntries(statusOrder.map((status) => [status, items.filter((item) => item.status === status).length]));
 
 const itemRows = items
   .map((item) => {
     const meta = statusMeta[item.status];
     const dependencies = item.dependencies.length
-      ? item.dependencies.map((id) => `<a class="dependency" href="#${id.toLowerCase()}">${id}</a>`).join("")
+      ? item.dependencies.map((id) => {
+        const dependency = itemsById.get(id);
+        const dependencyMeta = statusMeta[dependency.status];
+        return `<a class="dependency status-${dependencyMeta.key}" href="#${id.toLowerCase()}" aria-label="${id}: ${escapeHtml(dependencyMeta.label)}" title="${id}: ${escapeHtml(dependencyMeta.label)}"><span class="dependency-dot" aria-hidden="true"></span>${id}<span class="sr-only"> — ${escapeHtml(dependencyMeta.label)}</span></a>`;
+      }).join("")
       : '<span class="muted">None recorded</span>';
     return `<details class="backlog-row status-${meta.key}" id="${item.id.toLowerCase()}" data-status="${meta.key}" data-stage="${escapeHtml(item.stage)}" data-search="${escapeHtml(`${item.id} ${item.title} ${item.description} ${item.stage} ${item.dependencies.join(" ")}`.toLowerCase())}">
       <summary><span class="item-id"><strong>${item.id}</strong><span>Stage ${escapeHtml(item.stage)}</span></span><span class="item-title">${escapeHtml(item.title)}</span><span class="status-pill">${escapeHtml(item.status)}</span><span class="chevron" aria-hidden="true">⌄</span></summary>
@@ -168,6 +178,7 @@ const html = `<!doctype html>
   <style>
     :root { color-scheme: dark; --bg:#0b0d10; --panel:#14171c; --panel2:#1a1e24; --line:#2a3038; --text:#f7f8fa; --muted:#9ba4b0; --orange:#f7931a; --green:#4ade80; --red:#fb7185; --white:#f8fafc; --future:#717985; }
     * { box-sizing:border-box; }
+    .sr-only { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
     html { scroll-behavior:smooth; }
     body { margin:0; background:radial-gradient(circle at 90% 0,#262019 0,transparent 26rem),var(--bg); color:var(--text); font:16px/1.5 ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
     a { color:inherit; }
@@ -199,7 +210,6 @@ const html = `<!doctype html>
     .backlog-row { border:1px solid var(--line); border-left:4px solid var(--accent); border-radius:12px; background:var(--panel); scroll-margin-top:90px; }
     .backlog-row summary { display:grid; grid-template-columns:100px 1fr auto 18px; gap:20px; align-items:center; padding:20px; cursor:pointer; list-style:none; border-radius:8px; }
     .backlog-row summary::-webkit-details-marker { display:none; }
-    .backlog-row summary:hover { background:var(--panel2); }
     :focus-visible { outline:2px solid var(--orange); outline-offset:3px; }
     .item-title { font-weight:700; overflow-wrap:anywhere; }
     .chevron { color:var(--muted); text-align:center; }
@@ -216,13 +226,14 @@ const html = `<!doctype html>
     .item-main > p { margin:4px 0 10px; color:var(--muted); font-size:.88rem; }
     .dependencies { display:flex; flex-wrap:wrap; gap:6px; align-items:center; font-size:.75rem; }
     .dependencies strong { margin-right:2px; color:#cbd1d8; }
-    .dependency { padding:2px 7px; border:1px solid var(--line); border-radius:999px; color:#cbd1d8; text-decoration:none; }
-    .dependency:hover { border-color:var(--orange); }
+    .dependency { display:inline-flex; align-items:center; gap:5px; padding:2px 7px; border:1px solid color-mix(in srgb,var(--accent) 46%,var(--line)); border-radius:999px; color:var(--accent); background:color-mix(in srgb,var(--accent) 8%,transparent); text-decoration:none; }
+    .dependency-dot { width:6px; height:6px; flex:none; border-radius:50%; background:currentColor; }
     .muted { color:var(--muted); }
     .status-pill { display:inline-flex; padding:5px 9px; color:var(--accent); border:1px solid color-mix(in srgb,var(--accent) 45%,transparent); border-radius:999px; background:color-mix(in srgb,var(--accent) 8%,transparent); font-size:.78rem; font-weight:750; white-space:nowrap; }
     footer { padding:30px 0 50px; border-top:1px solid var(--line); color:var(--muted); font-size:.88rem; }
     footer .wrap { display:flex; justify-content:space-between; gap:20px; }
     footer a { color:#cbd1d8; }
+    @media (hover:hover) { .backlog-row summary:hover { background:var(--panel2); } .dependency:hover { border-color:var(--accent); background:color-mix(in srgb,var(--accent) 14%,transparent); } }
     @media (max-width:850px) { .counts { grid-template-columns:repeat(2,1fr); } .backlog-row summary { grid-template-columns:82px 1fr 18px; gap:12px; } .status-pill { grid-column:2; justify-self:start; } .chevron { grid-column:3; grid-row:1; } .item-detail { padding:0 22px 22px 114px; } }
     @media (max-width:570px) { header { padding-top:38px; } .wrap { width:min(100% - 22px,1180px); } .brand img { width:min(196px,70vw); } .counts { grid-template-columns:1fr; } .section-head { display:block; } .section-head p { margin-top:8px; } .toolbar { grid-template-columns:1fr 1fr; } .toolbar input { grid-column:1/-1; } .results { text-align:right; } .backlog-row summary { grid-template-columns:1fr auto 18px; padding:16px; } .item-title { grid-column:1/3; grid-row:2; } .status-pill { grid-column:2; grid-row:1; } .item-detail { padding:0 16px 20px; } footer .wrap { display:block; } }
     @media (prefers-reduced-motion:reduce) { html { scroll-behavior:auto; } }
