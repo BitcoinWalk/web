@@ -9,7 +9,9 @@ It publishes stage, ID, title, colour status, explicit BW dependencies and a
 reviewed short description from `docs/public-backlog-descriptions.json`. Each
 item is a native keyboard-accessible disclosure. All items must have a public
 description; missing or orphan descriptions fail the build. Internal notes are
-never used to generate public prose.
+never used to generate public prose. Dependency chips resolve the referenced
+item's current status, use the same status colour as the tracker and expose the
+status in accessible text and a native tooltip so colour is never the only cue.
 
 **Last recorded update** is the date of the latest Git commit that added or
 changed the item's tracker row or a dated item-specific checkpoint. Queue
