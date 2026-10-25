@@ -39,6 +39,9 @@ export const cityDocumentSchema = z.object({
   cityId: z.string().uuid(),
   slug: citySlugSchema,
   cityName: z.string().min(1).max(100),
+  /** Organizer-selected search result country. Used only for public labelling;
+   * it never grants authority or changes the city identity. */
+  countryCode: z.string().regex(/^[A-Z]{2}$/).optional(),
   /** Optional BCP-47 casing locale for deterministic localized brand assets. */
   locale: z.string().min(2).max(35).refine(value => {
     try { new Intl.Locale(value); return true; } catch { return false; }

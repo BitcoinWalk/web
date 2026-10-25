@@ -8,14 +8,15 @@ python3 -c 'import pathlib; compile(pathlib.Path(__import__("sys").argv[1]).read
 work="$(mktemp -d)"
 trap 'rm -rf -- "$work"' EXIT
 export BITCOINWALK_HUB_BACKUP_DIR="$work/archives"
-name="hub-feecap-20261009T120000Z-6bb8520025d7.tar.zst.gpg"
+fixture_stamp="$(date -u +%Y%m%dT%H%M%SZ)"
+name="hub-feecap-$fixture_stamp-6bb8520025d7.tar.zst.gpg"
 receipt="$(printf 'encrypted-fixture' | SSH_ORIGINAL_COMMAND="upload $name" "$here/receive-encrypted-backup.sh")"
 sha256="$(sha256sum "$BITCOINWALK_HUB_BACKUP_DIR/$name" | cut -d' ' -f1)"
 size="$(stat -c '%s' "$BITCOINWALK_HUB_BACKUP_DIR/$name")"
 [[ "$receipt" == "stored $name $sha256 $size" ]]
 (cd "$BITCOINWALK_HUB_BACKUP_DIR" && sha256sum -c "$name.sha256")
 
-live_name="hub-live-20261009T120100Z-2982a75a63c4-6bb8520025d7.tar.zst.gpg"
+live_name="hub-live-$fixture_stamp-2982a75a63c4-6bb8520025d7.tar.zst.gpg"
 live_receipt="$(printf 'encrypted-live-fixture' | SSH_ORIGINAL_COMMAND="upload $live_name" "$here/receive-encrypted-backup.sh")"
 live_sha256="$(sha256sum "$BITCOINWALK_HUB_BACKUP_DIR/$live_name" | cut -d' ' -f1)"
 live_size="$(stat -c '%s' "$BITCOINWALK_HUB_BACKUP_DIR/$live_name")"

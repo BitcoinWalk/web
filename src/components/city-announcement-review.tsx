@@ -1,0 +1,61 @@
+"use client";
+
+import {useCallback,useEffect,useMemo,useRef,useState} from "react";
+import type {Event} from "nostr-tools";
+import {relayConfig} from "../lib/relay-config";
+import {queryCalendarEvents} from "../nostr/city-records";
+import {loadCalendarWalks} from "../nostr/calendar-records";
+import {announcementContentError,CITY_ANNOUNCEMENT_CONTENT_LIMIT,cityAnnouncementCandidate,createCityAnnouncement,matchesCityAnnouncement,queryCityAnnouncements,type CityAnnouncementCandidate} from "../nostr/city-announcement";
+import {publishVerifiedEvent} from "../nostr/relay";
+import {assertExactSigned} from "../nostr/moderation";
+import {authenticateWithBrowserExtension,getBrowserExtensionPubkey,signWithBrowserExtension} from "../nostr/signer";
+import {isSuperAdmin} from "../nostr/authority";
+import {cityActivationFinished,completeCityActivation} from "../lib/media-client";
+import styles from "./requests-screen.module.css";
+
+const STORAGE="bitcoinwalk:city-announcement:v1:";
+type Row={candidate?:CityAnnouncementCandidate;cityId:string;cityName:string;reason?:string;published?:Event};
+
+function saved(candidate:CityAnnouncementCandidate):Event|null{
+ try{const value=localStorage.getItem(STORAGE+candidate.walk.revision.city.cityId);if(!value)return null;const event=JSON.parse(value) as Event;return !announcementContentError(event.content,candidate)&&matchesCityAnnouncement(event,candidate,event.content)?event:null;}catch{return null;}
+}
+
+async function existingAnnouncements(relays:string[],cityIds:string[]){
+ const settled=await Promise.allSettled(relays.map(relay=>queryCityAnnouncements([relay],cityIds))),events:Event[]=[],byRelay=new Map<string,Event[]>();
+ settled.forEach((result,index)=>{if(result.status==="fulfilled"){events.push(...result.value);byRelay.set(relays[index],result.value);}});
+ return {events:[...new Map(events.map(event=>[event.id,event])).values()],byRelay,failed:settled.filter(result=>result.status==="rejected").length};
+}
+
+export function CityAnnouncementAction({candidate,rolloutVerified=false,onSkip,onPublished}:{candidate:CityAnnouncementCandidate;rolloutVerified?:boolean;onSkip?:()=>void;onPublished?:()=>void}){
+ const relays=relayConfig.announcementRelays,notBefore=relayConfig.announcementNotBefore,configured=relays.length>0&&notBefore>0;
+ const [busy,setBusy]=useState(false),[rolloutReady,setRolloutReady]=useState(rolloutVerified),[message,setMessage]=useState(!configured?"Publishing is disabled until announcement relays and the rollout cutoff are configured.":rolloutVerified?"Review and edit the complete message before asking your signer to publish it.":"Checking the rollout checklist…"),[draft,setDraft]=useState(candidate.content),[retainedEvent,setRetainedEvent]=useState<Event|null>(null),enabled=configured&&rolloutReady,contentError=announcementContentError(draft,candidate),fieldId=`city-announcement-message-${candidate.walk.revision.city.cityId}`;
+ useEffect(()=>{let active=true;queueMicrotask(()=>{if(!active)return;const event=saved(candidate);setRetainedEvent(event);setDraft(event?.content??candidate.content);});return()=>{active=false;};},[candidate]);
+ useEffect(()=>{if(rolloutVerified||!configured)return;let active=true;completeCityActivation(candidate.walk.approval.event).then(result=>{if(!active)return;const ready=cityActivationFinished(result.checks);setRolloutReady(ready);setMessage(ready?"Review the complete message before asking your signer to publish it.":"Finish every rollout checklist item before announcing this city.");}).catch(error=>{if(active)setMessage(error instanceof Error?error.message:"The rollout checklist could not be verified.");});return()=>{active=false;};},[candidate.walk.approval.event,configured,rolloutVerified]);
+ async function publish(){if(busy||!enabled||contentError){if(contentError)setMessage(contentError);return;}setBusy(true);try{
+  const actor=await getBrowserExtensionPubkey();if(!isSuperAdmin(actor))throw new Error("Connect the BitcoinWalk super-admin identity.");
+  let event=retainedEvent??saved(candidate);const latest=await existingAnnouncements(relays,[candidate.walk.revision.city.cityId]);
+  if(latest.events.some(item=>!event||item.id!==event.id)){setMessage(`${candidate.walk.revision.city.cityName} already has a different signed launch announcement. Nothing was republished.`);return;}
+  if(!event){const template=createCityAnnouncement(candidate,undefined,draft);setMessage(`Review and sign the separate ${candidate.walk.revision.city.cityName} launch announcement…`);event=await signWithBrowserExtension(template);assertExactSigned(event,template);localStorage.setItem(STORAGE+candidate.walk.revision.city.cityId,JSON.stringify(event));setRetainedEvent(event);setDraft(event.content);}
+  const alreadyVerified=relays.filter(relay=>latest.byRelay.get(relay)?.some(item=>item.id===event!.id)),targets=relays.filter(relay=>!alreadyVerified.includes(relay));
+  const results=await Promise.all(targets.map(async relay=>{try{await publishVerifiedEvent(event!,[relay],1,authenticateWithBrowserExtension);const checked=await queryCityAnnouncements([relay],[candidate.walk.revision.city.cityId]);if(!checked.some(item=>item.id===event!.id))throw new Error("Exact signed event was not read back.");return {relay,ok:true as const};}catch(error){return {relay,ok:false as const,reason:error instanceof Error?error.message:String(error)};}})),accepted=alreadyVerified.length+results.filter(result=>result.ok).length,failed=results.filter(result=>!result.ok);
+  if(!accepted)throw new Error(`No announcement relay accepted the signed event. ${failed.map(item=>`${item.relay}: ${item.reason}`).join("; ")}`);
+  if(failed.length){setMessage(`${candidate.walk.revision.city.cityName} announcement verified on ${accepted}/${relays.length} relays. The exact signed event is retained; retry to finish: ${failed.map(item=>item.relay).join(", ")}.`);return;}
+  localStorage.removeItem(STORAGE+candidate.walk.revision.city.cityId);setRetainedEvent(null);setMessage(`${candidate.walk.revision.city.cityName} announcement verified on all ${relays.length} relays.`);onPublished?.();
+ }catch(error){setMessage(error instanceof Error?error.message:"The announcement could not be published.");}finally{setBusy(false);}}
+ const buttonLabel=busy?"Publishing…":!configured?"Publishing disabled":!rolloutReady?"Finish rollout first":contentError?"Fix message to continue":"Sign and announce";
+ return <section className={styles.announcementAction} aria-labelledby={`city-announcement-${candidate.walk.revision.city.cityId}`}><h3 id={`city-announcement-${candidate.walk.revision.city.cityId}`}>Announce this BitcoinWalk</h3><p>The city rollout is complete. Edit this separate public Nostr post before giving it one final signature.</p><div className={styles.announcementEditor}><div className={styles.announcementEditorHeading}><label htmlFor={fieldId}>Announcement message</label>{!retainedEvent&&draft!==candidate.content&&<button type="button" disabled={busy} onClick={()=>setDraft(candidate.content)}>Reset suggestion</button>}</div><textarea id={fieldId} rows={8} value={draft} disabled={busy||!!retainedEvent} aria-invalid={!!contentError} aria-describedby={`${fieldId}-help ${fieldId}-error`} onChange={event=>setDraft(event.target.value)} /><div className={styles.announcementEditorMeta}><small id={`${fieldId}-help`}>{retainedEvent?"This exact signed message is locked until relay delivery finishes.":"Edit freely, but keep the event link so people can open the walk."}</small><small>{draft.length}/{CITY_ANNOUNCEMENT_CONTENT_LIMIT}</small></div>{contentError&&<small id={`${fieldId}-error`} className={styles.announcementError} role="alert">{contentError}</small>}</div><p><strong>Country:</strong> {candidate.countryCode} · <strong>First walk:</strong> verified local time</p><p className={styles.notice} role="status" aria-live="polite">{message}</p><div className={styles.announcementActions}>{onSkip&&<button type="button" disabled={busy} onClick={onSkip}>Skip announcement</button>}<button className={styles.primaryAction} type="button" disabled={busy||!enabled||!!contentError} onClick={()=>void publish()}>{buttonLabel}</button></div>{onSkip&&<small>Skipping does not affect city approval. You can announce it later from New-city announcements.</small>}</section>;
+}
+
+export default function CityAnnouncementReview(){
+ const lock=useRef(false),[rows,setRows]=useState<Row[]>([]),[busy,setBusy]=useState(""),[message,setMessage]=useState("Reviewable announcements are loaded from approved first walks."),relays=relayConfig.announcementRelays,notBefore=relayConfig.announcementNotBefore,enabled=relays.length>0&&notBefore>0;
+ const load=useCallback(async()=>{if(lock.current)return;lock.current=true;setBusy("load");try{
+  const actor=await getBrowserExtensionPubkey();if(!isSuperAdmin(actor))throw new Error("Connect the BitcoinWalk super-admin identity.");
+  const walks=await loadCalendarWalks(relayConfig.readRelays),initialIds=[...new Set(walks.flatMap(walk=>{const approval=walk.initialRelease?.approval.approval??walk.approval.approval;return approval.initialEventIds??(approval.initialEventId?[approval.initialEventId]:[]);} ))],events=await queryCalendarEvents(relayConfig.readRelays,{ids:initialIds}),published=relays.length?await existingAnnouncements(relays,walks.map(walk=>walk.revision.city.cityId)):{events:[] as Event[],byRelay:new Map<string,Event[]>(),failed:0};
+  const next=walks.flatMap<Row>(walk=>{const release=walk.initialRelease?.approval??walk.approval,approval=release.approval,id=approval.initialEventIds?.[0]??approval.initialEventId,event=id?events.find(item=>item.id===id):undefined,cityId=walk.revision.city.cityId,found=published.events.find(item=>item.tags.some(tag=>tag[0]==="i"&&tag[1]===cityId));if(enabled&&release.event.created_at<notBefore)return [{cityId,cityName:walk.revision.city.cityName,reason:"This city predates the reviewed announcement rollout and will not be announced retroactively."}];if(!event)return [{cityId,cityName:walk.revision.city.cityName,reason:"The approved first walk could not be read back."}];try{const candidate=cityAnnouncementCandidate(walk,event,relayConfig.calendarRelayHints),retained=saved(candidate),complete=found&&relays.every(relay=>published.byRelay.get(relay)?.some(item=>item.id===found.id));if(found&&(!retained||retained.id!==found.id||complete))return [{cityId,cityName:walk.revision.city.cityName,published:found}];return [{cityId,cityName:walk.revision.city.cityName,candidate}];}catch(error){return [{cityId,cityName:walk.revision.city.cityName,reason:error instanceof Error?error.message:"Announcement inputs are incomplete."}];}});
+  setRows(next);setMessage(`${next.filter(row=>row.candidate).length} announcement${next.filter(row=>row.candidate).length===1?"":"s"} ready for review.${!enabled?" Publishing is disabled until relays and the rollout cutoff are configured.":published.failed?` ${published.failed}/${relays.length} announcement relays could not be checked.`:""}`);
+ }catch(error){setRows([]);setMessage(error instanceof Error?error.message:"Announcements could not be loaded.");}finally{lock.current=false;setBusy("");}},[relays,enabled,notBefore]);
+ useEffect(()=>{if(!lock.current)queueMicrotask(()=>void load());},[load]);
+ const pending=useMemo(()=>rows.filter(row=>row.candidate),[rows]);
+
+ return <section className={`${styles.module} ${styles.announcementModule}`} aria-labelledby="city-announcement-heading"><div className={styles.moduleHeader}><div><h2 id="city-announcement-heading">New-city announcements</h2><p>Announcements skipped during rollout and interrupted deliveries can be completed here.</p></div><button type="button" className={styles.refresh} disabled={!!busy} onClick={()=>void load()}>{busy==="load"?"Refreshing…":"Refresh"}</button></div><p className={styles.notice} role="status" aria-live="polite">{message}</p>{pending.length?<div className={styles.announcementList}>{pending.map(row=><article key={row.cityId} className={styles.announcementCard}><CityAnnouncementAction candidate={row.candidate!} onPublished={()=>void load()}/></article>)}</div>:<div className={styles.empty}><strong>No announcements ready</strong><span>New cities appear here only after their approved first walk and signed country code can be verified.</span></div>}</section>;
+}

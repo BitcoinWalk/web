@@ -1,11 +1,11 @@
 import {describe,it,expect,vi} from "vitest";
 import {createCitySearch,createReverseGeocode} from "./geocode";
-const feature={geometry:{type:"Point",coordinates:[-16.9,32.65]},properties:{name:"Funchal",state:"Madeira",country:"Portugal",osm_key:"place",osm_value:"city"}};
+const feature={geometry:{type:"Point",coordinates:[-16.9,32.65]},properties:{name:"Funchal",state:"Madeira",country:"Portugal",countrycode:"PT",osm_key:"place",osm_value:"city"}};
 const data={features:[feature]};
-const locationIqData=[{lat:"52.2297",lon:"21.0122",class:"place",type:"city",display_place:"Warsaw",address:{city:"Warsaw",state:"Masovian Voivodeship",country:"Poland"}}];
+const locationIqData=[{lat:"52.2297",lon:"21.0122",class:"place",type:"city",display_place:"Warsaw",address:{city:"Warsaw",state:"Masovian Voivodeship",country:"Poland",country_code:"pl"}}];
 describe("Photon city autocomplete",()=>{
  it("validates input without requests",async()=>{const f=vi.fn();expect((await createCitySearch(f)("a")).status).toBe(400);expect(f).not.toHaveBeenCalled();});
- it("normalizes, caches and globally rate limits requests",async()=>{let time=10000;const f=vi.fn(async()=>Response.json(data)),search=createCitySearch(f,()=>time);expect((await search("Funchal")).results[0]).toEqual({cityName:"Funchal",name:"Funchal, Madeira, Portugal",latitude:32.65,longitude:-16.9});await search(" funchal ");expect(f).toHaveBeenCalledTimes(1);expect((await search("Chicago")).status).toBe(429);time+=1100;expect((await search("Chicago")).status).toBe(200);});
+ it("normalizes, caches and globally rate limits requests",async()=>{let time=10000;const f=vi.fn(async()=>Response.json(data)),search=createCitySearch(f,()=>time);expect((await search("Funchal")).results[0]).toEqual({cityName:"Funchal",name:"Funchal, Madeira, Portugal",countryCode:"PT",latitude:32.65,longitude:-16.9});await search(" funchal ");expect(f).toHaveBeenCalledTimes(1);expect((await search("Chicago")).status).toBe(429);time+=1100;expect((await search("Chicago")).status).toBe(200);});
  it("rejects concurrent requests and recovers after errors",async()=>{let finish!:(r:Response)=>void;let time=10000;const f=vi.fn(()=>new Promise<Response>(r=>{finish=r;})),search=createCitySearch(f,()=>time),first=search("Funchal");time+=2000;expect((await search("Chicago")).status).toBe(429);finish(new Response("",{status:503}));expect((await first).status).toBe(502);const second=search("Funchal");finish(Response.json(data));expect((await second).status).toBe(200);expect(f).toHaveBeenCalledTimes(2);});
  it("uses English names and only settlement filters",async()=>{let requested="";const f:typeof fetch=async input=>{requested=String(input);return Response.json(data);};await createCitySearch(f)("Funchal","https://search.example/api/");const url=new URL(requested);expect(url.hostname).toBe("search.example");expect(url.searchParams.get("lang")).toBe("en");expect(url.searchParams.getAll("osm_tag")).toEqual(["place:city","place:town","place:village","place:hamlet"]);});
  it.each(["https://nominatim.openstreetmap.org/search","http://photon.komoot.io/api/","https://user:password@search.example/api/"])("rejects unsafe or legacy endpoint %s",async endpoint=>{const f=vi.fn();expect((await createCitySearch(f)("Funchal",endpoint)).status).toBe(502);expect(f).not.toHaveBeenCalled();});
@@ -17,7 +17,7 @@ describe("LocationIQ city autocomplete",()=>{
  it("uses LocationIQ first without exposing its token in the result",async()=>{
   let requested="";const fetcher:typeof fetch=async input=>{requested=String(input);return Response.json(locationIqData);};
   const result=await createCitySearch(fetcher)("Warsaw",{locationIqToken:"secret-token"}),url=new URL(requested);
-  expect(result.results).toEqual([{cityName:"Warsaw",name:"Warsaw, Masovian Voivodeship, Poland",latitude:52.2297,longitude:21.0122}]);
+  expect(result.results).toEqual([{cityName:"Warsaw",name:"Warsaw, Masovian Voivodeship, Poland",countryCode:"PL",latitude:52.2297,longitude:21.0122}]);
   expect(url.origin+url.pathname).toBe("https://api.locationiq.com/v1/autocomplete");
   expect(url.searchParams.get("key")).toBe("secret-token");expect(url.searchParams.get("layers")).toBe("city");expect(JSON.stringify(result)).not.toContain("secret-token");
  });

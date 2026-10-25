@@ -12,16 +12,19 @@ import styles from "./sponsors.module.css";
 import AdminTabs,{AdminTabPanel} from "../../../components/admin-tabs";
 import {AdminButton,AdminFeedback,AdminStatusBadge} from "../../../components/admin-ui";
 import {DEFAULT_SPONSOR_WALK_SATS} from "../../../payments/sponsor-types";
+import {useSponsorChoice,useSponsorText} from "../../../components/sponsor-view-state";
 
 type City={id:string;name:string;slug:string};
 export type SponsorWalkStatus="upcoming"|"active"|"past";
 type Walk={event:Event;cityId:string;address:string;label:string;start:number;timeZone:string;priceSats?:number;status:SponsorWalkStatus};
 export type WalkStatusFilter="all"|"next"|"upcoming"|"past";
 const walkStatusLabels:Record<SponsorWalkStatus,string>={upcoming:"Upcoming",active:"Happening now",past:"Past"};
+const workspaceViews=["cities","sponsors"] as const,walkStatuses=["all","next","upcoming","past"] as const;
+const safeWorkspaceItem=(value:string)=>!value||/^(city|sponsor|assign):/.test(value);
 export function nextWalkIdsByCity(walks:Pick<Walk,"event"|"cityId"|"start"|"status">[]){const next=new Map<string,{id:string;start:number}>();for(const walk of walks){if(walk.status==="past")continue;const current=next.get(walk.cityId);if(!current||walk.start<current.start)next.set(walk.cityId,{id:walk.event.id,start:walk.start});}return new Set([...next.values()].map(walk=>walk.id));}
 export function walkMatchesStatus(walk:Pick<Walk,"event"|"status">,status:WalkStatusFilter,nextWalkIds:ReadonlySet<string>=new Set()){return status==="all"||status==="next"&&nextWalkIds.has(walk.event.id)||status==="upcoming"&&walk.status!=="past"||status==="past"&&walk.status==="past";}
 export default function SponsorWorkspace({cities,walks,rows,busy,message,refresh,editor,onSelect}:{cities:City[];walks:Walk[];rows:SponsorshipRevision[];busy:boolean;message:string;refresh:()=>void;editor:ReactNode;onSelect:(city:string,address?:string)=>void}){
- const [view,setView]=useState<"cities"|"sponsors">("cities"),[query,setQuery]=useState(""),[walkStatus,setWalkStatus]=useState<WalkStatusFilter>("all"),[expanded,setExpanded]=useState(""),[profiles,setProfiles]=useState<Record<string,PublicProfile>>({}),[inviteCity,setInviteCity]=useState("");
+ const [view,setView]=useSponsorChoice("view",workspaceViews,"cities"),[query,setQuery]=useSponsorText("q",{maximum:100,history:"replace"}),[walkStatus,setWalkStatus]=useSponsorChoice("status",walkStatuses,"all"),[expanded,setExpanded]=useSponsorText("item",{maximum:512,accept:safeWorkspaceItem}),[profiles,setProfiles]=useState<Record<string,PublicProfile>>({}),[inviteCity,setInviteCity]=useState("");
  const lookup=useMemo(()=>sponsorManagementIndex(rows),[rows]);
  const sponsorKeys=useMemo(()=>[...new Set(rows.flatMap(row=>row.sponsorship.sponsorPubkey?[row.sponsorship.sponsorPubkey]:[]))].sort(),[rows]);
  const profileKeys=sponsorKeys.join(",");

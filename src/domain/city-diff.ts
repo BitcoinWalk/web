@@ -8,6 +8,7 @@ const aliases=(value:string[]|undefined)=>value?.length?value.join(", "):empty;
 export function cityFieldChanges(before:CityDocument|null,after:CityDocument):CityFieldChange[]{
   const fields:Array<CityFieldChange>=[
     {key:"cityName",label:"City name",before:text(before?.cityName),after:text(after.cityName)},
+    {key:"countryCode",label:"Country",before:text(before?.countryCode),after:text(after.countryCode)},
     {key:"aliases",label:"Alternative city names",before:aliases(before?.aliases),after:aliases(after.aliases)},
     {key:"slug",label:"Signed city URL",before:text(before?.slug),after:text(after.slug)},
     {key:"requestedTier",label:"Requested plan",before:text(before?.requestedTier),after:text(after.requestedTier)},
