@@ -33,6 +33,19 @@ const statusMeta = {
   "⚪ Planned": { key: "planned", label: "Planned", summary: "Agreed work, not yet started." },
   "○ Future": { key: "future", label: "Future", summary: "Retained for a later iteration." },
 };
+const priorityMeta = {
+  P1: { label: "P1", summary: "Active or on the immediate delivery path." },
+  P2: { label: "P2", summary: "Important queued or externally blocked work." },
+  P3: { label: "P3", summary: "Completed history or deliberately later work." },
+};
+// These planned items are explicitly in the reconciled immediate queue. In-progress
+// work is always P1; other planned/blocked work is P2; done/future work is P3.
+const immediatePriorityIds = new Set(["BW-108", "BW-158", "BW-93", "BW-153", "BW-150", "BW-91", "BW-141"]);
+function priorityFor(id, status) {
+  if (status === "🟠 In progress" || immediatePriorityIds.has(id)) return "P1";
+  if (status === "⚪ Planned" || status === "🔴 Blocked") return "P2";
+  return "P3";
+}
 
 function splitRow(line) {
   return line
@@ -115,6 +128,7 @@ for (const line of lines) {
     description: descriptions[id],
     updated: lastUpdates.get(id),
     status,
+    priority: priorityFor(id, status),
     dependencies: inferDependencies(cells, headers, id),
   });
 }
@@ -151,8 +165,8 @@ const itemRows = items
         return `<a class="dependency status-${dependencyMeta.key}" href="#${id.toLowerCase()}" aria-label="${id}: ${escapeHtml(dependencyMeta.label)}" title="${id}: ${escapeHtml(dependencyMeta.label)}"><span class="dependency-dot" aria-hidden="true"></span>${id}<span class="sr-only"> — ${escapeHtml(dependencyMeta.label)}</span></a>`;
       }).join("")
       : '<span class="muted">None recorded</span>';
-    return `<details class="backlog-row status-${meta.key}" id="${item.id.toLowerCase()}" data-status="${meta.key}" data-stage="${escapeHtml(item.stage)}" data-search="${escapeHtml(`${item.id} ${item.title} ${item.description} ${item.stage} ${item.dependencies.join(" ")}`.toLowerCase())}">
-      <summary><span class="item-id"><strong>${item.id}</strong><span>Stage ${escapeHtml(item.stage)}</span></span><span class="item-title">${escapeHtml(item.title)}</span><span class="status-pill">${escapeHtml(item.status)}</span><span class="chevron" aria-hidden="true">⌄</span></summary>
+    return `<details class="backlog-row status-${meta.key}" id="${item.id.toLowerCase()}" data-status="${meta.key}" data-priority="${item.priority.toLowerCase()}" data-stage="${escapeHtml(item.stage)}" data-search="${escapeHtml(`${item.id} ${item.priority} ${item.title} ${item.description} ${item.stage} ${item.dependencies.join(" ")}`.toLowerCase())}">
+      <summary><span class="item-id"><strong>${item.id}</strong><span>Stage ${escapeHtml(item.stage)}</span></span><span class="item-title">${escapeHtml(item.title)}</span><span class="priority-pill" title="${escapeHtml(priorityMeta[item.priority].summary)}">${item.priority}</span><span class="status-pill">${escapeHtml(item.status)}</span><span class="chevron" aria-hidden="true">⌄</span></summary>
       <div class="item-detail"><p>${escapeHtml(item.description)}</p><p class="item-updated">Last recorded update: ${item.updated ? `<time datetime="${escapeHtml(item.updated)}">${escapeHtml(formatDate(item.updated))}</time>` : "Not recorded"}</p><div class="dependencies"><strong>Dependencies</strong>${dependencies}<a class="permalink" href="#${item.id.toLowerCase()}" aria-label="Link to ${item.id}">Link to item</a></div></div>
     </details>`;
   })
@@ -202,13 +216,13 @@ const html = `<!doctype html>
     .section-head { display:flex; justify-content:space-between; gap:24px; align-items:end; margin-bottom:20px; }
     h2 { margin:0; font-size:clamp(1.7rem,4vw,2.6rem); letter-spacing:-.035em; }
     .section-head p { max-width:560px; margin:0; color:var(--muted); }
-    .toolbar { position:sticky; top:0; z-index:5; display:grid; grid-template-columns:1fr 190px auto; gap:10px; padding:14px 0; background:rgba(11,13,16,.93); backdrop-filter:blur(14px); }
+    .toolbar { position:sticky; top:0; z-index:5; display:grid; grid-template-columns:minmax(220px,1fr) 190px 150px auto; gap:10px; padding:14px 0; background:rgba(11,13,16,.93); backdrop-filter:blur(14px); }
     .toolbar input,.toolbar select,.toolbar button { min-width:0; width:100%; min-height:44px; padding:0 13px; color:var(--text); border:1px solid var(--line); border-radius:10px; background:#111419; }
     .toolbar button { cursor:pointer; }
     .results { align-self:center; color:var(--muted); white-space:nowrap; }
     .backlog-list { display:grid; gap:9px; }
     .backlog-row { border:1px solid var(--line); border-left:4px solid var(--accent); border-radius:12px; background:var(--panel); scroll-margin-top:90px; }
-    .backlog-row summary { display:grid; grid-template-columns:100px 1fr auto 18px; gap:20px; align-items:center; padding:20px; cursor:pointer; list-style:none; border-radius:8px; }
+    .backlog-row summary { display:grid; grid-template-columns:100px 1fr auto auto 18px; gap:14px; align-items:center; padding:20px; cursor:pointer; list-style:none; border-radius:8px; }
     .backlog-row summary::-webkit-details-marker { display:none; }
     :focus-visible { outline:2px solid var(--orange); outline-offset:3px; }
     .item-title { font-weight:700; overflow-wrap:anywhere; }
@@ -230,12 +244,13 @@ const html = `<!doctype html>
     .dependency-dot { width:6px; height:6px; flex:none; border-radius:50%; background:currentColor; }
     .muted { color:var(--muted); }
     .status-pill { display:inline-flex; padding:5px 9px; color:var(--accent); border:1px solid color-mix(in srgb,var(--accent) 45%,transparent); border-radius:999px; background:color-mix(in srgb,var(--accent) 8%,transparent); font-size:.78rem; font-weight:750; white-space:nowrap; }
+    .priority-pill { display:inline-flex; min-width:34px; justify-content:center; padding:5px 8px; border:1px solid #66508c; border-radius:999px; background:#251c36; color:#c8a8ff; font-size:.76rem; font-weight:800; white-space:nowrap; }
     footer { padding:30px 0 50px; border-top:1px solid var(--line); color:var(--muted); font-size:.88rem; }
     footer .wrap { display:flex; justify-content:space-between; gap:20px; }
     footer a { color:#cbd1d8; }
     @media (hover:hover) { .backlog-row summary:hover { background:var(--panel2); } .dependency:hover { border-color:var(--accent); background:color-mix(in srgb,var(--accent) 14%,transparent); } }
-    @media (max-width:850px) { .counts { grid-template-columns:repeat(2,1fr); } .backlog-row summary { grid-template-columns:82px 1fr 18px; gap:12px; } .status-pill { grid-column:2; justify-self:start; } .chevron { grid-column:3; grid-row:1; } .item-detail { padding:0 22px 22px 114px; } }
-    @media (max-width:570px) { header { padding-top:38px; } .wrap { width:min(100% - 22px,1180px); } .brand img { width:min(196px,70vw); } .counts { grid-template-columns:1fr; } .section-head { display:block; } .section-head p { margin-top:8px; } .toolbar { grid-template-columns:1fr 1fr; } .toolbar input { grid-column:1/-1; } .results { text-align:right; } .backlog-row summary { grid-template-columns:1fr auto 18px; padding:16px; } .item-title { grid-column:1/3; grid-row:2; } .status-pill { grid-column:2; grid-row:1; } .item-detail { padding:0 16px 20px; } footer .wrap { display:block; } }
+    @media (max-width:850px) { .counts { grid-template-columns:repeat(2,1fr); } .toolbar { grid-template-columns:1fr 1fr 1fr; } .toolbar input { grid-column:1/-1; } .backlog-row summary { grid-template-columns:82px 1fr auto 18px; gap:12px; } .priority-pill { grid-column:3; } .status-pill { grid-column:2; justify-self:start; } .chevron { grid-column:4; grid-row:1; } .item-detail { padding:0 22px 22px 114px; } }
+    @media (max-width:570px) { header { padding-top:38px; } .wrap { width:min(100% - 22px,1180px); } .brand img { width:min(196px,70vw); } .counts { grid-template-columns:1fr; } .section-head { display:block; } .section-head p { margin-top:8px; } .toolbar { grid-template-columns:1fr 1fr; } .toolbar input { grid-column:1/-1; } .results { text-align:right; } .backlog-row summary { grid-template-columns:1fr auto auto 18px; padding:16px; } .item-title { grid-column:1/5; grid-row:2; } .priority-pill { grid-column:2; grid-row:1; } .status-pill { grid-column:3; grid-row:1; } .chevron { grid-column:4; grid-row:1; } .item-detail { padding:0 16px 20px; } footer .wrap { display:block; } }
     @media (prefers-reduced-motion:reduce) { html { scroll-behavior:auto; } }
   </style>
 </head>
@@ -253,6 +268,7 @@ const html = `<!doctype html>
       <div class="toolbar">
         <input id="search" type="search" placeholder="Search BW-44, dashboard…" aria-label="Search backlog">
         <select id="stage-filter" aria-label="Filter by stage"><option value="">All stages</option>${stages.map((stage) => `<option value="${stage.number}">Stage ${stage.number}: ${escapeHtml(stage.name)}</option>`).join("")}</select>
+        <select id="priority-filter" aria-label="Filter by priority"><option value="">All priorities</option>${Object.entries(priorityMeta).map(([key,meta])=>`<option value="${key.toLowerCase()}">${key} · ${escapeHtml(meta.summary)}</option>`).join("")}</select>
         <span class="results" id="results">${items.length} items</span>
       </div>
       <div class="backlog-list" id="backlog-list">${itemRows}</div>
@@ -263,13 +279,14 @@ const html = `<!doctype html>
     const rows=[...document.querySelectorAll('.backlog-row')];
     const search=document.querySelector('#search');
     const stage=document.querySelector('#stage-filter');
+    const priority=document.querySelector('#priority-filter');
     const results=document.querySelector('#results');
     const buttons=[...document.querySelectorAll('[data-filter]')];
     let activeStatus='';
     function openLinkedItem(){
       const row=rows.find(row=>'#'+row.id===location.hash.toLowerCase());
       if(!row) return;
-      search.value=''; stage.value=''; activeStatus='';
+      search.value=''; stage.value=''; priority.value=''; activeStatus='';
       for(const button of buttons) button.setAttribute('aria-pressed','false');
       applyFilters(); row.open=true; row.scrollIntoView();
     }
@@ -278,7 +295,7 @@ const html = `<!doctype html>
       let shown=0;
       for(const row of rows){
         const stages=row.dataset.stage.split(',').map(value=>value.trim());
-        const visible=(!query||row.dataset.search.includes(query))&&(!activeStatus||row.dataset.status===activeStatus)&&(!stage.value||stages.includes(stage.value));
+        const visible=(!query||row.dataset.search.includes(query))&&(!activeStatus||row.dataset.status===activeStatus)&&(!stage.value||stages.includes(stage.value))&&(!priority.value||row.dataset.priority===priority.value);
         row.hidden=!visible;
         if(visible) shown++;
       }
@@ -286,6 +303,7 @@ const html = `<!doctype html>
     }
     search.addEventListener('input',applyFilters);
     stage.addEventListener('change',applyFilters);
+    priority.addEventListener('change',applyFilters);
     for(const button of buttons) button.addEventListener('click',()=>{
       activeStatus=activeStatus===button.dataset.filter?'':button.dataset.filter;
       for(const other of buttons) other.setAttribute('aria-pressed',String(other.dataset.filter===activeStatus));

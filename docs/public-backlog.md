@@ -7,7 +7,11 @@
 row, then writes a static site to the ignored `public-backlog-dist/` directory.
 It publishes stage, ID, title, colour status, explicit BW dependencies and a
 reviewed short description from `docs/public-backlog-descriptions.json`. Each
-item is a native keyboard-accessible disclosure. All items must have a public
+item is a native keyboard-accessible disclosure. Every item also receives a
+current delivery priority: **P1** for active or immediate-path work, **P2** for
+important queued or externally blocked work, and **P3** for completed history
+or deliberately later scope. Priority is independent of status and can be
+filtered alongside stage and status. All items must have a public
 description; missing or orphan descriptions fail the build. Internal notes are
 never used to generate public prose. Dependency chips resolve the referenced
 item's current status, use the same status colour as the tracker and expose the
