@@ -6,13 +6,13 @@ BW-50 prepares a public kind-1 Nostr announcement only after BitcoinWalk can ver
 
 - City search supplies the country code and the organizer signs it into the city record. Editing the city name after selection clears that evidence until a search result is selected again.
 - The first walk uses the timezone derived locally from its approved coordinates, never the phone timezone.
-- After the activation checklist finishes with every item green or not applicable, the approval modal renders the complete post and offers **Sign and announce** or **Skip announcement**. City approval never signs or publishes an announcement by itself.
+- After the activation checklist finishes with every item green or not applicable, the approval modal renders an editable post and offers **Sign and announce** or **Skip announcement**. The super-admin may rewrite the copy, while the canonical event link remains required. City approval never signs or publishes an announcement by itself.
 - Skipping closes the approval journey without changing the accepted city. The same candidate remains available under **New-city announcements** for later review or interrupted-delivery recovery.
 - `NEXT_PUBLIC_ANNOUNCEMENT_RELAYS` has no default. `NEXT_PUBLIC_ANNOUNCEMENT_NOT_BEFORE` must also be a ten-digit Unix timestamp. Without both, review remains visible and publishing is disabled.
 - The rollout cutoff excludes approvals created before activation, preventing a historical-city announcement flood.
 - The event binds the exact city revision, approval and first-walk IDs, country, city ID and canonical production URL.
 - Before signing, the app checks configured relays for an existing super-admin announcement for that city. An existing event suppresses another post.
-- After signing, the exact event is retained in origin-scoped browser storage until every configured relay acknowledges it and returns the same verified event ID. Partial success names the failed relays and retry reuses the original signature.
+- After signing, the editor locks and the exact customized event is retained in origin-scoped browser storage until every configured relay acknowledges it and returns the same verified event ID. Partial success names the failed relays and retry reuses the original signature and edited copy.
 
 ## Staging acceptance
 

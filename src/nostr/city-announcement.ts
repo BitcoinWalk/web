@@ -8,6 +8,7 @@ export const CITY_ANNOUNCEMENT_KIND=1;
 export const CITY_ANNOUNCEMENT_MARKER="new-city-announcement-v1";
 
 export type CityAnnouncementCandidate={walk:CalendarWalk;event:Event;countryCode:string;url:string;content:string};
+export const CITY_ANNOUNCEMENT_CONTENT_LIMIT=2000;
 
 function one(event:Event,name:string){const rows=event.tags.filter(tag=>tag[0]===name&&tag.length===2);return rows.length===1?rows[0][1]:null;}
 function reference(event:Event,marker:string){const rows=event.tags.filter(tag=>tag[0]==="e"&&tag.length===4&&tag[2]===""&&tag[3]===marker);return rows.length===1?rows[0][1]:null;}
@@ -26,17 +27,27 @@ export function cityAnnouncementCandidate(walk:CalendarWalk,event:Event,relays:s
  return {walk,event,countryCode,url,content:`New chapter of BitcoinWalk starting in ${city.cityName}! ${countryFlag(countryCode)} You are welcome to join us on ${day} ${dateLabel} ${time}. Bring a friend.\n\n${url}`};
 }
 
-export function createCityAnnouncement(candidate:CityAnnouncementCandidate,createdAt=Math.floor(Date.now()/1000)):EventTemplate{
- const {walk,event,content,url,countryCode}=candidate,city=walk.revision.city;
- return {kind:CITY_ANNOUNCEMENT_KIND,created_at:createdAt,content,tags:[
+export function announcementContentError(content:string,candidate:CityAnnouncementCandidate):string|null{
+ const message=content.trim();
+ if(!message)return "Write an announcement message before signing.";
+ if(message.length>CITY_ANNOUNCEMENT_CONTENT_LIMIT)return `Keep the announcement under ${CITY_ANNOUNCEMENT_CONTENT_LIMIT} characters.`;
+ if(!message.includes(candidate.url))return "Keep the BitcoinWalk event link in the announcement.";
+ return null;
+}
+
+export function createCityAnnouncement(candidate:CityAnnouncementCandidate,createdAt=Math.floor(Date.now()/1000),content=candidate.content):EventTemplate{
+ const message=content.trim(),error=announcementContentError(message,candidate);
+ if(error)throw new Error(error);
+ const {walk,event,url,countryCode}=candidate,city=walk.revision.city;
+ return {kind:CITY_ANNOUNCEMENT_KIND,created_at:createdAt,content:message,tags:[
   ["t","bitcoinwalk"],["t","bitcoinwalk-city"],["bitcoinwalk",CITY_ANNOUNCEMENT_MARKER],["i",city.cityId],["country",countryCode],["r",url],
   ["e",walk.revision.event.id,"","city-revision"],["e",walk.approval.event.id,"","city-approval"],["e",event.id,"","first-walk"],
  ]};
 }
 
-export function matchesCityAnnouncement(event:Event,candidate:CityAnnouncementCandidate):boolean{
+export function matchesCityAnnouncement(event:Event,candidate:CityAnnouncementCandidate,content=candidate.content):boolean{
  if(event.kind!==CITY_ANNOUNCEMENT_KIND||!isSuperAdmin(event.pubkey)||!verifyEvent(event))return false;
- const expected=createCityAnnouncement(candidate,event.created_at),expectedTags=JSON.stringify(expected.tags);
+ const expected=createCityAnnouncement(candidate,event.created_at,content),expectedTags=JSON.stringify(expected.tags);
  return event.content===expected.content&&JSON.stringify(event.tags)===expectedTags&&one(event,"bitcoinwalk")===CITY_ANNOUNCEMENT_MARKER&&reference(event,"first-walk")===candidate.event.id;
 }
 
