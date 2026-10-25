@@ -106,7 +106,7 @@
   "BW-107": "Offer host zaps for eligible Pro cities and BitcoinWalk donations for Basic cities.",
   "BW-108": "Adopt an existing paid-city identity through a verified ownership and recovery transfer.",
   "BW-109": "Provision administrator-approved Lightning addresses that do not use city revenue splits.",
-  "BW-110": "Update meeting locations from coordinates and extend editing with address and landmark search.",
+  "BW-110": "Find an existing walk’s meeting point by address, landmark or pasted coordinates without changing its city ownership.",
   "BW-111": "The accepted durable payment authority supersedes the proposed per-city renewal workflow.",
   "BW-112": "Send bounded Guide reminders to organizers who have no upcoming walk scheduled.",
   "BW-113": "Manage sponsors, approved artwork and walk placements from a clear dashboard.",
