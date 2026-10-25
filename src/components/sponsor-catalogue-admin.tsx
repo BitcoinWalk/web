@@ -4,7 +4,7 @@ import {nip19} from "nostr-tools";
 import {useDashboard} from "./dashboard-context";
 import {AdminButton,AdminFeedback,AdminStatusBadge} from "./admin-ui";
 import {latestSponsorships,sponsorshipKey,type SponsorshipRevision} from "../nostr/sponsorships";
-import {createSponsorCatalogueRevision,sponsorCatalogueEntries,type SponsorCatalogueRevision} from "../nostr/sponsor-catalogue";
+import {createSponsorCatalogueRevision,latestSponsorCatalogueRevisions,sponsorCatalogueEntries,type SponsorCatalogueRevision} from "../nostr/sponsor-catalogue";
 import {watchPublicProfiles,type PublicProfile} from "../nostr/profiles";
 import {getBrowserExtensionPubkey,signWithBrowserExtension,authenticateWithBrowserExtension} from "../nostr/signer";
 import {isSuperAdmin} from "../nostr/authority";
@@ -15,7 +15,7 @@ import styles from "../app/admin/sponsors/sponsors.module.css";
 
 export default function SponsorCatalogueAdmin({assignments,catalogue,onPublished}:{assignments:SponsorshipRevision[];catalogue:SponsorCatalogueRevision[];onPublished:()=>Promise<void>}){
  const dashboard=useDashboard(),lock=useRef(false),[profiles,setProfiles]=useState<Record<string,PublicProfile>>({}),[busy,setBusy]=useState(""),[message,setMessage]=useState("");
- const entries=sponsorCatalogueEntries(catalogue),entryKeys=new Set(entries.map(row=>row.pubkey));
+ const entries=sponsorCatalogueEntries(catalogue),withdrawnKeys=new Set(latestSponsorCatalogueRevisions(catalogue).filter(row=>row.record.recordType==="claim"&&row.record.state==="withdrawn").map(row=>row.record.sponsorPubkey)),entryKeys=new Set([...entries.map(row=>row.pubkey),...withdrawnKeys]);
  const candidates=latestSponsorships(assignments).filter(row=>row.sponsorship.mode==="sponsor"&&row.sponsorship.sponsorPubkey&&row.sponsorship.logoHash&&!entryKeys.has(row.sponsorship.sponsorPubkey)).map(row=>({row,pubkey:row.sponsorship.sponsorPubkey!,logoHash:row.sponsorship.logoHash!,website:row.sponsorship.website??"",cityId:row.sponsorship.scope.cityId,scopeKey:sponsorshipKey(row.sponsorship.scope)})).filter((row,index,all)=>all.findIndex(item=>item.pubkey===row.pubkey)===index);
  const keys=[...new Set([...entries.map(row=>row.pubkey),...candidates.map(row=>row.pubkey)])].sort().join(",");
  useEffect(()=>{if(!keys)return;return watchPublicProfiles(keys.split(","),(key,profile)=>setProfiles(old=>({...old,[key]:profile})));},[keys]);
