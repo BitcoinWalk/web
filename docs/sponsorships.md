@@ -52,6 +52,27 @@ slot rather than silently falling back to a different advertiser. The global
 **Sponsor Invite** feature flag is fail closed: missing, unreadable or disabled
 state hides every module without deleting assignments.
 
+## Reusable sponsor catalogue
+
+Reusable sponsor identities and approved artwork are independent kind-30313
+records in the `bitcoinwalk-sponsor-catalogue` namespace. Sponsors may sign a
+claim for their own npub. A catalogue approval is a separate super-admin-signed
+record that names the sponsor, approved safe HTTPS website, exact logo hash and
+its source evidence.
+
+The first migration path is additive: it references an exact retained kind-30311
+assignment and the relay verifies its signer, sponsor npub, website, city/scope
+and approved logo hash before accepting the catalogue approval. It does not
+rewrite checkout, payment, upload, assignment or live-placement history.
+TeamToxic is the first intended migration because its signed npub and approved
+uploaded logo already exist.
+
+Choosing a reusable sponsor still creates a new signed assignment for the target
+city or walk; catalogue membership alone never places or publishes a sponsor. A
+contact click, invoice, upload or private checkout draft is not catalogue
+approval. Sponsor self-service withdrawal, manual pending intake and independent
+replacement-artwork approval remain later BW-91 slices.
+
 ## Resolution
 
 1. Global flag off: hidden.
