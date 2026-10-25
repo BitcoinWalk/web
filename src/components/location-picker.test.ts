@@ -4,9 +4,11 @@ import {describe,expect,it} from "vitest";
 const source=readFileSync("src/components/location-picker.tsx","utf8");
 
 describe("existing-city meeting-point finder",()=>{
- it("keeps the city locked while offering an independent address and landmark search",()=>{
-  expect(source).toContain('readOnly={cityLocked}');
-  expect(source).toContain('cityLocked&&<MeetingPointSearch');
+ it("shows one Location field while keeping the signed city out of the editable control",()=>{
+  expect(source).toContain('cityLocked?<MeetingPointSearch');
+  expect(source).toContain('<label>Location');
+  expect(source).not.toContain('Find an address or landmark');
+  expect(source).not.toContain('readOnly={cityLocked}');
   const chooser=source.slice(source.indexOf("function chooseMeetingPoint"),source.indexOf("const searchCity"));
   expect(chooser).toContain("setViewTarget");expect(chooser).toContain("onChange");expect(chooser).not.toContain("onCityNameChange");
  });
