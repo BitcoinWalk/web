@@ -23,6 +23,10 @@ export function createSponsorCatalogueRevision(input:SponsorCatalogueRecordInput
  const record=sponsorCatalogueRecordSchema.parse(input),state=marker(record);
  return {kind:SPONSOR_CATALOGUE_KIND,created_at:Math.floor(Date.now()/1000),content:JSON.stringify(record),tags:[["d",`${SPONSOR_CATALOGUE_ID}:${record.recordType}:${record.sponsorPubkey}:${crypto.randomUUID()}`],["i",SPONSOR_CATALOGUE_ID],["p",record.sponsorPubkey],["record",record.recordType],["state",state],["client","bitcoinwalk.org"],...(record.previousRevisionId?[["e",record.previousRevisionId,"","previous"]]:[]),...(record.recordType==="approval"?[["e",record.sourceEventId,"","source"]]:[])]};
 }
+export function assertExactSponsorCatalogueClaimSigned(signed:Event,template:EventTemplate,sponsorPubkey:string){
+ if(signed.pubkey!==sponsorPubkey||!verifyEvent(signed)||signed.kind!==template.kind||signed.created_at!==template.created_at||signed.content!==template.content||JSON.stringify(signed.tags)!==JSON.stringify(template.tags))throw new Error("Signer returned a different identity or event. Nothing published.");
+ const revision=parseSponsorCatalogueRevision(signed);if(!revision||revision.record.recordType!=="claim"||revision.record.sponsorPubkey!==sponsorPubkey)throw new Error("Signer returned a different identity or event. Nothing published.");
+}
 export function latestSponsorCatalogueRevisions(rows:SponsorCatalogueRevision[]){
  const latest=new Map<string,SponsorCatalogueRevision>();for(const row of [...rows].sort((a,b)=>compareEvents(a.event,b.event))){const key=`${row.record.recordType}:${row.record.sponsorPubkey}`;if(!latest.has(key))latest.set(key,row);}return [...latest.values()];
 }
