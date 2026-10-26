@@ -23,7 +23,8 @@ import {hostedWalkCount,loadDashboardMenuCounts,resolveDashboardMenuCounts,retai
 import {creatorSubmissions} from "../domain/creator-submissions";
 import {cityOwnerPubkey} from "../domain/city";
 import AdminDataStatus,{type AdminDataHealth} from "./admin-data-status";
-import {useTheme} from "../design-system/theme-provider";
+
+const dashboardLogo="/brand/bitcoinwalk-horizontal-white.png";
 
 export function DashboardDataHealth({chat,health,busy,onRetry}:{chat:boolean;health:AdminDataHealth;busy:boolean;onRetry:()=>void}){
  if(chat&&health.state==="ready")return null;
@@ -31,8 +32,6 @@ export function DashboardDataHealth({chat,health,busy,onRetry}:{chat:boolean;hea
 }
 
 export function DashboardBrand({open,onToggle}:{open:boolean;onToggle:()=>void}){
- const {theme}=useTheme();
- const dashboardLogo=theme==="dark"?"/brand/bitcoinwalk-horizontal-white.png":"/brand/bitcoinwalk-horizontal.png";
  return <div className={styles.brandRow}>
   <Link href="/admin" className={styles.brand} aria-label="BitcoinWalk dashboard"><Image src={dashboardLogo} width={2000} height={368} priority alt="BitcoinWalk"/></Link>
   <button type="button" className={styles.mobileBrand} onClick={onToggle} aria-label={open?"Close dashboard menu":"Open dashboard menu"} aria-expanded={open} aria-controls="dashboard-navigation">

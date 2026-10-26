@@ -1,0 +1,39 @@
+.legacy-admin {
+  color-scheme: light;
+  min-height: 100vh;
+  background: #f5f6f7;
+  color: #20252b;
+  font-family: Arial, sans-serif;
+  --bw-font-body: Arial, sans-serif;
+  --bw-font-heading: Arial, sans-serif;
+  --bw-color-background: #f5f6f7;
+  --bw-color-text: #20252b;
+  --bw-color-secondary: #444;
+  --bw-color-muted: #666;
+  --bw-color-surface: #fff;
+  --bw-color-surface-warm: #fff;
+  --bw-color-border: #aeb6bf;
+  --bw-color-focus: #b85c00;
+  --bw-color-success: #278349;
+  --bw-color-error: #aa2020;
+  --bw-color-accent-text: #894600;
+  --bw-radius-control: 5px;
+  --bw-radius-panel: 8px;
+  --bw-panel-shadow: none;
+  --bw-control-shadow: none;
+  --bw-panel-texture: none;
+  --bw-button-texture: none;
+}
+
+.legacy-admin :is(h1, h2, h3) {
+  font-family: Arial, sans-serif;
+}
+
+.legacy-admin :is(input, select, textarea, button) {
+  border-radius: 5px;
+  box-shadow: none;
+}
+
+.legacy-admin :focus-visible {
+  outline-color: #b85c00;
+}

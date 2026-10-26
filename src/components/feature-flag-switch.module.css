@@ -16,7 +16,7 @@
 
 .switch:focus-visible {
   border-radius: 0.45rem;
-  outline: 3px solid var(--bw-color-focus);
+  outline: 3px solid #e6358e;
   outline-offset: 3px;
 }
 
@@ -26,8 +26,8 @@
 }
 
 .track {
-  background: var(--bw-color-text);
-  border: 2px solid var(--bw-color-text);
+  background: #737373;
+  border: 2px solid #737373;
   border-radius: 999px;
   display: inline-block;
   height: 1.75rem;
@@ -37,7 +37,7 @@
 }
 
 .track::after {
-  background: var(--bw-color-surface);
+  background: #fff;
   border-radius: 50%;
   content: "";
   height: 1.25rem;
@@ -49,8 +49,8 @@
 }
 
 .switch[data-checked="true"] .track {
-  background: var(--bw-color-success);
-  border-color: var(--bw-color-success);
+  background: #18794e;
+  border-color: #18794e;
 }
 
 .switch[data-checked="true"] .track::after {
