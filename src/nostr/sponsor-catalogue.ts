@@ -15,6 +15,7 @@ export function parseSponsorCatalogueRevision(event:Event):SponsorCatalogueRevis
   if(!exact||one(event,"d")?.startsWith(`${SPONSOR_CATALOGUE_ID}:${record.recordType}:${record.sponsorPubkey}:`)!==true||one(event,"i")!==SPONSOR_CATALOGUE_ID||one(event,"p")!==record.sponsorPubkey||one(event,"record")!==record.recordType||one(event,"state")!==marker(record)||one(event,"client")!=="bitcoinwalk.org")return null;
   if(previous.length!==(record.previousRevisionId?1:0)||record.previousRevisionId&&previous[0][1]!==record.previousRevisionId)return null;
   if(record.recordType==="claim"&&(event.pubkey!==record.sponsorPubkey||source.length))return null;
+  if(record.recordType==="intake"&&(!isSuperAdmin(event.pubkey)||source.length))return null;
   if(record.recordType==="approval"&&(!isSuperAdmin(event.pubkey)||source.length!==1||source[0][1]!==record.sourceEventId))return null;
   return {event,record};
  }catch{return null;}
