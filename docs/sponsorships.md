@@ -70,8 +70,13 @@ uploaded logo already exist.
 Choosing a reusable sponsor still creates a new signed assignment for the target
 city or walk; catalogue membership alone never places or publishes a sponsor. A
 contact click, invoice, upload or private checkout draft is not catalogue
-approval. Sponsor self-service withdrawal, manual pending intake and independent
-replacement-artwork approval remain later BW-91 slices.
+approval. A manual super-admin intake record is explicitly `pending`: it can
+prepare the sponsor for follow-up but grants no catalogue or placement authority.
+The sponsor must still sign an active claim, and a super-admin must separately
+review and sign the exact normalized artwork hash. Replacing reusable artwork
+creates an approval successor bound to the current claim and prior approval;
+existing signed sponsorship assignments and their historical artwork hashes are
+not rewritten.
 
 ## Resolution
 

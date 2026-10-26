@@ -15,6 +15,7 @@ export function parseSponsorCatalogueRevision(event:Event):SponsorCatalogueRevis
   if(!exact||one(event,"d")?.startsWith(`${SPONSOR_CATALOGUE_ID}:${record.recordType}:${record.sponsorPubkey}:`)!==true||one(event,"i")!==SPONSOR_CATALOGUE_ID||one(event,"p")!==record.sponsorPubkey||one(event,"record")!==record.recordType||one(event,"state")!==marker(record)||one(event,"client")!=="bitcoinwalk.org")return null;
   if(previous.length!==(record.previousRevisionId?1:0)||record.previousRevisionId&&previous[0][1]!==record.previousRevisionId)return null;
   if(record.recordType==="claim"&&(event.pubkey!==record.sponsorPubkey||source.length))return null;
+  if(record.recordType==="intake"&&(!isSuperAdmin(event.pubkey)||source.length))return null;
   if(record.recordType==="approval"&&(!isSuperAdmin(event.pubkey)||source.length!==1||source[0][1]!==record.sourceEventId))return null;
   return {event,record};
  }catch{return null;}
@@ -23,10 +24,16 @@ export function createSponsorCatalogueRevision(input:SponsorCatalogueRecordInput
  const record=sponsorCatalogueRecordSchema.parse(input),state=marker(record);
  return {kind:SPONSOR_CATALOGUE_KIND,created_at:Math.floor(Date.now()/1000),content:JSON.stringify(record),tags:[["d",`${SPONSOR_CATALOGUE_ID}:${record.recordType}:${record.sponsorPubkey}:${crypto.randomUUID()}`],["i",SPONSOR_CATALOGUE_ID],["p",record.sponsorPubkey],["record",record.recordType],["state",state],["client","bitcoinwalk.org"],...(record.previousRevisionId?[["e",record.previousRevisionId,"","previous"]]:[]),...(record.recordType==="approval"?[["e",record.sourceEventId,"","source"]]:[])]};
 }
+export function assertExactSponsorCatalogueClaimSigned(signed:Event,template:EventTemplate,sponsorPubkey:string){
+ if(signed.pubkey!==sponsorPubkey||!verifyEvent(signed)||signed.kind!==template.kind||signed.created_at!==template.created_at||signed.content!==template.content||JSON.stringify(signed.tags)!==JSON.stringify(template.tags))throw new Error("Signer returned a different identity or event. Nothing published.");
+ const revision=parseSponsorCatalogueRevision(signed);if(!revision||revision.record.recordType!=="claim"||revision.record.sponsorPubkey!==sponsorPubkey)throw new Error("Signer returned a different identity or event. Nothing published.");
+}
 export function latestSponsorCatalogueRevisions(rows:SponsorCatalogueRevision[]){
  const latest=new Map<string,SponsorCatalogueRevision>();for(const row of [...rows].sort((a,b)=>compareEvents(a.event,b.event))){const key=`${row.record.recordType}:${row.record.sponsorPubkey}`;if(!latest.has(key))latest.set(key,row);}return [...latest.values()];
 }
+export function latestSponsorCatalogueClaim(rows:SponsorCatalogueRevision[],pubkey:string){return latestSponsorCatalogueRevisions(rows).find(row=>row.record.recordType==="claim"&&row.record.sponsorPubkey===pubkey)??null;}
 export function sponsorCatalogueEntries(rows:SponsorCatalogueRevision[]):SponsorCatalogueEntry[]{
- return latestSponsorCatalogueRevisions(rows).filter(row=>row.record.recordType==="approval"&&row.record.status==="approved").map(row=>{const value=row.record as Extract<SponsorCatalogueRecord,{recordType:"approval"}>;return {pubkey:value.sponsorPubkey,displayName:value.displayName,website:value.website??"",logoHash:value.logoHash,cityId:value.sourceCityId,scopeKey:value.sourceScopeKey,approvalEventId:row.event.id,source:value.source};}).sort((a,b)=>a.displayName.localeCompare(b.displayName)||a.pubkey.localeCompare(b.pubkey));
+ const latest=latestSponsorCatalogueRevisions(rows),withdrawn=new Set(latest.filter(row=>row.record.recordType==="claim"&&row.record.state==="withdrawn").map(row=>row.record.sponsorPubkey));
+ return latest.filter(row=>row.record.recordType==="approval"&&row.record.status==="approved"&&!withdrawn.has(row.record.sponsorPubkey)).map(row=>{const value=row.record as Extract<SponsorCatalogueRecord,{recordType:"approval"}>;return {pubkey:value.sponsorPubkey,displayName:value.displayName,website:value.website??"",logoHash:value.logoHash,cityId:value.sourceCityId,scopeKey:value.sourceScopeKey,approvalEventId:row.event.id,source:value.source};}).sort((a,b)=>a.displayName.localeCompare(b.displayName)||a.pubkey.localeCompare(b.pubkey));
 }
 export async function querySponsorCatalogue(relays:string[]):Promise<SponsorCatalogueRevision[]>{const events=await queryRelayEvents(relays,[SPONSOR_CATALOGUE_KIND],undefined,{"#i":[SPONSOR_CATALOGUE_ID],limit:500});return events.map(parseSponsorCatalogueRevision).filter((row):row is SponsorCatalogueRevision=>row!==null);}
