@@ -1,4 +1,6 @@
 import {renderToStaticMarkup} from "react-dom/server";
+// Layout/content tests isolate the provider-bound public navigation.
+vi.mock("../../components/site-navigation",()=>({default:()=>null}));
 import {beforeEach,describe,expect,it,vi} from "vitest";
 import type {CalendarSource} from "../../nostr/calendar-records";
 
@@ -42,7 +44,7 @@ describe("all approved city pages use the current layout",()=>{
   it("keeps the same layout on the website without app-only styling",async()=>{
     mocks.cities.mockResolvedValue([source("Austin")]);
     const html=renderToStaticMarkup(await CityPage({params:Promise.resolve({city:"austin"}),searchParams:Promise.resolve({})}));
-    expect(html).toMatch(/<main class="[^"]*page[^"]* ">/);
+    expect(html).toMatch(/<main class="[^"]*page[^"]*withNavigation[^"]*">/);
     expect(html).toContain("Browse BitcoinWalks");
   });
   it("preserves an app's selected city when following its canonical alias",async()=>{

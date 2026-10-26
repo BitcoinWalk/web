@@ -1,10 +1,10 @@
 .wrapper{display:block;width:fit-content;max-width:100%}
 .input{display:none!important}
-.button{display:inline-flex;align-items:center;justify-content:center;gap:9px;min-height:44px;padding:0 16px;border:1px solid #aeb7c0;border-radius:9px;background:#fff;color:#303942;font:inherit;font-size:.9rem;font-weight:750;box-shadow:0 1px 2px rgb(24 32 40/.06);cursor:pointer;-webkit-tap-highlight-color:transparent}
-.button svg{width:18px;height:18px;flex:none;color:#9b5000}
-.button:focus-visible{outline:3px solid rgb(247 147 26/.32);outline-offset:2px}
+.button{display:inline-flex;align-items:center;justify-content:center;gap:9px;min-height:44px;padding:0 16px;border:1px solid var(--bw-color-border);border-radius:9px;background:var(--bw-color-surface);color:var(--bw-color-text);font:inherit;font-size:.9rem;font-weight:750;box-shadow:var(--bw-control-shadow);cursor:pointer;-webkit-tap-highlight-color:transparent}
+.button svg{width:18px;height:18px;flex:none;color:var(--bw-color-accent-text)}
+.button:focus-visible{outline:3px solid color-mix(in srgb, var(--bw-color-brand) 32%, transparent);outline-offset:2px}
 .button:active:not(:disabled){scale:.96;transition:scale 150ms ease-out}
 .button:disabled{cursor:not-allowed;opacity:.58}
-@media(hover:hover){.button:hover:not(:disabled){border-color:#8f99a3;background:#f8f9fa}}
+@media(hover:hover){.button:hover:not(:disabled){border-color:var(--bw-color-text);background:var(--bw-color-surface-warm)}}
 @media(max-width:640px){.wrapper,.button{width:100%}}
 @media(prefers-reduced-motion:reduce){.button:active:not(:disabled){scale:1;transition:opacity 150ms ease-out}}

@@ -1,0 +1,72 @@
+/* Risograph material in BitcoinWalk's /brand palette. Native light-dark()
+   follows the browser preference before JS loads; manual choices only set
+   color-scheme. Hero canvases stay exactly #fafafa / #0a0a0a. */
+:root {
+  color-scheme: light dark;
+  --bw-brand-orange: #f7931a;
+  --bw-brand-ink: #252824;
+  --bw-brand-paper: #f7f0e4;
+  --bw-brand-stone: #62645f;
+  --bw-brand-white: #fff;
+  --bw-color-background: light-dark(#fafafa, #0a0a0a);
+  --bw-color-brand: var(--bw-brand-orange);
+  --bw-color-brand-hover: light-dark(#e88309, #ffa537);
+  --bw-color-on-brand: var(--bw-brand-ink);
+  --bw-color-secondary-button: light-dark(#fafafa, #0a0a0a);
+  --bw-color-on-secondary-button: light-dark(#0a0a0a, #fafafa);
+  --bw-color-accent-text: light-dark(#874100, #ffb45a);
+  --bw-color-text: light-dark(var(--bw-brand-ink), var(--bw-brand-paper));
+  --bw-color-secondary: light-dark(#444740, #d5d5d0);
+  --bw-color-muted: light-dark(var(--bw-brand-stone), #b5b7b1);
+  --bw-color-surface: light-dark(var(--bw-brand-white), #171916);
+  --bw-color-surface-warm: light-dark(var(--bw-brand-paper), #252824);
+  --bw-color-border: light-dark(#8c8e88, #62645f);
+  --bw-color-focus: light-dark(#62645f, #aaa);
+  --bw-color-success: light-dark(#267044, #8bd9a6);
+  --bw-color-error: light-dark(#b42318, #ffb4ab);
+  --bw-color-action-edge: light-dark(#a95100, #f7931a);
+  --bw-action-gradient: linear-gradient(#f7931a, #f7931a);
+  --bw-panel-shadow: 4px 4px 0 light-dark(rgb(247 147 26 / 35%), rgb(247 147 26 / 28%));
+  --bw-control-shadow: 2px 2px 0 light-dark(rgb(37 40 36 / 30%), rgb(247 147 26 / 40%));
+  --bw-panel-texture: radial-gradient(light-dark(rgb(37 40 36 / 5%), rgb(247 240 228 / 5%)) .6px, transparent .8px);
+  --bw-button-texture: radial-gradient(rgb(37 40 36 / 12%) .6px, transparent .8px);
+  --bw-texture-size: 5px 5px;
+  --bw-font-body: 'Outfit', Arial, sans-serif;
+  --bw-font-heading: 'Syne', Arial, sans-serif;
+  --bw-font-numeric: Arial, sans-serif;
+  --bw-font-size-small: .875rem;
+  --bw-font-size-body: 1rem;
+  --bw-font-size-title: clamp(1.5rem, 4vw, 2rem);
+  --bw-font-weight-strong: 700;
+  --bw-line-height-body: 1.5;
+  --bw-space-1: .25rem;
+  --bw-space-2: .5rem;
+  --bw-space-3: .75rem;
+  --bw-space-4: 1rem;
+  --bw-space-6: 1.5rem;
+  --bw-space-8: 2rem;
+  --bw-radius-control: 0px;
+  --bw-radius-panel: 0px;
+  --bw-border-width: 1px;
+  --bw-control-height: 3rem;
+  --bw-field-height: 3.5rem;
+  --bw-button-padding-inline: 1.25rem;
+  --bw-button-min-width: 8rem;
+  --bw-focus-width: 3px;
+  --bw-focus-offset: 3px;
+  --bw-form-width: 40rem;
+  --bw-panel-padding: clamp(1rem, 4vw, 2rem);
+  --bw-progress-height: 6.5rem;
+  --bw-layer-progress: 40;
+  --bw-page-gutter: clamp(40px, 6vw, 128px);
+  --bw-header-height: 74px;
+  font-family: var(--bw-font-body);
+}
+:root[data-bw-theme='light'] { color-scheme: light; }
+:root[data-bw-theme='dark'] { color-scheme: dark; }
+h1, h2, h3 { font-family: var(--bw-font-heading); }
+time, input[type=number], input[type=date], input[type=time] { font-family: var(--bw-font-numeric); }
+@media (max-width: 1100px) {
+  :root { --bw-page-gutter: 16px; --bw-header-height: 68px; }
+}
+/* Prototype controls are desktop-only; never reserve mobile form space. */

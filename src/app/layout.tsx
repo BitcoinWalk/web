@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import "./styles.css";
+import ThemeProvider from "../design-system/theme-provider";
+import {themeInitScript} from "../design-system/theme-preference";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://bitcoinwalk.org"),
@@ -15,8 +17,9 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: Readonly<{ children: ReactNode }>) {
   return (
-    <html lang="en">
-      <body>{children}</body>
+    <html lang="en" data-bw-theme="system" suppressHydrationWarning>
+      <head><script dangerouslySetInnerHTML={{__html:themeInitScript}}/></head>
+      <body><ThemeProvider>{children}</ThemeProvider></body>
     </html>
   );
 }

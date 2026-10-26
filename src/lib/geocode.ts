@@ -1,3 +1,4 @@
+
 export type CitySearchResult={name:string;cityName:string;latitude:number;longitude:number;countryCode?:string};
 export type PlaceSearchResult={name:string;latitude:number;longitude:number;countryCode?:string};
 type Result={status:number;results:CitySearchResult[];error?:string};

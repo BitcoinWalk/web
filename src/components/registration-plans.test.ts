@@ -4,6 +4,11 @@ import {describe,expect,it,vi} from "vitest";
 import RegistrationPlans,{registrationActionLabel} from "./registration-plans";
 
 describe("RegistrationPlans",()=>{
+  it("shows unavailable Pro for development review without enabling selection",()=>{
+    const html=renderToStaticMarkup(createElement(RegistrationPlans,{value:"free",onChange:vi.fn(),disabled:false,paidEnabled:false,showUnavailable:true}));
+    expect(html).toMatch(/<input[^>]*disabled=""[^>]*value="paid"/);
+    expect(html).toContain("Basic and Pro benefits");
+  });
   it("uses Submit for Basic and Next for Pro",()=>{
     expect(registrationActionLabel("free",false)).toBe("Submit");
     expect(registrationActionLabel("paid",false)).toBe("Next");

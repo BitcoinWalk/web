@@ -14,6 +14,7 @@ export {useDashboard} from "./dashboard-context";
 import {relayConfig} from "../lib/relay-config";
 import NostrUser from "./nostr-user";
 import OrganizerIdentity from "./organizer-identity";
+import SiteNavigation from "./site-navigation";
 import {activeSignerIdentity,disconnectSignerSession} from "../nostr/signer-session";
 import styles from "./dashboard-shell.module.css";
 import DashboardAccountMenu from "./dashboard-account-menu";
@@ -22,8 +23,7 @@ import {hostedWalkCount,loadDashboardMenuCounts,resolveDashboardMenuCounts,retai
 import {creatorSubmissions} from "../domain/creator-submissions";
 import {cityOwnerPubkey} from "../domain/city";
 import AdminDataStatus,{type AdminDataHealth} from "./admin-data-status";
-
-const dashboardLogo="/brand/bitcoinwalk-horizontal-white.png";
+import {useTheme} from "../design-system/theme-provider";
 
 export function DashboardDataHealth({chat,health,busy,onRetry}:{chat:boolean;health:AdminDataHealth;busy:boolean;onRetry:()=>void}){
  if(chat&&health.state==="ready")return null;
@@ -31,6 +31,8 @@ export function DashboardDataHealth({chat,health,busy,onRetry}:{chat:boolean;hea
 }
 
 export function DashboardBrand({open,onToggle}:{open:boolean;onToggle:()=>void}){
+ const {theme}=useTheme();
+ const dashboardLogo=theme==="dark"?"/brand/bitcoinwalk-horizontal-white.png":"/brand/bitcoinwalk-horizontal.png";
  return <div className={styles.brandRow}>
   <Link href="/admin" className={styles.brand} aria-label="BitcoinWalk dashboard"><Image src={dashboardLogo} width={2000} height={368} priority alt="BitcoinWalk"/></Link>
   <button type="button" className={styles.mobileBrand} onClick={onToggle} aria-label={open?"Close dashboard menu":"Open dashboard menu"} aria-expanded={open} aria-controls="dashboard-navigation">
@@ -87,7 +89,7 @@ export default function DashboardShell({children}:{children:ReactNode}){
  useEffect(()=>()=>setDashboardSigningIdentity(null),[]);
  useEffect(()=>{const update=(event:Event)=>{const detail=pendingRequestCountFromEvent(event);if(!detail)return;setPendingCounts(current=>detail.source==="cities"?{...current,cities:detail.count}:{...current,proActivations:detail.count});};window.addEventListener(pendingRequestCountEvent,update);return()=>window.removeEventListener(pendingRequestCountEvent,update);},[]);
  useEffect(()=>{const refresh=()=>{if(session.pubkey)void loadDashboardMenuCounts(relayConfig.readRelays,session.pubkey,session.role).then(next=>setMenuCounts(current=>retainKnownDashboardMenuCounts(current,next)));};window.addEventListener(dashboardMenuRefreshEvent,refresh);return()=>window.removeEventListener(dashboardMenuRefreshEvent,refresh);},[session.pubkey,session.role]);
- if(!session.pubkey){const chatEntry=path==="/admin/chat";return <DashboardContext.Provider value={session}><main className={styles.entry} data-hide-site-footer><OrganizerIdentity disabled={busy} heading={chatEntry?"Open Walkie Talkie":"Your account"} intro={chatEntry?"Connect your Nostr account to continue to the requested conversation.":"Create a new Nostr identity, or connect one you already use."} onIdentityChange={accountChanged}/>{error&&<p role="alert">{error}</p>}</main></DashboardContext.Provider>;}
+ if(!session.pubkey){const chatEntry=path==="/admin/chat";return <DashboardContext.Provider value={session}><SiteNavigation/><main className={styles.entry} data-hide-site-footer><OrganizerIdentity disabled={busy} heading={chatEntry?"Open Walkie Talkie":"Your Access"} intro={chatEntry?"Connect your Nostr account to continue to the requested conversation.":"Create a new Nostr identity, or connect one you already use."} onIdentityChange={accountChanged}/>{error&&<p role="alert">{error}</p>}</main></DashboardContext.Provider>;}
  const allowed=dashboardAccess(path,session.role)||path==="/admin/calendar";
  const status=busy?"connecting":dataHealth.state==="failed"||dataHealth.state==="stale"?"error":session.pubkey?"connected":"disconnected";
  const pendingCount=combinedPendingRequestCount(pendingCounts);

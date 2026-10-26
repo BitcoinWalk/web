@@ -1,0 +1,10 @@
+.progress {color:var(--bw-color-text);font-family:var(--bw-font-body);}
+.progress p {display:flex;justify-content:space-between;gap:1rem;margin:0 0 .75rem;font-size:.8rem;font-weight:600;}
+.progress p>span {color:var(--bw-color-muted);font-weight:400;}
+.progress ol {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:clamp(.5rem,2vw,1.5rem);align-items:start;padding:0;margin:0;list-style:none;}
+.progress li {position:relative;display:grid;grid-template-columns:2rem minmax(0,1fr);align-items:center;gap:.65rem;min-height:2.5rem;font-size:.85rem;color:var(--bw-color-muted);line-height:1.25;}
+.number {display:grid;place-items:center;flex:none;box-sizing:border-box;width:2rem;height:2rem;border:1px solid var(--bw-color-border);border-radius:2px;background:var(--bw-color-background);font-size:.85rem;font-weight:600;}
+.progress li[aria-current=step] {color:var(--bw-color-text);font-weight:700;}
+.progress li[aria-current=step] .number {background:var(--bw-color-brand);color:var(--bw-color-on-brand);border-color:var(--bw-color-action-edge);box-shadow:none;}
+.progress li[data-complete=true] .number {border-color:var(--bw-color-brand);color:var(--bw-color-text);background:var(--bw-color-surface-warm);}
+@media(max-width:30rem){.progress li{grid-template-columns:1fr;justify-items:center;align-content:start;gap:.5rem;font-size:.72rem;text-align:center;}.number{width:1.75rem;height:1.75rem;}.progress ol{gap:.5rem;}}

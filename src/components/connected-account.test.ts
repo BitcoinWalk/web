@@ -11,7 +11,7 @@ describe("connected account",()=>{
   expect(html).toContain(`data-pubkey="${"a".repeat(64)}"`);
   expect(html).toContain('data-variant="compact"');
   expect(html).toContain('data-lightning="false"');
-  expect(html).not.toContain("Account connected");
+  expect(html).toContain("Account connected");
   expect(html).toContain("Use another account");
  });
  it("prevents account switching while an operation is busy",()=>{

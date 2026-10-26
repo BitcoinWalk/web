@@ -1,3 +1,6 @@
-.connected{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:1rem;text-align:left}
+.connected{display:grid;grid-template-columns:minmax(0,1fr);gap:1.5rem;text-align:left;padding-top:.5rem}
+.status{display:flex;align-items:center;gap:.6rem;margin:0;color:var(--bw-color-muted);font-size:.9rem}
+.status span{display:grid;place-items:center;width:24px;height:24px;color:var(--bw-color-success);border:1px solid currentColor;border-radius:50%;}
+.connected>button{justify-self:start;min-height:44px;}
 .connected>article{background:transparent}
 @media(max-width:36rem){.connected{grid-template-columns:minmax(0,1fr)}.connected>button{width:100%}}
