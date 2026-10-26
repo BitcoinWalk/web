@@ -82,11 +82,11 @@ try{
       throw new Error(`Packaged MapLibre asset failed: ${worker} (HTTP ${response.status})`);
     }
   }
-  for(const [path,label] of [["/admin","Your account"],["/admin/walks","Your account"],["/admin/directory","Your account"],["/admin/hosting","Your account"],["/admin/approvals","Your account"],["/admin/cities","Your account"],["/admin/accept-invitation","Your account"],["/organizer/invitations","Dashboard moved"],["/organizer/events","Dashboard moved"],["/admin/calendar","Your account"]]){
+  for(const [path,label] of [["/admin","Your Access"],["/admin/walks","Your Access"],["/admin/directory","Your Access"],["/admin/hosting","Your Access"],["/admin/approvals","Your Access"],["/admin/cities","Your Access"],["/admin/accept-invitation","Your Access"],["/organizer/invitations","Dashboard moved"],["/organizer/events","Dashboard moved"],["/admin/calendar","Your Access"]]){
     const page=await fetch(`${base}${path}`,{signal:AbortSignal.timeout(5000)});
     if(!page.ok || !(await page.text()).includes(label))throw new Error(`Packaged route failed: ${path}`);
   }
-  for(const [path,label] of [["/sponsor?city=Warszawa","Choose the city and the walk"],["/admin/sponsor","Your account"],["/admin/sponsors","Your account"],["/admin/sponsors/payments","Your account"],["/admin/sponsors/upload","Your account"],["/admin/sponsors/logos","Your account"]]){
+  for(const [path,label] of [["/sponsor?city=Warszawa","Choose the city and the walk"],["/admin/sponsor","Your Access"],["/admin/sponsors","Your Access"],["/admin/sponsors/payments","Your Access"],["/admin/sponsors/upload","Your Access"],["/admin/sponsors/logos","Your Access"]]){
     const page=await fetch(`${base}${path}`,{signal:AbortSignal.timeout(5000)});
     if(!page.ok||!(await page.text()).includes(label))throw new Error(`Sponsor route failed: ${path}`);
   }

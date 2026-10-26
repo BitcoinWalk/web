@@ -1,4 +1,6 @@
 import {renderToStaticMarkup} from "react-dom/server";
+// Public navigation is exercised with the root provider in browser scenarios.
+vi.mock("./site-navigation",()=>({default:()=>null}));
 import {finalizeEvent, nip19} from "nostr-tools";
 import {describe, expect, it, vi} from "vitest";
 vi.mock("../server/public-city-host", () => ({resolvePublicCityHost: vi.fn()}));

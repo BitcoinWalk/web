@@ -7,11 +7,13 @@ import OrganizerIdentity,{validSignerInput} from "./organizer-identity";
 describe("OrganizerIdentity",()=>{
   it("offers the browser extension and one unified private-key or remote-signer path",()=>{
     const html=renderToStaticMarkup(createElement(OrganizerIdentity,{disabled:false,onIdentityChange:vi.fn()}));
-    expect(html).toContain("Connect with browser extension");
+    expect(html).toContain("Sign in with browser extension");
+    expect(html).toContain('role="tab"');
+    expect(html.indexOf(">Sign in</button>")).toBeLessThan(html.indexOf(">Sign up</button>"));
     expect(html).toContain("Private key or signer");
     expect(html).toContain("nsec1… or bunker://…");
-    expect(html).toContain("Recommended on desktop");
-    expect(html).toContain("https://getalby.com/alby-extension");
+    expect(html).toContain("We recommend using Sidecar for secure signing");
+    expect(html).toContain("https://sidecar.top");
     expect(html).toContain("https://github.com/greenart7c3/Amber");
     expect(html).toContain("Amber (Android)");
     expect(html).toContain("https://testflight.apple.com/join/5Mx5AZx7");
@@ -40,9 +42,10 @@ describe("OrganizerIdentity",()=>{
   it("can limit a screen to existing-account connection",()=>{
     const html=renderToStaticMarkup(createElement(OrganizerIdentity,{allowAccountCreation:false,disabled:false,onIdentityChange:vi.fn(),heading:"Connect your BitcoinWalk Host",intro:"Connect an existing identity."}));
     expect(html).toContain("Connect your BitcoinWalk Host");
-    expect(html).toContain("Connect with browser extension");
+    expect(html).toContain("Sign in with browser extension");
     expect(html).toContain("Private key or signer");
-    expect(html).not.toContain("Create new account");
+    expect(html).toContain('>Help</button>');
+    expect(html).not.toContain(">Sign up</button>");
     expect(html).not.toContain("Locally created accounts");
     expect(html).not.toContain("or connect");
   });

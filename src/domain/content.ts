@@ -19,4 +19,4 @@ export const contentPageSchema=z.object({
 });
 export type ContentPage=z.infer<typeof contentPageSchema>;
 
-export const DEFAULT_HOME_PAGE:ContentPage={pageId:HOME_PAGE_ID,slug:"",title:"Good company. One walk at a time.",eyebrow:"Step outside. Meet your local Bitcoin community.",intro:"Find a BitcoinWalk near you. Bring your curiosity, meet fellow Bitcoiners, and take the conversation outside.",body:"",ctaLabel:"Find your walk ↓",ctaHref:"#find-walk",footerTitle:"Your city could be next.",footerText:"Start a local BitcoinWalk and help people connect in person.",footerCtaLabel:"Start a BitcoinWalk →",published:true};
+export const DEFAULT_HOME_PAGE:ContentPage={pageId:HOME_PAGE_ID,slug:"",title:"Good company. One walk at a time.",eyebrow:"Step outside. Meet your local Bitcoin community.",intro:"Find a BitcoinWalk near you. Bring your curiosity, meet fellow Bitcoiners, and take the conversation outside.",body:"",ctaLabel:"Find a walk",ctaHref:"#find-walk",footerTitle:"Your city could be next.",footerText:"Start a local BitcoinWalk and help people connect in person.",footerCtaLabel:"Start a BitcoinWalk →",published:true};

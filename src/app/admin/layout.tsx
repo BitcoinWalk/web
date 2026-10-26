@@ -6,4 +6,6 @@ export const metadata:Metadata={icons:{
   shortcut:"/brand/bitcoinwalk-admin-favicon.png",
   apple:[{url:"/brand/bitcoinwalk-admin-favicon.png",type:"image/png",sizes:"192x192"}],
 }};
-export default function AdminLayout({children}:{children:ReactNode}){return <DashboardShell>{children}</DashboardShell>;}
+export default function AdminLayout({children}:{children:ReactNode}){
+ return <DashboardShell>{children}</DashboardShell>;
+}

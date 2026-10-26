@@ -13,12 +13,13 @@ import {takeRegistrationHandoff,type RegistrationHandoff} from "../../domain/reg
 import styles from "./overview.module.css";
 import AdminDataStatus,{type AdminDataHealth} from "../../components/admin-data-status";
 import OrganizerProNextAction from "../../components/organizer-pro-next-action";
+import ui from "../../design-system/primitives.module.css";
 const WALKIE_TALKIE_DOWNLOAD_URL="https://bitcoinwalk.org/app";
 export default function DashboardOverview(){
  const session=useDashboard();
  const [summary,setSummary]=useState<DashboardSummary|null>(null),[busy,setBusy]=useState(false),[error,setError]=useState("");
  const [handoff,setHandoff]=useState<RegistrationHandoff|null>(null),[submittedCity,setSubmittedCity]=useState("");
- const lock=useRef(false);
+ const lock=useRef(false),handoffRead=useRef(false);
  async function refresh(){
   if(lock.current)return;lock.current=true;setBusy(true);setError("");
   try{if(await getBrowserExtensionPubkey()!==session.pubkey)throw new Error("Signer changed. Reconnect.");
@@ -30,7 +31,7 @@ export default function DashboardOverview(){
  useDashboardAutoLoad(refresh);
  const summaryHealth:AdminDataHealth=busy?{state:"loading",message:summary?"Refreshing the summary while keeping the current figures visible.":"Loading your dashboard summary…",checkedAt:summary?.checkedAt}:error?{state:summary?"stale":"failed",message:summary?`${error} The last checked summary remains visible.`:error,checkedAt:summary?.checkedAt}:summary?Object.values({cities:summary.cities,walks:summary.walks,hosting:summary.hosting,pending:summary.pending}).some(metric=>metric.error)?{state:"partial",message:"Available figures are shown. Unavailable totals are not treated as zero.",checkedAt:summary.checkedAt}:{state:"ready",message:"This summary was checked successfully.",checkedAt:summary.checkedAt}:{state:"loading",message:"Loading your dashboard summary…"};
  function metric(label:string,value:DashboardMetric,href:string){return <article className={styles.metric} key={label}><p>{label}</p><strong>{value.value??"Unavailable"}</strong><p><Link href={href}>Open details →</Link></p>{value.error&&<p role="status">{value.error}</p>}</article>;}
- useEffect(()=>{if(/^#submission-[0-9a-f]{64}$/.test(window.location.hash)){window.location.replace("/admin/requests"+window.location.hash);return;}queueMicrotask(()=>{setHandoff(takeRegistrationHandoff());setSubmittedCity(new URLSearchParams(window.location.search).get("submitted")??"");});},[]);
+ useEffect(()=>{if(/^#submission-[0-9a-f]{64}$/.test(window.location.hash)){window.location.replace("/admin/requests"+window.location.hash);return;}if(handoffRead.current)return;handoffRead.current=true;const incoming=takeRegistrationHandoff();queueMicrotask(()=>{setHandoff(incoming);setSubmittedCity(new URLSearchParams(window.location.search).get("submitted")??"");});},[]);
  const submissions=session.directory?creatorSubmissions(session.pubkey,session.directory.revisions,session.directory.approvals):[],activeSubmissions=submissions.filter(item=>item.status!=="archived"),archivedSubmissions=submissions.filter(item=>item.status==="archived");
  const statusLabel={"awaiting-approval":"Awaiting approval",approved:"Approved","needs-changes":"Awaits change",rejected:"Rejected",archived:"Archived"} as const;
  const capabilities={hostedWalks:session.role==="member"&&session.cities.length>0},copy=dashboardHomeCopy(session.role),actions=dashboardHomeActions(session.role,capabilities),showSubmissions=activeSubmissions.length>0||archivedSubmissions.length>0;
@@ -45,7 +46,7 @@ export default function DashboardOverview(){
    </a>
   </div>
   {session.role==="organizer"&&<OrganizerProNextAction/>}
-  {handoff&&<section role="status"><h2>{handoff.paymentVerified?"Payment received":"City submitted"}</h2><p>{handoff.paymentVerified?`Your Pro payment for BitcoinWalk in ${handoff.cityName} is verified. The city is awaiting approval.`:`BitcoinWalk in ${handoff.cityName} was submitted successfully and is awaiting approval.`}</p></section>}
+  {handoff&&<section role="status"><h2>{handoff.paymentVerified?"Payment received":"City submitted"}</h2><p>{handoff.paymentVerified?`Your Pro payment for BitcoinWalk in ${handoff.cityName} is verified. The city is awaiting approval.`:`BitcoinWalk in ${handoff.cityName} was submitted successfully and is awaiting approval.`}</p><Link className={ui.button} href="/">Go to homepage</Link></section>}
   <nav className={styles.actionGrid} aria-label="Quick actions">{actions.map(action=><Link className={styles.actionCard} key={action.href} href={action.href}><strong>{action.label}</strong><span>{action.description}</span><span aria-hidden="true">Open →</span></Link>)}</nav>
   {showSubmissions&&<section><h2>Your city submissions</h2>{activeSubmissions.map(item=><article key={item.cityId} id={`city-submission-${item.cityId}`} aria-current={item.cityId===submittedCity?"true":undefined}><h3>{item.cityName}</h3><p><strong>{item.tier==="paid"?"Pro requested":"Basic"}</strong> · {statusLabel[item.status]}</p>{item.status==="approved"&&<p><Link href={`/${item.slug}`}>View city page →</Link></p>}{item.status==="needs-changes"&&<p>This submission awaits a host correction before it can be approved. Open <Link href="/admin/my-cities">Cities</Link> to review the feedback and resubmit.</p>}</article>)}{!!archivedSubmissions.length&&<details><summary>Archived cities ({archivedSubmissions.length})</summary><p>Archived cities are read-only and hidden from public and active host views. Contact BitcoinWalk to request restoration.</p>{archivedSubmissions.map(item=><article key={item.cityId}><h3>{item.cityName}</h3><p><strong>{item.tier==="paid"?"Pro requested":"Basic"}</strong> · Archived</p></article>)}</details>}</section>}
   {session.role==="organizer"&&<p>Your city publishing permissions and individual hosting assignments remain separate.</p>}

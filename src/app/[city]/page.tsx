@@ -79,7 +79,7 @@ export default async function CityOrEventPage({params,searchParams}:{params:Prom
   if(outcome.state==="redirect")redirect(`${outcome.href}${embedded?"?view=app":""}`);
   if(outcome.eventHref)redirect(`${outcome.eventHref}${embedded?"?view=app":""}`);
   const profile=outcome.profile.revision.city,point=profile.meetingPoint;
-  return <CityPageLayout cityName={outcome.cityName} titleLogo={outcome.titleLogo} embedded={embedded}
+  return <CityPageLayout heroDescription={profile.description.split(/\n\s*\n/)[0]} cityName={outcome.cityName} titleLogo={outcome.titleLogo} embedded={embedded}
     heroSources={[profile.heroImageUrl,outcome.profile.approval.approval.heroImageUrl]}
     summary={<>
       <div><span className={styles.eyebrow}>Next walk</span><strong>No upcoming walk has been scheduled.</strong><p>Explore the city community while the next walk is being planned.</p></div>

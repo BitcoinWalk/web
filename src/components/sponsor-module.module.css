@@ -6,6 +6,13 @@
   background: #fff;
   box-shadow: 0 .75rem 2rem rgb(48 37 24 / .07);
 }
+:global(.bw-original-dark) .sponsor { border-color: var(--bw-color-border); border-radius: var(--bw-radius-panel); background: var(--bw-color-surface); }
+:global(.bw-original-dark) .invitation { border-left-color: var(--bw-color-action-edge); }
+:global(.bw-original-dark) .eyebrow { color: var(--bw-color-accent-text); }
+:global(.bw-original-dark) .invitation p { color: var(--bw-color-muted); }
+:global(.bw-original-dark) .options { border-color: var(--bw-color-action-edge); border-radius: var(--bw-radius-control); background: var(--bw-action-gradient); color: var(--bw-color-on-brand)!important; }
+/* The supplied on-white brand asset keeps its own light backing. */
+:global(.bw-original-dark) .brandLogo { background: #fff; padding: .5rem; }
 .sponsor h2 { margin-top: 0; }
 .sponsor > p:last-child { margin-bottom: 0; }
 .invitation {

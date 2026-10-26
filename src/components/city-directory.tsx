@@ -16,14 +16,18 @@ import {heroObjectPosition} from "../domain/hero-presentation";
 import {isLuganoPlanBConference} from "../domain/share-campaign";
 import SponsoredWalks from "./sponsored-walks";
 import styles from "./city-directory.module.css";
+import ui from "../design-system/primitives.module.css";
+import SiteNavigation from "./site-navigation";
+import AppDownloadCard from "./app-download-card";
+import HeroPhotos from "./hero-photos";
 const DirectoryMap=dynamic(()=>import("./directory-map"),{ssr:false,loading:()=> <p>Loading map…</p>});
 export const compactHomepageBrand=(scrollY:number)=>scrollY>72;
-export const homepageCtaLabel=(label:string)=>label==="Find your city ↓"?"Find your walk ↓":label;
+export const homepageCtaLabel=(label:string)=>["Find your city ↓","Find your walk ↓"].includes(label)?"Find a walk":label;
 function Photo({src,alt}:{src?:string;alt:string}) {
   const candidates=directoryImageCandidates(src),[attempt,setAttempt]=useState(0),image=candidates[attempt];
   // Browser-loaded public images, not server-side URL fetches.
   // eslint-disable-next-line @next/next/no-img-element
-  return image?<img className={styles.photo} src={image} alt={alt} style={{objectPosition:heroObjectPosition(src)}} loading="lazy" referrerPolicy="no-referrer" onError={()=>setAttempt(value=>value+1)}/>:<div className={styles.placeholder} aria-hidden="true">₿ / WALK</div>;
+  return image?<img className={styles.photo} src={image} alt={alt} style={{objectPosition:heroObjectPosition(image)}} loading="lazy" referrerPolicy="no-referrer" onError={()=>setAttempt(value=>value+1)}/>:<div className={styles.placeholder} aria-hidden="true">₿ / WALK</div>;
 }
 function Card({row}:{row:DirectoryCity}) {
   const {city}=row;
@@ -49,8 +53,6 @@ export default function CityDirectory({sponsoredWalks=[]}:{sponsoredWalks?:HomeS
   const [error,setError]=useState("");
   const [attempt,setAttempt]=useState(0);
   const [content,setContent]=useState<ContentPage>(DEFAULT_HOME_PAGE);
-  const [compactBrand,setCompactBrand]=useState(false);
-  useEffect(()=>{const update=()=>setCompactBrand(compactHomepageBrand(window.scrollY));update();window.addEventListener("scroll",update,{passive:true});return()=>window.removeEventListener("scroll",update);},[]);
   useEffect(()=>{
     let active=true;
     Promise.allSettled([queryDirectoryRecords(relayConfig.readRelays),queryCalendarEvents(relayConfig.readRelays),queryContentRevisions(relayConfig.readRelays)]).then(([directory,calendar,contentResult])=>{
@@ -60,10 +62,11 @@ export default function CityDirectory({sponsoredWalks=[]}:{sponsoredWalks?:HomeS
   },[attempt]);
   const filtered=filterDirectory(rows,query),filteredSponsored=filterHomeSponsoredWalks(sponsoredWalks,query);
   return <main className={styles.home}>
-    <nav className={styles.nav} data-compact={compactBrand}><Link className={styles.brand} data-compact={compactBrand} href="/" aria-label="BitcoinWalk homepage"><span><Image className={styles.wordmark} src="/brand/bitcoinwalk-horizontal.png" width={1690} height={312} priority alt="BitcoinWalk"/><Image className={styles.icon} src="/brand/bitcoinwalk-icon.png" width={312} height={312} priority alt="" aria-hidden="true"/></span></Link><div><Link className={styles.startButton} href="/start">Start a walk</Link><Link className={styles.connectLink} href="/admin" aria-label="Connect to your dashboard" title="Connect"><svg aria-hidden="true" viewBox="0 0 24 24" focusable="false"><path d="M9 3v4m6-4v4M7 7h10v3a5 5 0 0 1-10 0V7Zm5 8v3c0 2 1 3 3 3h2"/></svg></Link></div></nav>
-    <header className={styles.hero}>{content.eyebrow&&<p className={styles.eyebrow}>{content.eyebrow}</p>}<h1>{content.title==="Good company. One walk at a time."?<>Good company.<br/>One walk at a time.</>:content.title}</h1>{content.intro&&<p>{content.intro}</p>}<div className={styles.heroActions}>{content.ctaLabel&&content.ctaHref&&<a className={styles.link} href={content.ctaHref}>{homepageCtaLabel(content.ctaLabel)}</a>}<section className={styles.walkieDownload} aria-labelledby="walkie-download-title"><a className={styles.zapstoreButton} href="https://zapstore.dev/apps/org.bitcoinwalk.walkietalkie" aria-label="Download Walkie Talkie on Zapstore"><Image className={styles.walkieIcon} src="/brand/walkie-talkie-zapstore-icon.png" width={40} height={40} alt=""/><span className={styles.walkieDownloadCopy}><h2 id="walkie-download-title">Get your BitcoinWalk companion app</h2><span className={styles.zapstoreLabel}>Download on Zapstore</span></span><span className={styles.storeArrow} aria-hidden="true">↗</span></a></section></div></header>
+    <SiteNavigation/>
+    <header className={styles.hero}><div className={styles.heroCopy}><h1>{content.title==="Good company. One walk at a time."?<>Good company.<br/>One walk at a time.</>:content.title}</h1>{content.intro&&<p>{content.intro}</p>}<div className={ui.actionPair}>{content.ctaLabel&&content.ctaHref&&<a className={ui.button} href={content.ctaHref}>{homepageCtaLabel(content.ctaLabel)}</a>}<Link className={`${ui.button} ${ui.secondary}`} href="/start">Start a walk</Link></div></div><HeroPhotos/></header>
+    <section className={styles.companion} aria-labelledby="companion-title"><div><p className={styles.eyebrow}>Bitcoin Walk companion app</p><h2 id="companion-title">Take the walk with you</h2><p>Keep the next BitcoinWalk close at hand with Walkie Talkie, the companion app for walkers.</p></div><AppDownloadCard/></section>
     {content.body&&<section>{content.body.split(/\n\s*\n/).map((paragraph,index)=><p key={index} style={{whiteSpace:"pre-wrap"}}>{paragraph}</p>)}</section>}
-    <section id="find-walk" aria-labelledby="directory-title"><h2 id="directory-title">Find your city</h2>
+    <section id="find-walk" aria-labelledby="directory-title"><h2 id="directory-title">Find a walk</h2>
       <div className={styles.controls}><label>Search cities or meeting points<input type="search" value={query} onChange={e=>setQuery(e.target.value)} placeholder="Let's F... Go!" /></label><div><button aria-pressed={view==="list"} onClick={()=>setView("list")}>List</button><button aria-pressed={view==="map"} onClick={()=>setView("map")}>Map</button></div></div>
       {status==="loading"&&<p role="status">Loading approved walks…</p>}
       {status==="error"&&<div role="alert"><p>{error}</p><button onClick={()=>{setStatus("loading");setAttempt(a=>a+1);}}>Try again</button></div>}

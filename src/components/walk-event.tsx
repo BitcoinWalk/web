@@ -37,7 +37,7 @@ export default async function WalkEvent({event,walk,currentProfile,logoHref,titl
   const timeZone=occurrence?.timeZone??undefined,date=new Date(start);
   const dateLabel=new Intl.DateTimeFormat(undefined,{dateStyle:"full",...(timeZone?{timeZone}:{})}).format(date);
   const timeLabel=new Intl.DateTimeFormat(undefined,{timeStyle:"short",...(timeZone?{timeZone}:{})}).format(date);
-  return <CityPageLayout cityName={city.cityName} titleLogo={titleLogo} embedded={embedded}
+  return <CityPageLayout heroDescription={currentProfile.revision.city.description.split(/\n\s*\n/)[0]} cityName={city.cityName} titleLogo={titleLogo} embedded={embedded}
     headerExtra={<WalkWeather result={weather} timeZone={timeZone??null}/>}
     heroSources={[calendarImageOverride(event),forecastHero,city.heroImageUrl,walk.approval.approval.heroImageUrl,initialCalendarHero(event,walk)]}
     summary={<>

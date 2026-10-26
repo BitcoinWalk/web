@@ -9,20 +9,24 @@ describe("homepage brand",()=>{
   expect(compactHomepageBrand(72)).toBe(false);
   expect(compactHomepageBrand(73)).toBe(true);
  });
- it("renames only the legacy homepage CTA to Find your walk",()=>{
-  expect(homepageCtaLabel("Find your city ↓")).toBe("Find your walk ↓");
+ it("renames legacy homepage CTAs to the current Find a walk copy",()=>{
+  expect(homepageCtaLabel("Find your city ↓")).toBe("Find a walk");
+  expect(homepageCtaLabel("Find your walk ↓")).toBe("Find a walk");
   expect(homepageCtaLabel("Explore walks")).toBe("Explore walks");
  });
- it("offers the Walkie Talkie download panel beneath the hero CTA",()=>{
+ it("offers the Walkie Talkie QR download card over the hero artwork",()=>{
   const page=readFileSync(join(process.cwd(),"src/components/city-directory.tsx"),"utf8");
   const styles=readFileSync(join(process.cwd(),"src/components/city-directory.module.css"),"utf8");
-  expect(page).toContain("Get your BitcoinWalk companion app");
-  expect(page).toContain("Download on Zapstore");
+  const card=readFileSync(join(process.cwd(),"src/components/app-download-card.tsx"),"utf8");
+  expect(page).toContain("<AppDownloadCard/>");
+  expect(card).toContain("Get your BitcoinWalk companion app");
+  expect(card).toContain("Download on Zapstore");
   expect(page).not.toContain("Approved cities from BitcoinWalk’s public relay.");
   expect(page).not.toContain("App Store coming soon");
   expect(page).not.toContain("Google Play coming soon");
-  expect(page).toContain("/brand/walkie-talkie-zapstore-icon.png");
-  expect(page).toContain("https://zapstore.dev/apps/org.bitcoinwalk.walkietalkie");
+  expect(styles).toContain("/brand/satsman-ink.png");
+  expect(card).toContain("https://zapstore.dev/apps/org.bitcoinwalk.walkietalkie");
+  expect(card).toContain("<QRCodeSVG value={destination}");
   expect(styles).toContain(".walkieDownload {box-sizing:border-box;width:min(100%,25rem)");
  });
  it("adds the Plan B Forum campaign mark to the Lugano city card",()=>{
