@@ -1,6 +1,6 @@
 # BitcoinWalk delivery backlog
 
-Last reviewed: 27 October 2026 (BW-121 is unblocked and respecified as a payment-free, super-admin-only OG image composer inside Content; BW-139 is Done; BW-101 includes the reviewed Blink payout-provider handoff; Bangkok organizer access, truthful first action and existing identity reuse are confirmed, returning BW-144 and BW-151 to executable acceptance; payout confirmation, signing, Guide receipt and complete service read-back remain; BW-108 remains outside the executable queue; BW-91 remains closed within its accepted boundary)
+Last reviewed: 27 October 2026 (BW-125's published mobile baseline and remaining online Android release gates are reconciled; BW-121 is unblocked and respecified as a payment-free, super-admin-only OG image composer inside Content; BW-139 is Done; BW-101 includes the reviewed Blink payout-provider handoff; Bangkok organizer access, truthful first action and existing identity reuse are confirmed, returning BW-144 and BW-151 to executable acceptance; payout confirmation, signing, Guide receipt and complete service read-back remain; BW-108 remains outside the executable queue; BW-91 remains closed within its accepted boundary)
 Preproduction housekeeping: 2–3 October 2026. See `preproduction-review-2026-10-02.md`
 and `development-handover.md` for current evidence and operating context.
 Tracking rule: keep this file current whenever an item changes status, scope, dependency, or verification result. Every committed backlog change must also be pushed to GitHub `main`, allowed to complete the public-backlog Pages workflow, and verified at `https://bitcoinwalk.github.io/web/index.html` unless the user explicitly requests a local-only draft. The file is the maintained source; a separate Plan task is not automatically synchronized.
@@ -14,7 +14,7 @@ This is the authoritative order for all unfinished work. Work top to bottom with
 | Order | ID | Why now | Exit before moving on |
 |---:|---|---|---|
 | 1 | BW-144 | Bangkok's organizer can now enter the administrative Pro setup and the existing city identity is recognized; the former organizer-access/first-action wait is cleared. | Accept the repaired payout destination, sign and approve the binding, human-confirm the one Guide setup message and exact link with no reconnect duplicate, then verify Bangkok's identity, NIP-05, `lud16`, LNURL/payout split, artwork, dedicated relay and Armada state without another invoice. |
-| 2 | BW-125 | The mobile NIP-29 core is already in progress and remains the next fully executable engineering item while Bangkok acceptance waits on organizer actions. | Finish online city-group/invite provisioning and compact Chats/DM UX; keep notifications and BLE as later slices behind BW-93 and the stated two-phone gates. |
+| 2 | BW-125 | The published Android app already contains the online NIP-29 and standard-DM core and remains the next fully executable engineering item while Bangkok acceptance waits on organizer actions. | Converge the release branch, resolve membership consent, wire canonical target navigation and replace the unused invite contract; pass the current Android upgrade/signer/chat/account-isolation matrix. Keep reliable notifications and BLE as later slices behind BW-93 and the stated two-phone gates. |
 BW-141 is the continuous release gate for this lane: prepare and run its cross-role/accessibility matrix with each phased release instead of postponing all acceptance until the end.
 
 24 October 2026 BW-128 reconciliation: **Done by explicit user acceptance.** The standard kind-14 NIP-17 receive/send, signer-mediated encryption/decryption, bounded recovery, account/session cancellation, exact-wrapper retry and extended-message isolation are implemented, with the integrated 196-test messaging suite, TypeScript and lint gates passing. The user explicitly closed the item without requiring the remaining physical Pixel/Amber, independent-client, signer-variant, account-switch/restart and iOS matrix to be recorded. Those unperformed checks must not be represented as executed acceptance evidence. The completion claim is therefore limited to the implemented standard text interoperability contract; BitcoinWalk Guide remains notification-only, and conversational support/replies remain BW-67.
@@ -228,6 +228,36 @@ Production `0.3.516` promotes the exact accepted source `cbe2cf6` through a sepa
 ### BW-125 implementation checkpoint — 14 October 2026
 
 Mobile source is initialized at `/home/endo/Documents/Codex/WalkieTalkie`; the staged implementation plan is `docs/WALKIE-TALKIE.md` in that checkout. The first arm64 Android test APK installed successfully on a Pixel running GrapheneOS, connected through Amber over NIP-46, and received user acceptance on 13 October 2026. The city-first slice applies the black/white/Bitcoin-orange identity, requires an approved-city choice before first sign-in, persists that city as the app context, scopes Walks to it and links its canonical `bitcoinwalk.org/<city>` page. A fail-closed versioned `/api/cities` directory projects approved city identity plus operator-verified chat routing without payment, owner or private-relay data; incomplete paid-city chat never falls back to global chat. The native NIP-29 slice is implemented and received initial Pixel acceptance on 14 October 2026: staging app `0.3.314` exposes the exact verified public relay/group pair; the mobile app validates that pair, reads bounded metadata/history, subscribes live, explicitly joins with the connected signer and publishes kind-9 messages with timeline references. The next checkpoint preconfigures two independent conversations after city selection: the verified city room first and BitcoinWalk Global second. Chats shows both immediately, centre-crops the approved city OG artwork for the city avatar, submits each missing kind-9021 membership request once through the connected signer, and remembers only successful joins per account and destination. The additive city-directory contract exposes independent Global and city destinations and never invents an unverified city group. Staging app `0.3.327` is active with deployment evidence `/home/bitcoinwalk/backups/app-staging-deploy.cW6MOv`; live read-back returned 17 cities and separate verified London/Global destinations. Android test build 13 at commit `5dfa3e39e978e1a060ef629c97ff7a9b67d060cb` passed CI, checksum and signing verification; Pixel/Amber UX acceptance remains pending. The earlier accepted Android build was commit `f9051164a4ba6091d1851815c4b457a37fe1e358`, package `org.bitcoinwalk.walkietalkie.dev`, version `26.10.5` (12). Public community messages remain separate from encrypted private chats. Website invite links remain behind their existing default-off production flag until deep-link and installation fallback acceptance. Standard DMs continue through BW-128; private Marmot and encrypted mesh work remains BW-127. UX polish, automatic city-group/invite provisioning, notifications and the two-phone BLE rehearsal remain open. The initial pure invite/counting modules pass focused tests but are not connected to the radio. Upstream's NIP-4E messaging extension and iOS background BLE behavior require explicit device acceptance; nearby counts are estimates, not verified human attendance.
+
+### BW-125 mobile release inventory — 27 October 2026
+
+Zapstore public-relay read-back identifies the current Android release as
+`26.10.32` / version code `39`, package `org.bitcoinwalk.walkietalkie`, source
+`09d28c9ccbd32f2aaf9d266a5cc2a436b01acebc`, APK SHA-256
+`76e7fff74453e1ceeb062ad8685fcd3fa76347a6c22a465bb31a276730c7fa32`
+and signing-certificate SHA-256
+`92afc33544e32b171b07ade23696ee845913ffbc48a9741e215b45168401f946`.
+Production now returns 24 approved cities and all 24 have separate verified City
+and Global destinations; the canonical City, Global, Guide and Hosts resolvers
+also return their expected access/transport contracts. On the current mobile
+working tree, 100 focused city/chat/membership/sign-in/diagnostics tests and 77
+standard-DM/Guide tests pass; TypeScript, release metadata and lint pass, with
+154 existing lint warnings and no errors. This supersedes the older checkpoint's
+17-city and unreleased-app state; it is source/contract evidence rather than a
+new physical-device acceptance.
+
+The online Android release is not yet a clean candidate. Converge published
+`09d28c9` with the tested canonical-target contract `ccbfdb2`, review the two
+uncommitted Amber application-image changes, and correct inherited PsstPsst
+release documentation. Resolve the current consent contradiction—code requests
+both City and Global membership while product text also calls Global explicit—
+wire canonical target resolution to native navigation through sign-in
+cancel/retry, and replace or retire the unused `/walkie/city/<uuid>` invite
+formatter. Then run one versioned upgrade/signer/chat/account-isolation matrix
+on Pixel/GrapheneOS with Amber and a two-user/one-organizer pilot. Role-aware
+post-payment handoff remains BW-149, OS-verified HTTPS opening BW-158, reliable
+notifications BW-93 and BLE the later BW-125 slice. Full inventory and release
+gates: [BW-125 mobile online release inventory](bw-125-mobile-online-release-inventory.md).
 
 Production follow-up on 13 October 2026: merged app `0.3.313` combines the
 approved-city API with the Würzburg directory-read retry. All 1,594 tests,
