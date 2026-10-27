@@ -49,8 +49,8 @@ evidence; it does not authorize a store publication.
 
 ## Inventory verification
 
-The current `feat/city-mosaic` checkout at published commit `09d28c9` has two
-uncommitted Amber application-image metadata changes. Against that working tree:
+The published `09d28c9` baseline and the candidate lineage were checked as
+separate immutable source states. Across the focused inventory:
 
 - 16 focused city, chat, membership, sign-in and diagnostics suites passed:
   100 tests.
@@ -64,9 +64,8 @@ upgrade, remote-signer or relay acceptance on a physical phone.
 
 ## Candidate implementation update
 
-Candidate `b0a60aa` builds on canonical-target commit `ccbfdb2` and the published
-`09d28c9` line. It deliberately does not absorb the separate two-file Amber
-application-image experiment from the dirty `feat/city-mosaic` checkout.
+Candidate `7b9b1cd` builds on online-routing commit `b0a60aa`, canonical-target
+commit `ccbfdb2` and the published `09d28c9` line.
 
 - City selection now requests only the selected City membership. Global remains
   an explicit join, preventing a second unexplained signer approval.
@@ -78,6 +77,10 @@ application-image experiment from the dirty `feat/city-mosaic` checkout.
   are removed. Exact walk-event handoff is not claimed by this online release.
 - Walkie Talkie's current package/scheme identities and the Zapstore production
   baseline replace stale inherited release-guide claims.
+- Pasted `bunker://` and app-initiated `nostrconnect://` sessions now send the
+  exact **Walkie Talkie** name, BitcoinWalk URL and production app icon to Amber.
+  The icon is the byte-identical 1024×1024 Zapstore artwork served directly as
+  a PNG from `bitcoinwalk.org`, rather than a third-party redirect or CDN URL.
 - All 167 BitcoinWalk service/component tests, TypeScript, release metadata and
   lint pass; lint retains 154 accepted warnings and no errors. The wider suite
   passed 2,380 of 2,382 tests. The only failures are the existing Electron
@@ -87,12 +90,9 @@ application-image experiment from the dirty `feat/city-mosaic` checkout.
 
 ### 1. Prepare the signed candidate
 
-1. Review and either commit or discard the two local Amber app-image changes.
-   If retained, use a durable approved BitcoinWalk image and test that Amber
-   displays it; a unit assertion alone is insufficient.
-2. Confirm the Walkie Talkie workflow, package, Zapstore metadata and release
+1. Confirm the Walkie Talkie workflow, package, Zapstore metadata and release
    notes all name the same artifact.
-3. Bump version name and version code once,
+2. Bump version name and version code once,
    and retain its test, checksum, signing-certificate and rollback evidence.
 
 Role-aware website handoff and confirmed post-payment membership remain BW-149.
@@ -109,7 +109,8 @@ evidence from different branches:
    accounts, city choice, conversations and the production signing identity.
 2. Pixel/GrapheneOS with the recorded Amber version: complete both
    `nostrconnect://` and `bunker://`; cancel and retry each; return from Amber
-   without an endless wait, wrong identity or duplicate account.
+   without an endless wait, wrong identity or duplicate account, and confirm
+   Amber displays the exact Walkie Talkie name and BitcoinWalk icon.
 3. Choose two different approved cities and verify the correct city page,
    artwork and City/Global destinations after restart and refresh.
 4. Accept, reject and retry the final membership-consent design. Confirm a
