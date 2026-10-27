@@ -3,7 +3,7 @@
 Last reviewed: 27 October 2026 (BW-139 is Done; BW-101 includes the reviewed Blink payout-provider handoff; Bangkok organizer access, truthful first action and existing identity reuse are confirmed, returning BW-144 and BW-151 to executable acceptance; payout confirmation, signing, Guide receipt and complete service read-back remain; BW-108 remains outside the executable queue; BW-91 remains closed within its accepted boundary)
 Preproduction housekeeping: 2–3 October 2026. See `preproduction-review-2026-10-02.md`
 and `development-handover.md` for current evidence and operating context.
-Tracking rule: keep this file current whenever an item changes status, scope, dependency, or verification result. The file is the maintained source; a separate Plan task is not automatically synchronized.
+Tracking rule: keep this file current whenever an item changes status, scope, dependency, or verification result. Every committed backlog change must also be pushed to GitHub `main`, allowed to complete the public-backlog Pages workflow, and verified at `https://bitcoinwalk.github.io/web/index.html` unless the user explicitly requests a local-only draft. The file is the maintained source; a separate Plan task is not automatically synchronized.
 
 ## Execution order — reconciled 27 October 2026
 
