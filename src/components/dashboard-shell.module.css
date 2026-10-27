@@ -9,10 +9,14 @@
 .dataHealth{flex-shrink:0;margin:12px 28px 0}
 @media(max-width:760px){.shell{display:block}.sidebar{position:static;height:auto;padding:16px}.brandRow{margin:0}.brand{display:none}.mobileBrand{display:block;width:2.75rem;height:2.75rem;padding:0;border:0;border-radius:50%;overflow:hidden;background:transparent;cursor:pointer;transition:width .22s ease,border-radius .22s ease}.mobileBrand[aria-expanded=true]{width:min(14.95rem,100%);border-radius:0}.mobileBrand:focus-visible{outline:3px solid #f7931a;outline-offset:4px}.mobileBrandViewport{display:block;width:100%;height:2.75rem;overflow:hidden}.mobileBrandViewport img{display:block;width:auto;max-width:none;height:2.75rem}.nav{display:none;margin-top:12px}.nav[data-open=true]{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}.content[data-chat=true]{height:calc(100dvh - 76px)}.body{padding:16px}.dataHealth{margin:12px 16px 0}.topbar{padding:18px 16px 16px}.headline{gap:9px}.body h1{font-size:1.7rem}}
 @media(prefers-reduced-motion:reduce){.mobileBrand{transition:none}}
-.entryShell{min-height:100svh;background:var(--bw-color-background);color:var(--bw-color-text)}
-.entry{box-sizing:border-box;display:grid;justify-items:center;align-content:start;min-height:calc(100svh - 74px);padding:clamp(2rem,7vh,5rem) var(--bw-page-gutter) 3rem}
-.entry>:global(.nostr-onboarding){box-sizing:border-box;width:min(100%,44rem);margin:0}
+.entry{box-sizing:border-box;display:grid;justify-items:center;align-content:start;width:100%;min-height:100svh;margin:0 auto;padding:clamp(.75rem,2.5vh,1.5rem) var(--bw-page-gutter);background:var(--bw-color-background);color:var(--bw-color-text)}
+.entry>:global(.nostr-onboarding){box-sizing:border-box;width:min(100%,44rem);margin:0;padding:clamp(1rem,2.5vw,1.5rem)}
 .entry>p[role=alert]{box-sizing:border-box;width:min(100%,44rem);margin:1rem 0 0;padding:.85rem 1rem;border-left:4px solid #b42318;background:color-mix(in srgb,var(--bw-color-surface) 90%,#b42318 10%);color:var(--bw-color-text)}
 .entry :global(.nostr-onboarding__intro p){max-width:34rem}
-@media(max-width:1100px){.entry{min-height:calc(100svh - 68px)}}
-@media(max-width:36rem){.entry{padding-top:1.25rem}.entry>:global(.nostr-onboarding){padding:1.1rem}}
+.entry :global(.nostr-onboarding__intro h2){margin:.2rem 0}
+.entry :global(.nostr-onboarding__intro p){margin:.2rem auto .8rem}
+.entry :global(.nostr-onboarding__tabs){margin-bottom:.75rem}
+.entry :global(.nostr-onboarding__tabs button){min-height:2.75rem}
+.entry :global(.nostr-onboarding__actions){gap:.65rem}
+.entry :global(.nostr-onboarding__actions button){min-height:2.75rem}
+@media(max-width:36rem){.entry{padding:.75rem}.entry>:global(.nostr-onboarding){padding:1rem}.entry :global(.nostr-onboarding__key svg){width:36px;height:36px}}
