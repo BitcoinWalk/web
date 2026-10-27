@@ -9,10 +9,16 @@ const navigation=vi.hoisted(()=>({path:"/admin"}));
 vi.mock("next/navigation",()=>({usePathname:()=>navigation.path}));
 
 describe("dashboard entry",()=>{
-  it("shows site navigation and the shared account module while disconnected",()=>{
+  it("shows a focused brand header and the shared account module while disconnected",()=>{
     navigation.path="/admin";
     const html=renderToStaticMarkup(createElement(ThemeProvider,null,createElement(DashboardShell,null,createElement("p",null,"Dashboard content"))));
-    expect(html).toContain('aria-label="Site navigation"');
+    expect(html).toContain('aria-label="BitcoinWalk"');
+    expect(html).toContain('data-focused="true"');
+    expect(html).not.toContain('aria-label="Site navigation"');
+    expect(html).not.toContain("Download App");
+    expect(html).not.toContain("Find a walk");
+    expect(html).not.toContain("Start a walk");
+    expect(html).not.toContain('aria-label="Open site menu"');
     expect(html).toContain(">Sign up</button>");
     expect(html).toContain("Sign in with browser extension");
     expect(html).toContain("Private key or signer");

@@ -1,6 +1,7 @@
 .home { max-width: none; margin: 0 auto; padding: var(--bw-header-height) var(--bw-page-gutter) 1.5rem; color: var(--bw-color-text); }
 @media(prefers-reduced-motion:no-preference){:global(html):has(.home){scroll-behavior:smooth;}}
 .nav {position:fixed;inset:0 0 auto;z-index:30;box-sizing:border-box;min-height:74px;display:flex;justify-content:space-between;align-items:center;gap:1rem;padding:13px var(--bw-page-gutter);border:0;background:transparent;transition:background-color .2s ease,box-shadow .2s ease;}
+.nav[data-focused=true]{position:relative;inset:auto;border-bottom:1px solid var(--bw-color-border);background:var(--bw-color-surface);box-shadow:none}
 .nav[data-compact=true] {background:color-mix(in srgb,var(--bw-color-background) 94%,transparent);}
 .nav[data-compact=true]{box-shadow:none;}
 .nav[data-over-image=true][data-compact=false],.nav[data-over-image=true][data-compact=false] button,.nav[data-over-image=true][data-compact=false] .connectLink {color:#fafafa;}
