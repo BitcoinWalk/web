@@ -7,6 +7,8 @@ const pr=sign(encode({satoshis:79,timestamp:now,tags:[{tagName:"payment_hash",da
 const body={tag:"payRequest",callback:"https://wallet.example/pay?token=fixture&amount=1",minSendable:1000,maxSendable:100000,metadata};
 const walletMetadata='[["text/plain","Wallet of Satoshi: alice"],["text/identifier","alice@walletofsatoshi.com"]]';
 const walletPr=sign(encode({satoshis:79,timestamp:now,tags:[{tagName:"payment_hash",data:"cd".repeat(32)},{tagName:"description",data:"Wallet of Satoshi: alice"},{tagName:"expire_time",data:2592000}]}),"13".repeat(32)).paymentRequest!;
+const blinkMetadata='[["text/plain","Pay to bighash@blink.sv"],["text/identifier","bighash@blink.sv"]]';
+const blinkPr=sign(encode({satoshis:79,timestamp:now,tags:[{tagName:"payment_hash",data:"ef".repeat(32)},{tagName:"purpose_commit_hash",data:createHash("sha256").update(blinkMetadata).digest("hex")},{tagName:"expire_time",data:2592000}]}),"14".repeat(32)).paymentRequest!;
 describe("isolated recipient invoice retrieval",()=>{
  it("binds invoice to exact metadata and amount from the saved destination",async()=>{
   const fetchJson=vi.fn().mockResolvedValueOnce(body).mockResolvedValueOnce({pr});
@@ -19,6 +21,12 @@ describe("isolated recipient invoice retrieval",()=>{
   const result=await retrieveRecipientInvoice("alice@walletofsatoshi.com","79000","bc",{fetchJson,now:()=>now});
   expect(result.terms).toMatchObject({providerPolicy:"wallet-of-satoshi-v1",metadata:walletMetadata});
   expect(fetchJson.mock.calls[1][0].href).toBe("https://livingroomofsatoshi.com/api/v1/lnurl/payreq/fixture?amount=79000");
+ });
+ it("uses Blink's exact reviewed callback and long-lived standard invoice end to end",async()=>{
+  const blink={...body,metadata:blinkMetadata,callback:"https://lnurl.blink.sv/lnurlp/blink.sv/bighash/invoice"},fetchJson=vi.fn().mockResolvedValueOnce(blink).mockResolvedValueOnce({pr:blinkPr});
+  const result=await retrieveRecipientInvoice("bighash@blink.sv","79000","bc",{fetchJson,now:()=>now});
+  expect(result.terms).toMatchObject({providerPolicy:"blink-v1",metadata:blinkMetadata});
+  expect(fetchJson.mock.calls[1][0].href).toBe("https://lnurl.blink.sv/lnurlp/blink.sv/bighash/invoice?amount=79000");
  });
  it.each([{callback:"https://other.example/pay"},{callback:"http://wallet.example/pay"},{callback:"https://127.0.0.1/pay"},{minSendable:80000},{maxSendable:78000},{minSendable:"1000"},{status:"ERROR"}])("rejects unsafe metadata before callback: %j",async patch=>{
   const fetchJson=vi.fn().mockResolvedValue({...body,...patch});

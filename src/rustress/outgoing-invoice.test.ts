@@ -38,6 +38,14 @@ describe("outgoing LNURL invoice validation",()=>{
   });
   expect(()=>validateOutgoingInvoice(invoice(79,now,86_400,"different metadata"),walletTerms,now)).toThrow();
  });
+ it("accepts Blink's reviewed long-lived standard invoice only with exact Blink metadata",()=>{
+  const blinkMetadata=JSON.stringify([["text/plain","Pay to bighash@blink.sv"],["text/identifier","bighash@blink.sv"]]),blinkTerms={...terms,metadata:blinkMetadata,providerPolicy:"blink-v1" as const};
+  expect(validateOutgoingInvoice(invoice(79,now,2_592_000,blinkMetadata),blinkTerms,now)).toMatchObject({amountMsat:"79000",terms:{providerPolicy:"blink-v1"}});
+  for(const changed of [
+   {...blinkTerms,metadata:JSON.stringify([["text/plain","Pay to other@blink.sv"],["text/identifier","bighash@blink.sv"]])},
+   {...blinkTerms,metadata:JSON.stringify([["text/plain","Pay to bighash@blink.sv"],["text/identifier","bighash@lookalike.example"]])},
+  ])expect(()=>validateOutgoingInvoice(invoice(79,now,2_592_000,changed.metadata),changed,now)).toThrow();
+ });
  it("rejects amountless invoices and altered checksum/signature bytes",()=>{
   const value=sign(encode({timestamp:now,tags:[{tagName:"payment_hash",data:hash},{tagName:"purpose_commit_hash",data:createHash("sha256").update(metadata).digest("hex")}]}),"12".repeat(32)).paymentRequest!;
   expect(()=>validateOutgoingInvoice(value,terms,now)).toThrow();

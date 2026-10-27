@@ -8,7 +8,7 @@ export const outgoingTermsSchema=z.object({
   network:z.enum(["bc","tb","bcrt"]),
   // Exact metadata bytes returned by the independently validated LNURL endpoint.
   metadata:z.string().min(1).max(16384),
-  providerPolicy:z.literal("wallet-of-satoshi-v1").optional(),
+  providerPolicy:z.enum(["wallet-of-satoshi-v1","blink-v1"]).optional(),
 }).strict();
 export type OutgoingTerms=z.infer<typeof outgoingTermsSchema>;
 
@@ -37,7 +37,9 @@ export function validateOutgoingInvoice(request:string,input:OutgoingTerms,now:n
     // origin is still pinned before these terms are constructed, so accepting
     // the stronger standard form does not widen the provider boundary.
     const standard=tags("purpose_commit_hash").length===1&&tags("description").length===0&&invoice.tagsObject.purpose_commit_hash===commitment;
-    const maximumLifetime=providerCompatible?2_678_400:86_400;
+    const blinkCompatible=terms.providerPolicy==="blink-v1"&&standard&&typeof identifier==="string"&&
+      /^([a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]{1,64})@blink\.sv$/.test(identifier)&&description===`Pay to ${identifier}`;
+    const maximumLifetime=providerCompatible||blinkCompatible?2_678_400:86_400;
     if(!invoice.complete||invoice.network?.bech32!==terms.network||invoice.millisatoshis!==terms.amountMsat||
       typeof hash!=="string"||!/^[0-9a-f]{64}$/.test(hash)||tags("payment_hash").length!==1||
       (!standard&&!providerCompatible)||tags("expire_time").length>1||!Number.isSafeInteger(invoice.timestamp)||

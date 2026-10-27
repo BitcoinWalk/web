@@ -9,7 +9,7 @@ import {validateOutgoingInvoice} from "../rustress/outgoing-invoice";
 
 export type ValidatedPayoutDestination = {normalized: string; endpoint: string; callback: string; minSendable: number; maxSendable: number;
   probe?:{amountMsat:number;payment:"verified";nip57:"verified"|"unverified"|"not-advertised"}};
-export type ReviewedPayoutProvider="wallet-of-satoshi-v1";
+export type ReviewedPayoutProvider="wallet-of-satoshi-v1"|"blink-v1";
 const reviewedCallbackProviders=new Map([
   ["https://walletofsatoshi.com",{origin:"https://livingroomofsatoshi.com",pathPrefix:"/api/v1/lnurl/payreq/",policy:"wallet-of-satoshi-v1" as const}],
 ]);
@@ -22,6 +22,13 @@ export function reviewedPayoutProvider(endpoint:URL,callback:URL):ReviewedPayout
   if(endpoint.origin==="https://coinos.io"&&coinosAccount&&!endpoint.search&&
     callback.origin==="https://names.coinos.io"&&callback.pathname===`/lnurlp/${coinosAccount}/cb`&&
     callback.search==="?domain=coinos.io"&&!callback.username&&!callback.password&&!callback.hash)return null;
+  // Blink serves Lightning-address metadata from blink.sv and invoices from
+  // lnurl.blink.sv. Permit only its exact account-bound invoice route; the
+  // ordinary metadata commitment, amount, expiry and network checks still run.
+  const blinkAccount=/^\/\.well-known\/lnurlp\/([^/]+)$/.exec(endpoint.pathname)?.[1];
+  if(endpoint.origin==="https://blink.sv"&&blinkAccount&&!endpoint.search&&
+    callback.origin==="https://lnurl.blink.sv"&&callback.pathname===`/lnurlp/blink.sv/${blinkAccount}/invoice`&&
+    !callback.search&&!callback.username&&!callback.password&&!callback.hash)return "blink-v1";
   const reviewed=reviewedCallbackProviders.get(endpoint.origin);
   return reviewed&&callback.origin===reviewed.origin&&callback.pathname.startsWith(reviewed.pathPrefix)&&callback.pathname.length>reviewed.pathPrefix.length?reviewed.policy:undefined;
 }

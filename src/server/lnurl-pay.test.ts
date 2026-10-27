@@ -4,9 +4,9 @@ import {createHash} from "node:crypto";
 import {encode,sign} from "bolt11";
 import {normalizePayoutDestination, validatePayoutDestination} from "./lnurl-pay";
 const endpoint = {tag: "payRequest", callback: "https://wallet.example/pay", minSendable: 1000, maxSendable: 10_000_000, metadata: JSON.stringify([["text/plain", "Pay Alice"]])};
-function invoice(metadata=endpoint.metadata,amount="1000"){
+function invoice(metadata=endpoint.metadata,amount="1000",expiry=3600){
  const hash="ab".repeat(32),commit=createHash("sha256").update(metadata).digest("hex");
- return {pr:sign(encode({millisatoshis:amount,timestamp:Math.floor(Date.now()/1000),tags:[{tagName:"payment_hash",data:hash},{tagName:"purpose_commit_hash",data:commit},{tagName:"expire_time",data:3600}]}),"34".repeat(32)).paymentRequest!};
+ return {pr:sign(encode({millisatoshis:amount,timestamp:Math.floor(Date.now()/1000),tags:[{tagName:"payment_hash",data:hash},{tagName:"purpose_commit_hash",data:commit},{tagName:"expire_time",data:expiry}]}),"34".repeat(32)).paymentRequest!};
 }
 function walletInvoice(description="Wallet of Satoshi: bitcoinwalk",amount="1000"){
  const hash="cd".repeat(32);return {pr:sign(encode({millisatoshis:amount,timestamp:Math.floor(Date.now()/1000),tags:[{tagName:"payment_hash",data:hash},{tagName:"description",data:description},{tagName:"expire_time",data:2_592_000}]}),"35".repeat(32)).paymentRequest!};
@@ -25,6 +25,16 @@ describe("private payout destination validation", () => {
     const invalid=transport();invalid.fetchJson.mockReset().mockResolvedValueOnce({...endpoint,callback}).mockResolvedValueOnce(invoice("wrong metadata"));
     await expect(validatePayoutDestination("bitcoinwalkgraz@coinos.io",invalid)).rejects.toThrow("unverifiable payout invoice");
     await expect(validatePayoutDestination("bitcoinwalkgraz@coinos.io",{...transport(),resolveHost:vi.fn().mockRejectedValue(new Error("private network"))})).rejects.toThrow("private network");
+  });
+  it("accepts only Blink's exact account-bound invoice handoff",async()=>{
+    const callback="https://lnurl.blink.sv/lnurlp/blink.sv/bighash/invoice",metadata=JSON.stringify([["text/plain","Pay to bighash@blink.sv"],["text/identifier","bighash@blink.sv"]]);
+    const transport=()=>({fetchJson:vi.fn().mockResolvedValueOnce({...endpoint,callback,metadata}).mockResolvedValueOnce(invoice(metadata,"1000",2_592_000)),resolveHost:vi.fn().mockResolvedValue("203.0.114.1")});
+    await expect(validatePayoutDestination("bighash@blink.sv",transport())).resolves.toMatchObject({callback,probe:{payment:"verified"}});
+    for(const rejected of [callback.replace("/bighash/","/other/"),callback.replace("lnurl.blink.sv","evil.blink.sv"),callback.replace("lnurl.blink.sv","lnurl.blink.sv.evil.example"),callback.replace("/invoice","/other"),`${callback}?redirect=https://evil.example`]){
+      const options=transport();options.fetchJson.mockReset().mockResolvedValueOnce({...endpoint,callback:rejected});
+      await expect(validatePayoutDestination("bighash@blink.sv",options)).rejects.toThrow("reviewed payment service");
+      expect(options.fetchJson).toHaveBeenCalledTimes(1);
+    }
   });
   it("normalizes Lightning-address domains and validates LNURL-pay metadata without sending money", async () => {
     const transport=options(),result = await validatePayoutDestination("Alice@WALLET.Example", transport);
