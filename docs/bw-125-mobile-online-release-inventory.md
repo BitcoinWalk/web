@@ -62,40 +62,38 @@ uncommitted Amber application-image metadata changes. Against that working tree:
 These checks prove source behavior only. They do not replace installation,
 upgrade, remote-signer or relay acceptance on a physical phone.
 
-## Required online-slice work
+## Candidate implementation update
 
-### 1. Converge one release branch
+Candidate `b0a60aa` builds on canonical-target commit `ccbfdb2` and the published
+`09d28c9` line. It deliberately does not absorb the separate two-file Amber
+application-image experiment from the dirty `feat/city-mosaic` checkout.
 
-1. Start from published `feat/city-mosaic` commit `09d28c9`.
-2. Integrate `ccbfdb2`, the tested canonical City/Guide/Global/Hosts target
-   parser and server-response contract from branch `bw156`.
-3. Keep the already integrated `07f45e5` standard-DM implementation; do not
-   reapply the older parallel BW-128 branch.
-4. Review and either commit or discard the two local Amber app-image changes.
+- City selection now requests only the selected City membership. Global remains
+  an explicit join, preventing a second unexplained signer approval.
+- Canonical server-resolved City, Guide, Global and Hosts targets now open the
+  existing native destinations. A validated native target is persisted for at
+  most 15 minutes through sign-in cancellation, retry or restart, then consumed
+  exactly once. It contains no account, role, relay or membership authority.
+- The unused `/walkie/city/<uuid>` test-only formatter and its misleading tests
+  are removed. Exact walk-event handoff is not claimed by this online release.
+- Walkie Talkie's current package/scheme identities and the Zapstore production
+  baseline replace stale inherited release-guide claims.
+- All 167 BitcoinWalk service/component tests, TypeScript, release metadata and
+  lint pass; lint retains 154 accepted warnings and no errors. The wider suite
+  passed 2,380 of 2,382 tests. The only failures are the existing Electron
+  fake-Bluetooth-helper assertions, outside the Android online slice.
+
+## Remaining online-slice work
+
+### 1. Prepare the signed candidate
+
+1. Review and either commit or discard the two local Amber app-image changes.
    If retained, use a durable approved BitcoinWalk image and test that Amber
    displays it; a unit assertion alone is insufficient.
-5. Update the release guide where it still describes inherited PsstPsst names,
-   identifiers and asset names. Confirm the Walkie Talkie workflow, package,
-   Zapstore metadata and release notes all name the same artifact.
-6. Produce a clean candidate commit, bump version name and version code once,
+2. Confirm the Walkie Talkie workflow, package, Zapstore metadata and release
+   notes all name the same artifact.
+3. Bump version name and version code once,
    and retain its test, checksum, signing-certificate and rollback evidence.
-
-### 2. Close three online product gaps
-
-1. **Membership consent:** the current bootstrap automatically requests both
-   selected-city and Global membership, while current product documentation
-   also says Global is an explicit choice. Select one behavior, make UI, tests
-   and documentation agree, and avoid unexplained successive Amber approvals.
-2. **Canonical route execution:** `ccbfdb2` validates canonical HTTPS targets
-   but does not yet connect them to app navigation. Wire the resolved target to
-   the existing native City/Global/Hosts/Guide screens and preserve the target
-   through sign-in cancellation and retry. OS-level verified App/Universal
-   Links remain BW-158.
-3. **Invites:** the old `/walkie/city/<uuid>` formatter is test-only and unused.
-   Replace it with the accepted canonical chat/walk navigation contract, or
-   explicitly remove signed invite links from this release and keep BW-125 open
-   for that slice. A link conveys navigation intent only; it never grants
-   membership or a role.
 
 Role-aware website handoff and confirmed post-payment membership remain BW-149.
 The online Android release may expose existing authorized web administration,
