@@ -5,7 +5,7 @@ import {directoryConfig} from "../../lib/directory-config";
 import {relayConfig} from "../../lib/relay-config";
 import {serverReadRelays} from "../../lib/server-relay-config";
 import {currentOrNextEventAcrossSources,paidCityForHost} from "../../domain/event-routing";
-import {calendarNevent,resolveCalendarLink,type CalendarSource} from "../../nostr/calendar-records";
+import {calendarNevent,resolveCalendarLink,retainedCalendarHero,type CalendarSource} from "../../nostr/calendar-records";
 import {queryCalendarEvents} from "../../nostr/city-records";
 import {contentRoute,queryContentRevisions} from "../../nostr/content-records";
 import StaticContentPage from "../../components/static-content-page";
@@ -80,7 +80,7 @@ export default async function CityOrEventPage({params,searchParams}:{params:Prom
   if(outcome.eventHref)redirect(`${outcome.eventHref}${embedded?"?view=app":""}`);
   const profile=outcome.profile.revision.city,point=profile.meetingPoint;
   return <CityPageLayout heroDescription={profile.description.split(/\n\s*\n/)[0]} cityName={outcome.cityName} titleLogo={outcome.titleLogo} embedded={embedded}
-    heroSources={[profile.heroImageUrl,outcome.profile.approval.approval.heroImageUrl]}
+    heroSources={[profile.heroImageUrl,outcome.profile.approval.approval.heroImageUrl,retainedCalendarHero(outcome.profile)]}
     summary={<>
       <div><span className={styles.eyebrow}>Next walk</span><strong>No upcoming walk has been scheduled.</strong><p>Explore the city community while the next walk is being planned.</p></div>
       <div><span className={styles.eyebrow}>Meeting point</span><strong>{point.description}</strong><CoordinatesCopy latitude={point.latitude} longitude={point.longitude}/></div>
