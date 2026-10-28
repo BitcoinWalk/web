@@ -101,6 +101,14 @@ The live title is **BitcoinWalk at Bitfest | Sunday, 22 November 2026**. The
 description names Manchester, the local date/time and the Pendulum Hotel
 meeting point. City and walk OG/Twitter copy match the HTML metadata.
 
+Every approved city also exposes a stable `/<city>/og` preview URL, for
+example `https://bitcoinwalk.org/madeira/og`. It resolves the same current
+image used by the city's Open Graph and Twitter metadata, including active
+sponsor artwork, then sends a temporary, non-cacheable redirect to the raw
+content-addressed JPEG. Approved city aliases use the same directory resolver.
+Unknown cities return `404`; temporary discovery failures return `503` rather
+than redirecting to stale or unrelated artwork.
+
 Deployed non-root on 5 October 2026 with evidence
 `/home/bitcoinwalk/backups/app-staging-deploy.UnDkin`. All 680 tests,
 type-check, production build and packaged smoke passed; lint has zero errors
