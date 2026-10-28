@@ -109,6 +109,55 @@ function wrap(context: CanvasRenderingContext2D, value: string, width: number) {
   if (line) lines.push(line);
   return lines.slice(0, 3);
 }
+function clamp(value: number, min: number, max: number) {
+  return Math.min(max, Math.max(min, value));
+}
+function SizeControl({
+  label,
+  value,
+  min,
+  max,
+  step,
+  onChange,
+}: {
+  label: string;
+  value: number;
+  min: number;
+  max: number;
+  step: number;
+  onChange: (value: number) => void;
+}) {
+  return (
+    <div className={styles.sizeControl} role="group" aria-label={`${label} size`}>
+      <button
+        type="button"
+        disabled={value <= min}
+        aria-label={`Shrink ${label}`}
+        onClick={() => onChange(clamp(value - step, min, max))}
+      >
+        −
+      </button>
+      <input
+        type="range"
+        min={min}
+        max={max}
+        step={step}
+        value={value}
+        aria-label={`${label} size`}
+        onChange={(event) => onChange(Number(event.target.value))}
+      />
+      <output aria-live="polite">{value}px</output>
+      <button
+        type="button"
+        disabled={value >= max}
+        aria-label={`Enlarge ${label}`}
+        onClick={() => onChange(clamp(value + step, min, max))}
+      >
+        +
+      </button>
+    </div>
+  );
+}
 
 export default function OgImageComposer() {
   const dashboard = useDashboard(),
@@ -307,7 +356,7 @@ export default function OgImageComposer() {
         try {
           const logo = await image(logoData);
           if (!active) return;
-          const ratio = Math.min(1, composition.logo.width / logo.naturalWidth),
+          const ratio = composition.logo.width / logo.naturalWidth,
             width = logo.naturalWidth * ratio,
             height = logo.naturalHeight * ratio;
           context.drawImage(
@@ -714,11 +763,11 @@ export default function OgImageComposer() {
                     />
                   </label>
                   <label>
-                    Width
+                    Width (px)
                     <input
                       type="number"
                       min="48"
-                      max="720"
+                      max="900"
                       value={composition.mark.width}
                       onChange={(event) =>
                         update("mark", {
@@ -729,6 +778,16 @@ export default function OgImageComposer() {
                     />
                   </label>
                 </div>
+                <SizeControl
+                  label="BitcoinWalk mark"
+                  min={48}
+                  max={900}
+                  step={24}
+                  value={composition.mark.width}
+                  onChange={(width) =>
+                    update("mark", { ...composition.mark, width })
+                  }
+                />
               </>
             )}
           </fieldset>
@@ -750,11 +809,11 @@ export default function OgImageComposer() {
             </label>
             <div className={styles.three}>
               <label>
-                Size
+                Size (px)
                 <input
                   type="number"
                   min="24"
-                  max="112"
+                  max="180"
                   value={composition.text.fontSize}
                   onChange={(event) =>
                     update("text", {
@@ -799,6 +858,16 @@ export default function OgImageComposer() {
                 </select>
               </label>
             </div>
+            <SizeControl
+              label="text"
+              min={24}
+              max={180}
+              step={4}
+              value={composition.text.fontSize}
+              onChange={(fontSize) =>
+                update("text", { ...composition.text, fontSize })
+              }
+            />
             <div className={styles.three}>
               <label>
                 X
@@ -937,11 +1006,11 @@ export default function OgImageComposer() {
                     />
                   </label>
                   <label>
-                    Size
+                    Width (px)
                     <input
                       type="number"
                       min="32"
-                      max="500"
+                      max="900"
                       value={composition.logo.width}
                       onChange={(event) =>
                         update("logo", {
@@ -952,6 +1021,16 @@ export default function OgImageComposer() {
                     />
                   </label>
                 </div>
+                <SizeControl
+                  label="partner logo"
+                  min={32}
+                  max={900}
+                  step={20}
+                  value={composition.logo.width}
+                  onChange={(width) =>
+                    update("logo", { ...composition.logo!, width })
+                  }
+                />
                 <AdminButton
                   variant="ghost"
                   onClick={() => {

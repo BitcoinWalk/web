@@ -251,8 +251,6 @@ async function logoBody(layer: NonNullable<OgComposition["logo"]>) {
   return sharp(body)
     .resize({
       width: Math.round(layer.width),
-      height: Math.round(layer.width),
-      fit: "inside",
       withoutEnlargement: false,
     })
     .png()
@@ -266,12 +264,6 @@ export async function renderAndSaveOg(
     layers: Array<{ input: Buffer; left: number; top: number }> = [];
   if (composition.text.x + composition.text.width > 1200)
     throw new Error("Keep the text area inside the 1200 × 630 canvas.");
-  if (
-    composition.logo &&
-    (composition.logo.x + composition.logo.width > 1200 ||
-      composition.logo.y + composition.logo.width > 630)
-  )
-    throw new Error("Keep the partner logo inside the 1200 × 630 canvas.");
   if (composition.mark.visible) {
     const selected = bitcoinWalkMark(composition.mark.variant),
       mark = await sharp(join(process.cwd(), "public", selected.path))
@@ -304,12 +296,20 @@ export async function renderAndSaveOg(
       top: Math.round(composition.text.y),
     });
   }
-  if (composition.logo)
+  if (composition.logo) {
+    const logo = await logoBody(composition.logo),
+      metadata = await sharp(logo).metadata();
+    if (
+      composition.logo.x + (metadata.width ?? 0) > 1200 ||
+      composition.logo.y + (metadata.height ?? 0) > 630
+    )
+      throw new Error("Keep the partner logo inside the 1200 × 630 canvas.");
     layers.push({
-      input: await logoBody(composition.logo),
+      input: logo,
       left: Math.round(composition.logo.x),
       top: Math.round(composition.logo.y),
     });
+  }
   const output = await sharp(await backgroundLayer(composition))
       .composite(layers)
       .png({ compressionLevel: 9 })

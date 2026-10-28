@@ -35,7 +35,7 @@ export const ogCompositionSchema = z
         x: z.number().min(0).max(1200),
         y: z.number().min(0).max(630),
         width: z.number().min(160).max(1120),
-        fontSize: z.number().int().min(24).max(112),
+        fontSize: z.number().int().min(24).max(180),
         align: z.enum(["left", "center", "right"]),
         color: z.enum(["#ffffff", "#17120d"]),
         treatment: z.enum(["shadow", "panel", "none"]),

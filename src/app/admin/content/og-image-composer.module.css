@@ -116,6 +116,40 @@
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 0.55rem;
 }
+.sizeControl {
+  display: grid;
+  grid-template-columns: 44px minmax(6rem, 1fr) 4rem 44px;
+  gap: 0.5rem;
+  align-items: center;
+}
+.sizeControl button {
+  width: 44px;
+  min-height: 44px;
+  padding: 0;
+  border: 1px solid var(--bw-color-border-strong, #aeb6bf);
+  border-radius: 6px;
+  background: var(--bw-color-surface);
+  color: var(--bw-color-text);
+  font: inherit;
+  font-size: 1.25rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+.sizeControl button:disabled {
+  cursor: default;
+  opacity: 0.45;
+}
+.controls .sizeControl input[type="range"] {
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+.sizeControl output {
+  color: var(--bw-color-muted);
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
 .markChoice {
   display: grid;
   grid-template-columns: 5.5rem minmax(0, 1fr);
@@ -288,6 +322,10 @@
   .inline,
   .markChoice {
     grid-template-columns: 1fr;
+  }
+  .sizeControl {
+    grid-template-columns: 44px minmax(4rem, 1fr) 3.5rem 44px;
+    gap: 0.35rem;
   }
   .markPreview,
   .markPreviewDark {

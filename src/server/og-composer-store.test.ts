@@ -37,6 +37,20 @@ describe("super-admin OG image storage", () => {
         { source: "upload" },
         actor,
       ),
+      partnerLogo = await storeOgSource(
+        await sharp({
+          create: {
+            width: 100,
+            height: 50,
+            channels: 4,
+            background: "#f7931a",
+          },
+        })
+          .png()
+          .toBuffer(),
+        { source: "upload" },
+        actor,
+      ),
       composition = {
         version: 1 as const,
         title: "Launch card",
@@ -64,7 +78,14 @@ describe("super-admin OG image storage", () => {
           color: "#ffffff" as const,
           treatment: "shadow" as const,
         },
-        logo: null,
+        logo: {
+          hash: partnerLogo.hash,
+          source: "upload" as const,
+          label: "Small source enlarged safely",
+          x: 700,
+          y: 100,
+          width: 400,
+        },
       },
       saved = await renderAndSaveOg(actor, composition);
     expect(
