@@ -116,6 +116,42 @@
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 0.55rem;
 }
+.markChoice {
+  display: grid;
+  grid-template-columns: 5.5rem minmax(0, 1fr);
+  gap: 0.75rem;
+  align-items: stretch;
+}
+.markChoice > span:last-child {
+  display: grid;
+  gap: 0.35rem;
+}
+.markChoice small {
+  color: var(--bw-color-muted);
+  font-weight: 400;
+  line-height: 1.35;
+}
+.markPreview,
+.markPreviewDark {
+  display: grid;
+  min-height: 5.5rem;
+  place-items: center;
+  padding: 0.5rem;
+  border: 1px solid var(--bw-color-border);
+  border-radius: 8px;
+  background: #fff;
+  overflow: hidden;
+}
+.markPreviewDark {
+  background: #252824;
+}
+.markPreview img,
+.markPreviewDark img {
+  display: block;
+  max-width: 100%;
+  max-height: 4.5rem;
+  object-fit: contain;
+}
 .check {
   display: flex !important;
   grid-template-columns: auto 1fr;
@@ -249,8 +285,13 @@
     display: grid;
   }
   .three,
-  .inline {
+  .inline,
+  .markChoice {
     grid-template-columns: 1fr;
+  }
+  .markPreview,
+  .markPreviewDark {
+    min-height: 6.5rem;
   }
   .actions > * {
     flex: 1;

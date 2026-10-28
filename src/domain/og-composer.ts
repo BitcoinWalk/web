@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { bitcoinWalkMarkIdSchema } from "./brand-marks";
 
 const hash = z.string().regex(/^[0-9a-f]{64}$/);
 const layer = z
@@ -24,7 +25,10 @@ export const ogCompositionSchema = z
         model: z.string().max(120).optional(),
       })
       .strict(),
-    mark: layer.extend({ visible: z.boolean() }),
+    mark: layer.extend({
+      visible: z.boolean(),
+      variant: bitcoinWalkMarkIdSchema.default("traditional"),
+    }),
     text: z
       .object({
         value: z.string().max(140),

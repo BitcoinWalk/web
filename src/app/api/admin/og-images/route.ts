@@ -1,5 +1,4 @@
 import { createHash } from "node:crypto";
-import { join } from "node:path";
 import type { Event } from "nostr-tools";
 import { ogCompositionSchema } from "../../../../domain/og-composer";
 import { parseMediaRequest } from "../../../../domain/media-request";
@@ -145,7 +144,6 @@ export async function POST(request: Request) {
           item: await renderAndSaveOg(
             actor,
             composition,
-            join(process.cwd(), "public", "brand", "bitcoinwalk-icon.png"),
           ),
         },
         { headers },

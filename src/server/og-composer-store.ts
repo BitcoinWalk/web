@@ -11,6 +11,7 @@ import {
 } from "node:fs/promises";
 import { join } from "node:path";
 import sharp from "sharp";
+import { bitcoinWalkMark } from "../domain/brand-marks";
 import {
   ogCompositionSchema,
   type OgComposition,
@@ -260,15 +261,9 @@ async function logoBody(layer: NonNullable<OgComposition["logo"]>) {
 export async function renderAndSaveOg(
   actor: string,
   input: unknown,
-  markPath: string,
 ) {
   const composition = ogCompositionSchema.parse(input),
     layers: Array<{ input: Buffer; left: number; top: number }> = [];
-  if (
-    composition.mark.x + composition.mark.width > 1200 ||
-    composition.mark.y + composition.mark.width > 630
-  )
-    throw new Error("Keep the BitcoinWalk mark inside the 1200 × 630 canvas.");
   if (composition.text.x + composition.text.width > 1200)
     throw new Error("Keep the text area inside the 1200 × 630 canvas.");
   if (
@@ -278,14 +273,20 @@ export async function renderAndSaveOg(
   )
     throw new Error("Keep the partner logo inside the 1200 × 630 canvas.");
   if (composition.mark.visible) {
-    const mark = await sharp(markPath)
+    const selected = bitcoinWalkMark(composition.mark.variant),
+      mark = await sharp(join(process.cwd(), "public", selected.path))
       .resize({
         width: Math.round(composition.mark.width),
-        height: Math.round(composition.mark.width),
         fit: "inside",
       })
       .png()
-      .toBuffer();
+      .toBuffer(),
+      metadata = await sharp(mark).metadata();
+    if (
+      composition.mark.x + (metadata.width ?? 0) > 1200 ||
+      composition.mark.y + (metadata.height ?? 0) > 630
+    )
+      throw new Error("Keep the BitcoinWalk mark inside the 1200 × 630 canvas.");
     layers.push({
       input: mark,
       left: Math.round(composition.mark.x),

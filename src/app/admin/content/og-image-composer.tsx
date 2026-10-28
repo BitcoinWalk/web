@@ -12,6 +12,11 @@ import {
   AdminFeedback,
   AdminStatusBadge,
 } from "../../../components/admin-ui";
+import {
+  bitcoinWalkMark,
+  bitcoinWalkMarks,
+  type BitcoinWalkMarkId,
+} from "../../../domain/brand-marks";
 import type { OgComposition, OgSource } from "../../../domain/og-composer";
 import {
   mediaRequestTemplate,
@@ -46,7 +51,13 @@ const initial: OgComposition = {
   version: 1,
   title: "BitcoinWalk OG image",
   background: { hash: emptyHash, source: "upload", zoom: 1, x: 50, y: 50 },
-  mark: { visible: true, x: 64, y: 54, width: 150 },
+  mark: {
+    visible: true,
+    variant: "traditional",
+    x: 64,
+    y: 54,
+    width: 150,
+  },
   text: {
     value: "Powered by BitcoinWalk",
     x: 64,
@@ -191,7 +202,13 @@ export default function OgImageComposer() {
           action: "og-studio-source",
           hash: draft.background.hash,
         });
-        setComposition(draft);
+        setComposition({
+          ...draft,
+          mark: {
+            ...draft.mark,
+            variant: draft.mark.variant ?? "traditional",
+          },
+        });
         setBackground(source);
         if (draft.logo?.source === "catalogue")
           setLogoData(`/api/sponsors/logo/files/${draft.logo.hash}`);
@@ -230,14 +247,18 @@ export default function OgImageComposer() {
       context.fillRect(0, 0, 1200, 630);
       if (composition.mark.visible) {
         try {
-          const mark = await image("/brand/bitcoinwalk-icon.png");
+          const selected = bitcoinWalkMark(composition.mark.variant),
+            mark = await image(selected.path),
+            height =
+              composition.mark.width *
+              (mark.naturalHeight / mark.naturalWidth);
           if (!active) return;
           context.drawImage(
             mark,
             composition.mark.x,
             composition.mark.y,
             composition.mark.width,
-            composition.mark.width,
+            height,
           );
         } catch {}
       }
@@ -608,53 +629,107 @@ export default function OgImageComposer() {
               Show official mark
             </label>
             {composition.mark.visible && (
-              <div className={styles.three}>
+              <>
                 <label>
-                  X
-                  <input
-                    type="number"
-                    min="0"
-                    max="1050"
-                    value={composition.mark.x}
-                    onChange={(event) =>
-                      update("mark", {
-                        ...composition.mark,
-                        x: Number(event.target.value),
-                      })
-                    }
-                  />
+                  Mark variant
+                  <span className={styles.markChoice}>
+                    <span
+                      className={
+                        bitcoinWalkMark(composition.mark.variant).dark
+                          ? styles.markPreviewDark
+                          : styles.markPreview
+                      }
+                      aria-hidden="true"
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={bitcoinWalkMark(composition.mark.variant).preview}
+                        alt=""
+                      />
+                    </span>
+                    <span>
+                      <select
+                        value={composition.mark.variant}
+                        onChange={(event) =>
+                          update("mark", {
+                            ...composition.mark,
+                            variant: event.target.value as BitcoinWalkMarkId,
+                          })
+                        }
+                      >
+                        <optgroup label="Featured marks">
+                          {bitcoinWalkMarks
+                            .filter((mark) => mark.group === "featured")
+                            .map((mark) => (
+                              <option key={mark.id} value={mark.id}>
+                                {mark.label} — {mark.use}
+                              </option>
+                            ))}
+                        </optgroup>
+                        <optgroup label="City-neutral system">
+                          {bitcoinWalkMarks
+                            .filter((mark) => mark.group === "system")
+                            .map((mark) => (
+                              <option key={mark.id} value={mark.id}>
+                                {mark.label} — {mark.use}
+                              </option>
+                            ))}
+                        </optgroup>
+                      </select>
+                      <small>
+                        All approved BitcoinWalk variants from the brand guide.
+                      </small>
+                    </span>
+                  </span>
                 </label>
-                <label>
-                  Y
-                  <input
-                    type="number"
-                    min="0"
-                    max="480"
-                    value={composition.mark.y}
-                    onChange={(event) =>
-                      update("mark", {
-                        ...composition.mark,
-                        y: Number(event.target.value),
-                      })
-                    }
-                  />
-                </label>
-                <label>
-                  Size
-                  <input
-                    type="number"
-                    min="48"
-                    max="360"
-                    value={composition.mark.width}
-                    onChange={(event) =>
-                      update("mark", {
-                        ...composition.mark,
-                        width: Number(event.target.value),
-                      })
-                    }
-                  />
-                </label>
-              </div>
+                <div className={styles.three}>
+                  <label>
+                    X
+                    <input
+                      type="number"
+                      min="0"
+                      max="1168"
+                      value={composition.mark.x}
+                      onChange={(event) =>
+                        update("mark", {
+                          ...composition.mark,
+                          x: Number(event.target.value),
+                        })
+                      }
+                    />
+                  </label>
+                  <label>
+                    Y
+                    <input
+                      type="number"
+                      min="0"
+                      max="598"
+                      value={composition.mark.y}
+                      onChange={(event) =>
+                        update("mark", {
+                          ...composition.mark,
+                          y: Number(event.target.value),
+                        })
+                      }
+                    />
+                  </label>
+                  <label>
+                    Width
+                    <input
+                      type="number"
+                      min="48"
+                      max="720"
+                      value={composition.mark.width}
+                      onChange={(event) =>
+                        update("mark", {
+                          ...composition.mark,
+                          width: Number(event.target.value),
+                        })
+                      }
+                    />
+                  </label>
+                </div>
+              </>
             )}
           </fieldset>
           <fieldset>

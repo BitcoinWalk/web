@@ -37,7 +37,6 @@ describe("super-admin OG image storage", () => {
         { source: "upload" },
         actor,
       ),
-      mark = join(process.cwd(), "public", "brand", "bitcoinwalk-icon.png"),
       composition = {
         version: 1 as const,
         title: "Launch card",
@@ -48,7 +47,13 @@ describe("super-admin OG image storage", () => {
           x: 50,
           y: 50,
         },
-        mark: { visible: true, x: 40, y: 40, width: 120 },
+        mark: {
+          visible: true,
+          variant: "horizontal" as const,
+          x: 40,
+          y: 40,
+          width: 320,
+        },
         text: {
           value: "Powered by BitcoinWalk",
           x: 40,
@@ -61,7 +66,7 @@ describe("super-admin OG image storage", () => {
         },
         logo: null,
       },
-      saved = await renderAndSaveOg(actor, composition, mark);
+      saved = await renderAndSaveOg(actor, composition);
     expect(
       await sharp(
         Buffer.from(saved.dataUrl.split(",")[1], "base64"),
@@ -116,7 +121,13 @@ describe("super-admin OG image storage", () => {
           x: 50,
           y: 50,
         },
-        mark: { visible: true, x: 1150, y: 40, width: 120 },
+        mark: {
+          visible: true,
+          variant: "traditional" as const,
+          x: 1150,
+          y: 40,
+          width: 120,
+        },
         text: {
           value: "Text",
           x: 40,
@@ -130,11 +141,7 @@ describe("super-admin OG image storage", () => {
         logo: null,
       };
     await expect(
-      renderAndSaveOg(
-        actor,
-        composition,
-        join(process.cwd(), "public", "brand", "bitcoinwalk-icon.png"),
-      ),
+      renderAndSaveOg(actor, composition),
     ).rejects.toThrow("inside");
     expect(await listSavedOg(actor)).toEqual([]);
   });
