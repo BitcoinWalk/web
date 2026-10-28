@@ -9,7 +9,7 @@ import {relayConfig} from "../../lib/relay-config";
 import {getBrowserExtensionPubkey} from "../../nostr/signer";
 import {dashboardHomeActions,dashboardHomeCopy} from "../../domain/dashboard";
 import {creatorSubmissions} from "../../domain/creator-submissions";
-import {takeRegistrationHandoff,type RegistrationHandoff} from "../../domain/registration-handoff";
+import {registrationHandoffNextHref,takeRegistrationHandoff,type RegistrationHandoff} from "../../domain/registration-handoff";
 import styles from "./overview.module.css";
 import AdminDataStatus,{type AdminDataHealth} from "../../components/admin-data-status";
 import OrganizerProNextAction from "../../components/organizer-pro-next-action";
@@ -46,7 +46,7 @@ export default function DashboardOverview(){
    </a>
   </div>
   {session.role==="organizer"&&<OrganizerProNextAction/>}
-  {handoff&&<section role="status"><h2>{handoff.paymentVerified?"Payment received":"City submitted"}</h2><p>{handoff.paymentVerified?`Your Pro payment for BitcoinWalk in ${handoff.cityName} is verified. The city is awaiting approval.`:`BitcoinWalk in ${handoff.cityName} was submitted successfully and is awaiting approval.`}</p><Link className={ui.button} href="/">Go to homepage</Link></section>}
+  {handoff&&<section role="status"><h2>{handoff.paymentVerified?"Payment received":"City submitted"}</h2><p>{handoff.paymentVerified?`Your Pro payment for BitcoinWalk in ${handoff.cityName} is verified. You can finish the private service setup while the city review continues.`:`BitcoinWalk in ${handoff.cityName} was submitted successfully and is awaiting approval.`}</p><Link className={ui.button} href={registrationHandoffNextHref(handoff)}>{handoff.paymentVerified?"Continue Pro setup":"View city request"}</Link></section>}
   <nav className={styles.actionGrid} aria-label="Quick actions">{actions.map(action=><Link className={styles.actionCard} key={action.href} href={action.href}><strong>{action.label}</strong><span>{action.description}</span><span aria-hidden="true">Open →</span></Link>)}</nav>
   {showSubmissions&&<section><h2>Your city submissions</h2>{activeSubmissions.map(item=><article key={item.cityId} id={`city-submission-${item.cityId}`} aria-current={item.cityId===submittedCity?"true":undefined}><h3>{item.cityName}</h3><p><strong>{item.tier==="paid"?"Pro requested":"Basic"}</strong> · {statusLabel[item.status]}</p>{item.status==="approved"&&<p><Link href={`/${item.slug}`}>View city page →</Link></p>}{item.status==="needs-changes"&&<p>This submission awaits a host correction before it can be approved. Open <Link href="/admin/my-cities">Cities</Link> to review the feedback and resubmit.</p>}</article>)}{!!archivedSubmissions.length&&<details><summary>Archived cities ({archivedSubmissions.length})</summary><p>Archived cities are read-only and hidden from public and active host views. Contact BitcoinWalk to request restoration.</p>{archivedSubmissions.map(item=><article key={item.cityId}><h3>{item.cityName}</h3><p><strong>{item.tier==="paid"?"Pro requested":"Basic"}</strong> · Archived</p></article>)}</details>}</section>}
   {session.role==="organizer"&&<p>Your city publishing permissions and individual hosting assignments remain separate.</p>}
