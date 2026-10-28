@@ -156,5 +156,6 @@
   "BW-157": "Keep the intended chat destination through browser login, cancellation, refresh and joining.",
   "BW-158": "Open supported chat links in the installed mobile app with a reliable browser fallback.",
   "BW-159": "Offer clear app download and open actions while preserving access to web chat.",
-  "BW-160": "Show important dashboard outcomes in consistent, accessible top-right notifications with clear success, warning and failure states."
+  "BW-160": "Show important dashboard outcomes in consistent, accessible top-right notifications with clear success, warning and failure states.",
+  "BW-161": "Let sponsors build an exact multi-city basket or fund every currently available upcoming walk through a fixed-price 690,000-sat global campaign."
 }

@@ -9,9 +9,9 @@ export function sponsorCoverage(selected:SponsorshipPresentation,orders:SponsorO
  if(occurrence&&now>=(expiry==="og"?occurrence.start+SPONSOR_OG_DURATION_SECONDS:occurrence.end))return {state:"hidden"};
  if(selected.state!=="sponsor")return selected;
  if(!occurrence)return {state:"empty"};
- const purchases=orders.filter(order=>order.cityId===cityId&&order.pubkey===selected.pubkey&&order.status==="paid");
+ const purchases=orders.filter(order=>(order.selections?.some(selection=>selection.cityId===cityId)??order.cityId===cityId)&&order.pubkey===selected.pubkey&&order.status==="paid");
  // Existing manual assignments remain supported under the same expiry policy.
  if(!purchases.length)return selected;
- const covered=purchases.some(order=>!order.needsReview&&order.walks.length===order.count&&order.walks.some(walk=>walk.id===occurrence.id&&walk.address===occurrence.address&&walk.start===occurrence.start));
+ const covered=purchases.some(order=>!order.needsReview&&order.walks.length===order.count&&order.walks.some(walk=>(walk.cityId??order.cityId)===cityId&&walk.id===occurrence.id&&walk.address===occurrence.address&&walk.start===occurrence.start));
  return covered?selected:{state:"empty"};
 }

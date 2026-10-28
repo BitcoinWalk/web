@@ -86,7 +86,7 @@ try{
     const page=await fetch(`${base}${path}`,{signal:AbortSignal.timeout(5000)});
     if(!page.ok || !(await page.text()).includes(label))throw new Error(`Packaged route failed: ${path}`);
   }
-  for(const [path,label] of [["/sponsor?city=Warszawa","Choose the city and the walk"],["/admin/sponsor","Your Access"],["/admin/sponsors","Your Access"],["/admin/sponsors/payments","Your Access"],["/admin/sponsors/upload","Your Access"],["/admin/sponsors/logos","Your Access"]]){
+  for(const [path,label] of [["/sponsor?city=Warszawa","Sponsor the BitcoinWalk community"],["/sponsor?scope=global","Sponsor the BitcoinWalk community"],["/admin/sponsor","Your Access"],["/admin/sponsors","Your Access"],["/admin/sponsors/payments","Your Access"],["/admin/sponsors/upload","Your Access"],["/admin/sponsors/logos","Your Access"]]){
     const page=await fetch(`${base}${path}`,{signal:AbortSignal.timeout(5000)});
     if(!page.ok||!(await page.text()).includes(label))throw new Error(`Sponsor route failed: ${path}`);
   }

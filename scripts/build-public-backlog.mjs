@@ -40,7 +40,7 @@ const priorityMeta = {
 };
 // These planned items are explicitly in the reconciled immediate queue. In-progress
 // work is always P1; other planned/blocked work is P2; done/future work is P3.
-const immediatePriorityIds = new Set(["BW-158", "BW-93", "BW-153", "BW-150", "BW-160", "BW-141"]);
+const immediatePriorityIds = new Set(["BW-158", "BW-93", "BW-153", "BW-150", "BW-160", "BW-161", "BW-141"]);
 function priorityFor(id, status) {
   if (status === "🟠 In progress" || immediatePriorityIds.has(id)) return "P1";
   if (status === "⚪ Planned" || status === "🔴 Blocked") return "P2";
