@@ -28,7 +28,7 @@ export async function POST(request:Request){
   let actor:string|undefined;if(body.action==="list"||body.action==="mine"||body.action==="claim"){try{actor=authorizeSponsor(body.event,origin,body.action,body.action==="claim"?body.id:undefined);}catch{return Response.json({error:"A valid Nostr signature is required."},{status:403,headers});}if(body.action==="list"&&actor!==SUPER_ADMIN_PUBKEY)return Response.json({error:"Super-admin access required."},{status:403,headers});}
   const service=getPaymentRuntime().sponsors;
   if(body.action==="preview-invitation"){const invitation=await service.previewInvitation(body.invitationToken);return invitation?Response.json({invitation},{headers}):Response.json({error:"This sponsor invitation is invalid, expired, revoked or no longer eligible."},{status:404,headers});}
-  if(body.action==="list")return Response.json({orders:service.list()},{headers});
+  if(body.action==="list")return Response.json({orders:service.list(),outcomes:service.outcomeReport()},{headers});
   if(body.action==="mine")return Response.json({orders:service.mine(actor!)},{headers});
   if(body.action==="claim"){const draft=await service.status(body.id,body.token);if(!draft.pubkey&&draft.logoHash)for(const selection of draft.selections??[{cityId:draft.cityId}])await promoteSponsorDraftLogo({orderId:draft.id,sourceCityId:draft.cityId,cityId:selection.cityId,sponsorPubkey:actor!,hash:draft.logoHash});return Response.json({order:await service.claim(body.id,body.token,actor!,JSON.stringify(body.event))},{headers});}
   if(body.action==="save-draft")return Response.json({order:await service.saveDraft(body.id,body.token,body.name,body.website)},{headers});

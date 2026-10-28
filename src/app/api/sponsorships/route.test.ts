@@ -3,7 +3,7 @@ import {finalizeEvent,generateSecretKey} from "nostr-tools";
 import {sponsorRequest} from "../../../payments/sponsor-auth";
 import {promoteSponsorDraftLogo} from "../../../server/sponsor-logo-store";
 import {POST} from "./route";
-const sponsors=vi.hoisted(()=>({create:vi.fn(),createBatch:vi.fn(),status:vi.fn(),acknowledgeRecovery:vi.fn(),saveDraft:vi.fn(),claim:vi.fn(),list:vi.fn(),mine:vi.fn(),available:vi.fn()}));
+const sponsors=vi.hoisted(()=>({create:vi.fn(),createBatch:vi.fn(),status:vi.fn(),acknowledgeRecovery:vi.fn(),saveDraft:vi.fn(),claim:vi.fn(),list:vi.fn(),mine:vi.fn(),available:vi.fn(),outcomeReport:vi.fn()}));
 vi.mock("../../../server/sponsor-logo-store",()=>({promoteSponsorDraftLogo:vi.fn()}));
 vi.mock("../../../payments/runtime",()=>({getPaymentRuntime:()=>({sponsors})}));
 const origin="https://app-staging.bitcoinwalk.org",id="00000000-0000-4000-8000-000000000001",token="ab".repeat(32);
