@@ -134,7 +134,11 @@ Account. The signed APK SHA-256 is
 `4d57d26929a175dbd30faf2fc62f7baecd423754553ea0fcc7bc46eb5e90efdb`
 and the certificate remains
 `92afc33544e32b171b07ade23696ee845913ffbc48a9741e215b45168401f946`.
-Cross-account isolation and two-user/one-organizer acceptance remain.
+A subsequent BitcoinWalk → endo switch, full app restart and endo → BitcoinWalk
+switch restored the correct active identity at every boundary and retained
+exactly the original three accounts with no duplicate. Draft/message isolation
+could not be exercised without joining a production room; it and the
+two-user/one-organizer pilot remain.
 
 ## Remaining online-slice work
 
