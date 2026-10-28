@@ -157,5 +157,6 @@
   "BW-158": "Open supported chat links in the installed mobile app with a reliable browser fallback.",
   "BW-159": "Offer clear app download and open actions while preserving access to web chat.",
   "BW-160": "Show important dashboard outcomes in consistent, accessible top-right notifications with clear success, warning and failure states.",
-  "BW-161": "Let sponsors build an exact multi-city basket or fund the next available walk in every active city through a fixed-price 690,000-sat global campaign."
+  "BW-161": "Let sponsors build an exact multi-city basket or fund the next available walk in every active city through a fixed-price 690,000-sat global campaign.",
+  "BW-162": "Make the web start journey resume reliably after Amber backgrounds the browser during a same-device Nostr Connect approval."
 }
