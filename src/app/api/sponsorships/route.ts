@@ -4,6 +4,7 @@ import {getPaymentRuntime} from "../../../payments/runtime";
 import {paymentBody} from "../../../payments/request-body";
 import {authorizeSponsor} from "../../../payments/sponsor-auth";
 import {SUPER_ADMIN_PUBKEY} from "../../../nostr/authority";
+import {promoteSponsorDraftLogo} from "../../../server/sponsor-logo-store";
 export const dynamic="force-dynamic",runtime="nodejs";
 const headers={"Cache-Control":"no-store"},token=z.string().regex(/^[a-f0-9]{64}$/),event=z.custom<Event>(value=>!!value&&typeof value==="object");
 const command=z.discriminatedUnion("action",[
@@ -11,6 +12,7 @@ const command=z.discriminatedUnion("action",[
  z.object({action:z.literal("preview-invitation"),invitationToken:token}).strict(),
  z.object({action:z.literal("status"),token,id:z.uuid()}).strict(),
  z.object({action:z.literal("acknowledge-recovery"),token,id:z.uuid()}).strict(),
+ z.object({action:z.literal("save-draft"),token,id:z.uuid(),name:z.string().max(80),website:z.string().max(2048)}).strict(),
  z.object({action:z.literal("claim"),token,id:z.uuid(),event}).strict(),
  z.object({action:z.literal("list"),event}).strict(),
  z.object({action:z.literal("mine"),event}).strict(),
@@ -27,11 +29,12 @@ export async function POST(request:Request){
   if(body.action==="preview-invitation"){const invitation=await service.previewInvitation(body.invitationToken);return invitation?Response.json({invitation},{headers}):Response.json({error:"This sponsor invitation is invalid, expired, revoked or no longer eligible."},{status:404,headers});}
   if(body.action==="list")return Response.json({orders:service.list()},{headers});
   if(body.action==="mine")return Response.json({orders:service.mine(actor!)},{headers});
-  if(body.action==="claim")return Response.json({order:await service.claim(body.id,body.token,actor!,JSON.stringify(body.event))},{headers});
+  if(body.action==="claim"){const draft=await service.status(body.id,body.token);if(!draft.pubkey&&draft.logoHash)await promoteSponsorDraftLogo({orderId:draft.id,cityId:draft.cityId,sponsorPubkey:actor!,hash:draft.logoHash});return Response.json({order:await service.claim(body.id,body.token,actor!,JSON.stringify(body.event))},{headers});}
+  if(body.action==="save-draft")return Response.json({order:await service.saveDraft(body.id,body.token,body.name,body.website)},{headers});
   if(body.action==="acknowledge-recovery")return Response.json({order:await service.acknowledgeRecovery(body.id,body.token)},{headers});
   if(body.action==="status")return Response.json({order:await service.status(body.id,body.token)},{headers});
   // Caddy appends the connecting address on the right; never trust a supplied leftmost IP.
   const client=request.headers.get("x-forwarded-for")?.split(",").at(-1)?.trim()||"unknown";
   const order=await service.create(body.token,client,body.cityId,body.count,body.ids,body.invitationToken);catalogCache=undefined;return Response.json({order},{headers});
- }catch(error){const message=error instanceof Error?error.message:"";const safe=/^(Choose|Some walks|Invoice limit|Checkout|This (checkout|order)|Sponsor invitation|Payment must|Sponsorship booking)/.test(message)?message:"Payment processing is temporarily unavailable. Your saved order can be checked again.";return Response.json({error:safe,selectionRejected:body.action==="create"&&/^(Choose|Some walks|Invoice limit|Sponsor invitation|Sponsorship booking)/.test(message)},{status:409,headers});}
+ }catch(error){const message=error instanceof Error?error.message:"";const safe=/^(Choose|Some walks|Invoice limit|Checkout|This (checkout|order|sponsorship)|Sponsor (invitation|name|website)|Private sponsor|Payment must|Sponsorship booking)/.test(message)?message:"Payment processing is temporarily unavailable. Your saved order can be checked again.";return Response.json({error:safe,selectionRejected:body.action==="create"&&/^(Choose|Some walks|Invoice limit|Sponsor invitation|Sponsorship booking)/.test(message)},{status:409,headers});}
 }

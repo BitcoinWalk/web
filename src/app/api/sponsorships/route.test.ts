@@ -1,8 +1,10 @@
 import {beforeEach,afterEach,describe,expect,it,vi} from "vitest";
 import {finalizeEvent,generateSecretKey} from "nostr-tools";
 import {sponsorRequest} from "../../../payments/sponsor-auth";
+import {promoteSponsorDraftLogo} from "../../../server/sponsor-logo-store";
 import {POST} from "./route";
-const sponsors=vi.hoisted(()=>({create:vi.fn(),status:vi.fn(),acknowledgeRecovery:vi.fn(),claim:vi.fn(),list:vi.fn(),mine:vi.fn(),available:vi.fn()}));
+const sponsors=vi.hoisted(()=>({create:vi.fn(),status:vi.fn(),acknowledgeRecovery:vi.fn(),saveDraft:vi.fn(),claim:vi.fn(),list:vi.fn(),mine:vi.fn(),available:vi.fn()}));
+vi.mock("../../../server/sponsor-logo-store",()=>({promoteSponsorDraftLogo:vi.fn()}));
 vi.mock("../../../payments/runtime",()=>({getPaymentRuntime:()=>({sponsors})}));
 const origin="https://app-staging.bitcoinwalk.org",id="00000000-0000-4000-8000-000000000001",token="ab".repeat(32);
 const request=(body:unknown,source=origin)=>new Request(origin+"/api/sponsorships",{method:"POST",headers:{Origin:source},body:JSON.stringify(body)});
@@ -13,6 +15,8 @@ describe("sponsor checkout authorization",()=>{
  it("returns only the signed sponsor's own orders",async()=>{const event=finalizeEvent(sponsorRequest("mine",origin),generateSecretKey()),orders=[{id}];sponsors.mine.mockReturnValue(orders);const response=await POST(request({action:"mine",event}));expect(response.status).toBe(200);expect(sponsors.mine).toHaveBeenCalledWith(event.pubkey);expect(await response.json()).toEqual({orders});expect(sponsors.list).not.toHaveBeenCalled();});
  it("rejects client supplied prices",async()=>{expect((await POST(request({action:"create",token,cityId:id,count:1,ids:["ab".repeat(32)],amountMsat:1}))).status).toBe(400);expect(sponsors.create).not.toHaveBeenCalled();});
  it("requires a signature bound to the same paid order for claim",async()=>{const event=finalizeEvent(sponsorRequest("claim",origin,"different"),generateSecretKey());expect((await POST(request({action:"claim",id,token,event}))).status).toBe(403);expect(sponsors.claim).not.toHaveBeenCalled();});
+ it("promotes a private logo draft only when the exact checkout is claimed",async()=>{const event=finalizeEvent(sponsorRequest("claim",origin,id),generateSecretKey()),order={id,cityId:id,pubkey:null,logoHash:"ef".repeat(32)};sponsors.status.mockResolvedValue(order);sponsors.claim.mockResolvedValue({...order,pubkey:event.pubkey});const response=await POST(request({action:"claim",id,token,event}));expect(response.status).toBe(200);expect(promoteSponsorDraftLogo).toHaveBeenCalledWith({orderId:id,cityId:id,sponsorPubkey:event.pubkey,hash:order.logoHash});expect(sponsors.claim).toHaveBeenCalledWith(id,token,event.pubkey,JSON.stringify(event));});
  it("acknowledges recovery only for the exact token-bound order",async()=>{const order={id,recoveryAcknowledgedAt:123};sponsors.acknowledgeRecovery.mockResolvedValue(order);const response=await POST(request({action:"acknowledge-recovery",id,token}));expect(response.status).toBe(200);expect(sponsors.acknowledgeRecovery).toHaveBeenCalledWith(id,token);expect(await response.json()).toEqual({order});expect((await POST(request({action:"acknowledge-recovery",id,token:"wrong"}))).status).toBe(400);});
+ it("saves bounded private sponsor details without a Nostr signature",async()=>{const order={id,draftName:"ACME",draftWebsite:"https://acme.example/"};sponsors.saveDraft.mockResolvedValue(order);const response=await POST(request({action:"save-draft",id,token,name:"ACME",website:"https://acme.example"}));expect(response.status).toBe(200);expect(sponsors.saveDraft).toHaveBeenCalledWith(id,token,"ACME","https://acme.example");expect(await response.json()).toEqual({order});});
  it("does not expose wallet errors or keys",async()=>{sponsors.status.mockRejectedValue(new Error("nostr+walletconnect://secret"));const result=await POST(request({action:"status",id,token}));expect(await result.text()).not.toContain("secret");});
 });

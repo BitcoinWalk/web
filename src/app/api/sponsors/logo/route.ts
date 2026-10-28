@@ -4,7 +4,7 @@ import {parseMediaRequest} from "../../../../domain/media-request";
 import {isSuperAdmin} from "../../../../nostr/authority";
 import {latestSponsorships,querySponsorships} from "../../../../nostr/sponsorships";
 import {serverReadRelays} from "../../../../lib/server-relay-config";
-import {storePendingSponsorLogo} from "../../../../server/sponsor-logo-store";
+import {sponsorDraftAssetKey,storePendingSponsorLogo} from "../../../../server/sponsor-logo-store";
 import {MAX_SPONSOR_LOGO_BYTES} from "../../../../server/sponsor-logo";
 import {getPaymentRuntime} from "../../../../payments/runtime";
 import {paidSponsorLinkPreview} from "../../../../server/paid-sponsor-preview";
@@ -26,7 +26,19 @@ export async function POST(request:Request) {
     if (!request.body || Number(request.headers.get("content-length"))>limit) return reply("Upload exceeds the limit.",413);
     const reader=request.body.getReader(),chunks:Uint8Array[]=[];let size=0;
     try {while(true){const {done,value}=await reader.read();if(done)break;size+=value.length;if(size>limit){await reader.cancel();return reply("Upload exceeds the limit.",413);}chunks.push(value);}}finally{reader.releaseLock();}
-    const body=JSON.parse(Buffer.concat(chunks).toString("utf8")) as {event?:Event;base64?:string;token?:string};
+    const body=JSON.parse(Buffer.concat(chunks).toString("utf8")) as {action?:string;event?:Event;base64?:string;token?:string;orderId?:string;cityId?:string;sha256?:string;mime?:string};
+    if(body.action==="upload-paid-sponsor-draft-logo"){
+      const origin=process.env.BITCOINWALK_PAYMENT_APP_ORIGIN;
+      if(!origin||request.headers.get("origin")!==origin)return reply("Origin not allowed.",403);
+      if(typeof body.token!=="string"||!/^[-a-f0-9]{36}$/.test(body.orderId??"")||!/^[-a-f0-9]{36}$/.test(body.cityId??"")||!/^[a-f0-9]{64}$/.test(body.sha256??"")||!(["image/png","image/webp","image/svg+xml"] as string[]).includes(body.mime??""))return reply("Invalid private sponsor draft upload.",400);
+      let order;try{order=getPaymentRuntime().sponsors.authorizeDraftArtwork(body.orderId!,body.token,body.cityId!);}catch{return reply("A paid recovered checkout is required before upload.",403);}
+      if(typeof body.base64!=="string"||!body.base64||body.base64.length>limit)return reply("Invalid file encoding.",400);
+      const bytes=Buffer.from(body.base64,"base64");if(bytes.toString("base64")!==body.base64)return reply("Invalid file encoding.",400);
+      if(createHash("sha256").update(bytes).digest("hex")!==body.sha256)return reply("Upload does not match the selected file.",400);
+      const draftKey=sponsorDraftAssetKey(order.id);let result;try{result=await storePendingSponsorLogo({bytes,mime:body.mime!,cityId:order.cityId,sponsorPubkey:draftKey,actor:draftKey,signedRequestId:createHash("sha256").update(`${order.id}:${body.token}:${body.sha256}`).digest("hex")});}catch(error){const safe=safeUploadError(error);return reply(safe??"The logo could not be processed. Use a valid PNG, WebP or outlined SVG.",safe?.includes("busy")||safe?.includes("one minute")?429:400);}
+      const updated=getPaymentRuntime().sponsors.recordDraftLogo(order.id,body.token,order.cityId,result.hash);let linkPreview=null;try{linkPreview=await paidSponsorLinkPreview(updated,draftKey,result.hash);}catch{/* The private draft remains recoverable. */}
+      return Response.json({status:result.status,hash:result.hash,message:"Logo saved as a private checkout draft.",linkPreview},{headers:{"Cache-Control":"no-store"}});
+    }
     if(!body.event)return reply("Signed upload authorization required.",401);
     const command=parseMediaRequest(body.event);
     if(!command||(command.action!=="upload-sponsor-logo"&&command.action!=="upload-paid-sponsor-logo"&&command.action!=="upload-sponsor-catalogue-logo"))return reply("Invalid or expired upload authorization.",401);

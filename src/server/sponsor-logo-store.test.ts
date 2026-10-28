@@ -3,7 +3,7 @@ import {mkdtemp,readFile,readdir,rm} from "node:fs/promises";
 import {join} from "node:path";
 import {tmpdir} from "node:os";
 import sharp from "sharp";
-import {storePendingSponsorLogo,reviewPendingSponsorLogo,readSponsorLogoAsset} from "./sponsor-logo-store";
+import {promoteSponsorDraftLogo,sponsorDraftAssetKey,storePendingSponsorLogo,reviewPendingSponsorLogo,readSponsorLogoAsset} from "./sponsor-logo-store";
 let root:string|undefined;
 afterEach(async()=>{vi.unstubAllEnvs();if(root)await rm(root,{recursive:true,force:true});});
 describe("pending sponsor storage",()=>{
@@ -21,5 +21,12 @@ describe("pending sponsor storage",()=>{
   expect(await readSponsorLogoAsset(reviewed.hash)).toEqual(Buffer.from(reviewed.base64,"base64"));
   expect(JSON.parse(await readFile(join(directory,"pending.json"),"utf8"))).toMatchObject({status:"pending"});
   await expect(storePendingSponsorLogo(input)).rejects.toThrow("one minute");
+ });
+ it("promotes an exact recovery draft to the later sponsor identity without granting approval",async()=>{
+  root=await mkdtemp(join(tmpdir(),"bw-sponsor-draft-test-"));vi.stubEnv("BITCOINWALK_MEDIA_ROOT",root);
+  const cityId="00000000-0000-4000-8000-000000000001",orderId="10000000-0000-4000-8000-000000000001",sponsorPubkey="a".repeat(64),draftKey=sponsorDraftAssetKey(orderId),bytes=await sharp({create:{width:80,height:40,channels:4,background:"orange"}}).png().toBuffer(),stored=await storePendingSponsorLogo({bytes,mime:"image/png",cityId,sponsorPubkey:draftKey,actor:draftKey,signedRequestId:"b".repeat(64)});
+  expect(await promoteSponsorDraftLogo({orderId,cityId,sponsorPubkey,hash:stored.hash})).toEqual({hash:stored.hash});
+  const promoted=JSON.parse(await readFile(join(root,"sponsor-pending",cityId,sponsorPubkey,"pending.json"),"utf8"));expect(promoted).toMatchObject({hash:stored.hash,sponsorPubkey,promotedFrom:draftKey});expect(await readSponsorLogoAsset(stored.hash)).toBeNull();
+  expect(await promoteSponsorDraftLogo({orderId,cityId,sponsorPubkey,hash:stored.hash})).toEqual({hash:stored.hash});
  });
 });

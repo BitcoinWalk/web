@@ -8,6 +8,19 @@ let active = 0;
 const processing=new Set<string>();
 const assetRoot=()=>join(root(),"..","sponsor-assets");
 const hashOf=(body:Buffer)=>createHash("sha256").update(body).digest("hex");
+export const sponsorDraftAssetKey=(orderId:string)=>createHash("sha256").update(`bitcoinwalk-sponsor-draft:${orderId}`).digest("hex");
+
+/** Attach a recovery-authorized private draft to a later verified sponsor identity. */
+export async function promoteSponsorDraftLogo(input:{orderId:string;cityId:string;sponsorPubkey:string;hash:string}){
+ if(!/^[0-9a-f-]{36}$/.test(input.orderId)||!/^[0-9a-f-]{36}$/.test(input.cityId)||!/^[a-f0-9]{64}$/.test(input.sponsorPubkey)||!/^[a-f0-9]{64}$/.test(input.hash))throw new Error("Invalid asset identity.");
+ const draftKey=sponsorDraftAssetKey(input.orderId),source=join(root(),input.cityId,draftKey),record=JSON.parse(await readFile(join(source,"pending.json"),"utf8")),body=await readFile(join(source,"logo.png"));
+ if(record.cityId!==input.cityId||record.sponsorPubkey!==draftKey||record.hash!==input.hash||hashOf(body)!==input.hash)throw new Error("Private sponsor artwork changed; upload it again.");
+ const target=join(root(),input.cityId,input.sponsorPubkey);await mkdir(target,{recursive:true,mode:0o700});
+ const bodyTemp=join(target,`${randomUUID()}.tmp`),manifest=join(target,"pending.json"),metaTemp=manifest+`.${randomUUID()}.tmp`,promoted={...record,sponsorPubkey:input.sponsorPubkey,promotedFrom:draftKey,promotedAt:Date.now()};
+ try{await writeFile(bodyTemp,body,{mode:0o600});await rename(bodyTemp,join(target,"logo.png"));}finally{await unlink(bodyTemp).catch(()=>{});}
+ try{await writeFile(metaTemp,JSON.stringify(promoted),{mode:0o600});await rename(metaTemp,manifest);}finally{await unlink(metaTemp).catch(()=>{});}
+ return {hash:input.hash};
+}
 
 /** Private inventory. Approval is derived from signed assignments, never this manifest. */
 export async function listSponsorLogoUploads(){
