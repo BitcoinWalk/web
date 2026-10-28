@@ -1,6 +1,6 @@
 # BW-125 mobile online release inventory
 
-Reviewed 27 October 2026. This inventory separates the Android online companion
+Reviewed 28 October 2026. This inventory separates the Android online companion
 release from later notification, verified-link and proximity work. It records
 evidence; it does not authorize a store publication.
 
@@ -64,8 +64,9 @@ upgrade, remote-signer or relay acceptance on a physical phone.
 
 ## Candidate implementation update
 
-Candidate `7b9b1cd` builds on online-routing commit `b0a60aa`, canonical-target
-commit `ccbfdb2` and the published `09d28c9` line.
+Candidate `21580c4212070493ba501113f770a8c0afbcbba7` builds on online-routing
+commit `b0a60aa`, canonical-target commit `ccbfdb2` and the published `09d28c9`
+line. It is version `26.10.33`, Android version code `40`.
 
 - City selection now requests only the selected City membership. Global remains
   an explicit join, preventing a second unexplained signer approval.
@@ -85,15 +86,30 @@ commit `ccbfdb2` and the published `09d28c9` line.
   lint pass; lint retains 154 accepted warnings and no errors. The wider suite
   passed 2,380 of 2,382 tests. The only failures are the existing Electron
   fake-Bluetooth-helper assertions, outside the Android online slice.
+- GitHub workflow `40610497032` passed the clean verification and reproducible
+  Android build from that exact commit after the removed F-Droid image digest
+  and advanced Debian Security OpenJDK package were refreshed to exact current
+  pins. Gradle completed 2,376 tasks and the repository scanner confirmed
+  arm64-v8a, armeabi-v7a, x86 and x86_64.
+- The workflow intentionally had no production signing credentials and emitted
+  only `WalkieTalkie-26.10.33-android-unsigned.apk`. Its SHA-256 is
+  `ab760205571b3648b836c2c93c16392f8c7bce9b337b040d47e3b34cf908f1ff`.
+  CI and local read-back confirm package `org.bitcoinwalk.walkietalkie`, version
+  `26.10.33`, code `40`, exact source provenance and an unsigned archive with no
+  JAR signature entries. This artifact must not be installed or distributed.
 
 ## Remaining online-slice work
 
-### 1. Prepare the signed candidate
+### 1. Sign and verify the candidate
 
-1. Confirm the Walkie Talkie workflow, package, Zapstore metadata and release
-   notes all name the same artifact.
-2. Bump version name and version code once,
-   and retain its test, checksum, signing-certificate and rollback evidence.
+1. On the controlled offline release machine, sign the verified unsigned APK
+   with the permanent BitcoinWalk Android key. Do not send the keystore or its
+   passwords through chat, GitHub Actions or the source repository.
+2. Verify the signed APK still declares package `org.bitcoinwalk.walkietalkie`,
+   version `26.10.33` and code `40`, and that its signing-certificate SHA-256 is
+   exactly `92afc33544e32b171b07ade23696ee845913ffbc48a9741e215b45168401f946`.
+3. Record the signed APK checksum and retain the unsigned input, signed output,
+   exact source commit, CI run, release notes and rollback evidence together.
 
 Role-aware website handoff and confirmed post-payment membership remain BW-149.
 The online Android release may expose existing authorized web administration,
