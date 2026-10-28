@@ -125,8 +125,16 @@ production certificate. With Amber unavailable, Chat exits loading, shows a
 truthful refresh error and retains BitcoinWalk Guide, BitcoinWalk Global and the
 saved Madeira city. Device logs can still record the independent 60-second signer
 timeout later, but it no longer blocks the inbox. The existing account and city
-context remained intact. The candidate is not yet published; positive signer,
-account-isolation and two-user/one-organizer acceptance remain.
+context remained intact. The candidate is not yet published. Fresh
+Pixel/GrapheneOS acceptance on 28 October against app commit `2cdfc0c`
+(`26.10.37` / code `44`) and remote-signer `0.8.64` completed the positive Amber
+Nostr Connect path: Amber published both the approval and follow-up response,
+Walkie returned without timeout and the exact BitcoinWalk identity persisted on
+Account. The signed APK SHA-256 is
+`4d57d26929a175dbd30faf2fc62f7baecd423754553ea0fcc7bc46eb5e90efdb`
+and the certificate remains
+`92afc33544e32b171b07ade23696ee845913ffbc48a9741e215b45168401f946`.
+Cross-account isolation and two-user/one-organizer acceptance remain.
 
 ## Remaining online-slice work
 
