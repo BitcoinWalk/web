@@ -1,4 +1,5 @@
 import {describe,expect,it,vi} from "vitest";
 vi.mock("server-only",()=>({}));
-import {cityHeroPrompt} from "./image-generator";
+import {cityHeroPrompt,ogBackgroundPrompt} from "./image-generator";
 describe("city hero prompt",()=>{it("binds place context and excludes people and branding",()=>{const prompt=cityHeroPrompt({cityName:"Memphis",latitude:35.1495,longitude:-90.049,meetingPoint:"Coffee shop"});expect(prompt).toContain("Memphis");expect(prompt).toContain("35.14950, -90.04900");expect(prompt).toContain("No people");expect(prompt).toContain("No people, crowds, faces, bodies, text, logos, Bitcoin symbols");});});
+describe("OG background prompt",()=>{it("preserves the editable direction while reserving overlays for the composer",()=>{const prompt=ogBackgroundPrompt("A quiet sunrise over Bangkok");expect(prompt).toContain("A quiet sunrise over Bangkok");expect(prompt).toContain("no text, letters, logos");expect(()=>ogBackgroundPrompt(" ")).toThrow("1 to 1,000");});});

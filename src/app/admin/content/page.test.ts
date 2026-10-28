@@ -6,6 +6,7 @@ import {contentTabFromLocation,hasContentChanges,hasFeatureFlagChanges,retainedC
 describe("Content administration state",()=>{
  it("supports stable direct links to Pages and Features",()=>{
   expect(contentTabFromLocation("?tab=features")).toBe("features");
+  expect(contentTabFromLocation("?tab=og-images")).toBe("og-images");
   expect(contentTabFromLocation("?tab=pages")).toBe("pages");
   expect(contentTabFromLocation("?tab=unknown")).toBe("pages");
  });

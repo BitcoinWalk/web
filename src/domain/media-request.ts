@@ -2,7 +2,13 @@ import {z} from "zod";
 import {verifyEvent,type Event,type EventTemplate} from "nostr-tools";
 export const MEDIA_REQUEST_KIND=27235;
 export const mediaRequestSchema=z.discriminatedUnion("action",[
- z.object({action:z.literal("brand-studio-access")}).strict(),
+ z.object({action:z.literal("og-studio-list")}).strict(),
+ z.object({action:z.literal("og-studio-read"),id:z.string().uuid()}).strict(),
+ z.object({action:z.literal("og-studio-source"),hash:z.string().regex(/^[0-9a-f]{64}$/)}).strict(),
+ z.object({action:z.literal("og-studio-import"),sourceUrl:z.url().max(2048)}).strict(),
+ z.object({action:z.literal("og-studio-generate"),prompt:z.string().trim().min(1).max(1000)}).strict(),
+ z.object({action:z.literal("og-studio-upload"),asset:z.enum(["background","partner-logo"]),sha256:z.string().regex(/^[0-9a-f]{64}$/),mime:z.enum(["image/jpeg","image/png","image/webp"]),bytes:z.number().int().positive().max(10*1024*1024)}).strict(),
+ z.object({action:z.literal("og-studio-render"),composition:z.unknown()}).strict(),
  z.object({action:z.literal("list-sponsor-assets")}).strict(),
  z.object({action:z.literal("preview-sponsor-asset"),cityId:z.string().uuid(),sponsorPubkey:z.string().regex(/^[0-9a-f]{64}$/),hash:z.string().regex(/^[0-9a-f]{64}$/)}).strict(),
  z.object({action:z.literal("generate-sponsor-composite"),targetCityId:z.string().uuid(),sourceCityId:z.string().uuid(),sponsorPubkey:z.string().regex(/^[0-9a-f]{64}$/),hash:z.string().regex(/^[0-9a-f]{64}$/)}).strict(),
