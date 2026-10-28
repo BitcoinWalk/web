@@ -137,8 +137,10 @@ and the certificate remains
 A subsequent BitcoinWalk → endo switch, full app restart and endo → BitcoinWalk
 switch restored the correct active identity at every boundary and retained
 exactly the original three accounts with no duplicate. Draft/message isolation
-could not be exercised without joining a production room; it and the
-two-user/one-organizer pilot remain.
+could not be exercised without joining a production room and remains the only
+untested online release gate. The user explicitly waived the separate
+two-user/one-organizer physical pilot on 28 October 2026 because no second phone
+is available. That pilot was not run and must not be represented as passed.
 
 ## Remaining online-slice work
 
