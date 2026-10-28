@@ -67,6 +67,7 @@ describe("super-admin OG image storage", () => {
           x: 40,
           y: 40,
           width: 320,
+          align: "left" as const,
         },
         text: {
           value: "Powered by BitcoinWalk",
@@ -85,6 +86,7 @@ describe("super-admin OG image storage", () => {
           x: 700,
           y: 100,
           width: 400,
+          align: "right" as const,
         },
       },
       saved = await renderAndSaveOg(actor, composition);
@@ -147,7 +149,8 @@ describe("super-admin OG image storage", () => {
           variant: "traditional" as const,
           x: 1150,
           y: 40,
-          width: 120,
+          width: 1200,
+          align: "center" as const,
         },
         text: {
           value: "Text",

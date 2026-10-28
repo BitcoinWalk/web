@@ -47,6 +47,33 @@ type Saved = {
 };
 const STORAGE = "bitcoinwalk:og-composer:draft:v1",
   emptyHash = "0".repeat(64);
+const CANVAS_WIDTH = 1200,
+  CANVAS_HEIGHT = 630,
+  EDGE = 64,
+  TEXT_WIDTH = CANVAS_WIDTH - EDGE * 2;
+const OG_FONT = '"BitcoinWalk Ubuntu"';
+let ubuntuFontPromise: Promise<FontFace> | null = null;
+function ensureUbuntuFont() {
+  ubuntuFontPromise ??= new FontFace(
+    "BitcoinWalk Ubuntu",
+    "url(/api/og-font)",
+    { weight: "700", style: "italic" },
+  )
+    .load()
+    .then((font) => {
+      document.fonts.add(font);
+      return font;
+    });
+  return ubuntuFontPromise;
+}
+type Alignment = "left" | "center" | "right";
+function alignedX(align: Alignment, width: number) {
+  return align === "left"
+    ? EDGE
+    : align === "right"
+      ? CANVAS_WIDTH - EDGE - width
+      : (CANVAS_WIDTH - width) / 2;
+}
 const initial: OgComposition = {
   version: 1,
   title: "BitcoinWalk OG image",
@@ -57,6 +84,7 @@ const initial: OgComposition = {
     x: 64,
     y: 54,
     width: 150,
+    align: "left",
   },
   text: {
     value: "Powered by BitcoinWalk",
@@ -159,6 +187,40 @@ function SizeControl({
   );
 }
 
+function AlignmentControl({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: Alignment;
+  onChange: (value: Alignment) => void;
+}) {
+  return (
+    <div className={styles.alignmentField}>
+      <span>{label}</span>
+      <div
+        className={styles.alignmentControl}
+        role="group"
+        aria-label={`${label} alignment`}
+      >
+        {(["left", "center", "right"] as const).map((alignment) => (
+          <button
+            key={alignment}
+            type="button"
+            aria-pressed={value === alignment}
+            onClick={() => onChange(alignment)}
+          >
+            {alignment === "center"
+              ? "Centre"
+              : alignment[0].toUpperCase() + alignment.slice(1)}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function OgImageComposer() {
   const dashboard = useDashboard(),
     canvas = useRef<HTMLCanvasElement>(null),
@@ -256,7 +318,11 @@ export default function OgImageComposer() {
           mark: {
             ...draft.mark,
             variant: draft.mark.variant ?? "traditional",
+            align: draft.mark.align ?? "left",
           },
+          logo: draft.logo
+            ? { ...draft.logo, align: draft.logo.align ?? "right" }
+            : null,
         });
         setBackground(source);
         if (draft.logo?.source === "catalogue")
@@ -300,28 +366,32 @@ export default function OgImageComposer() {
             mark = await image(selected.path),
             height =
               composition.mark.width *
-              (mark.naturalHeight / mark.naturalWidth);
+              (mark.naturalHeight / mark.naturalWidth),
+            x = alignedX(composition.mark.align, composition.mark.width);
           if (!active) return;
           context.drawImage(
             mark,
-            composition.mark.x,
-            composition.mark.y,
+            x,
+            54,
             composition.mark.width,
             height,
           );
         } catch {}
       }
       if (composition.text.value.trim()) {
-        context.font = `700 ${composition.text.fontSize}px Arial, sans-serif`;
+        await ensureUbuntuFont();
+        context.font = `italic 700 ${composition.text.fontSize}px ${OG_FONT}`;
         context.textAlign = composition.text.align;
         context.textBaseline = "top";
         const x =
             composition.text.align === "left"
-              ? composition.text.x
+              ? EDGE
               : composition.text.align === "right"
-                ? composition.text.x + composition.text.width
-                : composition.text.x + composition.text.width / 2,
-          lines = wrap(context, composition.text.value, composition.text.width);
+                ? CANVAS_WIDTH - EDGE
+                : CANVAS_WIDTH / 2,
+          lines = wrap(context, composition.text.value, TEXT_WIDTH),
+          textHeight = lines.length * composition.text.fontSize * 1.12,
+          y = Math.max(54, CANVAS_HEIGHT - EDGE - textHeight);
         if (composition.text.treatment === "panel") {
           context.fillStyle =
             composition.text.color === "#ffffff"
@@ -329,9 +399,9 @@ export default function OgImageComposer() {
               : "rgba(255,255,255,.84)";
           context.beginPath();
           context.roundRect(
-            composition.text.x - 16,
-            composition.text.y - 16,
-            composition.text.width + 32,
+            EDGE - 16,
+            y - 16,
+            TEXT_WIDTH + 32,
             lines.length * composition.text.fontSize * 1.12 + 32,
             18,
           );
@@ -347,7 +417,7 @@ export default function OgImageComposer() {
           context.fillText(
             line,
             x,
-            composition.text.y + index * composition.text.fontSize * 1.12,
+            y + index * composition.text.fontSize * 1.12,
           ),
         );
         context.shadowColor = "transparent";
@@ -358,11 +428,13 @@ export default function OgImageComposer() {
           if (!active) return;
           const ratio = composition.logo.width / logo.naturalWidth,
             width = logo.naturalWidth * ratio,
-            height = logo.naturalHeight * ratio;
+            height = logo.naturalHeight * ratio,
+            x = alignedX(composition.logo.align, width),
+            y = CANVAS_HEIGHT - EDGE - height;
           context.drawImage(
             logo,
-            composition.logo.x,
-            composition.logo.y,
+            x,
+            y,
             width,
             height,
           );
@@ -428,6 +500,7 @@ export default function OgImageComposer() {
           x: 900,
           y: 430,
           width: 220,
+          align: "right",
         });
       }
       setMessage(
@@ -493,6 +566,7 @@ export default function OgImageComposer() {
       x: 900,
       y: 430,
       width: 220,
+      align: "right",
     });
   }
   async function save() {
@@ -731,53 +805,13 @@ export default function OgImageComposer() {
                     </span>
                   </span>
                 </label>
-                <div className={styles.three}>
-                  <label>
-                    X
-                    <input
-                      type="number"
-                      min="0"
-                      max="1168"
-                      value={composition.mark.x}
-                      onChange={(event) =>
-                        update("mark", {
-                          ...composition.mark,
-                          x: Number(event.target.value),
-                        })
-                      }
-                    />
-                  </label>
-                  <label>
-                    Y
-                    <input
-                      type="number"
-                      min="0"
-                      max="598"
-                      value={composition.mark.y}
-                      onChange={(event) =>
-                        update("mark", {
-                          ...composition.mark,
-                          y: Number(event.target.value),
-                        })
-                      }
-                    />
-                  </label>
-                  <label>
-                    Width (px)
-                    <input
-                      type="number"
-                      min="48"
-                      max="900"
-                      value={composition.mark.width}
-                      onChange={(event) =>
-                        update("mark", {
-                          ...composition.mark,
-                          width: Number(event.target.value),
-                        })
-                      }
-                    />
-                  </label>
-                </div>
+                <AlignmentControl
+                  label="Position"
+                  value={composition.mark.align}
+                  onChange={(align) =>
+                    update("mark", { ...composition.mark, align })
+                  }
+                />
                 <SizeControl
                   label="BitcoinWalk mark"
                   min={48}
@@ -807,7 +841,7 @@ export default function OgImageComposer() {
                 }
               />
             </label>
-            <div className={styles.three}>
+            <div className={styles.two}>
               <label>
                 Size (px)
                 <input
@@ -822,23 +856,6 @@ export default function OgImageComposer() {
                     })
                   }
                 />
-              </label>
-              <label>
-                Align
-                <select
-                  value={composition.text.align}
-                  onChange={(event) =>
-                    update("text", {
-                      ...composition.text,
-                      align: event.target
-                        .value as OgComposition["text"]["align"],
-                    })
-                  }
-                >
-                  <option value="left">Left</option>
-                  <option value="center">Centre</option>
-                  <option value="right">Right</option>
-                </select>
               </label>
               <label>
                 Treatment
@@ -858,6 +875,13 @@ export default function OgImageComposer() {
                 </select>
               </label>
             </div>
+            <AlignmentControl
+              label="Position"
+              value={composition.text.align}
+              onChange={(align) =>
+                update("text", { ...composition.text, align })
+              }
+            />
             <SizeControl
               label="text"
               min={24}
@@ -868,53 +892,6 @@ export default function OgImageComposer() {
                 update("text", { ...composition.text, fontSize })
               }
             />
-            <div className={styles.three}>
-              <label>
-                X
-                <input
-                  type="number"
-                  min="0"
-                  max="1040"
-                  value={composition.text.x}
-                  onChange={(event) =>
-                    update("text", {
-                      ...composition.text,
-                      x: Number(event.target.value),
-                    })
-                  }
-                />
-              </label>
-              <label>
-                Y
-                <input
-                  type="number"
-                  min="0"
-                  max="560"
-                  value={composition.text.y}
-                  onChange={(event) =>
-                    update("text", {
-                      ...composition.text,
-                      y: Number(event.target.value),
-                    })
-                  }
-                />
-              </label>
-              <label>
-                Width
-                <input
-                  type="number"
-                  min="160"
-                  max="1120"
-                  value={composition.text.width}
-                  onChange={(event) =>
-                    update("text", {
-                      ...composition.text,
-                      width: Number(event.target.value),
-                    })
-                  }
-                />
-              </label>
-            </div>
             <div
               className={styles.segmented}
               role="group"
@@ -974,53 +951,13 @@ export default function OgImageComposer() {
             </label>
             {composition.logo && (
               <>
-                <div className={styles.three}>
-                  <label>
-                    X
-                    <input
-                      type="number"
-                      min="0"
-                      max="1100"
-                      value={composition.logo.x}
-                      onChange={(event) =>
-                        update("logo", {
-                          ...composition.logo!,
-                          x: Number(event.target.value),
-                        })
-                      }
-                    />
-                  </label>
-                  <label>
-                    Y
-                    <input
-                      type="number"
-                      min="0"
-                      max="560"
-                      value={composition.logo.y}
-                      onChange={(event) =>
-                        update("logo", {
-                          ...composition.logo!,
-                          y: Number(event.target.value),
-                        })
-                      }
-                    />
-                  </label>
-                  <label>
-                    Width (px)
-                    <input
-                      type="number"
-                      min="32"
-                      max="900"
-                      value={composition.logo.width}
-                      onChange={(event) =>
-                        update("logo", {
-                          ...composition.logo!,
-                          width: Number(event.target.value),
-                        })
-                      }
-                    />
-                  </label>
-                </div>
+                <AlignmentControl
+                  label="Position"
+                  value={composition.logo.align}
+                  onChange={(align) =>
+                    update("logo", { ...composition.logo!, align })
+                  }
+                />
                 <SizeControl
                   label="partner logo"
                   min={32}

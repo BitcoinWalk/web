@@ -17,6 +17,7 @@ const composition = {
     x: 0,
     y: 0,
     width: 900,
+    align: "center" as const,
   },
   text: {
     value: "Large text",
@@ -34,12 +35,14 @@ const composition = {
     x: 0,
     y: 0,
     width: 900,
+    align: "right" as const,
   },
 };
 
 describe("OG composer sizing", () => {
   it("accepts the enlarged UI limits and rejects oversized text", () => {
     expect(ogCompositionSchema.parse(composition).text.fontSize).toBe(180);
+    expect(ogCompositionSchema.parse(composition).mark.align).toBe("center");
     expect(() =>
       ogCompositionSchema.parse({
         ...composition,

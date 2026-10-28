@@ -2,6 +2,7 @@ import { z } from "zod";
 import { bitcoinWalkMarkIdSchema } from "./brand-marks";
 
 const hash = z.string().regex(/^[0-9a-f]{64}$/);
+export const ogAlignmentSchema = z.enum(["left", "center", "right"]);
 const layer = z
   .object({
     x: z.number().min(0).max(1200),
@@ -28,6 +29,7 @@ export const ogCompositionSchema = z
     mark: layer.extend({
       visible: z.boolean(),
       variant: bitcoinWalkMarkIdSchema.default("traditional"),
+      align: ogAlignmentSchema.default("left"),
     }),
     text: z
       .object({
@@ -36,7 +38,7 @@ export const ogCompositionSchema = z
         y: z.number().min(0).max(630),
         width: z.number().min(160).max(1120),
         fontSize: z.number().int().min(24).max(180),
-        align: z.enum(["left", "center", "right"]),
+        align: ogAlignmentSchema,
         color: z.enum(["#ffffff", "#17120d"]),
         treatment: z.enum(["shadow", "panel", "none"]),
       })
@@ -47,6 +49,7 @@ export const ogCompositionSchema = z
         source: z.enum(["catalogue", "upload"]),
         approvalEventId: hash.optional(),
         label: z.string().max(80).optional(),
+        align: ogAlignmentSchema.default("right"),
       })
       .nullable(),
   })

@@ -30,6 +30,16 @@ const sources = () => join(root(), "sources"),
   renders = () => join(root(), "renders"),
   MAX_BYTES = 10 * 1024 * 1024,
   MAX_PIXELS = 40_000_000;
+const CANVAS_WIDTH = 1200,
+  CANVAS_HEIGHT = 630,
+  EDGE = 64,
+  TEXT_WIDTH = CANVAS_WIDTH - EDGE * 2,
+  ubuntuFont = readFile(
+    join(
+      process.cwd(),
+      "design/city-logo-templates/v1/fonts/Ubuntu-BoldItalic.ttf",
+    ),
+  ).then((body) => body.toString("base64"));
 export type SavedOgComposition = {
   id: string;
   actor: string;
@@ -179,11 +189,21 @@ export async function readOwnedOgSource(actor: string, contentHash: string) {
     return null;
   }
 }
-function textSvg(layer: OgComposition["text"]) {
+function alignedX(
+  align: "left" | "center" | "right",
+  width: number,
+) {
+  return align === "left"
+    ? EDGE
+    : align === "right"
+      ? CANVAS_WIDTH - EDGE - width
+      : (CANVAS_WIDTH - width) / 2;
+}
+async function textSvg(layer: OgComposition["text"]) {
   if (!layer.value.trim()) return null;
   const maxChars = Math.max(
       8,
-      Math.floor(layer.width / (layer.fontSize * 0.58)),
+      Math.floor(TEXT_WIDTH / (layer.fontSize * 0.58)),
     ),
     words = layer.value.trim().split(/\s+/),
     lines: string[] = [];
@@ -209,18 +229,18 @@ function textSvg(layer: OgComposition["text"]) {
       layer.align === "left"
         ? 16
         : layer.align === "right"
-          ? layer.width - 16
-          : layer.width / 2,
+          ? TEXT_WIDTH - 16
+          : TEXT_WIDTH / 2,
     panel =
       layer.treatment === "panel"
-        ? `<rect width="${layer.width}" height="${height}" rx="18" fill="${layer.color === "#ffffff" ? "rgba(0,0,0,.68)" : "rgba(255,255,255,.84)"}"/>`
+        ? `<rect width="${TEXT_WIDTH}" height="${height}" rx="18" fill="${layer.color === "#ffffff" ? "rgba(0,0,0,.68)" : "rgba(255,255,255,.84)"}"/>`
         : "",
     shadow =
       layer.treatment === "shadow"
         ? 'style="filter:drop-shadow(0 4px 6px rgba(0,0,0,.72))"'
         : "";
   return Buffer.from(
-    `<svg width="${layer.width}" height="${height}" xmlns="http://www.w3.org/2000/svg">${panel}<g ${shadow} fill="${layer.color}" font-family="Arial, sans-serif" font-size="${layer.fontSize}" font-weight="700" text-anchor="${anchor}">${visible.map((line, index) => `<text x="${x}" y="${24 + layer.fontSize * (index + 1)}">${escapeXml(line)}</text>`).join("")}</g></svg>`,
+    `<svg width="${TEXT_WIDTH}" height="${height}" xmlns="http://www.w3.org/2000/svg"><style>@font-face{font-family:UbuntuPinned;src:url(data:font/ttf;base64,${await ubuntuFont}) format("truetype");font-style:italic;font-weight:700}</style>${panel}<g ${shadow} fill="${layer.color}" font-family="UbuntuPinned" font-size="${layer.fontSize}" font-style="italic" font-weight="700" text-anchor="${anchor}">${visible.map((line, index) => `<text x="${x}" y="${24 + layer.fontSize * (index + 1)}">${escapeXml(line)}</text>`).join("")}</g></svg>`,
   );
 }
 async function backgroundLayer(composition: OgComposition) {
@@ -262,8 +282,6 @@ export async function renderAndSaveOg(
 ) {
   const composition = ogCompositionSchema.parse(input),
     layers: Array<{ input: Buffer; left: number; top: number }> = [];
-  if (composition.text.x + composition.text.width > 1200)
-    throw new Error("Keep the text area inside the 1200 × 630 canvas.");
   if (composition.mark.visible) {
     const selected = bitcoinWalkMark(composition.mark.variant),
       mark = await sharp(join(process.cwd(), "public", selected.path))
@@ -274,40 +292,44 @@ export async function renderAndSaveOg(
       .png()
       .toBuffer(),
       metadata = await sharp(mark).metadata();
-    if (
-      composition.mark.x + (metadata.width ?? 0) > 1200 ||
-      composition.mark.y + (metadata.height ?? 0) > 630
-    )
+    const width = metadata.width ?? 0,
+      height = metadata.height ?? 0,
+      left = alignedX(composition.mark.align, width),
+      top = 54;
+    if (left < 0 || top + height > CANVAS_HEIGHT)
       throw new Error("Keep the BitcoinWalk mark inside the 1200 × 630 canvas.");
     layers.push({
       input: mark,
-      left: Math.round(composition.mark.x),
-      top: Math.round(composition.mark.y),
+      left: Math.round(left),
+      top,
     });
   }
-  const text = textSvg(composition.text);
+  const text = await textSvg(composition.text);
   if (text) {
     const metadata = await sharp(text).metadata();
-    if (composition.text.y + (metadata.height ?? 0) > 630)
+    const height = metadata.height ?? 0,
+      top = Math.max(54, CANVAS_HEIGHT - EDGE - height);
+    if (top + height > CANVAS_HEIGHT)
       throw new Error("Keep all text inside the 1200 × 630 canvas.");
     layers.push({
       input: text,
-      left: Math.round(composition.text.x),
-      top: Math.round(composition.text.y),
+      left: EDGE,
+      top: Math.round(top),
     });
   }
   if (composition.logo) {
     const logo = await logoBody(composition.logo),
       metadata = await sharp(logo).metadata();
-    if (
-      composition.logo.x + (metadata.width ?? 0) > 1200 ||
-      composition.logo.y + (metadata.height ?? 0) > 630
-    )
+    const width = metadata.width ?? 0,
+      height = metadata.height ?? 0,
+      left = alignedX(composition.logo.align, width),
+      top = CANVAS_HEIGHT - EDGE - height;
+    if (left < 0 || top < 0)
       throw new Error("Keep the partner logo inside the 1200 × 630 canvas.");
     layers.push({
       input: logo,
-      left: Math.round(composition.logo.x),
-      top: Math.round(composition.logo.y),
+      left: Math.round(left),
+      top: Math.round(top),
     });
   }
   const output = await sharp(await backgroundLayer(composition))
@@ -340,13 +362,16 @@ export async function listSavedOg(actor: string) {
     try {
       const row = JSON.parse(
         await readFile(join(renders(), name), "utf8"),
-      ) as SavedOgComposition;
+      ) as SavedOgComposition,
+        parsed = ogCompositionSchema.safeParse(row.composition);
       if (
         row.actor === actor &&
-        ogCompositionSchema.safeParse(row.composition).success &&
+        parsed.success &&
         /^[a-f0-9]{64}$/.test(row.outputHash)
-      )
+      ) {
+        row.composition = parsed.data;
         rows.push(row);
+      }
     } catch {}
   }
   return rows
@@ -359,11 +384,10 @@ export async function readSavedOg(actor: string, id: string) {
     const row = JSON.parse(
       await readFile(join(renders(), id + ".json"), "utf8"),
     ) as SavedOgComposition;
-    if (
-      row.actor !== actor ||
-      !ogCompositionSchema.safeParse(row.composition).success
-    )
+    const parsed = ogCompositionSchema.safeParse(row.composition);
+    if (row.actor !== actor || !parsed.success)
       return null;
+    row.composition = parsed.data;
     const body = await readFile(join(renders(), row.outputHash + ".png"));
     if (hash(body) !== row.outputHash) return null;
     return {

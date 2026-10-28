@@ -116,6 +116,43 @@
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 0.55rem;
 }
+.two {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.55rem;
+}
+.alignmentField {
+  display: grid;
+  gap: 0.35rem;
+  font-weight: 700;
+}
+.alignmentControl {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.alignmentControl button {
+  min-height: 44px;
+  border: 1px solid var(--bw-color-border-strong, #aeb6bf);
+  background: var(--bw-color-surface);
+  color: var(--bw-color-text);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+.alignmentControl button:first-child {
+  border-radius: 6px 0 0 6px;
+}
+.alignmentControl button:not(:first-child) {
+  border-left: 0;
+}
+.alignmentControl button:last-child {
+  border-radius: 0 6px 6px 0;
+}
+.alignmentControl button[aria-pressed="true"] {
+  border-color: var(--bw-color-brand);
+  background: var(--bw-color-brand);
+  color: var(--bw-color-on-brand);
+}
 .sizeControl {
   display: grid;
   grid-template-columns: 44px minmax(6rem, 1fr) 4rem 44px;
@@ -319,6 +356,7 @@
     display: grid;
   }
   .three,
+  .two,
   .inline,
   .markChoice {
     grid-template-columns: 1fr;
