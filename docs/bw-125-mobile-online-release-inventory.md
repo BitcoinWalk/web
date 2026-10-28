@@ -136,11 +136,16 @@ and the certificate remains
 `92afc33544e32b171b07ade23696ee845913ffbc48a9741e215b45168401f946`.
 A subsequent BitcoinWalk → endo switch, full app restart and endo → BitcoinWalk
 switch restored the correct active identity at every boundary and retained
-exactly the original three accounts with no duplicate. Draft/message isolation
-could not be exercised without joining a production room and remains the only
-untested online release gate. The user explicitly waived the separate
-two-user/one-organizer physical pilot on 28 October 2026 because no second phone
-is available. That pilot was not run and must not be represented as passed.
+exactly the original three accounts with no duplicate. A final single-device
+isolation check created an unsent draft only in BitcoinWalk's self-chat, switched
+to endo and confirmed endo's self-chat composer was blank, restarted with endo
+still active, then switched back and recovered the BitcoinWalk-only draft without
+leakage or duplication. The temporary draft was cleared and no message was sent
+or published. The online candidate therefore has no remaining recorded release
+gate before a Zapstore promotion decision. The user explicitly waived the
+separate two-user/one-organizer physical pilot on 28 October 2026 because no
+second phone is available. That pilot was not run and must not be represented as
+passed.
 
 ## Remaining online-slice work
 
