@@ -1,6 +1,6 @@
 # BitcoinWalk delivery backlog
 
-Last reviewed: 28 October 2026 (BW-125 candidate 21580c4 is signed as 26.10.33/code 40 with the permanent production certificate and independently read back; physical upgrade/signer/chat/account-isolation acceptance and the two-user/one-organizer pilot remain; BW-121 is unblocked and respecified as a payment-free, super-admin-only OG image composer inside Content; BW-139 is Done; BW-101 includes the reviewed Blink payout-provider handoff; Bangkok organizer access, truthful first action and existing identity reuse are confirmed, returning BW-144 and BW-151 to executable acceptance; payout confirmation, signing, Guide receipt and complete service read-back remain; BW-108 remains outside the executable queue; BW-91 remains closed within its accepted boundary)
+Last reviewed: 28 October 2026 (BW-125 candidate 158b995 is signed as 26.10.33/code 40 with the permanent production certificate and independently read back; its Pixel acceptance confirms the inbox leaves the unavailable-signer path after a bounded wait and preserves Guide, Global and the saved Madeira city, while positive signer/account-isolation acceptance and the two-user/one-organizer pilot remain; the superseded 21580c4 APK is explicitly invalidated; BW-121 is unblocked and respecified as a payment-free, super-admin-only OG image composer inside Content; BW-139 is Done; BW-101 includes the reviewed Blink payout-provider handoff; Bangkok organizer access, truthful first action and existing identity reuse are confirmed, returning BW-144 and BW-151 to executable acceptance; payout confirmation, signing, Guide receipt and complete service read-back remain; BW-108 remains outside the executable queue; BW-91 remains closed within its accepted boundary)
 Preproduction housekeeping: 2–3 October 2026. See `preproduction-review-2026-10-02.md`
 and `development-handover.md` for current evidence and operating context.
 Tracking rule: keep this file current whenever an item changes status, scope, dependency, or verification result. Every committed backlog change must also be pushed to GitHub `main`, allowed to complete the public-backlog Pages workflow, and verified at `https://bitcoinwalk.github.io/web/index.html` unless the user explicitly requests a local-only draft. The file is the maintained source; a separate Plan task is not automatically synchronized.
@@ -14,7 +14,7 @@ This is the authoritative order for all unfinished work. Work top to bottom with
 | Order | ID | Why now | Exit before moving on |
 |---:|---|---|---|
 | 1 | BW-144 | Bangkok's organizer can now enter the administrative Pro setup and the existing city identity is recognized; the former organizer-access/first-action wait is cleared. | Accept the repaired payout destination, sign and approve the binding, human-confirm the one Guide setup message and exact link with no reconnect duplicate, then verify Bangkok's identity, NIP-05, `lud16`, LNURL/payout split, artwork, dedicated relay and Armada state without another invoice. |
-| 2 | BW-125 | The published Android app already contains the online NIP-29 and standard-DM core. Candidate `21580c4` closes the remaining source-level online routing, consent, obsolete-invite and Amber branding gates; clean CI produced the verified `26.10.33`/code `40` artifact and the exact bytes are now signed with the permanent production certificate. | Pass the upgrade/signer/chat/account-isolation matrix and two-user/one-organizer pilot on the signed candidate. Keep reliable notifications and BLE as later slices behind BW-93 and the stated two-phone gates. |
+| 2 | BW-125 | The published Android app already contains the online NIP-29 and standard-DM core. Candidate `158b995` closes the source-level routing, consent, obsolete-invite and Amber branding gates and bounds unavailable-signer inbox discovery; clean CI produced the verified `26.10.33`/code `40` artifact and the exact bytes are signed with the permanent production certificate. Pixel acceptance confirms the previous indefinite Chat loader is gone and saved rooms remain usable when the signer is unavailable. | Pass the positive signer/account-isolation matrix and two-user/one-organizer pilot on the signed candidate. Keep reliable notifications and BLE as later slices behind BW-93 and the stated two-phone gates. |
 BW-141 is the continuous release gate for this lane: prepare and run its cross-role/accessibility matrix with each phased release instead of postponing all acceptance until the end.
 
 24 October 2026 BW-128 reconciliation: **Done by explicit user acceptance.** The standard kind-14 NIP-17 receive/send, signer-mediated encryption/decryption, bounded recovery, account/session cancellation, exact-wrapper retry and extended-message isolation are implemented, with the integrated 196-test messaging suite, TypeScript and lint gates passing. The user explicitly closed the item without requiring the remaining physical Pixel/Amber, independent-client, signer-variant, account-switch/restart and iOS matrix to be recorded. Those unperformed checks must not be represented as executed acceptance evidence. The completion claim is therefore limited to the implemented standard text interoperability contract; BitcoinWalk Guide remains notification-only, and conversational support/replies remain BW-67.
@@ -246,8 +246,8 @@ standard-DM/Guide tests pass; TypeScript, release metadata and lint pass, with
 17-city and unreleased-app state; it is source/contract evidence rather than a
 new physical-device acceptance.
 
-Mobile candidate `21580c4212070493ba501113f770a8c0afbcbba7` now layers on
-`b0a60aa` and `ccbfdb2` and closes those source-level
+Mobile candidate `158b995d57e8c69e50958f40e84211fbe736797e` now layers on
+`b0a60aa`, `ccbfdb2` and the bounded-inbox fix `4ed5d4a` and closes those source-level
 gates. City
 selection requests only the selected City membership; Global remains an explicit
 join. Canonical server-resolved City, Guide, Global and Hosts targets route to the
@@ -256,13 +256,13 @@ cancel/retry or a restart for 15 minutes. The unused `/walkie/city/<uuid>` test
 formatter is retired and the Walkie Talkie release identities/documentation are
 corrected. Both Amber NIP-46 paths now carry the exact Walkie Talkie name and the
 owned, direct production PNG that is byte-identical to the Zapstore icon. All
-167 BitcoinWalk tests, TypeScript, release metadata and lint pass
+168 BitcoinWalk tests, TypeScript, release metadata and lint pass
 with zero lint errors and 154 accepted warnings. The wider suite passed 2,380 of
 2,382 tests; only two pre-existing Electron fake-Bluetooth-helper assertions fail,
 outside the Android online slice. Version `26.10.33` / code `40` passed clean CI
-workflow `40610497032`, including the reproducible Android build and four-ABI
+workflow `40666025027`, including the inbox regression, reproducible Android build and four-ABI
 scanner. The workflow emitted the intentionally unsigned offline-signing APK
-with SHA-256 `ab760205571b3648b836c2c93c16392f8c7bce9b337b040d47e3b34cf908f1ff`;
+with SHA-256 `dc7523c64330740297d3b58bc5724643c857546db76006529ebb85dd3699a2c9`;
 package, version, source provenance and unsigned state were read back. That exact
 artifact was signed offline on 28 October with the permanent BitcoinWalk key.
 Independent read-back verifies package `org.bitcoinwalk.walkietalkie`, version
@@ -270,9 +270,17 @@ Independent read-back verifies package `org.bitcoinwalk.walkietalkie`, version
 certificate SHA-256
 `92afc33544e32b171b07ade23696ee845913ffbc48a9741e215b45168401f946`.
 The signed APK SHA-256 is
-`2b7c88f43df67b0ff7574df4bb31d72967f83bfbd141eb14a4ea2126f7580504`.
-Run the upgrade/signer/chat/account-isolation
-matrix on Pixel/GrapheneOS with Amber and a two-user/one-organizer pilot. Role-aware
+`2512b0597b1cc74733124be82d6ca25b502400df76cf731c063dca3990287d9c`.
+The earlier `21580c4` signed APK is explicitly invalidated: physical testing found
+that signer-authenticated membership discovery could leave Chat loading until
+Amber's 60-second timeout. Candidate `158b995` adds an eight-second total inbox
+deadline and a fail-closed saved-city fallback. It installed in place on the Pixel
+with the production certificate and retained the existing account and Madeira
+context. With Amber unavailable, Chat now exits loading, displays a truthful retry
+notice and keeps Guide, Global and Madeira available; Hosts is not inferred from
+stale local state. The underlying signer can still report its later 60-second
+timeout in device logs, but it no longer blocks inbox availability. Run the positive
+signer/account-isolation matrix and a two-user/one-organizer pilot. Role-aware
 post-payment handoff remains BW-149, OS-verified HTTPS opening BW-158, reliable
 notifications BW-93 and BLE the later BW-125 slice. Full inventory and release
 gates: [BW-125 mobile online release inventory](bw-125-mobile-online-release-inventory.md).
