@@ -1,29 +1,29 @@
 # BW-125 mobile online release inventory
 
-Reviewed 28 October 2026. This inventory separates the Android online companion
-release from later notification, verified-link and proximity work. It records
-evidence; it does not authorize a store publication.
+Reviewed 28 October 2026. This inventory separates the shipped Android online
+companion release from later notification, verified-link and proximity work.
 
 ## Published baseline
 
-- Zapstore currently serves `org.bitcoinwalk.walkietalkie` version `26.10.32`,
-  version code `39`, from source commit
-  `09d28c9ccbd32f2aaf9d266a5cc2a436b01acebc`.
+- Zapstore currently serves `org.bitcoinwalk.walkietalkie` version `26.10.37`,
+  version code `44`, from source commit
+  `2cdfc0c0558c2f9ff5c3570999cdb6e7427537fb`.
 - The signed release event is
-  `e6ec463bf216db0bb4ad2a83fe5578364a0f164bd5a78ddecf525b5c66711664`.
+  `8b2bb270caf265544d818d5877ce8bc792832f6ea7ac4c38c4bd33b4bbd65bc0`.
   Its APK asset declares SHA-256
-  `76e7fff74453e1ceeb062ad8685fcd3fa76347a6c22a465bb31a276730c7fa32`
+  `4d57d26929a175dbd30faf2fc62f7baecd423754553ea0fcc7bc46eb5e90efdb`
   and signing-certificate SHA-256
   `92afc33544e32b171b07ade23696ee845913ffbc48a9741e215b45168401f946`.
 - The public event advertises Android arm64-v8a, armeabi-v7a, x86 and x86_64.
   Zapstore publication is the production Android channel; there is no accepted
   iOS/TestFlight release in this inventory.
-- GitHub's latest successful production workflow, run `39737408534`, built
-  source `d9b8efc` as version `26.10.31` but had no Android signing credentials
-  and therefore emitted only an offline-signing artifact. Version `26.10.32`
-  was subsequently signed and published through the offline route. The next
-  release must preserve the certificate above and retain exact source/artifact
-  evidence.
+- CI run `40703711715` built the unsigned recovery artifact from the exact
+  release source. The accepted APK was signed offline with the permanent
+  BitcoinWalk key and published through ngit; asset event
+  `83903e1212db2e9da342ae271d97b8c9383cd54f75efd12c3bd583f5161fda93`
+  and the release event above were independently read back from both
+  `wss://relay.zapstore.dev` and `wss://relay.ngit.dev`. The public listing
+  shows `26.10.37` first.
 
 ## Implemented online surface
 
@@ -125,8 +125,8 @@ production certificate. With Amber unavailable, Chat exits loading, shows a
 truthful refresh error and retains BitcoinWalk Guide, BitcoinWalk Global and the
 saved Madeira city. Device logs can still record the independent 60-second signer
 timeout later, but it no longer blocks the inbox. The existing account and city
-context remained intact. The candidate is not yet published. Fresh
-Pixel/GrapheneOS acceptance on 28 October against app commit `2cdfc0c`
+context remained intact. Fresh Pixel/GrapheneOS acceptance on 28 October
+against app commit `2cdfc0c`
 (`26.10.37` / code `44`) and remote-signer `0.8.64` completed the positive Amber
 Nostr Connect path: Amber published both the approval and follow-up response,
 Walkie returned without timeout and the exact BitcoinWalk identity persisted on
@@ -141,8 +141,7 @@ isolation check created an unsent draft only in BitcoinWalk's self-chat, switche
 to endo and confirmed endo's self-chat composer was blank, restarted with endo
 still active, then switched back and recovered the BitcoinWalk-only draft without
 leakage or duplication. The temporary draft was cleared and no message was sent
-or published. The online candidate therefore has no remaining recorded release
-gate before a Zapstore promotion decision. The user explicitly waived the
+or published. That exact candidate is now the public Zapstore release. The user explicitly waived the
 separate two-user/one-organizer physical pilot on 28 October 2026 because no
 second phone is available. That pilot was not run and must not be represented as
 passed.
