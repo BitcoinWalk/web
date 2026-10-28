@@ -98,18 +98,26 @@ line. It is version `26.10.33`, Android version code `40`.
   `26.10.33`, code `40`, exact source provenance and an unsigned archive with no
   JAR signature entries. This artifact must not be installed or distributed.
 
+## Signed candidate — 28 October 2026
+
+The exact CI artifact above was signed offline with the permanent BitcoinWalk
+Android key. The signed candidate is
+`WalkieTalkie-26.10.33-android.apk`, SHA-256
+`2b7c88f43df67b0ff7574df4bb31d72967f83bfbd141eb14a4ea2126f7580504`.
+Independent read-back verifies:
+
+- package `org.bitcoinwalk.walkietalkie`, version `26.10.33`, code `40`;
+- one signer using v2 and v3 APK signature schemes;
+- signing-certificate SHA-256
+  `92afc33544e32b171b07ade23696ee845913ffbc48a9741e215b45168401f946`,
+  unchanged from the published `26.10.32` app; and
+- arm64-v8a, armeabi-v7a, x86 and x86_64 native libraries.
+
+The unsigned input, signed output, exact source commit and CI run remain together
+in the controlled local release checkout. The signed candidate is not yet a
+published release; physical upgrade and behavior acceptance remain.
+
 ## Remaining online-slice work
-
-### 1. Sign and verify the candidate
-
-1. On the controlled offline release machine, sign the verified unsigned APK
-   with the permanent BitcoinWalk Android key. Do not send the keystore or its
-   passwords through chat, GitHub Actions or the source repository.
-2. Verify the signed APK still declares package `org.bitcoinwalk.walkietalkie`,
-   version `26.10.33` and code `40`, and that its signing-certificate SHA-256 is
-   exactly `92afc33544e32b171b07ade23696ee845913ffbc48a9741e215b45168401f946`.
-3. Record the signed APK checksum and retain the unsigned input, signed output,
-   exact source commit, CI run, release notes and rollback evidence together.
 
 Role-aware website handoff and confirmed post-payment membership remain BW-149.
 The online Android release may expose existing authorized web administration,

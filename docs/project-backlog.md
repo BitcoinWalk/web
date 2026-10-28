@@ -1,6 +1,6 @@
 # BitcoinWalk delivery backlog
 
-Last reviewed: 28 October 2026 (BW-125 source candidate 21580c4 is versioned as 26.10.33/code 40 and reproducibly built in clean CI; the verified artifact is intentionally unsigned, so offline production-key signing, certificate/read-back verification and physical/pilot acceptance remain; BW-121 is unblocked and respecified as a payment-free, super-admin-only OG image composer inside Content; BW-139 is Done; BW-101 includes the reviewed Blink payout-provider handoff; Bangkok organizer access, truthful first action and existing identity reuse are confirmed, returning BW-144 and BW-151 to executable acceptance; payout confirmation, signing, Guide receipt and complete service read-back remain; BW-108 remains outside the executable queue; BW-91 remains closed within its accepted boundary)
+Last reviewed: 28 October 2026 (BW-125 candidate 21580c4 is signed as 26.10.33/code 40 with the permanent production certificate and independently read back; physical upgrade/signer/chat/account-isolation acceptance and the two-user/one-organizer pilot remain; BW-121 is unblocked and respecified as a payment-free, super-admin-only OG image composer inside Content; BW-139 is Done; BW-101 includes the reviewed Blink payout-provider handoff; Bangkok organizer access, truthful first action and existing identity reuse are confirmed, returning BW-144 and BW-151 to executable acceptance; payout confirmation, signing, Guide receipt and complete service read-back remain; BW-108 remains outside the executable queue; BW-91 remains closed within its accepted boundary)
 Preproduction housekeeping: 2–3 October 2026. See `preproduction-review-2026-10-02.md`
 and `development-handover.md` for current evidence and operating context.
 Tracking rule: keep this file current whenever an item changes status, scope, dependency, or verification result. Every committed backlog change must also be pushed to GitHub `main`, allowed to complete the public-backlog Pages workflow, and verified at `https://bitcoinwalk.github.io/web/index.html` unless the user explicitly requests a local-only draft. The file is the maintained source; a separate Plan task is not automatically synchronized.
@@ -14,7 +14,7 @@ This is the authoritative order for all unfinished work. Work top to bottom with
 | Order | ID | Why now | Exit before moving on |
 |---:|---|---|---|
 | 1 | BW-144 | Bangkok's organizer can now enter the administrative Pro setup and the existing city identity is recognized; the former organizer-access/first-action wait is cleared. | Accept the repaired payout destination, sign and approve the binding, human-confirm the one Guide setup message and exact link with no reconnect duplicate, then verify Bangkok's identity, NIP-05, `lud16`, LNURL/payout split, artwork, dedicated relay and Armada state without another invoice. |
-| 2 | BW-125 | The published Android app already contains the online NIP-29 and standard-DM core. Candidate `21580c4` closes the remaining source-level online routing, consent, obsolete-invite and Amber branding gates and clean CI produced the verified `26.10.33`/code `40` unsigned offline-signing artifact. | Sign that exact artifact with the permanent BitcoinWalk key, verify the published certificate/package/version/checksum, then pass the upgrade/signer/chat/account-isolation matrix and two-user/one-organizer pilot. Keep reliable notifications and BLE as later slices behind BW-93 and the stated two-phone gates. |
+| 2 | BW-125 | The published Android app already contains the online NIP-29 and standard-DM core. Candidate `21580c4` closes the remaining source-level online routing, consent, obsolete-invite and Amber branding gates; clean CI produced the verified `26.10.33`/code `40` artifact and the exact bytes are now signed with the permanent production certificate. | Pass the upgrade/signer/chat/account-isolation matrix and two-user/one-organizer pilot on the signed candidate. Keep reliable notifications and BLE as later slices behind BW-93 and the stated two-phone gates. |
 BW-141 is the continuous release gate for this lane: prepare and run its cross-role/accessibility matrix with each phased release instead of postponing all acceptance until the end.
 
 24 October 2026 BW-128 reconciliation: **Done by explicit user acceptance.** The standard kind-14 NIP-17 receive/send, signer-mediated encryption/decryption, bounded recovery, account/session cancellation, exact-wrapper retry and extended-message isolation are implemented, with the integrated 196-test messaging suite, TypeScript and lint gates passing. The user explicitly closed the item without requiring the remaining physical Pixel/Amber, independent-client, signer-variant, account-switch/restart and iOS matrix to be recorded. Those unperformed checks must not be represented as executed acceptance evidence. The completion claim is therefore limited to the implemented standard text interoperability contract; BitcoinWalk Guide remains notification-only, and conversational support/replies remain BW-67.
@@ -263,10 +263,15 @@ outside the Android online slice. Version `26.10.33` / code `40` passed clean CI
 workflow `40610497032`, including the reproducible Android build and four-ABI
 scanner. The workflow emitted the intentionally unsigned offline-signing APK
 with SHA-256 `ab760205571b3648b836c2c93c16392f8c7bce9b337b040d47e3b34cf908f1ff`;
-package, version, source provenance and unsigned state were read back. Sign that
-exact artifact offline with the permanent BitcoinWalk key, verify certificate
-SHA-256 `92afc33544e32b171b07ade23696ee845913ffbc48a9741e215b45168401f946`,
-then run the upgrade/signer/chat/account-isolation
+package, version, source provenance and unsigned state were read back. That exact
+artifact was signed offline on 28 October with the permanent BitcoinWalk key.
+Independent read-back verifies package `org.bitcoinwalk.walkietalkie`, version
+`26.10.33`, code `40`, all four expected ABIs, v2/v3 signatures and the unchanged
+certificate SHA-256
+`92afc33544e32b171b07ade23696ee845913ffbc48a9741e215b45168401f946`.
+The signed APK SHA-256 is
+`2b7c88f43df67b0ff7574df4bb31d72967f83bfbd141eb14a4ea2126f7580504`.
+Run the upgrade/signer/chat/account-isolation
 matrix on Pixel/GrapheneOS with Amber and a two-user/one-organizer pilot. Role-aware
 post-payment handoff remains BW-149, OS-verified HTTPS opening BW-158, reliable
 notifications BW-93 and BLE the later BW-125 slice. Full inventory and release
