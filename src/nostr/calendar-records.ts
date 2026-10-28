@@ -14,6 +14,18 @@ export function initialCalendarHero(event:Event,walk:CalendarWalk):string|undefi
   const source=walk.initialRelease??walk;
   return source.approval.approval.heroImageUrl??source.revision.city.heroImageUrl;
 }
+/** A missing image in a later approval is an omission, not an instruction to
+ * erase the last reviewed public presentation. Explicit image removal needs a
+ * separate signed marker before it can supersede retained approved artwork. */
+export function retainedCalendarHero(walk:CalendarWalk):string|undefined {
+  const current=walk.approval.approval.heroImageUrl??walk.revision.city.heroImageUrl;
+  if(current)return current;
+  for(const source of walk.approvedSources??[]){
+    const image=source.approval.approval.heroImageUrl??source.revision.city.heroImageUrl;
+    if(image)return image;
+  }
+  return undefined;
+}
 export function approvedCalendarWalks(revisions:CityRevision[],decisions:ApprovalRecord[]):CalendarWalk[] {
   const result:CalendarWalk[]=[];
   const approvedSources=new Map<string,CalendarSource[]>();

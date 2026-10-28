@@ -12,7 +12,7 @@ import { queryAuthorizations } from "../../nostr/city-records";
 import { isSuperAdmin } from "../../nostr/authority";
 import { publishVerifiedEvent } from "../../nostr/relay";
 import { authenticateWithBrowserExtension, getBrowserExtensionPubkey, signWithBrowserExtension } from "../../nostr/signer";
-import { matchesInitialCalendar,type CalendarWalk } from "../../nostr/calendar-records";
+import { approvedCalendarWalks,matchesInitialCalendar,retainedCalendarHero,type CalendarWalk } from "../../nostr/calendar-records";
 import type { Event } from "nostr-tools";
 import { queryCalendarEvents } from "../../nostr/city-records";
 import { registrationSlug } from "../../domain/registration";
@@ -31,7 +31,7 @@ import {cityAnnouncementCandidate,type CityAnnouncementCandidate} from "../../no
 import {CityAnnouncementAction} from "../../components/city-announcement-review";
 import workspaceStyles from "../../components/requests-screen.module.css";
 
-type Submission = { eventId: string; initialEventIds: string[]; author: string; cityId: string; slug: string; cityName: string; startAt: string; meetingPoint: string; city: CityDocument; previous?: string; previousCity?:CityDocument; paid:boolean; registered:boolean; established:boolean; status:AdminCityRequestStatus; silentActivation:boolean; decisionNote?:string; decidedAt?:number };
+type Submission = { eventId: string; initialEventIds: string[]; author: string; cityId: string; slug: string; cityName: string; startAt: string; meetingPoint: string; city: CityDocument; approvedHeroImageUrl?:string; previous?: string; previousCity?:CityDocument; paid:boolean; registered:boolean; established:boolean; status:AdminCityRequestStatus; silentActivation:boolean; decisionNote?:string; decidedAt?:number };
 type State = { message: string; tone: "info" | "error" | "success"; approvedWalk?: { href: string; name: string } };
 type ImageState={status:"idle"|"waiting"|"working"|"ready"|"error";message:string};
 type ActivationState=CityActivationResult["checks"];
@@ -135,6 +135,7 @@ export default function SubmissionApprovals() {
       ]);
       const payments:PaymentView[]|null=paymentsResult?.payments??null;
       if(await getBrowserExtensionPubkey()!==pubkey)throw new Error("Signer changed. Reconnect.");
+      const retainedHeroes=new Map(approvedCalendarWalks(revisions,approvals).map(walk=>[walk.revision.city.cityId,retainedCalendarHero(walk)]));
       const rows = adminCityRequests(revisions, approvals).filter(row=>!dashboard.selectedCity||row.revision.city.cityId===dashboard.selectedCity).map(({revision:{event,city},status,decision,established}) => {
         const previous=event.tags.find(tag=>tag[0]==="e" && tag[3]==="previous")?.[1];
         return ({
@@ -147,6 +148,7 @@ export default function SubmissionApprovals() {
         startAt: city.startAt,
         meetingPoint: city.meetingPoint.description,
         city,
+        approvedHeroImageUrl:retainedHeroes.get(city.cityId),
         previous,
         previousCity:previous?revisions.find(revision=>revision.event.id===previous)?.city:undefined,
         paid:!!payments&&!!paidPaymentForCity(payments,city.cityId),
@@ -159,7 +161,7 @@ export default function SubmissionApprovals() {
       });});
       setSubmissions(rows);
       setInviteSponsors(current=>Object.fromEntries(rows.filter(item=>!item.registered).map(item=>[item.eventId,current[item.eventId]??true])));
-      setHeroImages(current=>Object.fromEntries(rows.map(item=>[item.eventId,current[item.eventId]??item.city.heroImageUrl??""])));
+      setHeroImages(current=>Object.fromEntries(rows.map(item=>[item.eventId,current[item.eventId]??item.city.heroImageUrl??item.approvedHeroImageUrl??""])));
       setAliases(current=>Object.fromEntries(rows.map(item=>[item.eventId,current[item.eventId]??(item.city.aliases??[]).join(", ")])));
       const pendingCount=rows.filter(row=>row.status==="pending").length,waitingCount=rows.filter(row=>row.status==="pending"||row.status==="needs-changes").length;
       announcePendingRequestCount(pendingCount);
@@ -190,7 +192,7 @@ export default function SubmissionApprovals() {
       const rejectionNote=rejectionNotes[submission.eventId]?.trim()??"";
       if(status==="rejected"&&!rejectionNote)throw new Error("Add a clear reason so the host knows what to correct.");
       if(action==="reject"&&!window.confirm(`Reject the ${submission.registered?"revision":"application"} for ${submission.cityName}?\n\nThis is a final rejection, not a request for corrections. Signed history is retained.`))throw new Error("Rejection cancelled. No decision was signed.");
-      let initialHero=(silentActivation?submission.city.heroImageUrl:heroImages[submission.eventId])?.trim();
+      let initialHero=(silentActivation?(submission.city.heroImageUrl??submission.approvedHeroImageUrl):heroImages[submission.eventId])?.trim();
       const approvedSlug=(silentActivation?submission.city.slug:slugs[submission.eventId]??(initialRequest?registrationSlug(submission.cityName):submission.slug)).trim();
       const approvedAliases=silentActivation?(submission.city.aliases??[]):cityAliases(aliases[submission.eventId]??submission.city.aliases??[],submission.cityName);
       if(status==="approved"&&!silentActivation&&approvedAliases.length>20)throw new Error("Use no more than 20 alternative city names.");

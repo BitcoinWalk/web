@@ -48,6 +48,14 @@ describe("walk route branded-host integration", () => {
     expect(html.match(/Weather data:/g)).toHaveLength(1);
     expect(html).toMatch(/<footer class="walk-event-footer">.*Weather data:.*<\/footer><\/main>$/);
   });
+  it("uses retained approved artwork when the latest city approval omitted its hero", async () => {
+    vi.mocked(resolvePublicCityHost).mockResolvedValue({state: "personal", pubkey: event.pubkey});
+    const retained="https://bitcoinwalk.org/api/media/files/"+"9".repeat(64)+".webp";
+    const withoutHero:CalendarWalk={...walk,approvedSources:[{revision:walk.revision,approval:{...walk.approval,approval:{...walk.approval.approval,heroImageUrl:retained}}}]};
+    const html=renderToStaticMarkup(await WalkEvent({event,walk:withoutHero,currentProfile:withoutHero}));
+    expect(html).toContain(retained);
+    expect(html).not.toContain("hero-fallback");
+  });
   it("binds an upgrade from an older walk URL to the current approved city revision", async () => {
     vi.mocked(resolvePublicCityHost).mockResolvedValue({state: "personal", pubkey: event.pubkey});
     const currentCity = {...city, cityName: "London City", requestedTier: "free" as const};

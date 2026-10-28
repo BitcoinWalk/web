@@ -3,7 +3,7 @@ import {readFile} from "node:fs/promises";
 import {join} from "node:path";
 import type {Metadata} from "next";
 import {cityPreview,walkPreview} from "../domain/share-preview";
-import {resolveCalendarLink,calendarOccurrence,initialCalendarHero,loadCalendarWalks} from "../nostr/calendar-records";
+import {resolveCalendarLink,calendarOccurrence,initialCalendarHero,loadCalendarWalks,retainedCalendarHero} from "../nostr/calendar-records";
 import {queryCalendarEvents} from "../nostr/city-records";
 import {currentOrNextEvent} from "../domain/event-routing";
 import {shareSponsor} from "./share-sponsor";
@@ -30,11 +30,11 @@ async function metadata(text:{title:string;description:string},path:string,city:
 }
 export async function walkShareMetadata(city:string,event:string):Promise<Metadata>{try{
   const result=await resolveSharedWalk(event);if(!result)return unavailableShare();const route=resolveCityRoute([result.currentProfile],city);if(!route)return unavailableShare();
-  const occurrence=calendarOccurrence(result.event);if(!occurrence)return unavailableShare();const current=result.currentProfile,images=[current.approval.approval.heroImageUrl,current.revision.city.heroImageUrl,initialCalendarHero(result.event,result.walk)],copy=walkShareCopy(result.walk.revision.city.cityName,current.revision.city.slug,images,occurrence);
+  const occurrence=calendarOccurrence(result.event);if(!occurrence)return unavailableShare();const current=result.currentProfile,images=[current.approval.approval.heroImageUrl,current.revision.city.heroImageUrl,retainedCalendarHero(result.walk),initialCalendarHero(result.event,result.walk)],copy=walkShareCopy(result.walk.revision.city.cityName,current.revision.city.slug,images,occurrence);
   return await metadata(copy,`/${encodeURIComponent(route.canonicalSlug)}/${encodeURIComponent(event)}`,result.walk.revision.city.cityName,current.revision.city.cityId,current.revision.city.slug,images,await shareSponsor(current.revision.city.cityId,result.event));
 }catch{return unavailableShare();}}
 async function cityShareContext(slug:string){
-  const route=resolveCityRoute(await loadSharedCities(),slug),walk=route?.row;if(!walk||!route)return null;const city=walk.revision.city,images=[walk.approval.approval.heroImageUrl,city.heroImageUrl];
+  const route=resolveCityRoute(await loadSharedCities(),slug),walk=route?.row;if(!walk||!route)return null;const city=walk.revision.city,images=[walk.approval.approval.heroImageUrl,city.heroImageUrl,retainedCalendarHero(walk)];
   let sponsor:Buffer|null=null;try{sponsor=await shareSponsor(city.cityId,currentOrNextEvent(walk,await queryCalendarEvents(serverReadRelays(),{cityId:city.cityId})));}catch{/* Unavailable coverage must not hide valid city metadata. */}
   let image=shareOrigin()+"/brand/bitcoinwalk-share-fallback.jpg";try{image=await renderedShareImage(city.cityId,city.slug,images,sponsor);}catch{}
   return {route,city,images,image};
