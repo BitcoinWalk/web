@@ -35,6 +35,18 @@ after the browser closes. The **Payments** tab at `/admin/sponsor` lists payment
 including paid orders awaiting identity and existing sponsors without recorded
 payments. Access requires a super-admin signature.
 
+BW-153 keeps payment and recovery ahead of identity. After verified settlement
+and explicit recovery-file confirmation, the exact recovery capability may save
+a bounded private sponsor name, public-HTTPS website and normalized logo draft.
+The draft is not a Nostr profile, catalogue entry, approval or public placement;
+it is unavailable without the checkout capability and remains invisible on public
+routes. Connecting Nostr is optional at this stage. If the sponsor later signs the
+exact claim, the saved logo is copied into that identity's private pending-review
+scope only after its hash is rechecked. Public use still requires the independent
+BitcoinWalk review and signed assignment. The checkout records deduplicated stage
+outcomes—start, verified settlement, recovery, private details, artwork and claim—
+without storing recovery keys, wallet secrets, payout destinations or chat data.
+
 ## Signed model
 
 Sponsorship assignments are retained, super-admin-signed kind-30311 records,
