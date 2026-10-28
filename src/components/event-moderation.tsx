@@ -11,16 +11,17 @@ import {assertExactSigned} from "../nostr/moderation";
 import {publishVerifiedEvent} from "../nostr/relay";
 import {createEventModeration,latestEventModerations,moderationKey,queryEventModerations,requireEventModerationRelay,walkAddress,type EventModeration,type EventModerationRecord} from "../nostr/event-moderation";
 import CityFinder from "./city-finder";
+import {useDashboardNotification} from "./dashboard-notifications";
 
 type PendingAction={scope:EventModeration["scope"];target:string;status:EventModeration["status"];eventId?:string;label:string};
 type Props={scope:"city"|"walk";fixedCityId?:string;cityName?:string};
 
 export default function EventModerationPanel({scope,fixedCityId,cityName}:Props){
- const dashboard=useDashboard(),lock=useRef(false);
+ const dashboard=useDashboard(),notify=useDashboardNotification(),lock=useRef(false);
  const initialCity=fixedCityId??"";
  const [busy,setBusy]=useState(false),[cityId,setCityId]=useState(initialCity),[cities,setCities]=useState<{id:string;creator:string}[]>([]),[events,setEvents]=useState<Event[]>([]),[records,setRecords]=useState<EventModerationRecord[]>([]),[reason,setReason]=useState(""),[pending,setPending]=useState<PendingAction|null>(null),[message,setMessage]=useState(scope==="city"?"Loading publishing access…":"Select a city to manage walk visibility.");
  async function admin(){if(!isSuperAdmin(await getBrowserExtensionPubkey()))throw new Error("Connect the BitcoinWalk super-admin.");}
- async function run(action:()=>Promise<void>){if(lock.current)return;lock.current=true;setBusy(true);try{await admin();await action();}catch(e){setMessage(e instanceof Error?e.message:"Moderation failed.");}finally{lock.current=false;setBusy(false);}}
+ async function run(action:()=>Promise<void>){if(lock.current)return;lock.current=true;setBusy(true);try{await admin();await action();}catch(e){const detail=e instanceof Error?e.message:"Moderation failed.",cancelled=/cancelled/i.test(detail);setMessage(detail);notify({id:"event-moderation-operation",tone:cancelled?"warning":"error",title:cancelled?"Action cancelled":"Publishing decision failed",message:detail});}finally{lock.current=false;setBusy(false);}}
  async function load(id:string){
   setEvents([]);setRecords([]);setPending(null);setReason("");
   await requireEventModerationRelay(relayConfig.writeRelays);
@@ -43,7 +44,7 @@ export default function EventModerationPanel({scope,fixedCityId,cityName}:Props)
   const recheck=latestEventModerations(await queryEventModerations(relayConfig.writeRelays,cityId)).find(r=>moderationKey(r.decision)===`${action.scope}:${action.target}`);if(recheck?.event.id!==current?.event.id)throw new Error("Moderation changed while signing. Nothing published; reload.");
   await publishVerifiedEvent(signed,relayConfig.writeRelays,1,authenticateWithBrowserExtension);
   const saved=latestEventModerations(await queryEventModerations(relayConfig.writeRelays,cityId)).find(r=>moderationKey(r.decision)===`${action.scope}:${action.target}`);if(saved?.event.id!==signed.id)throw new Error("Relay acknowledged but latest decision not confirmed. Reload before retrying.");
-  await load(cityId);setMessage(`${action.status}: signed decision confirmed by relay read-back. Existing cancellation and city publication state still apply.`);
+  await load(cityId);const detail=`${action.status}: signed decision confirmed by relay read-back. Existing cancellation and city publication state still apply.`;setMessage(detail);notify({id:`event-moderation:${action.scope}:${action.target}`,tone:"success",title:"Publishing decision confirmed",message:detail});
  });}
  function begin(action:PendingAction){setPending(action);setReason("");setMessage(`Add a public reason, then sign to ${action.label.toLowerCase()}.`);}
  function reasonForm(action:PendingAction){if(!pending||pending.scope!==action.scope||pending.target!==action.target||pending.status!==action.status)return null;return <div style={{margin:"0.75rem 0 1rem",padding:"1rem",background:"#fff4d6",borderLeft:"4px solid #f7931a"}}><label><strong>Reason</strong><textarea autoFocus value={reason} maxLength={500} disabled={busy} onChange={e=>setReason(e.target.value)} placeholder="Required. This becomes part of the public signed audit history." style={{display:"block",width:"100%",marginTop:"0.5rem"}}/></label><button disabled={busy||!reason.trim()} onClick={()=>decide(action)} style={{display:"block",marginTop:"0.75rem",background:"#f7931a",color:"#111",fontWeight:700}}>Sign and {action.label.toLowerCase()}</button><button disabled={busy} onClick={()=>{setPending(null);setReason("");}} style={{marginTop:"0.5rem"}}>Cancel</button></div>;}
