@@ -199,6 +199,16 @@ function alignedX(
       ? CANVAS_WIDTH - EDGE - width
       : (CANVAS_WIDTH - width) / 2;
 }
+function alignedY(
+  align: "top" | "center" | "bottom",
+  height: number,
+) {
+  return align === "top"
+    ? EDGE
+    : align === "bottom"
+      ? CANVAS_HEIGHT - EDGE - height
+      : (CANVAS_HEIGHT - height) / 2;
+}
 async function textSvg(layer: OgComposition["text"]) {
   if (!layer.value.trim()) return null;
   const maxChars = Math.max(
@@ -283,20 +293,20 @@ export async function renderAndSaveOg(
   const composition = ogCompositionSchema.parse(input),
     layers: Array<{ input: Buffer; left: number; top: number }> = [];
   if (composition.mark.visible) {
-    const selected = bitcoinWalkMark(composition.mark.variant),
-      mark = await sharp(join(process.cwd(), "public", selected.path))
+    const selected = bitcoinWalkMark(composition.mark.variant);
+    let markPipeline = sharp(join(process.cwd(), "public", selected.path))
       .resize({
         width: Math.round(composition.mark.width),
         fit: "inside",
-      })
-      .png()
-      .toBuffer(),
+      });
+    if (selected.tint) markPipeline = markPipeline.tint(selected.tint);
+    const mark = await markPipeline.png().toBuffer(),
       metadata = await sharp(mark).metadata();
     const width = metadata.width ?? 0,
       height = metadata.height ?? 0,
       left = alignedX(composition.mark.align, width),
-      top = 54;
-    if (left < 0 || top + height > CANVAS_HEIGHT)
+      top = alignedY(composition.mark.verticalAlign, height);
+    if (left < 0 || top < 0 || top + height > CANVAS_HEIGHT)
       throw new Error("Keep the BitcoinWalk mark inside the 1200 × 630 canvas.");
     layers.push({
       input: mark,
@@ -323,7 +333,7 @@ export async function renderAndSaveOg(
     const width = metadata.width ?? 0,
       height = metadata.height ?? 0,
       left = alignedX(composition.logo.align, width),
-      top = CANVAS_HEIGHT - EDGE - height;
+      top = alignedY(composition.logo.verticalAlign, height);
     if (left < 0 || top < 0)
       throw new Error("Keep the partner logo inside the 1200 × 630 canvas.");
     layers.push({

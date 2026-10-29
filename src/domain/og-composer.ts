@@ -3,6 +3,7 @@ import { bitcoinWalkMarkIdSchema } from "./brand-marks";
 
 const hash = z.string().regex(/^[0-9a-f]{64}$/);
 export const ogAlignmentSchema = z.enum(["left", "center", "right"]);
+export const ogVerticalAlignmentSchema = z.enum(["top", "center", "bottom"]);
 const layer = z
   .object({
     x: z.number().min(0).max(1200),
@@ -30,6 +31,7 @@ export const ogCompositionSchema = z
       visible: z.boolean(),
       variant: bitcoinWalkMarkIdSchema.default("traditional"),
       align: ogAlignmentSchema.default("left"),
+      verticalAlign: ogVerticalAlignmentSchema.default("top"),
     }),
     text: z
       .object({
@@ -50,6 +52,7 @@ export const ogCompositionSchema = z
         approvalEventId: hash.optional(),
         label: z.string().max(80).optional(),
         align: ogAlignmentSchema.default("right"),
+        verticalAlign: ogVerticalAlignmentSchema.default("bottom"),
       })
       .nullable(),
   })

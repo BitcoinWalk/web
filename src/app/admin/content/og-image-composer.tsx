@@ -14,7 +14,8 @@ import {
 } from "../../../components/admin-ui";
 import {
   bitcoinWalkMark,
-  bitcoinWalkMarks,
+  ogComposerMarkIds,
+  ogComposerMarks,
   type BitcoinWalkMarkId,
 } from "../../../domain/brand-marks";
 import type { OgComposition, OgSource } from "../../../domain/og-composer";
@@ -67,6 +68,7 @@ function ensureUbuntuFont() {
   return ubuntuFontPromise;
 }
 type Alignment = "left" | "center" | "right";
+type VerticalAlignment = "top" | "center" | "bottom";
 function alignedX(align: Alignment, width: number) {
   return align === "left"
     ? EDGE
@@ -74,17 +76,25 @@ function alignedX(align: Alignment, width: number) {
       ? CANVAS_WIDTH - EDGE - width
       : (CANVAS_WIDTH - width) / 2;
 }
+function alignedY(align: VerticalAlignment, height: number) {
+  return align === "top"
+    ? EDGE
+    : align === "bottom"
+      ? CANVAS_HEIGHT - EDGE - height
+      : (CANVAS_HEIGHT - height) / 2;
+}
 const initial: OgComposition = {
   version: 1,
   title: "BitcoinWalk OG image",
   background: { hash: emptyHash, source: "upload", zoom: 1, x: 50, y: 50 },
   mark: {
     visible: true,
-    variant: "traditional",
+    variant: "symbol-orange",
     x: 64,
     y: 54,
     width: 150,
     align: "left",
+    verticalAlign: "top",
   },
   text: {
     value: "Powered by BitcoinWalk",
@@ -107,6 +117,18 @@ function image(source: string) {
       reject(new Error("Preview image could not be loaded."));
     value.src = source;
   });
+}
+function tintedImage(value: HTMLImageElement, tint?: string) {
+  if (!tint) return value;
+  const output = document.createElement("canvas");
+  output.width = value.naturalWidth;
+  output.height = value.naturalHeight;
+  const context = output.getContext("2d")!;
+  context.drawImage(value, 0, 0);
+  context.globalCompositeOperation = "source-in";
+  context.fillStyle = tint;
+  context.fillRect(0, 0, output.width, output.height);
+  return output;
 }
 function cover(
   context: CanvasRenderingContext2D,
@@ -221,6 +243,136 @@ function AlignmentControl({
   );
 }
 
+function VerticalAlignmentControl({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: VerticalAlignment;
+  onChange: (value: VerticalAlignment) => void;
+}) {
+  return (
+    <div className={styles.alignmentField}>
+      <span>{label}</span>
+      <div
+        className={styles.alignmentControl}
+        role="group"
+        aria-label={`${label} alignment`}
+      >
+        {(["top", "center", "bottom"] as const).map((alignment) => (
+          <button
+            key={alignment}
+            type="button"
+            aria-pressed={value === alignment}
+            onClick={() => onChange(alignment)}
+          >
+            {alignment === "center"
+              ? "Centre"
+              : alignment[0].toUpperCase() + alignment.slice(1)}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function MarkCarousel({
+  value,
+  onChange,
+}: {
+  value: BitcoinWalkMarkId;
+  onChange: (value: BitcoinWalkMarkId) => void;
+}) {
+  const touchStart = useRef<number | null>(null),
+    currentIndex = Math.max(
+      0,
+      ogComposerMarks.findIndex((mark) => mark.id === value),
+    ),
+    selected = ogComposerMarks[currentIndex];
+  function move(offset: number) {
+    const next =
+      (currentIndex + offset + ogComposerMarks.length) %
+      ogComposerMarks.length;
+    onChange(ogComposerMarks[next].id);
+  }
+  return (
+    <div
+      className={styles.markCarousel}
+      role="region"
+      aria-label="BitcoinWalk mark variants"
+      onKeyDown={(event) => {
+        if (event.key === "ArrowLeft") {
+          event.preventDefault();
+          move(-1);
+        }
+        if (event.key === "ArrowRight") {
+          event.preventDefault();
+          move(1);
+        }
+      }}
+      onTouchStart={(event) => {
+        touchStart.current = event.touches[0]?.clientX ?? null;
+      }}
+      onTouchEnd={(event) => {
+        if (touchStart.current === null) return;
+        const distance = event.changedTouches[0].clientX - touchStart.current;
+        touchStart.current = null;
+        if (Math.abs(distance) >= 40) move(distance < 0 ? 1 : -1);
+      }}
+    >
+      <button
+        type="button"
+        className={styles.carouselArrow}
+        aria-label="Previous mark"
+        onClick={() => move(-1)}
+      >
+        <svg aria-hidden="true" viewBox="0 0 24 24">
+          <path d="m15 18-6-6 6-6" />
+        </svg>
+      </button>
+      <div
+        className={styles.carouselStage}
+        data-dark={selected.dark || undefined}
+        tabIndex={0}
+        aria-live="polite"
+        aria-label={`${selected.label}, ${selected.use}. ${currentIndex + 1} of ${ogComposerMarks.length}`}
+      >
+        <span className={styles.carouselArtwork} aria-hidden="true">
+          {selected.tint ? (
+            <span
+              className={styles.tintedMark}
+              style={{
+                backgroundColor: selected.tint,
+                maskImage: `url(${selected.preview})`,
+                WebkitMaskImage: `url(${selected.preview})`,
+              }}
+            />
+          ) : (
+            /* eslint-disable-next-line @next/next/no-img-element */
+            <img src={selected.preview} alt="" />
+          )}
+        </span>
+        <strong>{selected.label}</strong>
+        <small>{selected.use}</small>
+        <span className={styles.carouselCount} aria-hidden="true">
+          {currentIndex + 1} / {ogComposerMarks.length}
+        </span>
+      </div>
+      <button
+        type="button"
+        className={styles.carouselArrow}
+        aria-label="Next mark"
+        onClick={() => move(1)}
+      >
+        <svg aria-hidden="true" viewBox="0 0 24 24">
+          <path d="m9 18 6-6-6-6" />
+        </svg>
+      </button>
+    </div>
+  );
+}
+
 export default function OgImageComposer() {
   const dashboard = useDashboard(),
     canvas = useRef<HTMLCanvasElement>(null),
@@ -317,11 +469,20 @@ export default function OgImageComposer() {
           ...draft,
           mark: {
             ...draft.mark,
-            variant: draft.mark.variant ?? "traditional",
+            variant: ogComposerMarkIds.includes(
+              draft.mark.variant as (typeof ogComposerMarkIds)[number],
+            )
+              ? draft.mark.variant
+              : "symbol-orange",
             align: draft.mark.align ?? "left",
+            verticalAlign: draft.mark.verticalAlign ?? "top",
           },
           logo: draft.logo
-            ? { ...draft.logo, align: draft.logo.align ?? "right" }
+            ? {
+                ...draft.logo,
+                align: draft.logo.align ?? "right",
+                verticalAlign: draft.logo.verticalAlign ?? "bottom",
+              }
             : null,
         });
         setBackground(source);
@@ -367,12 +528,14 @@ export default function OgImageComposer() {
             height =
               composition.mark.width *
               (mark.naturalHeight / mark.naturalWidth),
-            x = alignedX(composition.mark.align, composition.mark.width);
+            x = alignedX(composition.mark.align, composition.mark.width),
+            y = alignedY(composition.mark.verticalAlign, height),
+            artwork = tintedImage(mark, selected.tint);
           if (!active) return;
           context.drawImage(
-            mark,
+            artwork,
             x,
-            54,
+            y,
             composition.mark.width,
             height,
           );
@@ -430,7 +593,7 @@ export default function OgImageComposer() {
             width = logo.naturalWidth * ratio,
             height = logo.naturalHeight * ratio,
             x = alignedX(composition.logo.align, width),
-            y = CANVAS_HEIGHT - EDGE - height;
+            y = alignedY(composition.logo.verticalAlign, height);
           context.drawImage(
             logo,
             x,
@@ -501,6 +664,7 @@ export default function OgImageComposer() {
           y: 430,
           width: 220,
           align: "right",
+          verticalAlign: "bottom",
         });
       }
       setMessage(
@@ -567,6 +731,7 @@ export default function OgImageComposer() {
       y: 430,
       width: 220,
       align: "right",
+      verticalAlign: "bottom",
     });
   }
   async function save() {
@@ -753,63 +918,24 @@ export default function OgImageComposer() {
             </label>
             {composition.mark.visible && (
               <>
-                <label>
-                  Mark variant
-                  <span className={styles.markChoice}>
-                    <span
-                      className={
-                        bitcoinWalkMark(composition.mark.variant).dark
-                          ? styles.markPreviewDark
-                          : styles.markPreview
-                      }
-                      aria-hidden="true"
-                    >
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={bitcoinWalkMark(composition.mark.variant).preview}
-                        alt=""
-                      />
-                    </span>
-                    <span>
-                      <select
-                        value={composition.mark.variant}
-                        onChange={(event) =>
-                          update("mark", {
-                            ...composition.mark,
-                            variant: event.target.value as BitcoinWalkMarkId,
-                          })
-                        }
-                      >
-                        <optgroup label="Featured marks">
-                          {bitcoinWalkMarks
-                            .filter((mark) => mark.group === "featured")
-                            .map((mark) => (
-                              <option key={mark.id} value={mark.id}>
-                                {mark.label} — {mark.use}
-                              </option>
-                            ))}
-                        </optgroup>
-                        <optgroup label="City-neutral system">
-                          {bitcoinWalkMarks
-                            .filter((mark) => mark.group === "system")
-                            .map((mark) => (
-                              <option key={mark.id} value={mark.id}>
-                                {mark.label} — {mark.use}
-                              </option>
-                            ))}
-                        </optgroup>
-                      </select>
-                      <small>
-                        All approved BitcoinWalk variants from the brand guide.
-                      </small>
-                    </span>
-                  </span>
-                </label>
+                <MarkCarousel
+                  value={composition.mark.variant}
+                  onChange={(variant) =>
+                    update("mark", { ...composition.mark, variant })
+                  }
+                />
                 <AlignmentControl
-                  label="Position"
+                  label="Horizontal position"
                   value={composition.mark.align}
                   onChange={(align) =>
                     update("mark", { ...composition.mark, align })
+                  }
+                />
+                <VerticalAlignmentControl
+                  label="Vertical position"
+                  value={composition.mark.verticalAlign}
+                  onChange={(verticalAlign) =>
+                    update("mark", { ...composition.mark, verticalAlign })
                   }
                 />
                 <SizeControl
@@ -952,10 +1078,20 @@ export default function OgImageComposer() {
             {composition.logo && (
               <>
                 <AlignmentControl
-                  label="Position"
+                  label="Horizontal position"
                   value={composition.logo.align}
                   onChange={(align) =>
                     update("logo", { ...composition.logo!, align })
+                  }
+                />
+                <VerticalAlignmentControl
+                  label="Vertical position"
+                  value={composition.logo.verticalAlign}
+                  onChange={(verticalAlign) =>
+                    update("logo", {
+                      ...composition.logo!,
+                      verticalAlign,
+                    })
                   }
                 />
                 <SizeControl

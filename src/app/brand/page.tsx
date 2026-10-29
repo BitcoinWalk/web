@@ -13,7 +13,7 @@ const swatches=[
  {name:"Stone",value:"#62645F",dark:true},
  {name:"White",value:"#FFFFFF",dark:false},
 ];
-const globalVariants=bitcoinWalkMarks.filter(mark=>mark.group==="system");
+const globalVariants=bitcoinWalkMarks.filter(mark=>mark.group==="system"&&!mark.composerOnly);
 const localisedSatWalkVariants=[
  {id:"sat-walk-horizontal-light",label:"Horizontal city lockup",use:"Ink artwork for light backgrounds",path:"/brand/inkscape/warszawa-satsman-on-white.png",dark:false},
  {id:"sat-walk-horizontal-dark",label:"Horizontal city lockup",use:"Reversed artwork for dark backgrounds",path:"/brand/inkscape/warszawa-satsman-on-black.png",dark:true},

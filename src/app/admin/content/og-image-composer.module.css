@@ -187,41 +187,97 @@
   font-variant-numeric: tabular-nums;
   text-align: center;
 }
-.markChoice {
+.markCarousel {
   display: grid;
-  grid-template-columns: 5.5rem minmax(0, 1fr);
-  gap: 0.75rem;
-  align-items: stretch;
+  grid-template-columns: 44px minmax(0, 1fr) 44px;
+  gap: 0.65rem;
+  align-items: center;
+  touch-action: pan-y;
+  -webkit-tap-highlight-color: transparent;
 }
-.markChoice > span:last-child {
+.carouselArrow {
   display: grid;
-  gap: 0.35rem;
-}
-.markChoice small {
-  color: var(--bw-color-muted);
-  font-weight: 400;
-  line-height: 1.35;
-}
-.markPreview,
-.markPreviewDark {
-  display: grid;
-  min-height: 5.5rem;
+  width: 44px;
+  min-height: 44px;
   place-items: center;
-  padding: 0.5rem;
+  padding: 0;
+  border: 1px solid var(--bw-color-border-strong, #aeb6bf);
+  border-radius: 50%;
+  background: var(--bw-color-surface);
+  color: var(--bw-color-text);
+  cursor: pointer;
+}
+.carouselArrow svg {
+  width: 24px;
+  height: 24px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.carouselStage {
+  position: relative;
+  display: grid;
+  min-height: 12rem;
+  place-items: center;
+  align-content: center;
+  gap: 0.2rem;
+  padding: 1rem 2.5rem;
   border: 1px solid var(--bw-color-border);
-  border-radius: 8px;
-  background: #fff;
+  border-radius: 12px;
+  background: var(--bw-color-surface-warm);
+  color: var(--bw-color-text);
   overflow: hidden;
+  text-align: center;
+  outline: none;
 }
-.markPreviewDark {
+.carouselStage[data-dark="true"] {
   background: #252824;
+  color: #fff;
 }
-.markPreview img,
-.markPreviewDark img {
+.carouselStage:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--bw-color-brand) 48%, transparent);
+  outline-offset: 2px;
+}
+.carouselArtwork {
+  display: grid;
+  width: 100%;
+  height: 7rem;
+  place-items: center;
+  margin-bottom: 0.35rem;
+}
+.carouselArtwork img,
+.tintedMark {
   display: block;
-  max-width: 100%;
-  max-height: 4.5rem;
+  width: min(100%, 13rem);
+  height: 100%;
   object-fit: contain;
+}
+.tintedMark {
+  mask-position: center;
+  mask-repeat: no-repeat;
+  mask-size: contain;
+  -webkit-mask-position: center;
+  -webkit-mask-repeat: no-repeat;
+  -webkit-mask-size: contain;
+}
+.carouselStage strong {
+  line-height: 1.25;
+}
+.carouselStage small {
+  color: inherit;
+  font-weight: 500;
+  opacity: 0.72;
+}
+.carouselCount {
+  position: absolute;
+  right: 0.65rem;
+  bottom: 0.5rem;
+  color: inherit;
+  font-size: 0.72rem;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.6;
 }
 .check {
   display: flex !important;
@@ -358,16 +414,24 @@
   .three,
   .two,
   .inline,
-  .markChoice {
-    grid-template-columns: 1fr;
-  }
   .sizeControl {
     grid-template-columns: 44px minmax(4rem, 1fr) 3.5rem 44px;
     gap: 0.35rem;
   }
-  .markPreview,
-  .markPreviewDark {
-    min-height: 6.5rem;
+  .markCarousel {
+    grid-template-columns: 40px minmax(0, 1fr) 40px;
+    gap: 0.4rem;
+  }
+  .carouselArrow {
+    width: 40px;
+    min-height: 40px;
+  }
+  .carouselStage {
+    min-height: 10.5rem;
+    padding-inline: 1.5rem;
+  }
+  .carouselArtwork {
+    height: 6rem;
   }
   .actions > * {
     flex: 1;

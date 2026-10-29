@@ -16,6 +16,10 @@ export const bitcoinWalkMarkIds = [
   "vertical",
   "vertical-ink",
   "vertical-reversed",
+  "satwalk-white",
+  "satwalk-orange",
+  "satwalk-ink",
+  "symbol-white",
 ] as const;
 
 export const bitcoinWalkMarkIdSchema = z.enum(bitcoinWalkMarkIds);
@@ -29,6 +33,8 @@ export const bitcoinWalkMarks: ReadonlyArray<{
   preview: string;
   group: "featured" | "system";
   dark: boolean;
+  tint?: "#f7931a" | "#ffffff";
+  composerOnly?: boolean;
 }> = [
   { id: "traditional", label: "Traditional mark", use: "Established orange roundel", path: "/brand/bitcoinwalk-icon.png", preview: "/brand/bitcoinwalk-icon.png", group: "featured", dark: false },
   { id: "primary-horizontal", label: "Primary wordmark", use: "Standard colour", path: "/brand/bitcoinwalk-horizontal.png", preview: "/brand/bitcoinwalk-horizontal.png", group: "featured", dark: false },
@@ -36,16 +42,34 @@ export const bitcoinWalkMarks: ReadonlyArray<{
   { id: "avatar-orange", label: "Round symbol", use: "Orange roundel", path: "/brand/inkscape/global/bitcoinwalk-avatar-orange.png", preview: "/brand/inkscape/global/previews/bitcoinwalk-avatar-orange.png", group: "system", dark: false },
   { id: "avatar-ink", label: "Round symbol", use: "Ink roundel", path: "/brand/inkscape/global/bitcoinwalk-avatar-ink.png", preview: "/brand/inkscape/global/previews/bitcoinwalk-avatar-ink.png", group: "system", dark: false },
   { id: "avatar-reversed", label: "Round symbol", use: "Reversed on orange", path: "/brand/inkscape/global/bitcoinwalk-avatar-reversed.png", preview: "/brand/inkscape/global/previews/bitcoinwalk-avatar-reversed.png", group: "system", dark: true },
-  { id: "symbol-orange", label: "Standalone symbol", use: "Orange artwork", path: "/brand/inkscape/global/bitcoinwalk-symbol-orange.png", preview: "/brand/inkscape/global/previews/bitcoinwalk-symbol-orange.png", group: "system", dark: false },
-  { id: "symbol-ink", label: "Standalone symbol", use: "Ink artwork", path: "/brand/inkscape/global/bitcoinwalk-symbol-ink.png", preview: "/brand/inkscape/global/previews/bitcoinwalk-symbol-ink.png", group: "system", dark: false },
-  { id: "symbol-reversed", label: "Standalone symbol", use: "Reversed on orange", path: "/brand/inkscape/global/bitcoinwalk-symbol-reversed.png", preview: "/brand/inkscape/global/previews/bitcoinwalk-symbol-reversed.png", group: "system", dark: true },
+  { id: "symbol-orange", label: "BitcoinWalk symbol", use: "Orange", path: "/brand/inkscape/global/bitcoinwalk-symbol-orange.png", preview: "/brand/inkscape/global/previews/bitcoinwalk-symbol-orange.png", group: "system", dark: false },
+  { id: "symbol-ink", label: "BitcoinWalk symbol", use: "Ink", path: "/brand/inkscape/global/bitcoinwalk-symbol-ink.png", preview: "/brand/inkscape/global/previews/bitcoinwalk-symbol-ink.png", group: "system", dark: false },
+  { id: "symbol-reversed", label: "BitcoinWalk symbol", use: "Reversed on orange", path: "/brand/inkscape/global/bitcoinwalk-symbol-reversed.png", preview: "/brand/inkscape/global/previews/bitcoinwalk-symbol-reversed.png", group: "system", dark: true },
   { id: "horizontal", label: "Horizontal logo", use: "Standard colour", path: "/brand/inkscape/global/bitcoinwalk-horizontal.png", preview: "/brand/inkscape/global/previews/bitcoinwalk-horizontal.png", group: "system", dark: false },
   { id: "horizontal-ink", label: "Horizontal logo", use: "Ink artwork", path: "/brand/inkscape/global/bitcoinwalk-horizontal-ink.png", preview: "/brand/inkscape/global/previews/bitcoinwalk-horizontal-ink.png", group: "system", dark: false },
   { id: "horizontal-reversed", label: "Horizontal logo", use: "Reversed on orange", path: "/brand/inkscape/global/bitcoinwalk-horizontal-reversed.png", preview: "/brand/inkscape/global/previews/bitcoinwalk-horizontal-reversed.png", group: "system", dark: true },
   { id: "vertical", label: "Vertical logo", use: "Standard colour", path: "/brand/inkscape/global/bitcoinwalk-vertical.png", preview: "/brand/inkscape/global/previews/bitcoinwalk-vertical.png", group: "system", dark: false },
   { id: "vertical-ink", label: "Vertical logo", use: "Ink artwork", path: "/brand/inkscape/global/bitcoinwalk-vertical-ink.png", preview: "/brand/inkscape/global/previews/bitcoinwalk-vertical-ink.png", group: "system", dark: false },
   { id: "vertical-reversed", label: "Vertical logo", use: "Reversed on orange", path: "/brand/inkscape/global/bitcoinwalk-vertical-reversed.png", preview: "/brand/inkscape/global/previews/bitcoinwalk-vertical-reversed.png", group: "system", dark: true },
+  { id: "satwalk-white", label: "SatWalk symbol", use: "White", path: "/brand/satsman-white.png", preview: "/brand/satsman-white.png", group: "system", dark: true, composerOnly: true },
+  { id: "satwalk-orange", label: "SatWalk symbol", use: "Orange", path: "/brand/satsman-white.png", preview: "/brand/satsman-white.png", group: "system", dark: false, tint: "#f7931a", composerOnly: true },
+  { id: "satwalk-ink", label: "SatWalk symbol", use: "Ink", path: "/brand/satsman-ink.png", preview: "/brand/satsman-ink.png", group: "system", dark: false, composerOnly: true },
+  { id: "symbol-white", label: "BitcoinWalk symbol", use: "White", path: "/brand/inkscape/global/bitcoinwalk-symbol-ink.png", preview: "/brand/inkscape/global/previews/bitcoinwalk-symbol-ink.png", group: "system", dark: true, tint: "#ffffff", composerOnly: true },
 ];
+
+export const ogComposerMarkIds = [
+  "symbol-white",
+  "symbol-orange",
+  "symbol-ink",
+  "satwalk-white",
+  "satwalk-orange",
+  "satwalk-ink",
+  "primary-horizontal-reversed",
+] as const satisfies ReadonlyArray<BitcoinWalkMarkId>;
+
+export const ogComposerMarks = ogComposerMarkIds.map((id) =>
+  bitcoinWalkMarks.find((mark) => mark.id === id)!,
+);
 
 export function bitcoinWalkMark(id: BitcoinWalkMarkId | undefined) {
   return bitcoinWalkMarks.find((mark) => mark.id === id) ?? bitcoinWalkMarks[0];

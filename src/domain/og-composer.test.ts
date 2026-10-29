@@ -18,6 +18,7 @@ const composition = {
     y: 0,
     width: 900,
     align: "center" as const,
+    verticalAlign: "center" as const,
   },
   text: {
     value: "Large text",
@@ -36,6 +37,7 @@ const composition = {
     y: 0,
     width: 900,
     align: "right" as const,
+    verticalAlign: "bottom" as const,
   },
 };
 
