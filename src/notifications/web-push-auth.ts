@@ -14,6 +14,8 @@ export const webPushCommandSchema=z.discriminatedUnion("action",[
  z.object({action:z.literal("preferences"),deviceId:z.string().uuid(),preferences:webPushPreferencesSchema}),
  z.object({action:z.literal("test"),deviceId:z.string().uuid()}),
  z.object({action:z.literal("remove"),deviceId:z.string().uuid()}),
+ z.object({action:z.literal("read-notice"),noticeId:z.string().uuid()}),
+ z.object({action:z.literal("read-all-notices")}),
 ]);
 export type WebPushCommand=z.infer<typeof webPushCommandSchema>;
 export type WebPushPreferences=z.infer<typeof webPushPreferencesSchema>;

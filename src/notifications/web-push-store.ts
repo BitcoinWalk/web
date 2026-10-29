@@ -1,9 +1,10 @@
-import {createHash} from "node:crypto";
+import {createHash,randomUUID} from "node:crypto";
 import type {DatabaseSync} from "node:sqlite";
 import type {WebPushPreferences} from "./web-push-auth";
 
 export type WebPushDevice={id:string;label:string;preferences:WebPushPreferences;createdAt:number;updatedAt:number;lastSuccessAt:number|null;lastFailureAt:number|null;failureCount:number};
 export type StoredWebPushDevice=WebPushDevice&{ownerPubkey:string;endpoint:string;endpointHash:string;p256dh:string;auth:string;lastTestAt:number|null};
+export type WebNotification={id:string;category:"walk-reminder"|"workflow";title:string;body:string;path:string;createdAt:number;readAt:number|null;pushState:"pending"|"sent"|"failed"};
 const endpointHash=(endpoint:string)=>createHash("sha256").update(endpoint).digest("hex");
 const preferences=(row:Record<string,unknown>):WebPushPreferences=>({walkReminders:Boolean(row.walkReminders),workflowUpdates:Boolean(row.workflowUpdates),quietStart:row.quietStart as string|null,quietEnd:row.quietEnd as string|null,timeZone:String(row.timeZone)});
 const shown=(row:Record<string,unknown>):WebPushDevice=>({id:String(row.id),label:String(row.label),preferences:preferences(row),createdAt:Number(row.createdAt),updatedAt:Number(row.updatedAt),lastSuccessAt:row.lastSuccessAt===null?null:Number(row.lastSuccessAt),lastFailureAt:row.lastFailureAt===null?null:Number(row.lastFailureAt),failureCount:Number(row.failureCount)});
@@ -14,7 +15,11 @@ export class WebPushStore{
  walkReminders INTEGER NOT NULL CHECK(walkReminders IN (0,1)),workflowUpdates INTEGER NOT NULL CHECK(workflowUpdates IN (0,1)),quietStart TEXT,quietEnd TEXT,timeZone TEXT NOT NULL,
  createdAt INTEGER NOT NULL,updatedAt INTEGER NOT NULL,lastSuccessAt INTEGER,lastFailureAt INTEGER,failureCount INTEGER NOT NULL DEFAULT 0,lastTestAt INTEGER);
  CREATE INDEX IF NOT EXISTS web_push_subscription_owner ON web_push_subscription(ownerPubkey);
- CREATE TABLE IF NOT EXISTS web_push_subscription_audit(id INTEGER PRIMARY KEY AUTOINCREMENT,deviceId TEXT NOT NULL,ownerPubkey TEXT NOT NULL,endpointHash TEXT NOT NULL,action TEXT NOT NULL,createdAt INTEGER NOT NULL);`);}
+ CREATE TABLE IF NOT EXISTS web_push_subscription_audit(id INTEGER PRIMARY KEY AUTOINCREMENT,deviceId TEXT NOT NULL,ownerPubkey TEXT NOT NULL,endpointHash TEXT NOT NULL,action TEXT NOT NULL,createdAt INTEGER NOT NULL);
+ CREATE TABLE IF NOT EXISTS web_notification(
+ id TEXT PRIMARY KEY,ownerPubkey TEXT NOT NULL,category TEXT NOT NULL CHECK(category IN ('walk-reminder','workflow')),title TEXT NOT NULL,body TEXT NOT NULL,path TEXT NOT NULL,
+ createdAt INTEGER NOT NULL,readAt INTEGER,pushState TEXT NOT NULL CHECK(pushState IN ('pending','sent','failed')));
+ CREATE INDEX IF NOT EXISTS web_notification_owner ON web_notification(ownerPubkey,createdAt DESC);`);}
  private audit(deviceId:string,ownerPubkey:string,hash:string,action:string){this.db.prepare("INSERT INTO web_push_subscription_audit(deviceId,ownerPubkey,endpointHash,action,createdAt) VALUES(?,?,?,?,?)").run(deviceId,ownerPubkey,hash,action,this.now());}
  list(ownerPubkey:string):WebPushDevice[]{return (this.db.prepare("SELECT * FROM web_push_subscription WHERE ownerPubkey=? ORDER BY updatedAt DESC").all(ownerPubkey) as Record<string,unknown>[]).map(shown);}
  endpointOwner(hash:string){const row=this.db.prepare("SELECT ownerPubkey FROM web_push_subscription WHERE endpointHash=?").get(hash) as {ownerPubkey:string}|undefined;return row?.ownerPubkey;}
@@ -26,5 +31,10 @@ export class WebPushStore{
  reserveTest(ownerPubkey:string,id:string){const row=this.raw(ownerPubkey,id);if(!row)throw new Error("Notification device not found for this account.");const now=this.now();if(row.lastTestAt!==null&&now-row.lastTestAt<60)throw new Error("Wait one minute before sending another test notification.");this.db.prepare("UPDATE web_push_subscription SET lastTestAt=? WHERE id=? AND ownerPubkey=?").run(now,id,ownerPubkey);return row;}
  delivered(ownerPubkey:string,id:string){this.db.prepare("UPDATE web_push_subscription SET lastSuccessAt=?,lastFailureAt=NULL,failureCount=0 WHERE id=? AND ownerPubkey=?").run(this.now(),id,ownerPubkey);}
  failed(ownerPubkey:string,id:string){this.db.prepare("UPDATE web_push_subscription SET lastFailureAt=?,failureCount=failureCount+1 WHERE id=? AND ownerPubkey=?").run(this.now(),id,ownerPubkey);}
+ listNotices(ownerPubkey:string):WebNotification[]{return (this.db.prepare("SELECT id,category,title,body,path,createdAt,readAt,pushState FROM web_notification WHERE ownerPubkey=? ORDER BY createdAt DESC,id DESC LIMIT 50").all(ownerPubkey) as Record<string,unknown>[]).map(row=>({id:String(row.id),category:row.category as WebNotification["category"],title:String(row.title),body:String(row.body),path:String(row.path),createdAt:Number(row.createdAt),readAt:row.readAt===null?null:Number(row.readAt),pushState:row.pushState as WebNotification["pushState"]}));}
+ createNotice(ownerPubkey:string,input:{category:WebNotification["category"];title:string;body:string;path:string}){if(!input.path.startsWith("/")||input.path.startsWith("//"))throw new Error("Notification path must stay on BitcoinWalk.");const id=randomUUID(),at=this.now();this.db.prepare("DELETE FROM web_notification WHERE ownerPubkey=? AND createdAt<?").run(ownerPubkey,at-90*86400);this.db.prepare("INSERT INTO web_notification(id,ownerPubkey,category,title,body,path,createdAt,pushState) VALUES(?,?,?,?,?,?,?,'pending')").run(id,ownerPubkey,input.category,input.title.slice(0,120),input.body.slice(0,280),input.path.slice(0,500),at);this.db.prepare("DELETE FROM web_notification WHERE ownerPubkey=? AND id NOT IN (SELECT id FROM web_notification WHERE ownerPubkey=? ORDER BY createdAt DESC,id DESC LIMIT 200)").run(ownerPubkey,ownerPubkey);return id;}
+ noticePushState(ownerPubkey:string,id:string,state:"sent"|"failed"){this.db.prepare("UPDATE web_notification SET pushState=? WHERE id=? AND ownerPubkey=?").run(state,id,ownerPubkey);}
+ readNotice(ownerPubkey:string,id:string){const result=this.db.prepare("UPDATE web_notification SET readAt=COALESCE(readAt,?) WHERE id=? AND ownerPubkey=?").run(this.now(),id,ownerPubkey);if(result.changes!==1)throw new Error("Notification not found for this account.");return this.listNotices(ownerPubkey);}
+ readAllNotices(ownerPubkey:string){this.db.prepare("UPDATE web_notification SET readAt=? WHERE ownerPubkey=? AND readAt IS NULL").run(this.now(),ownerPubkey);return this.listNotices(ownerPubkey);}
  static hashEndpoint=endpointHash;
 }
