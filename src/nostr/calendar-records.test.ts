@@ -78,6 +78,12 @@ describe("calendar approval selection",()=>{
 });
 describe("calendar event verification and links",()=>{
  const signed=()=>finalizeEvent(createApprovedCalendarEvent(city,revision.event.id,approval.event.id),new Uint8Array(32).fill(1));
+ it("keeps a super-admin-signed occurrence visible after dashboard edits",()=>{
+  const occurrence={id:`${city.cityId}:2026-10-02`,seriesId:city.cityId,localDate:"2026-10-02",localTime:"14:00",timeZone:"Europe/Warsaw",start:1790949600,end:1790953200,meetingPoint:city.meetingPoint,description:city.description};
+  const replacement=finalizeEvent(createOrganizerCalendarEvent(walk,occurrence),new Uint8Array(32).fill(1));
+  expect(matchesOrganizerCalendar(replacement,walk)).toBe(true);
+  expect(calendarEventSource(replacement,walk)).toBe(walk);
+ });
  it("accepts exact signed snapshot and rejects changed content, tags and authors",()=>{
   expect(matchesCalendar(signed(),walk)).toBe(true);
   const altered:Event=JSON.parse(JSON.stringify(signed()));altered.content="tampered";
