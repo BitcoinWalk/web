@@ -77,6 +77,7 @@ describe("super-admin OG image storage", () => {
           width: 700,
           fontSize: 52,
           align: "left" as const,
+          verticalAlign: "top" as const,
           color: "#ffffff" as const,
           treatment: "shadow" as const,
         },
@@ -117,6 +118,12 @@ describe("super-admin OG image storage", () => {
         ),
       ),
     ).toMatchObject({ actor, outputHash: saved.outputHash });
+    const moved=await renderAndSaveOg(actor,{
+      ...composition,
+      title:"Launch card bottom text",
+      text:{...composition.text,verticalAlign:"bottom" as const},
+    });
+    expect(moved.outputHash).not.toBe(saved.outputHash);
   });
   it("fails closed when a layer would leave the canvas", async () => {
     root = await mkdtemp(join(tmpdir(), "bw-og-clip-"));
@@ -162,6 +169,7 @@ describe("super-admin OG image storage", () => {
           width: 700,
           fontSize: 52,
           align: "left" as const,
+          verticalAlign: "bottom" as const,
           color: "#ffffff" as const,
           treatment: "shadow" as const,
         },

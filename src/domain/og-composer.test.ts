@@ -27,6 +27,7 @@ const composition = {
     width: 1120,
     fontSize: 180,
     align: "left" as const,
+    verticalAlign: "top" as const,
     color: "#ffffff" as const,
     treatment: "shadow" as const,
   },
@@ -44,6 +45,7 @@ const composition = {
 describe("OG composer sizing", () => {
   it("accepts the enlarged UI limits and rejects oversized text", () => {
     expect(ogCompositionSchema.parse(composition).text.fontSize).toBe(180);
+    expect(ogCompositionSchema.parse(composition).text.verticalAlign).toBe("top");
     expect(ogCompositionSchema.parse(composition).mark.align).toBe("center");
     expect(() =>
       ogCompositionSchema.parse({
@@ -51,5 +53,9 @@ describe("OG composer sizing", () => {
         text: { ...composition.text, fontSize: 181 },
       }),
     ).toThrow();
+  });
+  it("keeps older saved compositions at the current bottom text position", () => {
+    const legacy={...composition,text:{...composition.text,verticalAlign:undefined}};
+    expect(ogCompositionSchema.parse(legacy).text.verticalAlign).toBe("bottom");
   });
 });

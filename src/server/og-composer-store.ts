@@ -318,7 +318,7 @@ export async function renderAndSaveOg(
   if (text) {
     const metadata = await sharp(text).metadata();
     const height = metadata.height ?? 0,
-      top = Math.max(54, CANVAS_HEIGHT - EDGE - height);
+      top = alignedY(composition.text.verticalAlign, height);
     if (top + height > CANVAS_HEIGHT)
       throw new Error("Keep all text inside the 1200 × 630 canvas.");
     layers.push({

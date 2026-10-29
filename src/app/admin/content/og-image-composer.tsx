@@ -103,6 +103,7 @@ const initial: OgComposition = {
     width: 760,
     fontSize: 64,
     align: "left",
+    verticalAlign: "bottom",
     color: "#ffffff",
     treatment: "shadow",
   },
@@ -477,6 +478,10 @@ export default function OgImageComposer() {
             align: draft.mark.align ?? "left",
             verticalAlign: draft.mark.verticalAlign ?? "top",
           },
+          text: {
+            ...draft.text,
+            verticalAlign: draft.text.verticalAlign ?? "bottom",
+          },
           logo: draft.logo
             ? {
                 ...draft.logo,
@@ -554,7 +559,9 @@ export default function OgImageComposer() {
                 : CANVAS_WIDTH / 2,
           lines = wrap(context, composition.text.value, TEXT_WIDTH),
           textHeight = lines.length * composition.text.fontSize * 1.12,
-          y = Math.max(54, CANVAS_HEIGHT - EDGE - textHeight);
+          blockHeight = textHeight + 32,
+          blockY = alignedY(composition.text.verticalAlign, blockHeight),
+          y = blockY + 16;
         if (composition.text.treatment === "panel") {
           context.fillStyle =
             composition.text.color === "#ffffff"
@@ -563,9 +570,9 @@ export default function OgImageComposer() {
           context.beginPath();
           context.roundRect(
             EDGE - 16,
-            y - 16,
+            blockY,
             TEXT_WIDTH + 32,
-            lines.length * composition.text.fontSize * 1.12 + 32,
+            blockHeight,
             18,
           );
           context.fill();
@@ -1002,10 +1009,17 @@ export default function OgImageComposer() {
               </label>
             </div>
             <AlignmentControl
-              label="Position"
+              label="Horizontal position"
               value={composition.text.align}
               onChange={(align) =>
                 update("text", { ...composition.text, align })
+              }
+            />
+            <VerticalAlignmentControl
+              label="Vertical position"
+              value={composition.text.verticalAlign}
+              onChange={(verticalAlign) =>
+                update("text", { ...composition.text, verticalAlign })
               }
             />
             <SizeControl
