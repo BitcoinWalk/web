@@ -83,11 +83,31 @@ describe("directory relay configuration",()=>{
       "wss://directory-2.bitcoinwalk.org/",
     ]);
     expect(relayConfig.calendarDiscoveryRelays).toEqual(["wss://events.example/","wss://events-2.example/"]);
+    expect(relayConfig.announcementRelays).toEqual([
+      "wss://relay.damus.io/",
+      "wss://relay.primal.net/",
+    ]);
+    expect(relayConfig.announcementNotBefore).toBe(1792886400);
     expect(relayConfig.calendarRelayHints).toEqual([
       "wss://relay.bitcoinwalk.org/",
       "wss://events.example/",
       "wss://events-2.example/",
     ]);
+  });
+
+  it("pins the reviewed production announcement policy against environment drift",async()=>{
+    process.env.NEXT_PUBLIC_DEPLOYMENT_PROFILE="production";
+    process.env.NEXT_PUBLIC_ANNOUNCEMENT_RELAYS="wss://unreviewed.example/";
+    process.env.NEXT_PUBLIC_ANNOUNCEMENT_NOT_BEFORE="1893456000";
+    vi.resetModules();
+
+    const {relayConfig}=await import("./relay-config");
+
+    expect(relayConfig.announcementRelays).toEqual([
+      "wss://relay.damus.io/",
+      "wss://relay.primal.net/",
+    ]);
+    expect(relayConfig.announcementNotBefore).toBe(1792886400);
   });
 
   it("fails closed instead of falling back to staging transports in a production build",async()=>{
@@ -102,6 +122,11 @@ describe("directory relay configuration",()=>{
     expect(relayConfig.readRelays).toEqual([]);
     expect(relayConfig.writeRelays).toEqual([]);
     expect(relayConfig.directoryRelays).toEqual([]);
+    expect(relayConfig.announcementRelays).toEqual([
+      "wss://relay.damus.io/",
+      "wss://relay.primal.net/",
+    ]);
+    expect(relayConfig.announcementNotBefore).toBe(1792886400);
   });
 
   it("does not let blank build variables erase the staging transport baseline",async()=>{

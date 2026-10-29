@@ -65,6 +65,13 @@ async function requireProfileRelays(path){
     if(!await treeContains(path,relay))throw new Error(`Required ${profile} relay is absent from the browser bundle: ${relay}`);
   }
   if(profile==="production"){
+    for(const value of [
+      "wss://relay.damus.io/",
+      "wss://relay.primal.net/",
+      "1792886400",
+    ]){
+      if(!await treeContains(path,value))throw new Error(`Reviewed production announcement policy is absent from the browser bundle: ${value}`);
+    }
     for(const relay of [
       "wss://relay-staging.bitcoinwalk.org/",
       "wss://directory-staging.bitcoinwalk.org/",
