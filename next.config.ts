@@ -8,6 +8,7 @@ const nextConfig: NextConfig = {
   // this, Turbopack can emit a hashed external name that Node cannot resolve.
   serverExternalPackages: ["sharp"],
   poweredByHeader: false,
+  async headers(){return [{source:"/sw.js",headers:[{key:"Cache-Control",value:"no-cache, no-store, must-revalidate"},{key:"Service-Worker-Allowed",value:"/"},{key:"X-Content-Type-Options",value:"nosniff"}]}];},
   async redirects() {
     const dashboard = ["/sponsor/logo", "/admin/sponsors/payments", "/admin/sponsors/upload", "/admin/sponsors/logos"].map(source => ({
       source, destination: "/admin/sponsor", permanent: false,
