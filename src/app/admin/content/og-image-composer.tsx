@@ -51,7 +51,8 @@ const STORAGE = "bitcoinwalk:og-composer:draft:v1",
 const CANVAS_WIDTH = 1200,
   CANVAS_HEIGHT = 630,
   EDGE = 64,
-  TEXT_WIDTH = CANVAS_WIDTH - EDGE * 2;
+  TEXT_WIDTH = CANVAS_WIDTH - EDGE * 2,
+  SAFE_UPLOAD_BYTES = 850 * 1024;
 const OG_FONT = '"BitcoinWalk Ubuntu"';
 let ubuntuFontPromise: Promise<FontFace> | null = null;
 function ensureUbuntuFont() {
@@ -118,6 +119,52 @@ function image(source: string) {
       reject(new Error("Preview image could not be loaded."));
     value.src = source;
   });
+}
+function canvasWebp(canvas: HTMLCanvasElement, quality: number) {
+  return new Promise<Blob>((resolve, reject) =>
+    canvas.toBlob(
+      (blob) =>
+        blob
+          ? resolve(blob)
+          : reject(new Error("This image could not be prepared for upload.")),
+      "image/webp",
+      quality,
+    ),
+  );
+}
+async function optimizedUpload(file: File) {
+  if (file.size <= SAFE_UPLOAD_BYTES) return file;
+  const sourceUrl = URL.createObjectURL(file);
+  try {
+    const source = await image(sourceUrl);
+    async function render(maxWidth: number, maxHeight: number, quality: number) {
+      const scale = Math.min(
+          1,
+          maxWidth / source.naturalWidth,
+          maxHeight / source.naturalHeight,
+        ),
+        canvas = document.createElement("canvas");
+      canvas.width = Math.max(1, Math.round(source.naturalWidth * scale));
+      canvas.height = Math.max(1, Math.round(source.naturalHeight * scale));
+      canvas.getContext("2d")!.drawImage(source, 0, 0, canvas.width, canvas.height);
+      return canvasWebp(canvas, quality);
+    }
+    let blob = await render(1800, 1260, 0.86);
+    for (const quality of [0.76, 0.66, 0.56, 0.46]) {
+      if (blob.size <= SAFE_UPLOAD_BYTES) break;
+      blob = await render(1800, 1260, quality);
+    }
+    if (blob.size > SAFE_UPLOAD_BYTES) blob = await render(1200, 840, 0.72);
+    if (blob.size > SAFE_UPLOAD_BYTES)
+      throw new Error("Choose a less complex image so it can be prepared safely.");
+    return new File(
+      [blob],
+      file.name.replace(/\.[^.]+$/, "") + ".webp",
+      { type: "image/webp", lastModified: file.lastModified },
+    );
+  } finally {
+    URL.revokeObjectURL(sourceUrl);
+  }
 }
 function preparedMark(value: HTMLImageElement, tint?: string) {
   const source = document.createElement("canvas");
@@ -679,7 +726,8 @@ export default function OgImageComposer() {
         file.size > 10 * 1024 * 1024
       )
         throw new Error("Choose a JPEG, PNG or WebP image up to 10 MB.");
-      const bytes = await file.arrayBuffer(),
+      const uploadFile = await optimizedUpload(file),
+        bytes = await uploadFile.arrayBuffer(),
         sha256 = Array.from(
           new Uint8Array(await crypto.subtle.digest("SHA-256", bytes)),
         )
@@ -690,10 +738,10 @@ export default function OgImageComposer() {
             action: "og-studio-upload",
             asset,
             sha256,
-            mime: file.type as "image/jpeg" | "image/png" | "image/webp",
-            bytes: file.size,
+            mime: uploadFile.type as "image/jpeg" | "image/png" | "image/webp",
+            bytes: uploadFile.size,
           },
-          { file },
+          { file: uploadFile },
         );
       if (asset === "background") {
         setBackground(source);
@@ -718,7 +766,7 @@ export default function OgImageComposer() {
         });
       }
       setMessage(
-        `${asset === "background" ? "Background" : "Partner logo"} uploaded privately and added to the preview.`,
+        `${asset === "background" ? "Background" : "Partner logo"}${uploadFile === file ? "" : " optimized for the web and"} uploaded privately and added to the preview.`,
       );
       setTone("success");
     });
@@ -859,7 +907,7 @@ export default function OgImageComposer() {
             <legend>1. Background</legend>
             <div className={styles.sourceActions}>
               <label className={styles.fileButton}>
-                Upload image
+                {busy === "background" ? "Preparing image…" : "Upload image"}
                 <input
                   type="file"
                   accept="image/jpeg,image/png,image/webp"
