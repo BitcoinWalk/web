@@ -14,7 +14,7 @@ export function ogRelativeTextLayout({
   canvasWidth=1200,
   canvasHeight=630,
   edge=64,
-  gap=48,
+  gap=15,
 }: {
   align:z.infer<typeof ogAlignmentSchema>;
   verticalAlign:z.infer<typeof ogVerticalAlignmentSchema>;

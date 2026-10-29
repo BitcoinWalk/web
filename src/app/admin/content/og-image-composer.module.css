@@ -53,6 +53,12 @@
   padding: 0 0.4rem;
   font-weight: 800;
 }
+.fieldHint {
+  margin: -0.15rem 0 0;
+  color: var(--bw-color-muted);
+  font-size: 0.86rem;
+  line-height: 1.4;
+}
 .controls label,
 .title {
   display: grid;

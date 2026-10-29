@@ -228,7 +228,8 @@ async function textSvg(layer: OgComposition["text"]) {
   }
   if (current) lines.push(current);
   const visible = lines.slice(0, 3),
-    height = Math.ceil(visible.length * layer.fontSize * 1.12 + 32),
+    lineHeight = layer.fontSize * 1.12,
+    height = Math.ceil(visible.length * lineHeight),
     width=Math.round(layer.width),
     x=width/2,
     panel =
@@ -240,7 +241,7 @@ async function textSvg(layer: OgComposition["text"]) {
         ? 'style="filter:drop-shadow(0 4px 6px rgba(0,0,0,.72))"'
         : "";
   return Buffer.from(
-    `<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg"><style>@font-face{font-family:UbuntuPinned;src:url(data:font/ttf;base64,${await ubuntuFont}) format("truetype");font-style:italic;font-weight:700}</style>${panel}<g ${shadow} fill="${layer.color}" font-family="UbuntuPinned" font-size="${layer.fontSize}" font-style="italic" font-weight="700" text-anchor="middle">${visible.map((line, index) => `<text x="${x}" y="${24 + layer.fontSize * (index + 1)}">${escapeXml(line)}</text>`).join("")}</g></svg>`,
+    `<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg"><style>@font-face{font-family:UbuntuPinned;src:url(data:font/ttf;base64,${await ubuntuFont}) format("truetype");font-style:italic;font-weight:700}</style>${panel}<g ${shadow} fill="${layer.color}" font-family="UbuntuPinned" font-size="${layer.fontSize}" font-style="italic" font-weight="700" text-anchor="middle" dominant-baseline="text-before-edge">${visible.map((line, index) => `<text x="${x}" y="${index * lineHeight}">${escapeXml(line)}</text>`).join("")}</g></svg>`,
   );
 }
 async function backgroundLayer(composition: OgComposition) {
@@ -289,7 +290,8 @@ export async function renderAndSaveOg(
       .resize({
         width: Math.round(composition.mark.width),
         fit: "inside",
-      });
+      })
+      .trim({ background: { r: 0, g: 0, b: 0, alpha: 0 } });
     if (selected.tint) markPipeline = markPipeline.tint(selected.tint);
     mark = await markPipeline.png().toBuffer();
     const

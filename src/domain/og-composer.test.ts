@@ -61,6 +61,6 @@ describe("OG composer sizing", () => {
   it("keeps the text centred immediately beneath the positioned mark",()=>{
     const layout=ogRelativeTextLayout({align:"center",verticalAlign:"center",markWidth:240,markHeight:240,textWidth:520,textHeight:96});
     expect(layout.markLeft+120).toBe(layout.textLeft+260);
-    expect(layout.textTop).toBe(layout.markTop+240+48);
+    expect(layout.textTop).toBe(layout.markTop+240+15);
   });
 });

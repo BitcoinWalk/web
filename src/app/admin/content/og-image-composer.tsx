@@ -119,17 +119,64 @@ function image(source: string) {
     value.src = source;
   });
 }
-function tintedImage(value: HTMLImageElement, tint?: string) {
-  if (!tint) return value;
+function preparedMark(value: HTMLImageElement, tint?: string) {
+  const source = document.createElement("canvas");
+  source.width = value.naturalWidth;
+  source.height = value.naturalHeight;
+  const sourceContext = source.getContext("2d", { willReadFrequently: true })!;
+  sourceContext.drawImage(value, 0, 0);
+  const pixels = sourceContext.getImageData(0, 0, source.width, source.height).data;
+  let left = source.width,
+    top = source.height,
+    right = -1,
+    bottom = -1;
+  for (let y = 0; y < source.height; y++) {
+    for (let x = 0; x < source.width; x++) {
+      if (pixels[(y * source.width + x) * 4 + 3] === 0) continue;
+      left = Math.min(left, x);
+      top = Math.min(top, y);
+      right = Math.max(right, x);
+      bottom = Math.max(bottom, y);
+    }
+  }
+  if (right < left || bottom < top) return source;
   const output = document.createElement("canvas");
-  output.width = value.naturalWidth;
-  output.height = value.naturalHeight;
+  output.width = right - left + 1;
+  output.height = bottom - top + 1;
   const context = output.getContext("2d")!;
-  context.drawImage(value, 0, 0);
-  context.globalCompositeOperation = "source-in";
-  context.fillStyle = tint;
-  context.fillRect(0, 0, output.width, output.height);
+  context.drawImage(
+    source,
+    left,
+    top,
+    output.width,
+    output.height,
+    0,
+    0,
+    output.width,
+    output.height,
+  );
+  if (tint) {
+    context.globalCompositeOperation = "source-in";
+    context.fillStyle = tint;
+    context.fillRect(0, 0, output.width, output.height);
+  }
   return output;
+}
+const preparedMarkCache = new Map<
+  string,
+  Promise<{ artwork: HTMLCanvasElement; sourceWidth: number }>
+>();
+function loadPreparedMark(source: string, tint?: string) {
+  const key = `${source}:${tint ?? "original"}`;
+  let pending = preparedMarkCache.get(key);
+  if (!pending) {
+    pending = image(source).then((value) => ({
+      artwork: preparedMark(value, tint),
+      sourceWidth: value.naturalWidth,
+    }));
+    preparedMarkCache.set(key, pending);
+  }
+  return pending;
 }
 function cover(
   context: CanvasRenderingContext2D,
@@ -530,10 +577,13 @@ export default function OgImageComposer() {
         markWidth=0,
         markHeight=0;
       if(composition.mark.visible)try{
-        const selected=bitcoinWalkMark(composition.mark.variant),mark=await image(selected.path);
-        markWidth=composition.mark.width;
-        markHeight=markWidth*(mark.naturalHeight/mark.naturalWidth);
-        markArtwork=tintedImage(mark,selected.tint);
+        const selected=bitcoinWalkMark(composition.mark.variant),
+          prepared=await loadPreparedMark(selected.path,selected.tint),
+          mark=prepared.artwork,
+          scale=composition.mark.width/prepared.sourceWidth;
+        markWidth=mark.width*scale;
+        markHeight=mark.height*scale;
+        markArtwork=mark;
       }catch{}
       if (composition.text.value.trim()) {
         await ensureUbuntuFont();
@@ -543,10 +593,10 @@ export default function OgImageComposer() {
         const textWidth=clamp(composition.text.width,160,TEXT_WIDTH),
           lines = wrap(context, composition.text.value, textWidth-32),
           textHeight = lines.length * composition.text.fontSize * 1.12,
-          blockHeight = textHeight + 32,
+          blockHeight = textHeight,
           layout=ogRelativeTextLayout({align:composition.mark.align,verticalAlign:composition.mark.verticalAlign,markWidth,markHeight,textWidth,textHeight:blockHeight}),
           x=layout.textLeft+textWidth/2,
-          y=layout.textTop+16;
+          y=layout.textTop;
         if(markArtwork){
           if(!active)return;
           context.drawImage(markArtwork,layout.markLeft,layout.markTop,markWidth,markHeight);
@@ -953,6 +1003,7 @@ export default function OgImageComposer() {
           </fieldset>
           <fieldset>
             <legend>3. Text</legend>
+            <p className={styles.fieldHint}>Always positioned 15px below the BitcoinWalk mark.</p>
             <label>
               Message
               <textarea
