@@ -1,0 +1,18 @@
+import {afterEach,beforeEach,describe,expect,it,vi} from "vitest";
+vi.mock("server-only",()=>({}));
+vi.mock("../../../payments/runtime",()=>({getPaymentRuntime:vi.fn()}));
+vi.mock("../../../notifications/web-push-delivery",async original=>{const actual=await original<typeof import("../../../notifications/web-push-delivery")>();return {...actual,deliverWebPush:vi.fn(async()=>({statusCode:201})),webPushConfig:vi.fn(()=>({publicKey:"public",privateKey:"private",subject:"mailto:test@bitcoinwalk.org"}))};});
+import {DatabaseSync} from "node:sqlite";
+import {finalizeEvent,generateSecretKey} from "nostr-tools";
+import {getPaymentRuntime} from "../../../payments/runtime";
+import {deliverWebPush} from "../../../notifications/web-push-delivery";
+import {webPushCommandTemplate} from "../../../notifications/web-push-auth";
+import {GET,POST} from "./route";
+const origin="https://app-staging.bitcoinwalk.org",key=generateSecretKey(),deviceId="10000000-0000-4000-8000-000000000001",preferences={walkReminders:true,workflowUpdates:true,quietStart:null,quietEnd:null,timeZone:"UTC"},subscription={endpoint:"https://fcm.googleapis.com/fcm/send/secret",keys:{p256dh:"a".repeat(65),auth:"b".repeat(22)}};
+describe("notification API",()=>{let db:DatabaseSync;beforeEach(()=>{vi.resetAllMocks();vi.stubEnv("BITCOINWALK_PAYMENT_APP_ORIGIN",origin);db=new DatabaseSync(":memory:");vi.mocked(getPaymentRuntime).mockReturnValue({store:{db}} as never);});afterEach(()=>{db.close();vi.unstubAllEnvs();});
+ const request=(command:Parameters<typeof webPushCommandTemplate>[0],requestOrigin=origin)=>new Request(`${origin}/api/notifications`,{method:"POST",headers:{origin:requestOrigin,"content-type":"application/json"},body:JSON.stringify({event:finalizeEvent(webPushCommandTemplate(command,origin),key)})});
+ it("publishes only the VAPID public key",async()=>expect(await (await GET()).json()).toEqual({available:true,publicKey:"public"}));
+ it("rejects cross-origin and unsigned requests before opening state",async()=>{expect((await POST(new Request(`${origin}/api/notifications`,{method:"POST",headers:{origin:"https://evil.example","content-type":"application/json"},body:"{}"}))).status).toBe(403);expect(getPaymentRuntime).not.toHaveBeenCalled();});
+ it("saves, lists and immediately removes only the signed account device",async()=>{let response=await POST(request({action:"save",deviceId,label:"Phone",subscription,preferences}));expect(response.status).toBe(200);expect(JSON.stringify(await response.json())).not.toContain(subscription.endpoint);response=await POST(request({action:"list"}));expect((await response.json()).devices).toHaveLength(1);response=await POST(request({action:"remove",deviceId}));expect((await response.json()).devices).toEqual([]);});
+ it("sends an intentionally generic test and records delivery",async()=>{await POST(request({action:"save",deviceId,label:"Phone",subscription,preferences}));const response=await POST(request({action:"test",deviceId}));expect(response.status).toBe(200);expect(await response.json()).toMatchObject({sent:true});expect(deliverWebPush).toHaveBeenCalledWith(expect.objectContaining({ownerPubkey:expect.stringMatching(/^[0-9a-f]{64}$/)}),expect.objectContaining({path:"/admin/notifications",body:expect.not.stringContaining("walk")}));});
+});
