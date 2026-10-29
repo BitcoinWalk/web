@@ -94,7 +94,11 @@ export function calendarImageOverride(event:Event):string|null {const marker=one
 export function calendarContentImage(event:Event):string|null {const image=one(event,"bitcoinwalk-content-image");return image&&managedImage.test(image)?image:null;}
 export function calendarRoute(event:Event):string|null {if(one(event,"bitcoinwalk-route")!=="alltrails-v1")return null;for(const tag of event.tags.filter(tag=>tag[0]==="r"&&tag.length===2)){try{const route=allTrailsRoute(tag[1]);if(route)return route.url;}catch{}}return null;}
 export function matchesOrganizerCalendar(event:Event,walk:CalendarWalk):boolean {
-  if(event.kind!==31923||isSuperAdmin(event.pubkey)||!verifyEvent(event))return false;
+  // A super-admin can manage a published walk from the same dashboard as its
+  // organizer. The occurrence still has to reference the exact current city
+  // revision and approval and pass every field-level check below; the signer
+  // role must not make an otherwise valid replacement disappear from reads.
+  if(event.kind!==31923||!verifyEvent(event))return false;
   const city=walk.revision.city;
   if(one(event,"bitcoinwalk")!=="occurrence-v1"||one(event,"i")!==city.cityId||source(event,"city-revision")!==walk.revision.event.id||source(event,"city-approval")!==walk.approval.event.id)return false;
   const override=calendarImageOverride(event),marker=one(event,"bitcoinwalk-image");
