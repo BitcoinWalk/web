@@ -4,6 +4,45 @@ import { bitcoinWalkMarkIdSchema } from "./brand-marks";
 const hash = z.string().regex(/^[0-9a-f]{64}$/);
 export const ogAlignmentSchema = z.enum(["left", "center", "right"]);
 export const ogVerticalAlignmentSchema = z.enum(["top", "center", "bottom"]);
+export function ogRelativeTextLayout({
+  align,
+  verticalAlign,
+  markWidth,
+  markHeight,
+  textWidth,
+  textHeight,
+  canvasWidth=1200,
+  canvasHeight=630,
+  edge=64,
+  gap=48,
+}: {
+  align:z.infer<typeof ogAlignmentSchema>;
+  verticalAlign:z.infer<typeof ogVerticalAlignmentSchema>;
+  markWidth:number;
+  markHeight:number;
+  textWidth:number;
+  textHeight:number;
+  canvasWidth?:number;
+  canvasHeight?:number;
+  edge?:number;
+  gap?:number;
+}) {
+  const hasMark=markWidth>0&&markHeight>0,
+    hasText=textWidth>0&&textHeight>0,
+    space=hasMark&&hasText?gap:0,
+    groupWidth=Math.max(markWidth,textWidth),
+    groupHeight=markHeight+space+textHeight,
+    groupLeft=align==="left"?edge:align==="right"?canvasWidth-edge-groupWidth:(canvasWidth-groupWidth)/2,
+    groupTop=verticalAlign==="top"?edge:verticalAlign==="bottom"?canvasHeight-edge-groupHeight:(canvasHeight-groupHeight)/2;
+  return {
+    markLeft:groupLeft+(groupWidth-markWidth)/2,
+    markTop:groupTop,
+    textLeft:groupLeft+(groupWidth-textWidth)/2,
+    textTop:groupTop+markHeight+space,
+    groupWidth,
+    groupHeight,
+  };
+}
 const layer = z
   .object({
     x: z.number().min(0).max(1200),

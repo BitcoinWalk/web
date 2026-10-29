@@ -120,8 +120,8 @@ describe("super-admin OG image storage", () => {
     ).toMatchObject({ actor, outputHash: saved.outputHash });
     const moved=await renderAndSaveOg(actor,{
       ...composition,
-      title:"Launch card bottom text",
-      text:{...composition.text,verticalAlign:"bottom" as const},
+      title:"Launch card bottom group",
+      mark:{...composition.mark,verticalAlign:"bottom" as const},
     });
     expect(moved.outputHash).not.toBe(saved.outputHash);
   });

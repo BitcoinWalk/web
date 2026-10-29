@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ogCompositionSchema } from "./og-composer";
+import { ogCompositionSchema,ogRelativeTextLayout } from "./og-composer";
 
 const composition = {
   version: 1 as const,
@@ -57,5 +57,10 @@ describe("OG composer sizing", () => {
   it("keeps older saved compositions at the current bottom text position", () => {
     const legacy={...composition,text:{...composition.text,verticalAlign:undefined}};
     expect(ogCompositionSchema.parse(legacy).text.verticalAlign).toBe("bottom");
+  });
+  it("keeps the text centred immediately beneath the positioned mark",()=>{
+    const layout=ogRelativeTextLayout({align:"center",verticalAlign:"center",markWidth:240,markHeight:240,textWidth:520,textHeight:96});
+    expect(layout.markLeft+120).toBe(layout.textLeft+260);
+    expect(layout.textTop).toBe(layout.markTop+240+48);
   });
 });

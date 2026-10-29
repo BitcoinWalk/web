@@ -14,6 +14,7 @@ import sharp from "sharp";
 import { bitcoinWalkMark } from "../domain/brand-marks";
 import {
   ogCompositionSchema,
+  ogRelativeTextLayout,
   type OgComposition,
   type OgSource,
 } from "../domain/og-composer";
@@ -33,7 +34,6 @@ const sources = () => join(root(), "sources"),
 const CANVAS_WIDTH = 1200,
   CANVAS_HEIGHT = 630,
   EDGE = 64,
-  TEXT_WIDTH = CANVAS_WIDTH - EDGE * 2,
   ubuntuFont = readFile(
     join(
       process.cwd(),
@@ -213,7 +213,7 @@ async function textSvg(layer: OgComposition["text"]) {
   if (!layer.value.trim()) return null;
   const maxChars = Math.max(
       8,
-      Math.floor(TEXT_WIDTH / (layer.fontSize * 0.58)),
+      Math.floor((layer.width-32) / (layer.fontSize * 0.58)),
     ),
     words = layer.value.trim().split(/\s+/),
     lines: string[] = [];
@@ -229,28 +229,18 @@ async function textSvg(layer: OgComposition["text"]) {
   if (current) lines.push(current);
   const visible = lines.slice(0, 3),
     height = Math.ceil(visible.length * layer.fontSize * 1.12 + 32),
-    anchor =
-      layer.align === "left"
-        ? "start"
-        : layer.align === "right"
-          ? "end"
-          : "middle",
-    x =
-      layer.align === "left"
-        ? 16
-        : layer.align === "right"
-          ? TEXT_WIDTH - 16
-          : TEXT_WIDTH / 2,
+    width=Math.round(layer.width),
+    x=width/2,
     panel =
       layer.treatment === "panel"
-        ? `<rect width="${TEXT_WIDTH}" height="${height}" rx="18" fill="${layer.color === "#ffffff" ? "rgba(0,0,0,.68)" : "rgba(255,255,255,.84)"}"/>`
+        ? `<rect width="${width}" height="${height}" rx="18" fill="${layer.color === "#ffffff" ? "rgba(0,0,0,.68)" : "rgba(255,255,255,.84)"}"/>`
         : "",
     shadow =
       layer.treatment === "shadow"
         ? 'style="filter:drop-shadow(0 4px 6px rgba(0,0,0,.72))"'
         : "";
   return Buffer.from(
-    `<svg width="${TEXT_WIDTH}" height="${height}" xmlns="http://www.w3.org/2000/svg"><style>@font-face{font-family:UbuntuPinned;src:url(data:font/ttf;base64,${await ubuntuFont}) format("truetype");font-style:italic;font-weight:700}</style>${panel}<g ${shadow} fill="${layer.color}" font-family="UbuntuPinned" font-size="${layer.fontSize}" font-style="italic" font-weight="700" text-anchor="${anchor}">${visible.map((line, index) => `<text x="${x}" y="${24 + layer.fontSize * (index + 1)}">${escapeXml(line)}</text>`).join("")}</g></svg>`,
+    `<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg"><style>@font-face{font-family:UbuntuPinned;src:url(data:font/ttf;base64,${await ubuntuFont}) format("truetype");font-style:italic;font-weight:700}</style>${panel}<g ${shadow} fill="${layer.color}" font-family="UbuntuPinned" font-size="${layer.fontSize}" font-style="italic" font-weight="700" text-anchor="middle">${visible.map((line, index) => `<text x="${x}" y="${24 + layer.fontSize * (index + 1)}">${escapeXml(line)}</text>`).join("")}</g></svg>`,
   );
 }
 async function backgroundLayer(composition: OgComposition) {
@@ -292,6 +282,7 @@ export async function renderAndSaveOg(
 ) {
   const composition = ogCompositionSchema.parse(input),
     layers: Array<{ input: Buffer; left: number; top: number }> = [];
+  let mark:Buffer|null=null,markWidth=0,markHeight=0;
   if (composition.mark.visible) {
     const selected = bitcoinWalkMark(composition.mark.variant);
     let markPipeline = sharp(join(process.cwd(), "public", selected.path))
@@ -300,33 +291,20 @@ export async function renderAndSaveOg(
         fit: "inside",
       });
     if (selected.tint) markPipeline = markPipeline.tint(selected.tint);
-    const mark = await markPipeline.png().toBuffer(),
+    mark = await markPipeline.png().toBuffer();
+    const
       metadata = await sharp(mark).metadata();
-    const width = metadata.width ?? 0,
-      height = metadata.height ?? 0,
-      left = alignedX(composition.mark.align, width),
-      top = alignedY(composition.mark.verticalAlign, height);
-    if (left < 0 || top < 0 || top + height > CANVAS_HEIGHT)
-      throw new Error("Keep the BitcoinWalk mark inside the 1200 × 630 canvas.");
-    layers.push({
-      input: mark,
-      left: Math.round(left),
-      top,
-    });
+    markWidth=metadata.width??0;
+    markHeight=metadata.height??0;
   }
   const text = await textSvg(composition.text);
-  if (text) {
-    const metadata = await sharp(text).metadata();
-    const height = metadata.height ?? 0,
-      top = alignedY(composition.text.verticalAlign, height);
-    if (top + height > CANVAS_HEIGHT)
-      throw new Error("Keep all text inside the 1200 × 630 canvas.");
-    layers.push({
-      input: text,
-      left: EDGE,
-      top: Math.round(top),
-    });
-  }
+  const textMetadata=text?await sharp(text).metadata():null,
+    textWidth=textMetadata?.width??0,
+    textHeight=textMetadata?.height??0,
+    locked=ogRelativeTextLayout({align:composition.mark.align,verticalAlign:composition.mark.verticalAlign,markWidth,markHeight,textWidth,textHeight});
+  if(locked.groupWidth>CANVAS_WIDTH-EDGE*2||locked.groupHeight>CANVAS_HEIGHT-EDGE*2)throw new Error("Keep the BitcoinWalk mark and text inside the 1200 × 630 canvas.");
+  if(mark)layers.push({input:mark,left:Math.round(locked.markLeft),top:Math.round(locked.markTop)});
+  if(text)layers.push({input:text,left:Math.round(locked.textLeft),top:Math.round(locked.textTop)});
   if (composition.logo) {
     const logo = await logoBody(composition.logo),
       metadata = await sharp(logo).metadata();

@@ -4,12 +4,11 @@ import {describe,expect,it} from "vitest";
 import OgImageComposer from "./og-image-composer";
 
 describe("OG image composer text placement",()=>{
- it("offers independent horizontal and vertical text position controls",()=>{
+ it("locks text beneath the mark without separate positioning controls",()=>{
   const html=renderToStaticMarkup(createElement(OgImageComposer));
-  expect(html).toContain('aria-label="Horizontal position alignment"');
-  expect(html).toContain('aria-label="Vertical position alignment"');
-  expect(html).toContain(">Top<");
-  expect(html).toContain(">Centre<");
-  expect(html).toContain(">Bottom<");
+  expect(html.match(/aria-label="Horizontal position alignment"/g)).toHaveLength(1);
+  expect(html.match(/aria-label="Vertical position alignment"/g)).toHaveLength(1);
+  expect(html).toContain("Powered by");
+  expect(html).toContain("BitcoinWalk symbol, White.");
  });
 });

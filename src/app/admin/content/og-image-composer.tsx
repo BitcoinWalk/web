@@ -18,7 +18,7 @@ import {
   ogComposerMarks,
   type BitcoinWalkMarkId,
 } from "../../../domain/brand-marks";
-import type { OgComposition, OgSource } from "../../../domain/og-composer";
+import {ogRelativeTextLayout,type OgComposition,type OgSource} from "../../../domain/og-composer";
 import {
   mediaRequestTemplate,
   type MediaRequest,
@@ -89,20 +89,20 @@ const initial: OgComposition = {
   background: { hash: emptyHash, source: "upload", zoom: 1, x: 50, y: 50 },
   mark: {
     visible: true,
-    variant: "symbol-orange",
+    variant: "symbol-white",
     x: 64,
     y: 54,
-    width: 150,
-    align: "left",
-    verticalAlign: "top",
+    width: 240,
+    align: "center",
+    verticalAlign: "center",
   },
   text: {
-    value: "Powered by BitcoinWalk",
+    value: "Powered by",
     x: 64,
     y: 420,
-    width: 760,
-    fontSize: 64,
-    align: "left",
+    width: 520,
+    fontSize: 56,
+    align: "center",
     verticalAlign: "bottom",
     color: "#ffffff",
     treatment: "shadow",
@@ -526,42 +526,31 @@ export default function OgImageComposer() {
       }
       context.fillStyle = "rgba(0,0,0,.16)";
       context.fillRect(0, 0, 1200, 630);
-      if (composition.mark.visible) {
-        try {
-          const selected = bitcoinWalkMark(composition.mark.variant),
-            mark = await image(selected.path),
-            height =
-              composition.mark.width *
-              (mark.naturalHeight / mark.naturalWidth),
-            x = alignedX(composition.mark.align, composition.mark.width),
-            y = alignedY(composition.mark.verticalAlign, height),
-            artwork = tintedImage(mark, selected.tint);
-          if (!active) return;
-          context.drawImage(
-            artwork,
-            x,
-            y,
-            composition.mark.width,
-            height,
-          );
-        } catch {}
-      }
+      let markArtwork:CanvasImageSource|null=null,
+        markWidth=0,
+        markHeight=0;
+      if(composition.mark.visible)try{
+        const selected=bitcoinWalkMark(composition.mark.variant),mark=await image(selected.path);
+        markWidth=composition.mark.width;
+        markHeight=markWidth*(mark.naturalHeight/mark.naturalWidth);
+        markArtwork=tintedImage(mark,selected.tint);
+      }catch{}
       if (composition.text.value.trim()) {
         await ensureUbuntuFont();
         context.font = `italic 700 ${composition.text.fontSize}px ${OG_FONT}`;
-        context.textAlign = composition.text.align;
+        context.textAlign = "center";
         context.textBaseline = "top";
-        const x =
-            composition.text.align === "left"
-              ? EDGE
-              : composition.text.align === "right"
-                ? CANVAS_WIDTH - EDGE
-                : CANVAS_WIDTH / 2,
-          lines = wrap(context, composition.text.value, TEXT_WIDTH),
+        const textWidth=clamp(composition.text.width,160,TEXT_WIDTH),
+          lines = wrap(context, composition.text.value, textWidth-32),
           textHeight = lines.length * composition.text.fontSize * 1.12,
           blockHeight = textHeight + 32,
-          blockY = alignedY(composition.text.verticalAlign, blockHeight),
-          y = blockY + 16;
+          layout=ogRelativeTextLayout({align:composition.mark.align,verticalAlign:composition.mark.verticalAlign,markWidth,markHeight,textWidth,textHeight:blockHeight}),
+          x=layout.textLeft+textWidth/2,
+          y=layout.textTop+16;
+        if(markArtwork){
+          if(!active)return;
+          context.drawImage(markArtwork,layout.markLeft,layout.markTop,markWidth,markHeight);
+        }
         if (composition.text.treatment === "panel") {
           context.fillStyle =
             composition.text.color === "#ffffff"
@@ -569,9 +558,9 @@ export default function OgImageComposer() {
               : "rgba(255,255,255,.84)";
           context.beginPath();
           context.roundRect(
-            EDGE - 16,
-            blockY,
-            TEXT_WIDTH + 32,
+            layout.textLeft,
+            layout.textTop,
+            textWidth,
             blockHeight,
             18,
           );
@@ -591,6 +580,10 @@ export default function OgImageComposer() {
           ),
         );
         context.shadowColor = "transparent";
+      }else if(markArtwork){
+        const layout=ogRelativeTextLayout({align:composition.mark.align,verticalAlign:composition.mark.verticalAlign,markWidth,markHeight,textWidth:0,textHeight:0});
+        if(!active)return;
+        context.drawImage(markArtwork,layout.markLeft,layout.markTop,markWidth,markHeight);
       }
       if (composition.logo && logoData) {
         try {
@@ -1008,20 +1001,6 @@ export default function OgImageComposer() {
                 </select>
               </label>
             </div>
-            <AlignmentControl
-              label="Horizontal position"
-              value={composition.text.align}
-              onChange={(align) =>
-                update("text", { ...composition.text, align })
-              }
-            />
-            <VerticalAlignmentControl
-              label="Vertical position"
-              value={composition.text.verticalAlign}
-              onChange={(verticalAlign) =>
-                update("text", { ...composition.text, verticalAlign })
-              }
-            />
             <SizeControl
               label="text"
               min={24}
