@@ -63,7 +63,7 @@ describe("super-admin OG image storage", () => {
         },
         mark: {
           visible: true,
-          variant: "satwalk-orange" as const,
+          variant: "satwalk-white" as const,
           x: 40,
           y: 40,
           width: 320,

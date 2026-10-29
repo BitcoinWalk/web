@@ -17,14 +17,10 @@ describe("BitcoinWalk brand mark catalogue", () => {
     }
   });
 
-  it("keeps the OG carousel to the seven requested marks", () => {
+  it("keeps the OG carousel to the three requested white marks", () => {
     expect(ogComposerMarks.map((mark) => mark.id)).toEqual([
       "symbol-white",
-      "symbol-orange",
-      "symbol-ink",
       "satwalk-white",
-      "satwalk-orange",
-      "satwalk-ink",
       "primary-horizontal-reversed",
     ]);
   });

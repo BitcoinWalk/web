@@ -51,19 +51,15 @@ export const bitcoinWalkMarks: ReadonlyArray<{
   { id: "vertical", label: "Vertical logo", use: "Standard colour", path: "/brand/inkscape/global/bitcoinwalk-vertical.png", preview: "/brand/inkscape/global/previews/bitcoinwalk-vertical.png", group: "system", dark: false },
   { id: "vertical-ink", label: "Vertical logo", use: "Ink artwork", path: "/brand/inkscape/global/bitcoinwalk-vertical-ink.png", preview: "/brand/inkscape/global/previews/bitcoinwalk-vertical-ink.png", group: "system", dark: false },
   { id: "vertical-reversed", label: "Vertical logo", use: "Reversed on orange", path: "/brand/inkscape/global/bitcoinwalk-vertical-reversed.png", preview: "/brand/inkscape/global/previews/bitcoinwalk-vertical-reversed.png", group: "system", dark: true },
-  { id: "satwalk-white", label: "SatWalk symbol", use: "White", path: "/brand/satsman-white.png", preview: "/brand/satsman-white.png", group: "system", dark: true, composerOnly: true },
-  { id: "satwalk-orange", label: "SatWalk symbol", use: "Orange", path: "/brand/satsman-white.png", preview: "/brand/satsman-white.png", group: "system", dark: false, tint: "#f7931a", composerOnly: true },
-  { id: "satwalk-ink", label: "SatWalk symbol", use: "Ink", path: "/brand/satsman-ink.png", preview: "/brand/satsman-ink.png", group: "system", dark: false, composerOnly: true },
+  { id: "satwalk-white", label: "SatsMan symbol", use: "White", path: "/brand/satsman-white.png", preview: "/brand/satsman-white.png", group: "system", dark: true, composerOnly: true },
+  { id: "satwalk-orange", label: "SatsMan symbol", use: "Orange", path: "/brand/satsman-white.png", preview: "/brand/satsman-white.png", group: "system", dark: false, tint: "#f7931a", composerOnly: true },
+  { id: "satwalk-ink", label: "SatsMan symbol", use: "Ink", path: "/brand/satsman-ink.png", preview: "/brand/satsman-ink.png", group: "system", dark: false, composerOnly: true },
   { id: "symbol-white", label: "BitcoinWalk symbol", use: "White", path: "/brand/inkscape/global/bitcoinwalk-symbol-ink.png", preview: "/brand/inkscape/global/previews/bitcoinwalk-symbol-ink.png", group: "system", dark: true, tint: "#ffffff", composerOnly: true },
 ];
 
 export const ogComposerMarkIds = [
   "symbol-white",
-  "symbol-orange",
-  "symbol-ink",
   "satwalk-white",
-  "satwalk-orange",
-  "satwalk-ink",
   "primary-horizontal-reversed",
 ] as const satisfies ReadonlyArray<BitcoinWalkMarkId>;
 
