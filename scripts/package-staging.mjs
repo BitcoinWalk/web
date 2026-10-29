@@ -68,9 +68,12 @@ async function requireProfileRelays(path){
     for(const value of [
       "wss://relay.damus.io/",
       "wss://relay.primal.net/",
-      "1792886400",
     ]){
       if(!await treeContains(path,value))throw new Error(`Reviewed production announcement policy is absent from the browser bundle: ${value}`);
+    }
+    const announcementCutoff=1792886400;
+    if(!await treeContains(path,String(announcementCutoff))&&!await treeContains(path,`0x${announcementCutoff.toString(16)}`)){
+      throw new Error(`Reviewed production announcement cutoff is absent from the browser bundle: ${announcementCutoff}`);
     }
     for(const relay of [
       "wss://relay-staging.bitcoinwalk.org/",
