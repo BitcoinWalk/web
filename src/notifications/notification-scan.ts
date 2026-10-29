@@ -1,7 +1,8 @@
+import {createHash} from "node:crypto";
 import {nip19} from "nostr-tools";
 import {organizerProNextActions} from "../payments/organizer-pro-next-action";
 import {loadPublicEventsFeed,type PublicEventsFeed} from "../server/public-events-feed";
-import {WebNotificationService,type NotificationCandidate} from "./web-notification-service";
+import {inQuietHours,WebNotificationService,type NotificationCandidate} from "./web-notification-service";
 import {WebPushStore} from "./web-push-store";
 
 const workflowCopy={
@@ -28,4 +29,9 @@ export async function runNotificationScan(store:WebPushStore,feed?:PublicEventsF
  const service=new WebNotificationService(store,undefined,()=>now),candidates=scanCandidates(store,feed??await loadPublicEventsFeed(),now),outcomes=[];
  for(const candidate of candidates)outcomes.push(await service.send(candidate));
  return {checkedAt:now,candidates:candidates.length,created:outcomes.filter(outcome=>outcome.created).length,sent:outcomes.reduce((sum,outcome)=>sum+outcome.sent,0),deferred:outcomes.reduce((sum,outcome)=>sum+outcome.deferred,0),failed:outcomes.reduce((sum,outcome)=>sum+outcome.failed,0)};
+}
+
+export async function previewNotificationScan(store:WebPushStore,feed?:PublicEventsFeed,now=Math.floor(Date.now()/1000)){
+ const candidates=scanCandidates(store,feed??await loadPublicEventsFeed(),now);
+ return {checkedAt:now,readOnly:true,candidates:candidates.map(candidate=>{const notice=store.noticeByDedupe(candidate.ownerPubkey,candidate.dedupeKey),devices=store.rawDevices(candidate.ownerPubkey).filter(device=>candidate.category==="walk-reminder"?device.preferences.walkReminders:device.preferences.workflowUpdates);return {recipient:createHash("sha256").update(candidate.ownerPubkey).digest("hex").slice(0,12),trigger:candidate.category==="walk-reminder"?"Verified organizer walk starts within 24 hours":"Organizer Pro setup requires action",category:candidate.category,title:candidate.title,body:candidate.body,path:candidate.path,deduplication:notice?{state:"existing",pushState:notice.pushState,createdAt:notice.createdAt}:{state:"new"},devices:devices.map(device=>{const delivery=notice?store.delivery(notice.id,device.id):undefined,quiet=inQuietHours(device.preferences,now);return {device:createHash("sha256").update(device.id).digest("hex").slice(0,8),timeZone:device.preferences.timeZone,quiet,state:delivery?.state??"not-created",nextAttemptAt:delivery?.nextAttemptAt??null,outcome:delivery?.state==="sent"?"already-sent":quiet?"would-defer":delivery&&delivery.nextAttemptAt>now?"retry-wait":"ready"};})};})};
 }
