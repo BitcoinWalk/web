@@ -89,6 +89,56 @@ Negative guard tests use disposable fixtures, not attempted production rollbacks
 No payout worker, financial authority, relay service or Guide notification worker
 was deployed, and no payment or organizer message was sent by these checks.
 
+## Encrypted notification-state recovery
+
+Web Push subscriptions, private website notices and delivery attempts live in the
+same SQLite database as the rest of the app. Keep one consistent recovery unit;
+do not copy the four notification tables out of a live WAL database.
+
+As the non-root application owner, create an online snapshot encrypted to the
+reviewed offline public key:
+
+```sh
+deploy/backup-web-notification-state.sh \
+  /var/lib/bitcoinwalk-app-staging/payments.sqlite \
+  /path/to/offline-recipient-public.asc \
+  FULL_40_CHARACTER_FINGERPRINT \
+  /home/bitcoinwalk/backups/notification-state-YYYYMMDDTHHMMSSZ.tar.gpg
+```
+
+The creator rejects private key material, recipient substitution, symlink inputs
+and an existing output. It stores only ciphertext. On the secure recovery machine
+that holds the offline private key, rehearse decryption and verification with:
+
+```sh
+deploy/verify-web-notification-backup.sh notification-state-YYYYMMDDTHHMMSSZ.tar.gpg
+```
+
+Verification accepts exactly the database, its checksum manifest and a hashed
+notification-state report. It restores only into a temporary directory, compares
+all four notification table fingerprints and removes decrypted material on exit;
+it never replaces the live database. A real database replacement remains a
+separately reviewed outage-recovery action using the existing application recovery
+procedure.
+
+## Read-only notification schedule
+
+`bitcoinwalk-notification-preview.timer` runs the separately authorized preview
+every 15 minutes with up to one minute of jitter. Its service is pinned to the
+loopback app route, has a 75-second deadline and logs only the check time and
+candidate count. A malformed response or unavailable runner makes the unit fail
+visibly in systemd; recipient hashes, proposed copy, endpoints and the bearer
+credential are never logged.
+
+The installed unit is deliberately fixed to `GET`. It cannot send notifications,
+and the app's independent POST sender remains unavailable unless its separate
+enable switch is explicitly reviewed later. Inspect it with:
+
+```sh
+systemctl --user status bitcoinwalk-notification-preview.timer
+journalctl --user -u bitcoinwalk-notification-preview.service --since today
+```
+
 ## Configuration boundaries
 
 Browser `NEXT_PUBLIC_*` values are embedded at build time. Staging application
