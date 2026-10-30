@@ -21,6 +21,12 @@ systemctl --user disable --now bitcoinwalk-notification-preview.timer
 systemctl --user daemon-reload
 systemctl --user restart bitcoinwalk-app-staging.service
 [[ "$(systemctl --user is-active bitcoinwalk-app-staging.service)" == active ]]
+ready=false
+for attempt in {1..30};do
+ if curl --fail --silent --max-time 3 http://127.0.0.1:3338/api/healthz >/dev/null;then ready=true;break;fi
+ sleep 1
+done
+[[ "$ready" == true ]]
 systemctl --user enable --now bitcoinwalk-notification-sender.timer
 systemctl --user start bitcoinwalk-notification-sender.service
 [[ "$(systemctl --user is-active bitcoinwalk-notification-sender.timer)" == active ]]
