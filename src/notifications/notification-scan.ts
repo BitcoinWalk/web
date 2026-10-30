@@ -25,8 +25,9 @@ export function scanCandidates(store:WebPushStore,feed:PublicEventsFeed,now=Math
  return candidates.sort((a,b)=>a.ownerPubkey.localeCompare(b.ownerPubkey)||a.dedupeKey.localeCompare(b.dedupeKey));
 }
 
-export async function runNotificationScan(store:WebPushStore,feed?:PublicEventsFeed,now=Math.floor(Date.now()/1000)){
- const service=new WebNotificationService(store,undefined,()=>now),candidates=scanCandidates(store,feed??await loadPublicEventsFeed(),now),outcomes=[];
+export async function runNotificationScan(store:WebPushStore,feed?:PublicEventsFeed,at?:number){
+ const source=feed??await loadPublicEventsFeed(),now=at??Math.floor(Date.now()/1000);
+ const service=new WebNotificationService(store,undefined,()=>now),candidates=scanCandidates(store,source,now),outcomes=[];
  for(const candidate of candidates)outcomes.push(await service.send(candidate));
  return {checkedAt:now,candidates:candidates.length,created:outcomes.filter(outcome=>outcome.created).length,sent:outcomes.reduce((sum,outcome)=>sum+outcome.sent,0),deferred:outcomes.reduce((sum,outcome)=>sum+outcome.deferred,0),failed:outcomes.reduce((sum,outcome)=>sum+outcome.failed,0)};
 }
