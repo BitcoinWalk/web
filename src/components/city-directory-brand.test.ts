@@ -41,10 +41,12 @@ describe("homepage brand",()=>{
   const page=readFileSync(join(process.cwd(),"src/components/city-directory.tsx"),"utf8");
   const styles=readFileSync(join(process.cwd(),"src/components/city-directory.module.css"),"utf8");
   expect(page).toContain("isAmsterdamConference(city.slug)");
-  expect(page).toContain('/brand/campaigns/bitcoin-amsterdam-white.png');
+  expect(page).toContain('/brand/campaigns/amsterdam-homepage-walk.webp');
+  expect(page).toContain('?"center top":heroObjectPosition(image)');
+  expect(page).not.toContain('amsterdamConference&&<Image');
   expect(page).toContain('amsterdamConference?"Official side event"');
   expect(page).toContain('data-campaign={campaign}');
   expect(styles).toContain('.card[data-campaign="amsterdam-conference"]');
-  expect(styles).toContain(".campaignLogoWide");
+  expect(styles).not.toContain('.cardMedia[data-campaign="amsterdam-conference"]::after');
  });
 });

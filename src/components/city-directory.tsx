@@ -27,15 +27,14 @@ function Photo({src,alt}:{src?:string;alt:string}) {
   const candidates=directoryImageCandidates(src),[attempt,setAttempt]=useState(0),image=candidates[attempt];
   // Browser-loaded public images, not server-side URL fetches.
   // eslint-disable-next-line @next/next/no-img-element
-  return image?<img className={styles.photo} src={image} alt={alt} style={{objectPosition:heroObjectPosition(image)}} loading="lazy" referrerPolicy="no-referrer" onError={()=>setAttempt(value=>value+1)}/>:<div className={styles.placeholder} aria-hidden="true">₿ / WALK</div>;
+  return image?<img className={styles.photo} src={image} alt={alt} style={{objectPosition:image==="/brand/campaigns/amsterdam-homepage-walk.webp"?"center top":heroObjectPosition(image)}} loading="lazy" referrerPolicy="no-referrer" onError={()=>setAttempt(value=>value+1)}/>:<div className={styles.placeholder} aria-hidden="true">₿ / WALK</div>;
 }
 function Card({row}:{row:DirectoryCity}) {
   const {city}=row;
   const amsterdamConference=isAmsterdamConference(city.slug),luganoPlanB=isLuganoPlanBConference(city.slug,[city.heroImageUrl]),campaign=amsterdamConference?"amsterdam-conference":luganoPlanB?"lugano-planb":undefined;
   return <article className={styles.card} data-campaign={campaign}>
     <div className={styles.cardMedia} data-campaign={campaign}>
-      <Photo key={city.heroImageUrl} src={luganoPlanB?"/brand/campaigns/lugano-planb-background.webp":city.heroImageUrl} alt={`BitcoinWalk in ${city.cityName}`}/>
-      {amsterdamConference&&<Image className={`${styles.campaignLogo} ${styles.campaignLogoWide}`} src="/brand/campaigns/bitcoin-amsterdam-white.png" width={1002} height={286} alt="Bitcoin Amsterdam"/>}
+      <Photo key={city.heroImageUrl} src={amsterdamConference?"/brand/campaigns/amsterdam-homepage-walk.webp":luganoPlanB?"/brand/campaigns/lugano-planb-background.webp":city.heroImageUrl} alt={`BitcoinWalk in ${city.cityName}`}/>
       {luganoPlanB&&<Image className={styles.campaignLogo} src="/brand/campaigns/lugano-planb-forum-2026.png" width={408} height={225} alt="Plan ₿ Forum — Lugano, October 23–24, 2026"/>}
     </div>
     <div className={styles.content}><p className={styles.eyebrow}>{amsterdamConference?"Official side event":row.tier==="paid"?"Dedicated city relay":"Community walk"}</p>

@@ -39,7 +39,7 @@ export default async function WalkEvent({event,walk,currentProfile,logoHref,titl
   const timeLabel=new Intl.DateTimeFormat(undefined,{timeStyle:"short",...(timeZone?{timeZone}:{})}).format(date);
   return <CityPageLayout heroDescription={currentProfile.revision.city.description.split(/\n\s*\n/)[0]} cityName={city.cityName} titleLogo={titleLogo} embedded={embedded}
     headerExtra={<WalkWeather result={weather} timeZone={timeZone??null}/>}
-    heroSources={[calendarImageOverride(event),forecastHero,city.heroImageUrl,walk.approval.approval.heroImageUrl,retainedCalendarHero(currentProfile),retainedCalendarHero(walk),initialCalendarHero(event,walk)]}
+    heroSources={city.slug==="amsterdam"?["/brand/campaigns/amsterdam-walk-hero.webp"]:[calendarImageOverride(event),forecastHero,city.heroImageUrl,walk.approval.approval.heroImageUrl,retainedCalendarHero(currentProfile),retainedCalendarHero(walk),initialCalendarHero(event,walk)]}
     summary={<>
         <div><span className={styles.eyebrow}>Next walk</span><time dateTime={date.toISOString()}><strong>{dateLabel}</strong><span>{timeLabel}</span></time></div>
         <div><span className={styles.eyebrow}>Meeting point</span><strong>{point.description}</strong><CoordinatesCopy latitude={point.latitude} longitude={point.longitude}/></div>
