@@ -13,7 +13,7 @@ import {DEFAULT_HOME_PAGE,HOME_PAGE_ID,type ContentPage} from "../domain/content
 import {latestContentPages,queryContentRevisions} from "../nostr/content-records";
 import {filterHomeSponsoredWalks,type HomeSponsoredWalk} from "../domain/home-sponsored-walks";
 import {heroObjectPosition} from "../domain/hero-presentation";
-import {isLuganoPlanBConference} from "../domain/share-campaign";
+import {isAmsterdamConference,isLuganoPlanBConference} from "../domain/share-campaign";
 import SponsoredWalks from "./sponsored-walks";
 import styles from "./city-directory.module.css";
 import ui from "../design-system/primitives.module.css";
@@ -31,13 +31,14 @@ function Photo({src,alt}:{src?:string;alt:string}) {
 }
 function Card({row}:{row:DirectoryCity}) {
   const {city}=row;
-  const luganoPlanB=isLuganoPlanBConference(city.slug,[city.heroImageUrl]);
-  return <article className={styles.card}>
-    <div className={styles.cardMedia} data-campaign={luganoPlanB?"lugano-planb":undefined}>
+  const amsterdamConference=isAmsterdamConference(city.slug),luganoPlanB=isLuganoPlanBConference(city.slug,[city.heroImageUrl]),campaign=amsterdamConference?"amsterdam-conference":luganoPlanB?"lugano-planb":undefined;
+  return <article className={styles.card} data-campaign={campaign}>
+    <div className={styles.cardMedia} data-campaign={campaign}>
       <Photo key={city.heroImageUrl} src={luganoPlanB?"/brand/campaigns/lugano-planb-background.webp":city.heroImageUrl} alt={`BitcoinWalk in ${city.cityName}`}/>
+      {amsterdamConference&&<Image className={`${styles.campaignLogo} ${styles.campaignLogoWide}`} src="/brand/campaigns/bitcoin-amsterdam-white.png" width={1002} height={286} alt="Bitcoin Amsterdam"/>}
       {luganoPlanB&&<Image className={styles.campaignLogo} src="/brand/campaigns/lugano-planb-forum-2026.png" width={408} height={225} alt="Plan ₿ Forum — Lugano, October 23–24, 2026"/>}
     </div>
-    <div className={styles.content}><p className={styles.eyebrow}>{row.tier==="paid"?"Dedicated city relay":"Community walk"}</p>
+    <div className={styles.content}><p className={styles.eyebrow}>{amsterdamConference?"Official side event":row.tier==="paid"?"Dedicated city relay":"Community walk"}</p>
       <h3><a href={row.href}>BitcoinWalk {city.cityName}</a></h3>
       <p>{row.hasUpcomingWalk?new Intl.DateTimeFormat(undefined,{dateStyle:"medium",timeStyle:"short"}).format(new Date(city.startAt)):"No upcoming walk scheduled."}</p>
       <p>{city.meetingPoint.description}</p>

@@ -11,7 +11,7 @@ import {serverReadRelays} from "../lib/server-relay-config";
 import {ensureShareImage,managedBackground,bundledCityBackground} from "./share-image";
 import {getLogoCatalog} from "../logos/runtime";
 import {shareBackgroundPosition} from "../domain/hero-presentation";
-import {isLuganoPlanBConference,isManchesterBitfestCampaign,luganoPlanBCityPreview,luganoPlanBWalkPreview,manchesterBitfestCityPreview,manchesterBitfestWalkPreview} from "../domain/share-campaign";
+import {isAmsterdamConference,isLuganoPlanBConference,isManchesterBitfestCampaign,luganoPlanBCityPreview,luganoPlanBWalkPreview,manchesterBitfestCityPreview,manchesterBitfestWalkPreview} from "../domain/share-campaign";
 import {readSponsorLogoAsset} from "./sponsor-logo-store";
 import {resolveCityRoute} from "../domain/city-route";
 export function shareOrigin(){const url=new URL(process.env.BITCOINWALK_PUBLIC_ORIGIN||"https://app-staging.bitcoinwalk.org");if(url.protocol!=="https:"||url.username||url.password||url.pathname!=="/"||url.search||url.hash)throw new Error("Invalid public origin");return url.origin;}
@@ -22,7 +22,7 @@ export const loadSharedCities=cache(()=>loadCalendarWalks(serverReadRelays()));
 export function unavailableShare():Metadata{return {title:"BitcoinWalk | Walk unavailable",description:"This walk is not currently available.",robots:{index:false,follow:false},openGraph:{title:"BitcoinWalk | Walk unavailable",description:"This walk is not currently available.",images:[]},twitter:{card:"summary",title:"BitcoinWalk | Walk unavailable",description:"This walk is not currently available.",images:[]}};}
 async function localizedLogo(cityId:string,slug:string):Promise<Buffer|null>{try{const catalog=getLogoCatalog(),pack=await catalog.readyForCity({cityId,slug});if(!pack)return null;return (await catalog.file(pack.jobKey,`${pack.slug}-bitcoinwalk-on-black.png`))?.data??null;}catch{return null;}}
 export async function renderedShareImage(cityId:string,slug:string,images:Array<string|null|undefined>,sponsor:Buffer|null):Promise<string>{
-  if(slug==="amsterdam"&&!sponsor)return shareOrigin()+AMSTERDAM_CONFERENCE_OG;
+  if(isAmsterdamConference(slug)&&!sponsor)return shareOrigin()+AMSTERDAM_CONFERENCE_OG;
   const manchester=!sponsor&&isManchesterBitfestCampaign(slug,images),lugano=!sponsor&&isLuganoPlanBConference(slug,images),campaign=manchester?"manchester-bitfest":lugano?"lugano-planb":null,background=campaign?await readFile(join(process.cwd(),"public","brand","campaigns",`${campaign}-background.webp`)):await managedBackground(images)??await bundledCityBackground(slug),logo=campaign?await readFile(join(process.cwd(),"public","brand","campaigns",`${campaign}-lockup.png`)):await localizedLogo(cityId,slug);return shareOrigin()+`/api/og/files/${await ensureShareImage(background,sponsor,logo??undefined,campaign?"centre":shareBackgroundPosition(images))}.jpg`;
 }
 /** Caller supplies a logo hash from the resolved, current signed assignment. */
