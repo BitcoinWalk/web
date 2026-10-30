@@ -121,22 +121,25 @@ it never replaces the live database. A real database replacement remains a
 separately reviewed outage-recovery action using the existing application recovery
 procedure.
 
-## Read-only notification schedule
+## Notification schedule
 
-`bitcoinwalk-notification-preview.timer` runs the separately authorized preview
+`bitcoinwalk-notification-sender.timer` runs the explicitly authorized sender
 every 15 minutes with up to one minute of jitter. Its service is pinned to the
-loopback app route, has a 75-second deadline and logs only the check time and
-candidate count. A malformed response or unavailable runner makes the unit fail
-visibly in systemd; recipient hashes, proposed copy, endpoints and the bearer
+loopback app route, has a 75-second deadline and logs only aggregate counts. A
+malformed response, failed delivery attempt or unavailable runner makes the unit
+fail visibly in systemd; identities, notification copy, endpoints and the bearer
 credential are never logged.
 
-The installed unit is deliberately fixed to `GET`. It cannot send notifications,
-and the app's independent POST sender remains unavailable unless its separate
-enable switch is explicitly reviewed later. Inspect it with:
+The sender creates the private inbox record before attempting Web Push, honors
+each device's quiet hours, retries bounded transient failures and reuses the
+existing deduplication state. The old GET-only preview timer is retained on disk
+for rollback but must remain disabled while the sender timer is active. Inspect
+the schedule and aggregate results with:
 
 ```sh
-systemctl --user status bitcoinwalk-notification-preview.timer
-journalctl --user -u bitcoinwalk-notification-preview.service --since today
+systemctl --user status bitcoinwalk-notification-sender.timer
+systemctl --user is-enabled bitcoinwalk-notification-preview.timer
+journalctl --user -u bitcoinwalk-notification-sender.service --since today
 ```
 
 ## Configuration boundaries

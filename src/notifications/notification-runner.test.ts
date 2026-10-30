@@ -15,10 +15,21 @@ describe("scheduled notification runner",()=>{
   await expect(runScheduledNotificationScan(env,vi.fn(async()=>Response.json({checkedAt:1,candidates:[]})) as typeof fetch)).rejects.toThrow("invalid");
   await expect(runScheduledNotificationScan({...env,BITCOINWALK_NOTIFICATION_RUN_METHOD:"POST"},vi.fn(async()=>Response.json({checkedAt:1,candidates:1,created:1,sent:0,deferred:0,failed:1})) as typeof fetch)).rejects.toThrow("failed delivery");
  });
+ it("returns only aggregate results for a successful send run",async()=>{
+  const fetcher=vi.fn(async()=>Response.json({checkedAt:123,candidates:2,created:0,sent:2,deferred:0,failed:0,private:"hidden"}));
+  const result=await runScheduledNotificationScan({...env,BITCOINWALK_NOTIFICATION_RUN_METHOD:"POST"},fetcher as typeof fetch);
+  expect(result).toEqual({checkedAt:123,mode:"send",candidates:2,created:0,sent:2,deferred:0,failed:0});expect(JSON.stringify(result)).not.toContain("hidden");
+ });
  it("keeps the installed schedule read-only and bounded",()=>{
   const service=readFileSync(new URL("../../deploy/bitcoinwalk-notification-preview.service",import.meta.url),"utf8"),timer=readFileSync(new URL("../../deploy/bitcoinwalk-notification-preview.timer",import.meta.url),"utf8"),installer=readFileSync(new URL("../../deploy/install-staging-notification-preview.sh",import.meta.url),"utf8");
   expect(service).toContain("BITCOINWALK_NOTIFICATION_RUN_METHOD=GET");expect(service).toContain("http://127.0.0.1:3338/");expect(service).toContain("TimeoutStartSec=75");expect(service).not.toContain("IPAddressDeny");expect(service).not.toContain("SENDERS_ENABLED");
   expect(timer).toContain("OnUnitActiveSec=15min");expect(timer).toContain("Persistent=false");
   expect(installer).toContain('source_config="$config_dir/app.env"');expect(installer).toContain("systemctl --user start bitcoinwalk-notification-preview.service");expect(installer).toContain("trap rollback ERR");expect(installer).not.toContain("SENDERS_ENABLED");
+ });
+ it("installs a bounded recurring sender and retires the preview timer with rollback",()=>{
+  const service=readFileSync(new URL("../../deploy/bitcoinwalk-notification-sender.service",import.meta.url),"utf8"),timer=readFileSync(new URL("../../deploy/bitcoinwalk-notification-sender.timer",import.meta.url),"utf8"),installer=readFileSync(new URL("../../deploy/install-staging-notification-sender.sh",import.meta.url),"utf8");
+  expect(service).toContain("BITCOINWALK_NOTIFICATION_RUN_METHOD=POST");expect(service).toContain("http://127.0.0.1:3338/");expect(service).toContain("TimeoutStartSec=75");
+  expect(timer).toContain("OnUnitActiveSec=15min");expect(timer).toContain("Persistent=false");
+  expect(installer).toContain("BITCOINWALK_NOTIFICATION_SENDERS_ENABLED=1");expect(installer).toContain("disable --now bitcoinwalk-notification-preview.timer");expect(installer).toContain("trap rollback ERR");expect(installer).toContain("systemctl --user start bitcoinwalk-notification-sender.service");
  });
 });
