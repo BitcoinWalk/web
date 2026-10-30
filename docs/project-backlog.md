@@ -122,6 +122,8 @@ BW-141 is the continuous release gate for this lane: prepare and run its cross-r
 
 ### 2. Next planned work
 
+30 October 2026 BW-150 staging checkpoint: read-only city outcome reporting is deployed as `app-staging-0.3.590`, source `1e1d0ef9ec4e7eee944db2a3c39c8b05ddde9dc3`, archive SHA-256 `d526276f24dc1474571539626aaca35e36f769371dcc1e4fc8e6b4b0aedb1a1d`, guarded activation evidence `/home/bitcoinwalk/backups/app-staging-deploy.qGGPE0`. All 388 files / 2,345 tests, type checks, changed-file lint, build and packaged smoke pass. An independent read-only call against staging's existing database returned 7 setups, 4 preparation-ready, 2 identities published, 0 matching address-service activations and 1 activation needing attention in the 90-day cohort. These are saved-state aggregates, not live service-health claims. Signed super-admin UI acceptance remains pending; production and financial/notification settings are unchanged. GitHub-hosted checks and public-backlog publication are queued, not represented as completed.
+
 | Order | ID | Sequence rationale |
 |---:|---|---|
 | 1 | BW-150 | Extend bounded onboarding outcome measurement without collecting secrets or chat content. |
