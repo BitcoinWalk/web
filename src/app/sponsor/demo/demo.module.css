@@ -14,7 +14,7 @@
 .artwork .mark { position:absolute; top:13%; left:38%; width:24%; height:43%; object-fit:contain; z-index:2; outline:none; }
 .brand { position:absolute; bottom:8%; left:0; right:0; display:grid; gap:1cqw; justify-items:center; color:white; z-index:2; }
 .brand span { font-size:2.5cqw; font-style:italic; font-weight:700; }
-.brand strong { font-size:8cqw; line-height:1.1; }
+.brand .sponsorLogo { width:66%; height:auto; outline:none; }
 .example { min-width:0; padding:1.5rem; border:1px solid var(--bw-color-border); border-radius:1rem; background:var(--bw-color-surface); color:var(--bw-color-text); }
 .sponsor { display:grid; gap:.35rem; margin-top:1.5rem; padding-top:1rem; border-top:1px solid var(--bw-color-border); }
 .sponsor strong { font-size:1.5rem; }
@@ -22,7 +22,7 @@
 .profile { display:flex; align-items:center; gap:.75rem; }
 .profile>span { display:grid; place-items:center; width:2.75rem; height:2.75rem; border-radius:50%; background:#fa9611; color:#171a17; font-size:1.6rem; }
 .profile>div { display:grid; gap:.25rem; }
-.nostrCard { overflow:hidden; border:1px solid var(--bw-color-border); border-radius:.75rem; }
+.nostrCard { margin-top:1rem; overflow:hidden; border:1px solid var(--bw-color-border); border-radius:.75rem; }
 .nostrCard>div:last-child { padding:1rem; }
 .nostrCard p { margin:.3rem 0; }
 .finish { max-width:40rem; margin:3rem auto 0; text-align:center; }
