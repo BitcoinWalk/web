@@ -8,6 +8,7 @@ export const dashboardItems=[
  {href:"/admin/walks",label:"Walks",access:"walks"},
  {href:"/admin/sponsor",label:"Sponsorships",access:"connected"},
  {href:"/admin/chat",label:"Chat",access:"connected"},
+ {href:"/admin/profile",label:"Profile",access:"connected"},
  {href:"/admin/notifications",label:"Notifications",access:"connected"},
  {href:"/admin/organizers",label:"Hosts",access:"admin"},
  {href:"/admin/content",label:"Content",access:"admin"},

@@ -6,6 +6,21 @@ const key=new Uint8Array(32).fill(4),pubkey=getPublicKey(key),group="bitcoinwalk
 const signed=(template:EventTemplate)=>finalizeEvent(template,key);
 
 describe("NIP-29 dashboard chat",()=>{
+ it("defaults to the connected organizer's city without overriding deliberate selections",()=>{
+  const cities=["Amsterdam","Bangkok","London"].map(name=>({id:name.toLowerCase(),name,slug:name.toLowerCase(),chat:{scope:"city" as const,nip29:{relay:"wss://chat.bitcoinwalk.org",groupId:name.toLowerCase()}}}));
+  const available=cities.map(city=>city.id);
+  const choose=(selected="",preferred=["bangkok"])=>dashboardNip29Rooms(cities,available,selected,true,preferred).city?.label;
+  expect(choose()).toBe("Bangkok"); // Also applies while viewing Guide/Global/Hosts.
+  expect(choose("london")).toBe("London");
+  expect(choose("amsterdam")).toBe("Amsterdam");
+  expect(choose("stale-city")).toBe("Bangkok");
+  expect(choose("",["missing-city"])).toBe("Amsterdam");
+  expect(choose("",[])).toBe("Amsterdam"); // Another account never inherits Bangkok.
+  expect(choose("",["london","bangkok"])).toBe("Bangkok"); // Stable label order.
+  expect(dashboardNip29Rooms(cities,["amsterdam"],"",false,["bangkok"]).city?.label).toBe("Amsterdam");
+  expect(dashboardNip29Rooms(cities,[],"",false,["bangkok"]).city).toBeNull();
+  expect(dashboardNip29Rooms(cities,available,"",false,["bangkok"]).organizers).toBeNull();
+ });
  it("accepts only explicit WSS destinations and bounded group IDs",()=>{
   expect(validNip29Destination({relay:"wss://london.bitcoinwalk.org",groupId:group})).toEqual({relay:"wss://london.bitcoinwalk.org/",groupId:group});
   for(const relay of ["ws://localhost","https://london.bitcoinwalk.org","wss://user@relay.example","wss://relay.example","wss://london.bitcoinwalk.org/private","broken"])expect(validNip29Destination({relay,groupId:group})).toBeNull();

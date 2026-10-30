@@ -36,6 +36,19 @@ export function cityProfileTemplate(profile: ManagedCityProfile, previous?: Even
   return {kind: 0, created_at: now, tags: [], content: encoded};
 }
 
+/** Address-only updates preserve the signed profile, replacing only payment/verification fields. */
+export function cityProfileAddressesTemplate(profile: ManagedCityProfile, previous: Event, now = Math.floor(Date.now()/1000)): EventTemplate {
+  if (!profile.nip05 || !profile.lud16) throw new Error("Both city addresses must be verified before publishing.");
+  if (getEventHash(previous)!==previous.id || !verifyEvent(previous) || previous.kind !== 0 || previous.content.length > 16000) throw new Error("The current city profile could not be verified.");
+  const content = JSON.parse(previous.content);
+  if (!content || typeof content !== "object" || Array.isArray(content)) throw new Error("The current city profile is invalid.");
+  delete content.lud06;
+  content.nip05=profile.nip05; content.lud16=profile.lud16;
+  const encoded=JSON.stringify(content);
+  if(encoded.length>16000)throw new Error("The city profile is too large to publish safely.");
+  return {kind:0,created_at:Math.max(now,previous.created_at+1),tags:[],content:encoded};
+}
+
 export function authorizeCityProfile(event: Event, expectedPubkey: string, template: EventTemplate): Event {
   if (event.pubkey !== expectedPubkey || event.kind !== 0 || event.created_at !== template.created_at || event.content !== template.content ||
       JSON.stringify(event.tags) !== JSON.stringify(template.tags) || getEventHash(event) !== event.id || !verifyEvent(event)) {

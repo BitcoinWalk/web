@@ -7,7 +7,7 @@ import type {NostrBrowserExtension} from "../nostr/signer";
 import {signWithBrowserExtension} from "../nostr/signer";
 import {authorizeProSetup, citySignerProofTemplate, proSetupTemplate} from "../nostr/pro-setup-command";
 import {cityBrandProofTemplate, type CityBrandChallenge} from "../nostr/city-brand";
-import {authorizeCityProfile, cityProfileTemplate, type ManagedCityProfile} from "../nostr/city-profile";
+import {authorizeCityProfile, cityProfileTemplate, cityProfileAddressesTemplate, type ManagedCityProfile} from "../nostr/city-profile";
 import {profileRelays} from "../nostr/profiles";
 import {publishVerifiedEvent} from "../nostr/relay";
 import {responseJSON} from "../lib/response-json";
@@ -34,16 +34,16 @@ function downloadBackup(nsec: string, cityName: string) {
   anchor.hidden = true; document.body.appendChild(anchor); anchor.click(); anchor.remove(); setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-export default function CitySignerSetup({cityId, cityName, actor, saved, activation, setupReady, profile, stage, busy: parentBusy, onSaved, onActivation, onContinue}: {
+export default function CitySignerSetup({cityId, cityName, actor, saved, activation, setupReady, profile, stage, busy: parentBusy, onSaved, onActivation, onContinue, profileOnly=false, refreshProfile}: {
   cityId: string; cityName: string; actor: string; saved: SavedSigner; activation?: Activation; setupReady: boolean; busy: boolean;
-  profile?: ManagedCityProfile; stage?: 2 | 3;
+  profile?: ManagedCityProfile; stage?: 2 | 3; profileOnly?:boolean; refreshProfile?:()=>Promise<ManagedCityProfile>;
   onSaved(value: SavedSigner, message: string): void; onActivation(value: Activation | undefined, message: string): void; onContinue?(): void;
 }) {
   const signer = useRef<NostrBrowserExtension | null>(null), remote = useRef<RemoteSession | null>(null), file = useRef<HTMLInputElement>(null);
   const [pubkey, setPubkey] = useState(""), [input, setInput] = useState(""), [acknowledged, setAcknowledged] = useState(false);
   const [identityChoice,setIdentityChoice]=useState<"reuse"|"separate"|"">("");
   const [busy, setBusy] = useState(false), [message, setMessage] = useState(""), [clock, setClock] = useState(() => Date.now());
-  useEffect(() => () => {void remote.current?.close();}, []);
+  useEffect(() => () => {signer.current=null;void remote.current?.close();}, []);
   useEffect(() => {
     if (!activation) return;
     const remaining = activation.expiresAt * 1000 - Date.now();
@@ -125,7 +125,10 @@ export default function CitySignerSetup({cityId, cityName, actor, saved, activat
       const events=await pool.querySync(profileRelays,{kinds:[0],authors:[pubkey],limit:100},{maxWait:6000});
       previous=events.filter(event=>verifyEvent(event)&&event.pubkey===pubkey&&event.kind===0).sort((a,b)=>b.created_at-a.created_at||a.id.localeCompare(b.id))[0];
     }finally{pool.close(profileRelays);pool.destroy();}
-    const template=cityProfileTemplate(profile,previous),signed=await signer.current.signEvent(template);authorizeCityProfile(signed,pubkey,template);
+    const currentProfile=refreshProfile?await refreshProfile():profile;
+    if(profileOnly&&!previous)throw new Error("The existing city profile could not be read. Retry later; nothing was published.");
+    const template=profileOnly?cityProfileAddressesTemplate(currentProfile,previous!):cityProfileTemplate(currentProfile,previous),signed=await signer.current.signEvent(template);authorizeCityProfile(signed,pubkey,template);
+    if(await signer.current.getPublicKey()!==pubkey)throw new Error("City signer changed. Reconnect before publishing.");
     const published=await publishVerifiedEvent(signed,profileRelays,2),readPool=new SimplePool();
     try{
       const read=await Promise.all(published.accepted.map(async relay=>(await readPool.querySync([relay],{ids:[signed.id],kinds:[0],authors:[pubkey],limit:1},{maxWait:8000})).some(event=>event.id===signed.id&&verifyEvent(event))));
@@ -142,6 +145,12 @@ export default function CitySignerSetup({cityId, cityName, actor, saved, activat
     <div className={styles.connectionActions}><button type="button" onClick={() => file.current?.click()}>Load backup</button><button type="button" disabled={!input.trim()} onClick={connectInput}>Connect</button></div>
     <p className={styles.safety}>Your key or signer connection stays in this browser.</p>
   </div>;
+  if(profileOnly)return <fieldset className={styles.panel} disabled={busy||parentBusy}>
+    <legend>Publish with your city identity</legend>
+    <p>Your name, avatar, banner and bio stay unchanged. Only the verified address and public Lightning address are updated.</p>
+    {!pubkey?<>{saved.pubkey===actor&&<button type="button" onClick={connectExistingCityAccount}>Connect saved identity</button>}<details><summary>Connect a backup or remote city signer</summary>{existingConnection}</details></>:<><p>Connected city identity: <code>{short(pubkey)}</code></p><button className={styles.primaryAction} type="button" disabled={mismatch||!profile?.nip05||!profile?.lud16} onClick={publishProfile}>{busy?"Publishing and verifying…":"Publish verified city profile"}</button><button type="button" onClick={disconnect}>Disconnect city signer</button></>}
+    {message&&<p role="status">{message}</p>}
+  </fieldset>;
   if(saved.configured&&saved.pubkey&&stage===2)return <fieldset className={styles.panel} disabled={busy||parentBusy}>
     <legend>City identity</legend>
     <div className={styles.savedIdentity}><span>BitcoinWalk in {cityName}</span><code title={nip19.npubEncode(saved.pubkey)}>{short(saved.pubkey)}</code></div>
@@ -152,6 +161,7 @@ export default function CitySignerSetup({cityId, cityName, actor, saved, activat
   </fieldset>;
   return <fieldset className={styles.panel} disabled={busy || parentBusy}>
     <legend>{saved.configured ? "Reconnect city identity" : "City identity"}</legend>
+    {profile?.nip05&&<p><a href={`/admin/profile?city=${encodeURIComponent(cityId)}#city-profile`}>Manage verified addresses in City profile →</a></p>}
     {!saved.configured&&<div className={styles.identityQuestion}><h3>This BitcoinWalk was created with your current profile.</h3><p>Would you like to keep this profile as the identity that started BitcoinWalk in {cityName}?</p></div>}
     {saved.configured && saved.pubkey && <div className={styles.savedIdentity}><span>BitcoinWalk in {cityName}</span><code title={nip19.npubEncode(saved.pubkey)}>{short(saved.pubkey)}</code></div>}
     {!pubkey ? <>
