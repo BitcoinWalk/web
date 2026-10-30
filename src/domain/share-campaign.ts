@@ -5,6 +5,10 @@ export const MANCHESTER_BITFEST_MEDIA_HASH="d64d013aee80e3382f0ef7576df259535c57
 export const LUGANO_PLANB_MEDIA_HASH="e99b21814905774a3a798987f81c5f4f4cc02bf69f8de2b90f5599fbba62119c";
 export const LUGANO_PLANB_CITYSCAPE_MEDIA_HASH="8b4c5fbb82acd561798c438f0422d7ca33a94f46aaefc6a7427bbd8429fa7e63";
 
+export function isAmsterdamConference(slug:string):boolean{
+  return slug==="amsterdam";
+}
+
 export function isManchesterBitfestCampaign(slug:string,images:Array<string|null|undefined>):boolean{
   return slug==="manchester"&&images.some(value=>managedMediaHash(value)===MANCHESTER_BITFEST_MEDIA_HASH);
 }

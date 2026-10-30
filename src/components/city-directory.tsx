@@ -6,14 +6,14 @@ import {useEffect,useState} from "react";
 import {queryCalendarEvents,queryDirectoryRecords} from "../nostr/city-records";
 import {relayConfig} from "../lib/relay-config";
 import {directoryConfig} from "../lib/directory-config";
-import {approvedDirectory,directoryWithWalkSchedule,filterDirectory,directoryImageCandidates,type DirectoryCity} from "../domain/directory";
+import {approvedDirectory,directoryWithWalkSchedule,directoryWalkDate,filterDirectory,directoryImageCandidates,type DirectoryCity} from "../domain/directory";
 import {approvedCalendarWalks,initialCalendarHero} from "../nostr/calendar-records";
 import {managedCalendarEvents} from "../domain/event-routing";
 import {DEFAULT_HOME_PAGE,HOME_PAGE_ID,type ContentPage} from "../domain/content";
 import {latestContentPages,queryContentRevisions} from "../nostr/content-records";
 import {filterHomeSponsoredWalks,type HomeSponsoredWalk} from "../domain/home-sponsored-walks";
 import {heroObjectPosition} from "../domain/hero-presentation";
-import {isLuganoPlanBConference} from "../domain/share-campaign";
+import {isAmsterdamConference,isLuganoPlanBConference} from "../domain/share-campaign";
 import SponsoredWalks from "./sponsored-walks";
 import styles from "./city-directory.module.css";
 import ui from "../design-system/primitives.module.css";
@@ -27,19 +27,19 @@ function Photo({src,alt}:{src?:string;alt:string}) {
   const candidates=directoryImageCandidates(src),[attempt,setAttempt]=useState(0),image=candidates[attempt];
   // Browser-loaded public images, not server-side URL fetches.
   // eslint-disable-next-line @next/next/no-img-element
-  return image?<img className={styles.photo} src={image} alt={alt} style={{objectPosition:heroObjectPosition(image)}} loading="lazy" referrerPolicy="no-referrer" onError={()=>setAttempt(value=>value+1)}/>:<div className={styles.placeholder} aria-hidden="true">₿ / WALK</div>;
+  return image?<img className={styles.photo} src={image} alt={alt} style={{objectPosition:image==="/brand/campaigns/amsterdam-homepage-walk.webp"?"center top":heroObjectPosition(image)}} loading="lazy" referrerPolicy="no-referrer" onError={()=>setAttempt(value=>value+1)}/>:<div className={styles.placeholder} aria-hidden="true">₿ / WALK</div>;
 }
 function Card({row}:{row:DirectoryCity}) {
   const {city}=row;
-  const luganoPlanB=isLuganoPlanBConference(city.slug,[city.heroImageUrl]);
-  return <article className={styles.card}>
-    <div className={styles.cardMedia} data-campaign={luganoPlanB?"lugano-planb":undefined}>
-      <Photo key={city.heroImageUrl} src={luganoPlanB?"/brand/campaigns/lugano-planb-background.webp":city.heroImageUrl} alt={`BitcoinWalk in ${city.cityName}`}/>
+  const amsterdamConference=isAmsterdamConference(city.slug),luganoPlanB=isLuganoPlanBConference(city.slug,[city.heroImageUrl]),campaign=amsterdamConference?"amsterdam-conference":luganoPlanB?"lugano-planb":undefined;
+  return <article className={styles.card} data-campaign={campaign}>
+    <div className={styles.cardMedia} data-campaign={campaign}>
+      <Photo key={city.heroImageUrl} src={amsterdamConference?"/brand/campaigns/amsterdam-homepage-walk.webp":luganoPlanB?"/brand/campaigns/lugano-planb-background.webp":city.heroImageUrl} alt={`BitcoinWalk in ${city.cityName}`}/>
       {luganoPlanB&&<Image className={styles.campaignLogo} src="/brand/campaigns/lugano-planb-forum-2026.png" width={408} height={225} alt="Plan ₿ Forum — Lugano, October 23–24, 2026"/>}
     </div>
-    <div className={styles.content}><p className={styles.eyebrow}>{row.tier==="paid"?"Dedicated city relay":"Community walk"}</p>
+    <div className={styles.content}><p className={styles.eyebrow}>{amsterdamConference?"Official side event":row.tier==="paid"?"Dedicated city relay":"Community walk"}</p>
       <h3><a href={row.href}>BitcoinWalk {city.cityName}</a></h3>
-      <p>{row.hasUpcomingWalk?new Intl.DateTimeFormat(undefined,{dateStyle:"medium",timeStyle:"short"}).format(new Date(city.startAt)):"No upcoming walk scheduled."}</p>
+      <p>{row.hasUpcomingWalk?directoryWalkDate(city.startAt,row.timeZone):"No upcoming walk scheduled."}</p>
       <p>{city.meetingPoint.description}</p>
       <a className={styles.link} href={row.href}>View walk →</a>
     </div>
@@ -72,7 +72,7 @@ export default function CityDirectory({sponsoredWalks=[]}:{sponsoredWalks?:HomeS
       {status==="error"&&<div role="alert"><p>{error}</p><button onClick={()=>{setStatus("loading");setAttempt(a=>a+1);}}>Try again</button></div>}
       {status==="ready"&&<><p role="status">{filtered.length} {filtered.length===1?"city":"cities"}{query?" matching your search":" approved"}.</p>
         {view==="map"?(!filtered.length?<p>{rows.length?"No matching cities. Try another name or clear your search.":"No approved cities are available yet."}</p>:<DirectoryMap cities={filtered}/>):!filtered.length&&!filteredSponsored.length?<p>{rows.length?"No matching cities. Try another name or clear your search.":"No approved cities are available yet."}</p>:<SponsoredWalks walks={filteredSponsored}>{filtered.map(row=><Card key={row.city.cityId} row={row}/>)}</SponsoredWalks>}
-        <p className={styles.muted}>Times are shown in your device’s timezone. Map pins mark approved meeting points.</p></>}
+        <p className={styles.muted}>Times are shown in each walk’s local timezone. Map pins mark approved meeting points.</p></>}
     </section>
     <footer className={styles.footer}>{content.footerTitle&&<h2>{content.footerTitle}</h2>}{content.footerText&&<p>{content.footerText}</p>}{content.footerCtaLabel&&<Link className={styles.link} href="/start">{content.footerCtaLabel}</Link>}</footer>
   </main>;
