@@ -15,7 +15,7 @@ import {isLuganoPlanBConference,isManchesterBitfestCampaign,luganoPlanBCityPrevi
 import {readSponsorLogoAsset} from "./sponsor-logo-store";
 import {resolveCityRoute} from "../domain/city-route";
 export function shareOrigin(){const url=new URL(process.env.BITCOINWALK_PUBLIC_ORIGIN||"https://app-staging.bitcoinwalk.org");if(url.protocol!=="https:"||url.username||url.password||url.pathname!=="/"||url.search||url.hash)throw new Error("Invalid public origin");return url.origin;}
-const AMSTERDAM_CONFERENCE_OG="/brand/campaigns/amsterdam-conference-og.png";
+const AMSTERDAM_CONFERENCE_OG="/brand/campaigns/amsterdam-conference-og-signal.jpg";
 function shareImageType(image:string){return image.endsWith(".png")?"image/png":"image/jpeg";}
 export const resolveSharedWalk=cache((event:string)=>resolveCalendarLink(event,serverReadRelays()));
 export const loadSharedCities=cache(()=>loadCalendarWalks(serverReadRelays()));
