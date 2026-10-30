@@ -20,6 +20,32 @@ export class Nip46PairingPool extends SimplePool{
  }
 }
 
+const handoffClosed=(error:unknown)=>error instanceof Error&&error.message.includes("subscription closed before connection was established");
+const aborted=()=>{const error=new Error("Remote signer connection cancelled.");error.name="AbortError";return error;};
+function retryPause(ms:number,signal?:AbortSignal){return new Promise<void>((resolve,reject)=>{
+ const timer=setTimeout(done,ms);
+ function done(){signal?.removeEventListener("abort",cancel);resolve();}
+ function cancel(){clearTimeout(timer);signal?.removeEventListener("abort",cancel);reject(aborted());}
+ signal?.addEventListener("abort",cancel,{once:true});if(signal?.aborted)cancel();
+});}
+
+/** Mobile browsers commonly suspend the handoff WebSocket while the user opens
+ * Amber. Retry only a subscription that closed before approval, using the same
+ * in-memory URI and outer abort deadline so the relay's bounded memory replay
+ * can deliver the one-time response when the browser resumes. */
+export async function recoverNip46Handoff<T>(connect:()=>Promise<T>,{signal,retryDelayMs=750,onRetry}:{signal?:AbortSignal;retryDelayMs?:number;onRetry?:(attempt:number)=>void}={}):Promise<T>{
+ let attempt=0;
+ for(;;){
+  if(signal?.aborted)throw aborted();
+  try{return await connect();}catch(error){
+   if(signal?.aborted)throw aborted();
+   if(!handoffClosed(error))throw error;
+   onRetry?.(++attempt);
+   await retryPause(retryDelayMs,signal);
+  }
+ }
+}
+
 /** Amber can approve the connection before its listener is ready for the next
  * ephemeral request. Retry only get_public_key, never the one-time connection
  * secret or a signing request. */
