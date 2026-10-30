@@ -64,6 +64,7 @@ describe("my cities inventory",()=>{
   expect(page).toContain('onClick={()=>setWorkspaceTab("pro")}>Continue Pro setup</button>');
   expect(page).toContain("Its public profile cannot be changed while that review is pending.");
  });
+ it("resumes an unpaid Pro request against the existing signed city",()=>{const page=source();expect(page).toContain('base.city.requestedTier==="paid"');expect(page).toContain("Resume payment for {base.city.cityName}");expect(page).toContain("It will not create another city.");expect(page).toContain("initialPayment={selectedPayment??null}");expect(page).toContain("revisionId={base.event.id}");});
  it("shows super-admin Pro identity health without opening owner-only setup",()=>{const page=source();expect(page).toContain('dashboard.role==="super-admin"?<CityIdentityHealthDetails');expect(page).toContain('identityHealth.find(row=>row.cityId===base.city.cityId)');});
  it("uses a focused workspace with separate profile and Pro service views",()=>{const page=source();expect(page).toContain('type WorkspaceTab="profile"|"pro"');expect(page).toContain('aria-label="City settings"');expect(page).toContain('>Profile</button>');expect(page).toContain('>Pro services</button>');expect(page).toContain('active={workspaceTab==="pro"}');expect(page).toContain('Alternative names and technical details');});
 });

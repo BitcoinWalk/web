@@ -18,9 +18,10 @@ export function signPayment(command:PaymentCommand,owner:string){return (command
 export function paidPlanMessage(source:PaymentView["source"]){return source==="admin-pro-promotion-v1"?"Pro access granted by BitcoinWalk. Your city plan is Pro.":"Payment verified. Your city plan is Pro.";}
 export function paymentReferenceLabel(source:PaymentView["source"]){return source==="admin-pro-promotion-v1"?"Administrative grant event":"Payment hash";}
 export function planHeading(source:PaymentView["source"]){return source==="admin-pro-promotion-v1"?"Pro plan — lifetime access":"Pro plan — 21,000 sats";}
+export function paymentErrorMessage(error:unknown){return error instanceof TypeError||(error instanceof DOMException&&["AbortError","TimeoutError"].includes(error.name))?"Could not reach BitcoinWalk to create the invoice. Check your connection and try again; your city submission is saved.":error instanceof Error?error.message:"Payment unavailable.";}
 
-export default function CityPayment({cityId,revisionId,owner,payoutDestination,autoCreate=false,passive=false,onPaid}:{cityId:string;revisionId:string;owner:string;payoutDestination:string;autoCreate?:boolean;passive?:boolean;onPaid?:()=>void}){
- const [payment,setPayment]=useState<PaymentView|null>(null),[error,setError]=useState(""),[busy,setBusy]=useState(false);
+export default function CityPayment({cityId,revisionId,owner,payoutDestination,autoCreate=false,passive=false,initialPayment=null,onPaid}:{cityId:string;revisionId:string;owner:string;payoutDestination:string;autoCreate?:boolean;passive?:boolean;initialPayment?:PaymentView|null;onPaid?:()=>void}){
+ const [payment,setPayment]=useState<PaymentView|null>(initialPayment),[error,setError]=useState(""),[busy,setBusy]=useState(false);
  const [readRequest,setReadRequest]=useState<Event|null>(null);
  const mounted=useRef(false),lock=useRef(false),started=useRef(false),startedPaid=useRef(false),renewed=useRef(false);
  useEffect(()=>{mounted.current=true;return()=>{mounted.current=false;};},[]);
@@ -32,7 +33,7 @@ export default function CityPayment({cityId,revisionId,owner,payoutDestination,a
    setPayment(result.payment??null);
    const status=create?await signPayment({action:"status",cityId},owner):event;
    if(mounted.current)setReadRequest(status);
-  }catch(e){if(mounted.current)setError(e instanceof Error?e.message:"Payment unavailable.");}
+  }catch(e){if(mounted.current)setError(paymentErrorMessage(e));}
   finally{lock.current=false;if(mounted.current)setBusy(false);}
  },[cityId,revisionId,owner,payoutDestination]);
  useEffect(()=>{let active=true;queueMicrotask(()=>{if(active&&autoCreate&&!started.current){started.current=true;void refresh(true);}});return()=>{active=false;};},[autoCreate,refresh]);
@@ -46,21 +47,21 @@ export default function CityPayment({cityId,revisionId,owner,payoutDestination,a
    if(Date.now()/1000-readRequest.created_at>270){clearInterval(timer);if(active){if(passive)void refresh(false);else setError("Automatic checks paused. Select Check payment to continue.");}return;}
    inFlight=true;
    try{const result=await paymentFetch(readRequest);if(active){setPayment(result.payment??null);setError("");}}
-   catch(e){if(active)setError(e instanceof Error?e.message:"Payment check unavailable.");}finally{inFlight=false;}
+   catch(e){if(active)setError(paymentErrorMessage(e));}finally{inFlight=false;}
   },15000);
   return()=>{active=false;clearInterval(timer);};
  },[readRequest,payment?.status,passive,refresh]);
  return <section className="city-plan-payment" aria-label="Pro plan payment"><h3>{planHeading(payment?.source)}</h3>
   {payment?.tier==="paid"?<p role="status"><strong>{paidPlanMessage(payment.source)}</strong> City review and setup of the included services continue separately.</p>:<>
-   <p>Pay the one-time lifetime fee with a lightning wallet. Payment is verified automatically.</p>
+   <p>Your Nostr signer and payment wallet can be different. Pay the one-time lifetime fee with any Lightning wallet; payment is verified automatically.</p>
    {payment?.invoice&&payment.status==="pending"&&<QRCodeSVG value={`lightning:${payment.invoice}`} size={320} level="M" marginSize={2} title="Lightning invoice QR code for 21,000 sats"/>}
-   {payment?.status==="pending"&&<><p><a href={`lightning:${payment.invoice}`}>Open lightning wallet</a></p><label>Invoice<textarea readOnly value={payment.invoice} rows={4}/></label>{!passive&&<button type="button" onClick={()=>void navigator.clipboard.writeText(payment.invoice).catch(()=>setError("Copy the invoice from the field above."))}>Copy invoice</button>}<p>Expires: {new Date(payment.expiresAt*1000).toLocaleString()}</p></>}
+   {payment?.status==="pending"&&<><p><a href={`lightning:${payment.invoice}`}>Open lightning wallet</a></p><label>Invoice<textarea readOnly value={payment.invoice} rows={4}/></label><button type="button" onClick={()=>void navigator.clipboard.writeText(payment.invoice).catch(()=>setError("Copy the invoice from the field above."))}>Copy invoice</button><p>Expires: {new Date(payment.expiresAt*1000).toLocaleString()}</p></>}
    {payment?.status==="expired"&&<p>This invoice has expired. You can request a new invoice.</p>}
    {payment&&(payment.status==="creating"||payment.status==="creation-uncertain")&&<p>Invoice creation needs support review. Your order has been preserved.</p>}
-   {(!payment||payment.status==="expired")&&!passive&&<button type="button" disabled={busy} onClick={()=>void refresh(true)}>{busy?"Preparing invoice…":"Get 21,000-sat invoice"}</button>}
+   {(!payment||payment.status==="expired")&&(!passive||!!error)&&<button type="button" disabled={busy||!payoutDestination.trim()} onClick={()=>void refresh(true)}>{busy?"Preparing invoice…":passive?"Try invoice again":"Get 21,000-sat invoice"}</button>}
   </>}
   {payment?.paymentHash&&<p>{paymentReferenceLabel(payment.source)}: <code style={{overflowWrap:"anywhere"}}>{payment.paymentHash}</code></p>}
-  {!passive&&<button type="button" disabled={busy} onClick={()=>void refresh(false)}>{busy?"Checking…":"Check payment"}</button>}
+  {!passive&&payment&&<button type="button" disabled={busy} onClick={()=>void refresh(false)}>{busy?"Checking…":"Check payment"}</button>}
   {error&&<p role="alert">{error}</p>}
  </section>;
 }
