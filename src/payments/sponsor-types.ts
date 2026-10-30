@@ -9,6 +9,7 @@ export type SponsorSelection={cityId:string;cityName:string;citySlug:string;walk
 export type SponsorCampaignScope="city"|"regional"|"global";
 export const SPONSOR_OUTCOME_RETENTION_DAYS=90;
 export type SponsorOutcomeReport={
+ citySetup?:import("./city-outcomes").CityOutcomeReport;
  window:{days:number;from:number;to:number};
  invitations:{opened:number;started:number};
  orders:{started:number;paid:number;awaitingPayment:number;expired:number;creationUncertain:number;needsReview:number};

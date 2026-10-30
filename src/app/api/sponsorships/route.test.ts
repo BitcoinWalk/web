@@ -1,6 +1,8 @@
 import {beforeEach,afterEach,describe,expect,it,vi} from "vitest";
 import {finalizeEvent,generateSecretKey} from "nostr-tools";
 import {sponsorRequest} from "../../../payments/sponsor-auth";
+import * as sponsorAuth from "../../../payments/sponsor-auth";
+import {SUPER_ADMIN_PUBKEY} from "../../../nostr/authority";
 import {promoteSponsorDraftLogo} from "../../../server/sponsor-logo-store";
 import {POST} from "./route";
 const sponsors=vi.hoisted(()=>({create:vi.fn(),createBatch:vi.fn(),status:vi.fn(),acknowledgeRecovery:vi.fn(),saveDraft:vi.fn(),claim:vi.fn(),list:vi.fn(),mine:vi.fn(),available:vi.fn(),outcomeReport:vi.fn()}));
@@ -8,8 +10,15 @@ vi.mock("../../../server/sponsor-logo-store",()=>({promoteSponsorDraftLogo:vi.fn
 vi.mock("../../../payments/runtime",()=>({getPaymentRuntime:()=>({sponsors})}));
 const origin="https://app-staging.bitcoinwalk.org",id="00000000-0000-4000-8000-000000000001",token="ab".repeat(32);
 const request=(body:unknown,source=origin)=>new Request(origin+"/api/sponsorships",{method:"POST",headers:{Origin:source},body:JSON.stringify(body)});
-beforeEach(()=>{vi.resetAllMocks();vi.stubEnv("BITCOINWALK_PAYMENT_APP_ORIGIN",origin);});afterEach(()=>vi.unstubAllEnvs());
+beforeEach(()=>{vi.resetAllMocks();vi.stubEnv("BITCOINWALK_PAYMENT_APP_ORIGIN",origin);});afterEach(()=>{vi.restoreAllMocks();vi.unstubAllEnvs();});
 describe("sponsor checkout authorization",()=>{
+ it("includes aggregate city outcomes only after super-admin authorization",async()=>{
+  vi.spyOn(sponsorAuth,"authorizeSponsor").mockReturnValue(SUPER_ADMIN_PUBKEY);
+  const outcomes={citySetup:{status:"available",started:1,preparationReady:1,identityPublished:1,servicesActive:1,needsAttention:0}};
+  sponsors.list.mockReturnValue([]);sponsors.outcomeReport.mockReturnValue(outcomes);
+  const response=await POST(request({action:"list",event:{}}));expect(response.status).toBe(200);expect(await response.json()).toEqual({orders:[],outcomes});expect(response.headers.get("cache-control")).toBe("no-store");
+ });
+ it("never computes city reporting for an ordinary signer",async()=>{const event=finalizeEvent(sponsorRequest("list",origin),generateSecretKey());expect((await POST(request({action:"list",event}))).status).toBe(403);expect(sponsors.outcomeReport).not.toHaveBeenCalled();});
  it("rejects foreign origins and invalid unsigned admin access",async()=>{expect((await POST(request({action:"list",event:{}},"https://other.example"))).status).toBe(403);expect((await POST(request({action:"list",event:{}}))).status).toBe(403);expect(sponsors.list).not.toHaveBeenCalled();});
  it("does not allow an ordinary valid signer to list all payments",async()=>{const event=finalizeEvent(sponsorRequest("list",origin),generateSecretKey());expect((await POST(request({action:"list",event}))).status).toBe(403);expect(sponsors.list).not.toHaveBeenCalled();});
  it("returns only the signed sponsor's own orders",async()=>{const event=finalizeEvent(sponsorRequest("mine",origin),generateSecretKey()),orders=[{id}];sponsors.mine.mockReturnValue(orders);const response=await POST(request({action:"mine",event}));expect(response.status).toBe(200);expect(sponsors.mine).toHaveBeenCalledWith(event.pubkey);expect(await response.json()).toEqual({orders});expect(sponsors.list).not.toHaveBeenCalled();});
