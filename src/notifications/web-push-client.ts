@@ -6,3 +6,9 @@ export function explainWebPushError(error:unknown,isBrave:boolean):string{
  }
  return message||"Notification settings are unavailable.";
 }
+
+export function webPushPermissionWarning(permission:NotificationPermission|null):string|null{
+ if(permission==="denied")return "Notifications are blocked in this browser’s system settings. Your BitcoinWalk inbox still works. Re-enable notifications in settings or remove this saved device.";
+ if(permission==="default")return "This browser no longer confirms notification permission. Your BitcoinWalk inbox still works. Enable notifications again or remove this saved device.";
+ return null;
+}
