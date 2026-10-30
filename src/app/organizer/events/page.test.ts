@@ -42,16 +42,21 @@ describe("organizer events landing view",()=>{
     expect(source).toContain("Use city hero instead");
     expect(source.indexOf('id="walk-sharing-image-heading"')).toBeLessThan(source.indexOf('id="walk-page-image-heading"'));
   });
-  it("previews selected walk images and keeps upload feedback beside the control",()=>{
+  it("previews selected walk images and surfaces upload feedback above the modal",()=>{
     const source=readFileSync(new URL("./_screen.tsx",import.meta.url),"utf8");
+    const notificationStyles=readFileSync(new URL("../../../components/dashboard-notifications.module.css",import.meta.url),"utf8");
     const publicPage=readFileSync(new URL("../../../components/walk-event.tsx",import.meta.url),"utf8");
     expect(source).toContain("URL.createObjectURL(file)");
     expect(source).toContain("editImagePreview.content||editContentImageUrl");
-    expect(source).toContain("editImageFeedback.content.error?imageStyles.inlineError:imageStyles.inlineStatus");
+    expect(source).toContain('useDashboardNotification()');
+    expect(source).toContain('title:target==="hero"?"Hero ready to publish":"Walk image ready to publish"');
+    expect(source).not.toContain("editImageFeedback");
+    expect(source).not.toContain('className={imageStyles.status}');
     expect(source).toContain("Sign and save changes to publish it below the walk description.");
     expect(source).toContain("editContentImageUrlRef.current=result.url");
     expect(source).toContain("contentImageUrl=editContentImageUrlRef.current.trim()");
     expect(source).toContain("<form noValidate");
+    expect(notificationStyles).toContain("z-index:1800");
     expect(publicPage.indexOf("calendarContentImage(event)&&")).toBeGreaterThan(publicPage.indexOf("<WalkDescriptions"));
     expect(publicPage.indexOf("calendarContentImage(event)&&")).toBeLessThan(publicPage.indexOf("<SponsorModule"));
   });
