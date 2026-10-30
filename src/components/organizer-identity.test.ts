@@ -2,7 +2,7 @@ import {createElement} from "react";
 import {renderToStaticMarkup} from "react-dom/server";
 import {nip19} from "nostr-tools";
 import {describe,expect,it,vi} from "vitest";
-import OrganizerIdentity,{validSignerInput} from "./organizer-identity";
+import OrganizerIdentity,{remoteSignerConnectionURI,validSignerInput} from "./organizer-identity";
 
 describe("OrganizerIdentity",()=>{
   it("offers the browser extension and one unified private-key or remote-signer path",()=>{
@@ -30,6 +30,16 @@ describe("OrganizerIdentity",()=>{
     expect(validSignerInput("bunker://"+"a".repeat(64))).toBe(false);
     expect(validSignerInput("bunker://"+"a".repeat(64)+"?relay=wss%3A%2F%2Frelay.example.com%2F&secret=test")).toBe(true);
     expect(validSignerInput(nip19.nsecEncode(new Uint8Array(32).fill(1)))).toBe(true);
+  });
+
+  it("pairs QR signers through the dedicated recovery relay with the required account read",()=>{
+    vi.stubGlobal("crypto",{randomUUID:()=>"pairing-secret"});
+    try{
+      const uri=new URL(remoteSignerConnectionURI(new Uint8Array(32).fill(1),"https://app-staging.bitcoinwalk.org"));
+      expect(uri.searchParams.getAll("relay")).toEqual(["wss://remote.bitcoinwalk.org/"]);
+      expect(uri.searchParams.get("perms")?.split(",")).toContain("get_public_key");
+      expect(uri.searchParams.get("secret")).toBe("pairing-secret");
+    }finally{vi.unstubAllGlobals();}
   });
 
   it("supports dashboard-specific heading and introductory copy",()=>{
