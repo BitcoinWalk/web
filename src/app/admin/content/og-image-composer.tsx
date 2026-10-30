@@ -38,6 +38,14 @@ type CatalogueEntry = {
   approvalEventId: string;
   url: string;
 };
+type CityHeroEntry = {
+  cityId: string;
+  cityName: string;
+  slug: string;
+  revisionId: string;
+  approvalId: string;
+  heroImageUrl: string;
+};
 type Saved = {
   id: string;
   title: string;
@@ -476,6 +484,10 @@ export default function OgImageComposer() {
     [background, setBackground] = useState<OgSource | null>(null),
     [logoData, setLogoData] = useState(""),
     [catalogue, setCatalogue] = useState<CatalogueEntry[]>([]),
+    [cityHeroes, setCityHeroes] = useState<CityHeroEntry[]>([]),
+    [cityPhotosAvailable, setCityPhotosAvailable] = useState(true),
+    [cityLibraryOpen, setCityLibraryOpen] = useState(false),
+    [citySearch, setCitySearch] = useState(""),
     [saved, setSaved] = useState<Saved[]>([]),
     [busy, setBusy] = useState(""),
     [message, setMessage] = useState("Choose or create a background to begin."),
@@ -546,6 +558,8 @@ export default function OgImageComposer() {
         const history = await request({ action: "og-studio-list" });
         setSaved(history.items);
         setCatalogue(history.entries);
+        setCityHeroes(history.cities ?? []);
+        setCityPhotosAvailable(history.cityPhotosAvailable !== false);
         const raw = localStorage.getItem(STORAGE);
         if (!raw) {
           setMessage(
@@ -790,6 +804,32 @@ export default function OgImageComposer() {
       setTone("success");
     });
   }
+  async function chooseCityHero(city: CityHeroEntry) {
+    await run("city-background", async () => {
+      const source = await request({
+        action: "og-studio-city-background",
+        cityId: city.cityId,
+        revisionId: city.revisionId,
+        approvalId: city.approvalId,
+      });
+      setBackground(source);
+      update("background", {
+        hash: source.hash,
+        source: "city",
+        sourceUrl: source.sourceUrl,
+        cityId: source.cityId,
+        cityName: source.cityName,
+        revisionId: source.revisionId,
+        approvalId: source.approvalId,
+        zoom: 1,
+        x: 50,
+        y: 50,
+      });
+      setCityLibraryOpen(false);
+      setMessage(`${city.cityName}'s approved hero image was copied into this private draft.`);
+      setTone("success");
+    });
+  }
   async function generate() {
     await run("generate", async () => {
       const source = await request({
@@ -906,6 +946,85 @@ export default function OgImageComposer() {
           <fieldset>
             <legend>1. Background</legend>
             <div className={styles.sourceActions}>
+              <AdminButton
+                variant="secondary"
+                aria-expanded={cityLibraryOpen}
+                aria-controls="og-city-photo-library"
+                disabled={!!busy}
+                onClick={() => setCityLibraryOpen((value) => !value)}
+              >
+                {cityLibraryOpen ? "Close city photos" : "Choose city photo"}
+              </AdminButton>
+              {cityLibraryOpen && (
+                <section
+                  id="og-city-photo-library"
+                  className={styles.cityLibrary}
+                  aria-labelledby="og-city-photo-heading"
+                >
+                  <div className={styles.cityLibraryHeading}>
+                    <div>
+                      <h3 id="og-city-photo-heading">City photos</h3>
+                      <p>Current approved hero images</p>
+                    </div>
+                    <span>{cityHeroes.length}</span>
+                  </div>
+                  <label>
+                    Search cities
+                    <input
+                      type="search"
+                      value={citySearch}
+                      placeholder="Start typing a city name"
+                      autoComplete="off"
+                      onChange={(event) => setCitySearch(event.target.value)}
+                    />
+                  </label>
+                  <div className={styles.cityGrid}>
+                    {cityHeroes
+                      .filter((city) =>
+                        `${city.cityName} ${city.slug}`
+                          .toLocaleLowerCase()
+                          .includes(citySearch.trim().toLocaleLowerCase()),
+                      )
+                      .map((city) => {
+                        const selected =
+                          composition.background.source === "city" &&
+                          composition.background.cityId === city.cityId &&
+                          composition.background.revisionId === city.revisionId &&
+                          composition.background.approvalId === city.approvalId;
+                        return (
+                          <button
+                            key={city.cityId}
+                            type="button"
+                            className={styles.cityCard}
+                            aria-pressed={selected}
+                            disabled={!!busy}
+                            onClick={() => void chooseCityHero(city)}
+                          >
+                            <span className={styles.cityThumbnail}>
+                              {/* This private, lazy thumbnail may come from any reviewed city host; the server snapshots and validates it before use. */}
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img src={city.heroImageUrl} alt="" loading="lazy" />
+                              {selected && <span aria-hidden="true">✓</span>}
+                            </span>
+                            <strong>{city.cityName}</strong>
+                          </button>
+                        );
+                      })}
+                  </div>
+                  {cityHeroes.length > 0 &&
+                    !cityHeroes.some((city) =>
+                      `${city.cityName} ${city.slug}`
+                        .toLocaleLowerCase()
+                        .includes(citySearch.trim().toLocaleLowerCase()),
+                    ) && <p className={styles.empty}>No matching city photos.</p>}
+                  {!cityPhotosAvailable && (
+                    <p className={styles.empty}>City photos are temporarily unavailable. Reload the page to retry.</p>
+                  )}
+                  {cityPhotosAvailable && cityHeroes.length === 0 && (
+                    <p className={styles.empty}>No approved city photos are currently available.</p>
+                  )}
+                </section>
+              )}
               <label className={styles.fileButton}>
                 {busy === "background" ? "Preparing image…" : "Upload image"}
                 <input

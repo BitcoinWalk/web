@@ -19,6 +19,13 @@ afterEach(async () => {
   root = undefined;
 });
 describe("super-admin OG image storage", () => {
+  it("keeps a city snapshot's signed provenance private to its super-admin",async()=>{
+    root=await mkdtemp(join(tmpdir(),"bw-og-city-"));
+    vi.stubEnv("BITCOINWALK_MEDIA_ROOT",root);
+    const actor="a".repeat(64),source=await storeOgSource(await sharp({create:{width:1200,height:630,channels:3,background:"orange"}}).jpeg().toBuffer(),{source:"city",sourceUrl:"https://bitcoinwalk.org/city.webp",cityId:"66f137cb-2ac1-4eef-8358-7dd66b45922f",cityName:"Madeira",revisionId:"b".repeat(64),approvalId:"c".repeat(64)},actor);
+    expect(await readOwnedOgSource(actor,source.hash)).toMatchObject({source:"city",cityName:"Madeira",revisionId:"b".repeat(64),approvalId:"c".repeat(64)});
+    expect(await readOwnedOgSource("d".repeat(64),source.hash)).toBeNull();
+  });
   it("normalizes private sources and reproduces a saved 1200 × 630 render from its manifest", async () => {
     root = await mkdtemp(join(tmpdir(), "bw-og-"));
     vi.stubEnv("BITCOINWALK_MEDIA_ROOT", root);

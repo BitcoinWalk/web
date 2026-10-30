@@ -6,6 +6,7 @@ export const mediaRequestSchema=z.discriminatedUnion("action",[
  z.object({action:z.literal("og-studio-read"),id:z.string().uuid()}).strict(),
  z.object({action:z.literal("og-studio-source"),hash:z.string().regex(/^[0-9a-f]{64}$/)}).strict(),
  z.object({action:z.literal("og-studio-import"),sourceUrl:z.url().max(2048)}).strict(),
+ z.object({action:z.literal("og-studio-city-background"),cityId:z.string().uuid(),revisionId:z.string().regex(/^[0-9a-f]{64}$/),approvalId:z.string().regex(/^[0-9a-f]{64}$/)}).strict(),
  z.object({action:z.literal("og-studio-generate"),prompt:z.string().trim().min(1).max(1000)}).strict(),
  z.object({action:z.literal("og-studio-upload"),asset:z.enum(["background","partner-logo"]),sha256:z.string().regex(/^[0-9a-f]{64}$/),mime:z.enum(["image/jpeg","image/png","image/webp"]),bytes:z.number().int().positive().max(10*1024*1024)}).strict(),
  z.object({action:z.literal("og-studio-render"),composition:z.unknown()}).strict(),

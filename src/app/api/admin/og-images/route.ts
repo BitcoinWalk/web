@@ -5,12 +5,17 @@ import { parseMediaRequest } from "../../../../domain/media-request";
 import { serverReadRelays } from "../../../../lib/server-relay-config";
 import { isSuperAdmin } from "../../../../nostr/authority";
 import {
+  loadCalendarWalks,
+  retainedCalendarHero,
+} from "../../../../nostr/calendar-records";
+import {
   querySponsorCatalogue,
   sponsorCatalogueEntries,
 } from "../../../../nostr/sponsor-catalogue";
 import { OpenAIImageGenerator } from "../../../../server/image-generator";
 import {
   assertOgGenerationBudget,
+  importOgCitySource,
   importOgSource,
   listSavedOg,
   readOwnedOgSource,
@@ -72,9 +77,11 @@ export async function POST(request: Request) {
     const body = (await request.json()) as { event?: Event },
       { actor, command } = authorized(body.event);
     if (command.action === "og-studio-list") {
-      const entries = sponsorCatalogueEntries(
-        await querySponsorCatalogue(serverReadRelays()),
-      );
+      const relays=serverReadRelays(),
+        [entries,cityRead]=await Promise.all([
+          querySponsorCatalogue(relays).then(sponsorCatalogueEntries),
+          loadCalendarWalks(relays).then(walks=>({available:true,walks}),()=>({available:false,walks:[]})),
+        ]),walks=cityRead.walks;
       return Response.json(
         {
           items: await listSavedOg(actor),
@@ -86,6 +93,18 @@ export async function POST(request: Request) {
             approvalEventId: entry.approvalEventId,
             url: `/api/sponsors/logo/files/${entry.logoHash}`,
           })),
+          cities: walks.flatMap((walk) => {
+            const heroImageUrl=retainedCalendarHero(walk);
+            return heroImageUrl?[{
+              cityId:walk.revision.city.cityId,
+              cityName:walk.revision.city.cityName,
+              slug:walk.revision.city.slug,
+              revisionId:walk.revision.event.id,
+              approvalId:walk.approval.event.id,
+              heroImageUrl,
+            }]:[];
+          }),
+          cityPhotosAvailable:cityRead.available,
         },
         { headers },
       );
@@ -106,6 +125,20 @@ export async function POST(request: Request) {
       return Response.json(await importOgSource(command.sourceUrl, actor), {
         headers,
       });
+    if(command.action === "og-studio-city-background"){
+      const walk=(await loadCalendarWalks(serverReadRelays())).find(row=>
+        row.revision.city.cityId===command.cityId&&
+        row.revision.event.id===command.revisionId&&
+        row.approval.event.id===command.approvalId
+      ),heroImageUrl=walk&&retainedCalendarHero(walk);
+      if(!walk||!heroImageUrl)throw new Error("This city's approved image changed. Refresh the city photo library and choose it again.");
+      return Response.json(await importOgCitySource(heroImageUrl,actor,{
+        cityId:walk.revision.city.cityId,
+        cityName:walk.revision.city.cityName,
+        revisionId:walk.revision.event.id,
+        approvalId:walk.approval.event.id,
+      }),{headers});
+    }
     if (command.action === "og-studio-generate") {
       await assertOgGenerationBudget(actor);
       const generated = await new OpenAIImageGenerator().generateOgBackground(

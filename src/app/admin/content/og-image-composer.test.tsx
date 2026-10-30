@@ -11,5 +11,6 @@ describe("OG image composer text placement",()=>{
   expect(html).toContain("Powered by");
   expect(html).toContain("BitcoinWalk symbol, White.");
   expect(html).toContain("1 / 3");
+  expect(html).toContain("Choose city photo");
  });
 });

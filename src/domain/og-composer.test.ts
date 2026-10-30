@@ -63,4 +63,9 @@ describe("OG composer sizing", () => {
     expect(layout.markLeft+120).toBe(layout.textLeft+260);
     expect(layout.textTop).toBe(layout.markTop+240+15);
   });
+  it("retains exact city provenance in a reusable background manifest",()=>{
+    const city={...composition,background:{...composition.background,source:"city" as const,sourceUrl:"https://bitcoinwalk.org/api/media/files/"+"c".repeat(64)+".webp",cityId:"66f137cb-2ac1-4eef-8358-7dd66b45922f",cityName:"Madeira",revisionId:"d".repeat(64),approvalId:"e".repeat(64)}};
+    expect(ogCompositionSchema.parse(city).background).toMatchObject({source:"city",cityName:"Madeira",approvalId:"e".repeat(64)});
+    expect(()=>ogCompositionSchema.parse({...city,background:{...city.background,approvalId:undefined}})).toThrow("City backgrounds require exact approved-city provenance");
+  });
 });

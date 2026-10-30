@@ -132,6 +132,26 @@ export async function importOgSource(sourceUrl: string, actor: string) {
     actor,
   );
 }
+export async function importOgCitySource(
+  sourceUrl: string,
+  actor: string,
+  city: {
+    cityId: string;
+    cityName: string;
+    revisionId: string;
+    approvalId: string;
+  },
+) {
+  const url = new URL(sourceUrl);
+  url.username = "";
+  url.password = "";
+  url.hash = "";
+  return storeOgSource(
+    await downloadPublicImage(sourceUrl),
+    { source: "city", sourceUrl: url.href, ...city },
+    actor,
+  );
+}
 export async function assertOgGenerationBudget(actor: string) {
   const entries = await readdir(sources()).catch(() => []),
     cutoff = Date.now() - 86_400_000;
@@ -184,6 +204,10 @@ export async function readOwnedOgSource(actor: string, contentHash: string) {
       sourceUrl: meta.sourceUrl,
       prompt: meta.prompt,
       model: meta.model,
+      cityId: meta.cityId,
+      cityName: meta.cityName,
+      revisionId: meta.revisionId,
+      approvalId: meta.approvalId,
     } as OgSource;
   } catch {
     return null;

@@ -50,22 +50,31 @@ const layer = z
     width: z.number().min(32).max(1200),
   })
   .strict();
+const background = z
+  .object({
+    hash,
+    source: z.enum(["upload", "url", "generated", "city"]),
+    zoom: z.number().min(1).max(2.5),
+    x: z.number().min(0).max(100),
+    y: z.number().min(0).max(100),
+    sourceUrl: z.string().url().optional(),
+    prompt: z.string().max(1000).optional(),
+    model: z.string().max(120).optional(),
+    cityId: z.string().uuid().optional(),
+    cityName: z.string().trim().min(1).max(120).optional(),
+    revisionId: hash.optional(),
+    approvalId: hash.optional(),
+  })
+  .strict()
+  .superRefine((value,context)=>{
+    if(value.source!=="city")return;
+    for(const key of ["sourceUrl","cityId","cityName","revisionId","approvalId"] as const)if(!value[key])context.addIssue({code:"custom",path:[key],message:"City backgrounds require exact approved-city provenance."});
+  });
 export const ogCompositionSchema = z
   .object({
     version: z.literal(1),
     title: z.string().trim().min(1).max(80),
-    background: z
-      .object({
-        hash,
-        source: z.enum(["upload", "url", "generated"]),
-        zoom: z.number().min(1).max(2.5),
-        x: z.number().min(0).max(100),
-        y: z.number().min(0).max(100),
-        sourceUrl: z.string().url().optional(),
-        prompt: z.string().max(1000).optional(),
-        model: z.string().max(120).optional(),
-      })
-      .strict(),
+    background,
     mark: layer.extend({
       visible: z.boolean(),
       variant: bitcoinWalkMarkIdSchema.default("traditional"),
@@ -101,8 +110,12 @@ export type OgComposition = z.infer<typeof ogCompositionSchema>;
 export type OgSource = {
   hash: string;
   dataUrl: string;
-  source: "upload" | "url" | "generated";
+  source: "upload" | "url" | "generated" | "city";
   sourceUrl?: string;
   prompt?: string;
   model?: string;
+  cityId?: string;
+  cityName?: string;
+  revisionId?: string;
+  approvalId?: string;
 };
