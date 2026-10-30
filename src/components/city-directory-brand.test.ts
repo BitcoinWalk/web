@@ -34,6 +34,17 @@ describe("homepage brand",()=>{
   expect(page).toContain("isLuganoPlanBConference(city.slug,[city.heroImageUrl])");
   expect(page).toContain('luganoPlanB?"/brand/campaigns/lugano-planb-background.webp"');
   expect(page).toContain('/brand/campaigns/lugano-planb-forum-2026.png');
-  expect(page).toContain('data-campaign={luganoPlanB?"lugano-planb":undefined}');
+  expect(page).toContain('luganoPlanB?"lugano-planb":undefined');
+  expect(page).toContain('data-campaign={campaign}');
+ });
+ it("presents Amsterdam as an official Bitcoin Amsterdam side event",()=>{
+  const page=readFileSync(join(process.cwd(),"src/components/city-directory.tsx"),"utf8");
+  const styles=readFileSync(join(process.cwd(),"src/components/city-directory.module.css"),"utf8");
+  expect(page).toContain("isAmsterdamConference(city.slug)");
+  expect(page).toContain('/brand/campaigns/bitcoin-amsterdam-white.png');
+  expect(page).toContain('amsterdamConference?"Official side event"');
+  expect(page).toContain('data-campaign={campaign}');
+  expect(styles).toContain('.card[data-campaign="amsterdam-conference"]');
+  expect(styles).toContain(".campaignLogoWide");
  });
 });
