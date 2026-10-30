@@ -35,6 +35,7 @@ describe("my cities inventory",()=>{
   expect(page).toContain("createInitialCalendarProposal(candidate,zone,calendarRoute(original)");
   expect(page.indexOf("for(const walk of replacementWalks)await publishVerifiedEvent")).toBeLessThan(page.indexOf("const publication=await publishVerifiedEvent(signed"));
  });
+ it("shows final rejection guidance and makes an existing-city URL actionable",()=>{const page=source();expect(page).toContain("function ReviewerNote");expect(page).toContain("selectedCity.reviewNote");expect(page).toContain('target="_blank" rel="noreferrer"');});
  it("does not expose identity or legacy guidance copy",()=>{
   const page=source();
   expect(page).not.toContain("Connected public key:");

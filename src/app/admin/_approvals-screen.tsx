@@ -26,12 +26,12 @@ import {announcePendingRequestCount} from "../../components/pending-request-coun
 import {createSponsorshipRevision,latestSponsorships,querySponsorships,sponsorshipKey} from "../../nostr/sponsorships";
 import CityFinder from "../../components/city-finder";
 import {provisionWalkieTalkieCity} from "../../lib/walkie-talkie-provision-client";
-import {adminCityRequests,FINAL_REJECTION_PREFIX,isSilentActiveOverride,SILENT_ACTIVE_OVERRIDE_NOTE,visibleDecisionNote,type AdminCityRequestStatus} from "../../domain/admin-city-requests";
+import {adminCityRequests,duplicateCityRejectionNote,FINAL_REJECTION_PREFIX,isSilentActiveOverride,matchingExistingCity,SILENT_ACTIVE_OVERRIDE_NOTE,visibleDecisionNote,type AdminCityRequestStatus} from "../../domain/admin-city-requests";
 import {cityAnnouncementCandidate,type CityAnnouncementCandidate} from "../../nostr/city-announcement";
 import {CityAnnouncementAction} from "../../components/city-announcement-review";
 import workspaceStyles from "../../components/requests-screen.module.css";
 
-type Submission = { eventId: string; initialEventIds: string[]; author: string; cityId: string; slug: string; cityName: string; startAt: string; meetingPoint: string; city: CityDocument; approvedHeroImageUrl?:string; previous?: string; previousCity?:CityDocument; paid:boolean; registered:boolean; established:boolean; status:AdminCityRequestStatus; silentActivation:boolean; decisionNote?:string; decidedAt?:number };
+type Submission = { eventId: string; initialEventIds: string[]; author: string; cityId: string; slug: string; cityName: string; startAt: string; meetingPoint: string; city: CityDocument; approvedHeroImageUrl?:string; previous?: string; previousCity?:CityDocument; paid:boolean; registered:boolean; established:boolean; status:AdminCityRequestStatus; silentActivation:boolean; decisionNote?:string; decidedAt?:number; existingCity?:{cityName:string;slug:string} };
 type State = { message: string; tone: "info" | "error" | "success"; approvedWalk?: { href: string; name: string } };
 type ImageState={status:"idle"|"waiting"|"working"|"ready"|"error";message:string};
 type ActivationState=CityActivationResult["checks"];
@@ -135,8 +135,9 @@ export default function SubmissionApprovals() {
       ]);
       const payments:PaymentView[]|null=paymentsResult?.payments??null;
       if(await getBrowserExtensionPubkey()!==pubkey)throw new Error("Signer changed. Reconnect.");
-      const retainedHeroes=new Map(approvedCalendarWalks(revisions,approvals).map(walk=>[walk.revision.city.cityId,retainedCalendarHero(walk)]));
-      const rows = adminCityRequests(revisions, approvals).filter(row=>!dashboard.selectedCity||row.revision.city.cityId===dashboard.selectedCity).map(({revision:{event,city},status,decision,established}) => {
+      const retainedHeroes=new Map(approvedCalendarWalks(revisions,approvals).map(walk=>[walk.revision.city.cityId,retainedCalendarHero(walk)])),applications=adminCityRequests(revisions,approvals);
+      const rows = applications.filter(row=>!dashboard.selectedCity||row.revision.city.cityId===dashboard.selectedCity).map(row => {
+        const {revision:{event,city},status,decision,established}=row,existing=matchingExistingCity(row,applications);
         const previous=event.tags.find(tag=>tag[0]==="e" && tag[3]==="previous")?.[1];
         return ({
         eventId: event.id,
@@ -158,11 +159,13 @@ export default function SubmissionApprovals() {
         silentActivation:isSilentActiveOverride(decision?.approval.note),
         decisionNote:visibleDecisionNote(decision?.approval.note),
         decidedAt:decision?.event.created_at,
+        existingCity:existing?{cityName:existing.city.cityName,slug:existing.city.slug}:undefined,
       });});
       setSubmissions(rows);
       setInviteSponsors(current=>Object.fromEntries(rows.filter(item=>!item.registered).map(item=>[item.eventId,current[item.eventId]??true])));
       setHeroImages(current=>Object.fromEntries(rows.map(item=>[item.eventId,current[item.eventId]??item.city.heroImageUrl??item.approvedHeroImageUrl??""])));
       setAliases(current=>Object.fromEntries(rows.map(item=>[item.eventId,current[item.eventId]??(item.city.aliases??[]).join(", ")])));
+      setRejectionNotes(current=>Object.fromEntries(rows.map(item=>[item.eventId,current[item.eventId]??(item.existingCity?duplicateCityRejectionNote(item.existingCity):"")])));
       const pendingCount=rows.filter(row=>row.status==="pending").length,waitingCount=rows.filter(row=>row.status==="pending"||row.status==="needs-changes").length;
       announcePendingRequestCount(pendingCount);
       setState({ message: `${waitingCount} waiting cities loaded · ${pendingCount} require a decision.${payments===null?" Payment status could not be verified, so paid markers are hidden.":""}`, tone: "info" });
@@ -171,7 +174,7 @@ export default function SubmissionApprovals() {
     } finally {setBusy(false);}
   }
 
-  async function decide(submission: Submission, action: "accept" | "changes" | "reject" | "activate") {
+  async function decide(submission: Submission, action: "accept" | "changes" | "reject" | "activate",rejectionOverride?:string) {
     if (busy) return;
     if (relayConfig.writeRelays.length === 0) {
       setState({ message: "Configure the BitcoinWalk relay before publishing a decision.", tone: "error" });
@@ -185,13 +188,16 @@ export default function SubmissionApprovals() {
       // A retained grant can exist after an interrupted approval. Until a city
       // has an approved revision it must still finish all new-city steps.
       if(silentActivation&&submission.status!=="needs-changes")throw new Error("Only a city awaiting changes can be activated as-is.");
-      if(!silentActivation&&submission.status!=="pending")throw new Error("This request already has a signed decision. Refresh before taking another action.");
+      if(!silentActivation&&submission.status!=="pending"&&!(action==="reject"&&submission.status==="needs-changes"))throw new Error("This request already has a signed decision. Refresh before taking another action.");
       if(silentActivation&&!window.confirm(`Set ${submission.cityName} to Active using its exact current signed revision?\n\nThis dismisses Needs changes. It does not notify the organizer, change city fields, create permissions, provision services or run activation tasks.`))throw new Error("Activation cancelled. No decision was signed.");
       const status=action==="accept"||silentActivation?"approved" as const:"rejected" as const;
       const initialRequest=!submission.established;
-      const rejectionNote=rejectionNotes[submission.eventId]?.trim()??"";
-      if(status==="rejected"&&!rejectionNote)throw new Error("Add a clear reason so the host knows what to correct.");
-      if(action==="reject"&&!window.confirm(`Reject the ${submission.registered?"revision":"application"} for ${submission.cityName}?\n\nThis is a final rejection, not a request for corrections. Signed history is retained.`))throw new Error("Rejection cancelled. No decision was signed.");
+      const rejectionNote=(rejectionOverride??rejectionNotes[submission.eventId]??"").trim();
+      if(status==="rejected"&&!rejectionNote)throw new Error("Add a clear reason for the host before publishing this decision.");
+      if(action==="reject"){
+        const duplicate=submission.existingCity;
+        if(!window.confirm(duplicate?`Reject this ${submission.cityName} application because BitcoinWalk ${duplicate.cityName} already exists?\n\nThis publishes a final decision, removes the duplicate from the active requests queue and prevents correction resubmission. Signed history is retained.`:`Reject the ${submission.registered?"revision":"application"} for ${submission.cityName}?\n\nThis is a final rejection, not a request for corrections. Signed history is retained.`))throw new Error("Rejection cancelled. No decision was signed.");
+      }
       let initialHero=(silentActivation?(submission.city.heroImageUrl??submission.approvedHeroImageUrl):heroImages[submission.eventId])?.trim();
       const approvedSlug=(silentActivation?submission.city.slug:slugs[submission.eventId]??(initialRequest?registrationSlug(submission.cityName):submission.slug)).trim();
       const approvedAliases=silentActivation?(submission.city.aliases??[]):cityAliases(aliases[submission.eventId]??submission.city.aliases??[],submission.cityName);
@@ -269,8 +275,12 @@ export default function SubmissionApprovals() {
       setState({
         message: `${silentActivation?"Set Active as-is":action === "accept" ? "Accepted" : action==="changes"?"Changes requested":"Rejected"} on ${publication.accepted.length} BitcoinWalk relay(s).${sponsorMessage}${discoveryMessage}`,
         tone: "success",
-        ...(status === "approved" ? { approvedWalk: { href: `/${encodeURIComponent(approvedSlug)}`, name: submission.cityName } } : {}),
+        ...(status === "approved" ? { approvedWalk: { href: `/${encodeURIComponent(approvedSlug)}`, name: submission.cityName } } : action==="reject"&&submission.existingCity?{approvedWalk:{href:`/${encodeURIComponent(submission.existingCity.slug)}`,name:submission.existingCity.cityName}}:{}),
       });
+      if(action==="reject"){
+        setReviewing("");
+        if(window.location.hash===`#submission-${submission.eventId}`)window.history.replaceState(null,"",window.location.pathname+window.location.search);
+      }
     } catch (error) {
       setState({ message: error instanceof Error ? error.message : "Could not publish the decision.", tone: "error" });
     } finally {
@@ -313,6 +323,7 @@ export default function SubmissionApprovals() {
       <section className="request-modal" role="dialog" aria-modal="true" aria-labelledby="request-modal-title">
         <header className="request-modal__header"><div><span className={`request-status request-status--${selectedSubmission.status}`}>{statusLabels[selectedSubmission.status]}</span><h2 id="request-modal-title">{selectedSubmission.cityName}</h2><p>{selectedSubmission.registered?"City revision":selectedSubmission.previous?"Corrected city application":"New city application"} · {selectedSubmission.paid?"Pro — paid":selectedSubmission.city.requestedTier==="paid"?"Pro — payment pending":"Basic"}</p></div><button className="request-modal__close" type="button" disabled={busy} onClick={()=>setReviewing("")} aria-label="Close city review">×</button></header>
         <div className="request-modal__body">
+          {selectedSubmission.existingCity&&<aside className="request-modal__duplicate" aria-labelledby="duplicate-city-heading"><div><strong id="duplicate-city-heading">BitcoinWalk {selectedSubmission.existingCity.cityName} already exists</strong><p>Reject this duplicate application and direct the applicant to the established city and its organizers.</p></div><Link prefetch={false} href={`/${encodeURIComponent(selectedSubmission.existingCity.slug)}`} target="_blank" rel="noreferrer">View existing city <span aria-hidden="true">↗</span></Link></aside>}
           <section className="request-modal__summary"><div><span>First walk</span><strong>{new Date(selectedSubmission.startAt).toLocaleString()}</strong></div><div><span>Meeting point</span><strong>{selectedSubmission.meetingPoint}</strong></div><div><span>Signed walks</span><strong>{selectedSubmission.initialEventIds.length||"Missing"}</strong></div><div><span>Host</span><code title={selectedSubmission.author}>{selectedSubmission.author.slice(0,12)}…{selectedSubmission.author.slice(-8)}</code></div></section>
           <section className="request-modal__panel"><h3>Submitted city profile</h3><p>{selectedSubmission.city.description}</p><SubmittedCityFields submission={selectedSubmission}/><dl className="request-modal__metadata"><div><dt>City ID</dt><dd><code>{selectedSubmission.cityId}</code></dd></div><div><dt>Revision</dt><dd><code>{selectedSubmission.eventId}</code></dd></div>{selectedSubmission.previous&&<div><dt>Based on</dt><dd><code>{selectedSubmission.previous}</code></dd></div>}</dl></section>
           <section className="request-modal__panel request-modal__settings"><h3>Public settings</h3><label>Public URL <span className="request-url-field"><span>bitcoinwalk.org/</span><input required minLength={2} maxLength={63} pattern="[a-z0-9]+(?:-[a-z0-9]+)*" disabled={selectedSubmission.status!=="pending"} value={slugs[selectedSubmission.eventId]??(selectedSubmission.registered?selectedSubmission.slug:registrationSlug(selectedSubmission.cityName))} onChange={event=>setSlugs(current=>({...current,[selectedSubmission.eventId]:event.target.value.toLowerCase()}))}/></span></label><label>Alternative city names <input maxLength={2020} disabled={selectedSubmission.status!=="pending"} value={aliases[selectedSubmission.eventId]??(selectedSubmission.city.aliases??[]).join(", ")} onChange={event=>setAliases(current=>({...current,[selectedSubmission.eventId]:event.target.value}))} placeholder="One or more names, separated by commas"/></label></section>
@@ -322,8 +333,9 @@ export default function SubmissionApprovals() {
           {announcementErrors[selectedSubmission.eventId]&&<section className="request-modal__panel" role="alert"><h3>Announcement unavailable</h3><p>{announcementErrors[selectedSubmission.eventId]}</p></section>}
           {announcementCandidates[selectedSubmission.eventId]&&<CityAnnouncementAction candidate={announcementCandidates[selectedSubmission.eventId]} rolloutVerified onSkip={()=>{const candidate=announcementCandidates[selectedSubmission.eventId];setAnnouncementCandidates(current=>{const next={...current};delete next[selectedSubmission.eventId];return next;});setState({message:`${selectedSubmission.cityName} was approved. Announcement skipped; it remains available in New-city announcements.`,tone:"success",approvedWalk:{href:`/${encodeURIComponent(candidate.walk.revision.city.slug)}`,name:selectedSubmission.cityName}});setReviewing("");}} onPublished={()=>{const candidate=announcementCandidates[selectedSubmission.eventId];setAnnouncementCandidates(current=>{const next={...current};delete next[selectedSubmission.eventId];return next;});setState({message:`${selectedSubmission.cityName} was approved and its launch announcement was verified on every configured relay.`,tone:"success",approvedWalk:{href:`/${encodeURIComponent(candidate.walk.revision.city.slug)}`,name:selectedSubmission.cityName}});setReviewing("");}}/>}
         </div>
-        {selectedSubmission.status==="pending"&&<footer className="request-modal__footer"><label>Reviewer note <textarea maxLength={500} value={rejectionNotes[selectedSubmission.eventId]??""} onChange={event=>setRejectionNotes(current=>({...current,[selectedSubmission.eventId]:event.target.value}))} placeholder="Required when asking for changes or rejecting."/></label><div className="request-decision-actions"><button className="request-action request-action--reject" disabled={busy} type="button" onClick={()=>decide(selectedSubmission,"reject")}>Reject</button><button className="request-action request-action--changes" disabled={busy} type="button" onClick={()=>decide(selectedSubmission,"changes")}>Need changes</button><button className="request-action request-action--accept" disabled={busy||!!selectedSubmission.previous&&!selectedSubmission.previousCity||!selectedSubmission.registered&&(!selectedSubmission.initialEventIds.length||!heroImages[selectedSubmission.eventId]?.trim())} type="button" onClick={()=>decide(selectedSubmission,"accept")}>{busy?"Working…":"Accept"}</button></div><small>Need changes lets the host correct and resubmit. Reject is a final decision for this application.</small></footer>}
-        {selectedSubmission.status==="needs-changes"&&<footer className="request-modal__footer"><div><strong>Super-admin override</strong><p>Dismiss Needs changes and approve this exact signed revision. No organizer message, field edit, permission, service provisioning or activation task will be created.</p></div><div className="request-decision-actions"><button className="request-action request-action--accept" disabled={busy} type="button" onClick={()=>decide(selectedSubmission,"activate")}>{busy?"Working…":"Set Active as-is"}</button></div></footer>}
+        {selectedSubmission.status==="pending"&&<footer className="request-modal__footer"><label>Reviewer note <textarea maxLength={500} value={rejectionNotes[selectedSubmission.eventId]??""} onChange={event=>setRejectionNotes(current=>({...current,[selectedSubmission.eventId]:event.target.value}))} placeholder="Required when asking for changes or rejecting."/></label><div className="request-decision-actions"><button className={`request-action ${selectedSubmission.existingCity?"request-action--duplicate":"request-action--reject"}`} disabled={busy} type="button" onClick={()=>decide(selectedSubmission,"reject")}>{selectedSubmission.existingCity?"Reject as duplicate":"Reject"}</button><button className="request-action request-action--changes" disabled={busy} type="button" onClick={()=>decide(selectedSubmission,"changes")}>Need changes</button><button className="request-action request-action--accept" disabled={busy||!!selectedSubmission.previous&&!selectedSubmission.previousCity||!selectedSubmission.registered&&(!selectedSubmission.initialEventIds.length||!heroImages[selectedSubmission.eventId]?.trim())} type="button" onClick={()=>decide(selectedSubmission,"accept")}>{busy?"Working…":"Accept"}</button></div><small>Need changes lets the host correct and resubmit. Reject is a final decision for this application.</small></footer>}
+        {selectedSubmission.status==="needs-changes"&&selectedSubmission.existingCity&&<footer className="request-modal__footer request-modal__footer--duplicate"><div><strong>Close this duplicate application</strong><p>The applicant will see why it was declined and where to find the established BitcoinWalk. The request will disappear from this active queue.</p></div><div className="request-decision-actions"><button className="request-action request-action--duplicate" disabled={busy} type="button" onClick={()=>decide(selectedSubmission,"reject",duplicateCityRejectionNote(selectedSubmission.existingCity!))}>{busy?"Working…":"Reject as duplicate"}</button></div></footer>}
+        {selectedSubmission.status==="needs-changes"&&!selectedSubmission.existingCity&&<footer className="request-modal__footer"><div><strong>Super-admin override</strong><p>Dismiss Needs changes and approve this exact signed revision. No organizer message, field edit, permission, service provisioning or activation task will be created.</p></div><div className="request-decision-actions"><button className="request-action request-action--accept" disabled={busy} type="button" onClick={()=>decide(selectedSubmission,"activate")}>{busy?"Working…":"Set Active as-is"}</button></div></footer>}
       </section>
     </div>}
   </section>;

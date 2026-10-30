@@ -2,6 +2,7 @@ import type {ApprovalRecord,AuthorizationRecord,CityRevision} from "../nostr/cit
 import {compareEvents} from "nostr-tools";
 import {correctableRejectedCityRevisions,editableCityRevisions} from "../nostr/organizer-edit";
 import {creatorSubmissions,type CreatorSubmission} from "./creator-submissions";
+import {visibleDecisionNote} from "./admin-city-requests";
 
 export type OrganizerCityInventoryItem={revision:CityRevision;editable:boolean;correctable:boolean;reviewNote?:string;status:CreatorSubmission["status"]|"editable"};
 
@@ -18,7 +19,8 @@ export function organizerCityInventory(pubkey:string,grants:AuthorizationRecord[
    continue;
   }
   const review=approvals.filter(record=>record.approval.cityId===submission.cityId&&record.approval.cityRevisionId===submission.revisionId).sort((a,b)=>compareEvents(a.event,b.event))[0];
-  items.set(submission.cityId,{revision,editable:false,correctable:correctable.has(submission.revisionId),reviewNote:review?.approval.note,status:submission.status});
+  const reviewNote=visibleDecisionNote(review?.approval.note);
+  items.set(submission.cityId,{revision,editable:false,correctable:correctable.has(submission.revisionId),...(reviewNote?{reviewNote}:{}),status:submission.status});
  }
  return [...items.values()].sort((a,b)=>a.revision.city.cityName.localeCompare(b.revision.city.cityName)||a.revision.city.cityId.localeCompare(b.revision.city.cityId));
 }

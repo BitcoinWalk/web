@@ -11,6 +11,21 @@ export const SILENT_ACTIVE_OVERRIDE_NOTE="SUPER_ADMIN_ACTIVE_OVERRIDE: approve t
 export type AdminCityRequestStatus="pending"|"accepted"|"needs-changes"|"rejected"|"archived";
 export type AdminCityRequest={revision:CityRevision;decision?:ApprovalRecord;status:AdminCityRequestStatus;established:boolean};
 
+function cityIdentityKeys(revision:CityRevision):Set<string>{
+ const city=revision.city,normalize=(value:string)=>value.normalize("NFKC").trim().toLocaleLowerCase("en").replace(/\s+/g," ");
+ return new Set([`slug:${normalize(city.slug)}`,`name:${normalize(city.cityName)}`]);
+}
+
+/** Find an already-established public city represented by a separate request. */
+export function matchingExistingCity(application:AdminCityRequest,rows:AdminCityRequest[]):CityRevision|undefined{
+ const keys=cityIdentityKeys(application.revision);
+ return rows.find(candidate=>candidate.revision.city.cityId!==application.revision.city.cityId&&candidate.established&&candidate.status!=="archived"&&[...cityIdentityKeys(candidate.revision)].some(key=>keys.has(key)))?.revision;
+}
+
+export function duplicateCityRejectionNote(existing:Pick<CityRevision["city"],"cityName"|"slug">):string{
+ return `A BitcoinWalk already exists in ${existing.cityName}. Please join the existing city at https://bitcoinwalk.org/${encodeURIComponent(existing.slug)} or contact its organizers instead of creating a duplicate city.`;
+}
+
 export function isFinalApplicationRejection(note?:string):boolean{
  return note?.startsWith(FINAL_REJECTION_PREFIX)??false;
 }
