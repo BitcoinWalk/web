@@ -93,6 +93,9 @@ function inferDependencies(cells, headers, id) {
 
 const reviewed = source.match(/^Last reviewed:\s*(.+)$/m)?.[1];
 if (!reviewed) throw new Error("Backlog is missing its Last reviewed date.");
+const reviewedMatch = reviewed.match(/^(\d{1,2} [A-Z][a-z]+ \d{4})(?:\s+\((.*)\))?$/);
+const reviewedDate = reviewedMatch?.[1] ?? reviewed;
+const reviewedNotes = reviewedMatch?.[2];
 
 const lines = source.split(/\r?\n/);
 const stages = [];
@@ -198,12 +201,18 @@ const html = `<!doctype html>
     a { color:inherit; }
     button,input,select { font:inherit; }
     .wrap { width:min(1180px,calc(100% - 32px)); margin:auto; }
-    header { padding:64px 0 34px; border-bottom:1px solid var(--line); }
+    header { padding:38px 0 28px; border-bottom:1px solid var(--line); }
     .brand { display:inline-flex; align-items:center; }
-    .brand img { display:block; width:min(228px,70vw); height:auto; }
-    h1 { max-width:800px; margin:30px 0 14px; font-size:clamp(2.7rem,7vw,5.5rem); line-height:.94; letter-spacing:-.055em; }
-    .lede { max-width:680px; margin:0; color:#c4cad2; font-size:1.16rem; }
-    .updated { display:inline-flex; margin-top:24px; padding:8px 12px; border:1px solid var(--line); border-radius:999px; color:var(--muted); font-size:.88rem; }
+    .brand img { display:block; width:min(190px,62vw); height:auto; }
+    h1 { max-width:680px; margin:22px 0 10px; font-size:clamp(2.35rem,5vw,4rem); line-height:.96; letter-spacing:-.05em; }
+    .lede { max-width:660px; margin:0; color:#c4cad2; font-size:1.02rem; }
+    .updated { max-width:780px; margin-top:18px; color:var(--muted); font-size:.82rem; }
+    .updated summary { display:flex; width:max-content; max-width:100%; align-items:center; gap:8px; padding:6px 10px; border:1px solid var(--line); border-radius:999px; cursor:pointer; list-style:none; }
+    .updated summary::-webkit-details-marker { display:none; }
+    .updated summary::after { content:"⌄"; color:#cbd1d8; transition:transform 150ms ease-out; }
+    .updated[open] summary::after { transform:rotate(180deg); }
+    .updated-label { color:#cbd1d8; font-weight:650; }
+    .updated-copy { max-height:12rem; margin:10px 0 0; padding:10px 12px; overflow:auto; overscroll-behavior:contain; border-left:2px solid var(--line); color:var(--muted); font-size:.8rem; line-height:1.45; overflow-wrap:anywhere; }
     main { padding:42px 0 72px; }
     .counts { display:grid; grid-template-columns:repeat(5,1fr); gap:12px; }
     .count-card { min-width:0; padding:18px; text-align:left; color:var(--text); border:1px solid var(--line); border-top:3px solid var(--accent); border-radius:14px; background:linear-gradient(145deg,var(--panel2),var(--panel)); cursor:pointer; }
@@ -248,9 +257,9 @@ const html = `<!doctype html>
     footer { padding:30px 0 50px; border-top:1px solid var(--line); color:var(--muted); font-size:.88rem; }
     footer .wrap { display:flex; justify-content:space-between; gap:20px; }
     footer a { color:#cbd1d8; }
-    @media (hover:hover) { .backlog-row summary:hover { background:var(--panel2); } .dependency:hover { border-color:var(--accent); background:color-mix(in srgb,var(--accent) 14%,transparent); } }
+    @media (hover:hover) { .updated summary:hover { border-color:#46505d; } .backlog-row summary:hover { background:var(--panel2); } .dependency:hover { border-color:var(--accent); background:color-mix(in srgb,var(--accent) 14%,transparent); } }
     @media (max-width:850px) { .counts { grid-template-columns:repeat(2,1fr); } .toolbar { grid-template-columns:1fr 1fr 1fr; } .toolbar input { grid-column:1/-1; } .backlog-row summary { grid-template-columns:82px 1fr auto 18px; gap:12px; } .priority-pill { grid-column:3; } .status-pill { grid-column:2; justify-self:start; } .chevron { grid-column:4; grid-row:1; } .item-detail { padding:0 22px 22px 114px; } }
-    @media (max-width:570px) { header { padding-top:38px; } .wrap { width:min(100% - 22px,1180px); } .brand img { width:min(196px,70vw); } .counts { grid-template-columns:1fr; } .section-head { display:block; } .section-head p { margin-top:8px; } .toolbar { grid-template-columns:1fr 1fr; } .toolbar input { grid-column:1/-1; } .results { text-align:right; } .backlog-row summary { grid-template-columns:1fr auto auto 18px; padding:16px; } .item-title { grid-column:1/5; grid-row:2; } .priority-pill { grid-column:2; grid-row:1; } .status-pill { grid-column:3; grid-row:1; } .chevron { grid-column:4; grid-row:1; } .item-detail { padding:0 16px 20px; } footer .wrap { display:block; } }
+    @media (max-width:570px) { header { padding-top:28px; } .wrap { width:min(100% - 22px,1180px); } .brand img { width:min(172px,62vw); } .updated summary { width:100%; justify-content:space-between; } .counts { grid-template-columns:1fr; } .section-head { display:block; } .section-head p { margin-top:8px; } .toolbar { grid-template-columns:1fr 1fr; } .toolbar input { grid-column:1/-1; } .results { text-align:right; } .backlog-row summary { grid-template-columns:1fr auto auto 18px; padding:16px; } .item-title { grid-column:1/5; grid-row:2; } .priority-pill { grid-column:2; grid-row:1; } .status-pill { grid-column:3; grid-row:1; } .chevron { grid-column:4; grid-row:1; } .item-detail { padding:0 16px 20px; } footer .wrap { display:block; } }
     @media (prefers-reduced-motion:reduce) { html { scroll-behavior:auto; } }
   </style>
 </head>
@@ -259,7 +268,10 @@ const html = `<!doctype html>
     <a class="brand" href="https://bitcoinwalk.org/" aria-label="BitcoinWalk"><img src="brand/bitcoinwalk-horizontal.png" width="1690" height="312" alt="BitcoinWalk"></a>
     <h1>Open work.<br>Visible progress.</h1>
     <p class="lede">The live, colour-coded delivery backlog for BitcoinWalk. This public view is rebuilt automatically from the maintained project tracker.</p>
-    <span class="updated">Last reviewed ${escapeHtml(reviewed)}</span>
+    <details class="updated">
+      <summary><span><span class="updated-label">Last reviewed</span> ${escapeHtml(reviewedDate)}</span></summary>
+      ${reviewedNotes ? `<p class="updated-copy">${escapeHtml(reviewedNotes)}</p>` : ""}
+    </details>
   </div></header>
   <main class="wrap">
     <div class="counts" aria-label="Backlog status summary">${countCards}</div>
