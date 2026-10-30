@@ -2,8 +2,8 @@
 set -euo pipefail
 umask 077
 [[ "$(id -u)" -ne 0 ]]||{ echo "Run as the staging application owner, not root." >&2;exit 1; }
-root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.."&&pwd)";lib="$HOME/.local/libexec/bitcoinwalk-notification-runner";units="$HOME/.config/systemd/user";config_dir="$HOME/.config/bitcoinwalk";config="$config_dir/notification-runner-staging.env";source_config="$config_dir/web-push-staging.env"
-[[ -f "$source_config" && ! -L "$source_config" && "$(stat -c %a "$source_config")" == 600 ]]||{ echo "Staging Web Push configuration is unavailable or unsafe." >&2;exit 1; }
+root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.."&&pwd)";lib="$HOME/.local/libexec/bitcoinwalk-notification-runner";units="$HOME/.config/systemd/user";config_dir="$HOME/.config/bitcoinwalk";config="$config_dir/notification-runner-staging.env";source_config="$config_dir/app.env"
+[[ -f "$source_config" && ! -L "$source_config" && "$(stat -c %a "$source_config")" == 600 ]]||{ echo "Staging application configuration is unavailable or unsafe." >&2;exit 1; }
 mapfile -t tokens < <(sed -n 's/^BITCOINWALK_NOTIFICATION_RUN_TOKEN=//p' "$source_config")
 [[ "${#tokens[@]}" -eq 1 && "${tokens[0]}" =~ ^[A-Za-z0-9_-]{32,}$ ]]||{ echo "Staging notification runner credential is invalid." >&2;exit 1; }
 backup="$(mktemp -d "$HOME/backups/notification-preview-install.XXXXXX")";chmod 700 "$backup"
