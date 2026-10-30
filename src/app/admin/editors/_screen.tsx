@@ -14,6 +14,7 @@ import EditorIdentity from "../../../components/editor-identity";
 import { watchPublicProfiles, type PublicProfile } from "../../../nostr/profiles";
 import CityFinder from "../../../components/city-finder";
 import {cityOwnerPubkey} from "../../../domain/city";
+import {pendingCityEditorRequests,queryCityEditorRequests,type CityEditorRequestRecord} from "../../../nostr/city-editor-requests";
 
 export default function EditorsScreen() {
   const lock=useRef(false);
@@ -31,6 +32,7 @@ export default function EditorsScreen() {
   const [message,setMessage]=useState("Connect the BitcoinWalk super-admin to manage city editors.");
   const record=records.find(r=>r.grant.cityId===selected);
   const [profiles,setProfiles]=useState<Record<string,PublicProfile>>({});
+  const [requests,setRequests]=useState<CityEditorRequestRecord[]>([]);
   const profileKeys=[...new Set(record?.grant.editorPubkeys ?? [])].sort().join(",");
   useEffect(()=>watchPublicProfiles(profileKeys ? profileKeys.split(",") : [],(key,profile)=>setProfiles(current=>({...current,[key]:profile}))),[profileKeys]);
 
@@ -44,12 +46,12 @@ export default function EditorsScreen() {
   useDashboardAutoLoad(load);
   async function load() {
     if(lock.current) return;
-    lock.current=true;setBusy(true);setRecords([]);setNpub("");setFeedback(null);
+    lock.current=true;setBusy(true);setRecords([]);setRequests([]);setNpub("");setFeedback(null);
     setMessage("Loading registered cities from the relay…");
     try {
       if(!relayConfig.readRelays.length) throw new Error("No read relay configured.");
       await adminIdentity();
-      const [grants,revisions]=await Promise.all([queryAuthorizations(relayConfig.readRelays),queryCityRevisions(relayConfig.readRelays)]);
+      const [grants,revisions,editorRequests]=await Promise.all([queryAuthorizations(relayConfig.readRelays),queryCityRevisions(relayConfig.readRelays),queryCityEditorRequests(relayConfig.readRelays)]);
       await adminIdentity();
       const cities=latestCityGrants(grants).filter(r=>!dashboard.selectedCity||r.grant.cityId===dashboard.selectedCity);
       const labels:Record<string,string>={},search:Record<string,string[]>={},timestamps:Record<string,number>={};
@@ -59,6 +61,7 @@ export default function EditorsScreen() {
         search[revision.city.cityId]=[revision.city.slug,revision.city.cityId,...(revision.city.aliases??[])];
       }
       setNames(labels);setKeywords(search);setRecords(cities);
+      setRequests(pendingCityEditorRequests(editorRequests,cities));
       setSelected(current=>dashboard.selectedCity&&cities.some(item=>item.grant.cityId===dashboard.selectedCity)?dashboard.selectedCity:cities.some(item=>item.grant.cityId===current)?current:"");
       setMessage(cities.length ? `${cities.length} registered cities loaded. Select a city to manage its editors.` : "The relay completed the read but returned no registered cities. Check the staging relay selection before creating anything new.");
     } catch(error) {
@@ -68,36 +71,37 @@ export default function EditorsScreen() {
     finally {lock.current=false;setBusy(false);}
   }
 
-  async function change(action:"add"|"remove", key?:string) {
-    if(lock.current || !record) return;
+  async function change(action:"add"|"remove", key?:string, requestedRecord?:AuthorizationRecord) {
+    const targetRecord=requestedRecord??record;
+    if(lock.current || !targetRecord) return;
     lock.current=true;setBusy(true);setFeedback(null);
     setMessage("Preparing the editor change…");
     let acknowledged=false;
     try {
       if(!relayConfig.writeRelays.length) throw new Error("No write relay configured.");
       const actor=await adminIdentity();
-      const target=key ?? editorPublicKey(npub);
-      const template=editorChange(record,actor,action,target);
-      if(!window.confirm(`${action==="add" ? "Add" : "Remove"} editor\n${nip19.npubEncode(target)}\nCity: ${names[selected] ?? "Unnamed"}\nUUID: ${selected}\n\n${action==="remove" ? "New edits from this identity will be refused. Existing approved content is not removed." : "This identity will be able to submit edits for this city."}`)) {setMessage("Cancelled. No permission change was submitted.");return;}
+      const target=key ?? editorPublicKey(npub),cityId=targetRecord.grant.cityId;
+      const template=editorChange(targetRecord,actor,action,target);
+      if(!window.confirm(`${action==="add" ? "Add" : "Remove"} editor\n${nip19.npubEncode(target)}\nCity: ${names[cityId] ?? "Unnamed"}\nUUID: ${cityId}\n\n${action==="remove" ? "New edits from this identity will be refused. Existing approved content is not removed." : "This identity will be able to submit edits for this city."}`)) {setMessage("Cancelled. No permission change was submitted.");return;}
       setMessage("Checking the current editor list…");
-      assertGrantUnchanged(record,await queryCityAuthorization(relayConfig.writeRelays,selected));
+      assertGrantUnchanged(targetRecord,await queryCityAuthorization(relayConfig.writeRelays,cityId));
       setMessage("Approve this city permission change in your extension…");
       const signed=await signWithBrowserExtension(template);
       assertPermissionSignature(signed,template,actor);
       await adminIdentity();
       // Do not overwrite a grant changed while the signing prompt was open.
-      assertGrantUnchanged(record,await queryCityAuthorization(relayConfig.writeRelays,selected));
+      assertGrantUnchanged(targetRecord,await queryCityAuthorization(relayConfig.writeRelays,cityId));
       await publishVerifiedEvent(signed,relayConfig.writeRelays,1,authenticateWithBrowserExtension);
       acknowledged=true;
       setMessage("Saved by the relay. Verifying the updated editor list…");
-      const current=await queryCityAuthorization(relayConfig.writeRelays,selected);
+      const current=await queryCityAuthorization(relayConfig.writeRelays,cityId);
       if(!current || current.event.id!==signed.id) throw new Error("Relay acknowledged the update, but the current grant could not be confirmed. Reload before another change; do not blindly retry.");
-      setRecords(items=>items.map(item=>item.grant.cityId===selected ? current : item));setNpub("");
-      setMessage(`Editor ${action==="add" ? "added" : "removed"}. Relay acknowledgement and read-back verified. Only city ${selected} was changed.`);
+      setRecords(items=>items.map(item=>item.grant.cityId===cityId ? current : item));setRequests(items=>items.filter(item=>item.request.cityId!==cityId));setNpub("");
+      setMessage(`Editor ${action==="add" ? "added" : "removed"}. Relay acknowledgement and read-back verified. Only city ${cityId} was changed.`);
       setFeedback({
         kind:"success",
         title:action==="add" ? "Editor added successfully" : "Editor removed successfully",
-        detail:`${nip19.npubEncode(target)} ${action==="add" ? "can now submit edits for" : "no longer has editor access to"} ${names[selected] ?? "this city"}. The change has been saved and verified on the relay.`,
+        detail:`${nip19.npubEncode(target)} ${action==="add" ? "can now submit edits for" : "no longer has editor access to"} ${names[cityId] ?? "this city"}. The change has been saved and verified on the relay.`,
         ...(action==="add" ? {addedKey:target} : {}),
       });
     } catch(error) {
@@ -113,6 +117,7 @@ export default function EditorsScreen() {
     <p>Enter public npubs only; never paste an nsec. These permissions apply to a whole city, not to hosting one walk.</p>
     <button disabled={busy} onClick={load}>{busy?"Loading editors…":"Refresh city editors"}</button>
     <p role="status" aria-live="polite">{message}</p>
+    {!!requests.length&&<section><h2>Owner requests</h2><p>Each request was signed by the current city owner against the exact editor list shown when they submitted it. Your signature applies the final permission change.</p><ul>{requests.map(row=>{const ownerRecord=records.find(item=>item.grant.cityId===row.request.cityId);return <li key={row.event.id}><strong>{names[row.request.cityId]??"City"}</strong>{" — "}{row.request.action==="add"?"Add":"Remove"} <code>{nip19.npubEncode(row.request.editorPubkey)}</code>{ownerRecord&&<button disabled={busy} onClick={()=>void change(row.request.action,row.request.editorPubkey,ownerRecord)}>Review and apply</button>}</li>;})}</ul></section>}
     <CityFinder disabled={busy||!records.length} label="City" placeholder="Search cities to manage editors…" value={selected} onChange={cityId=>{setSelected(cityId);setNpub("");setFeedback(null);}} items={records.map(item=>({id:item.grant.cityId,name:names[item.grant.cityId]??"City",keywords:keywords[item.grant.cityId]??[item.grant.cityId]}))}/>
     {feedback && <div ref={feedbackRef} tabIndex={-1} role={feedback.kind==="success" ? "status" : "alert"} aria-atomic="true" className={`${styles.feedback} ${feedback.kind==="success" ? styles.success : styles.error}`}>
       <strong>{feedback.kind==="success" ? "✓ " : "! "}{feedback.title}</strong>
