@@ -2,7 +2,7 @@ import {createElement} from "react";
 import {renderToStaticMarkup} from "react-dom/server";
 import {nip19} from "nostr-tools";
 import {describe,expect,it,vi} from "vitest";
-import OrganizerIdentity,{nip46TimeoutStatus,remoteSignerConnectionURI,validSignerInput} from "./organizer-identity";
+import OrganizerIdentity,{nip46TimeoutStatus,remoteSignerConnectionURI,shouldRetrySavedNip46AfterReturn,validSignerInput} from "./organizer-identity";
 
 describe("OrganizerIdentity",()=>{
   it("offers the browser extension and one unified private-key or remote-signer path",()=>{
@@ -45,6 +45,13 @@ describe("OrganizerIdentity",()=>{
   it("distinguishes an expired unapproved code from a delayed account response",()=>{
     expect(nip46TimeoutStatus(false)).toBe("No approval arrived within 90 seconds. This code has expired. Generate a fresh code and try again.");
     expect(nip46TimeoutStatus(true)).toBe("Amber approved, but its account response did not reach BitcoinWalk in time. Generate a fresh code and try again.");
+  });
+
+  it("retries a saved Amber session only after returning from the signer",()=>{
+    expect(shouldRetrySavedNip46AfterReturn(true,true,"visible")).toBe(true);
+    expect(shouldRetrySavedNip46AfterReturn(true,false,"visible")).toBe(false);
+    expect(shouldRetrySavedNip46AfterReturn(true,true,"hidden")).toBe(false);
+    expect(shouldRetrySavedNip46AfterReturn(false,true,"visible")).toBe(false);
   });
 
   it("supports dashboard-specific heading and introductory copy",()=>{
