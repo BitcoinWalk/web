@@ -1,0 +1,20 @@
+[Unit]
+Description=Read-only BitcoinWalk notification candidate preview
+After=bitcoinwalk-app-staging.service
+
+[Service]
+Type=oneshot
+EnvironmentFile=%h/.config/bitcoinwalk/notification-runner-staging.env
+Environment=BITCOINWALK_NOTIFICATION_RUN_METHOD=GET
+Environment=BITCOINWALK_NOTIFICATION_RUN_URL=http://127.0.0.1:3000/api/internal/notifications/run
+ExecStart=/opt/bitcoinwalk-app-staging/runtime/bin/node %h/.local/libexec/bitcoinwalk-notification-runner/run-web-notification-scan.mjs
+TimeoutStartSec=75
+UMask=0077
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=read-only
+RestrictAddressFamilies=AF_INET AF_INET6
+IPAddressDeny=any
+IPAddressAllow=localhost
+
