@@ -1,5 +1,5 @@
 import {describe,it,expect} from "vitest";
-import {approvedDirectory,directoryWithWalkSchedule,filterDirectory,directoryImage,directoryImageCandidates} from "./directory";
+import {approvedDirectory,directoryWithWalkSchedule,directoryWalkDate,filterDirectory,directoryImage,directoryImageCandidates} from "./directory";
 import type {CityRevision,ApprovalRecord} from "../nostr/city-records";
 const cityId="66f137cb-2ac1-4eef-8358-7dd66b45922f";
 const revision=(id:string,slug="radom"):CityRevision=>({event:{id,created_at:1} as CityRevision["event"],city:{cityId,slug,cityName:"Radom",description:"Walk",startAt:"2026-10-03T10:00:00Z",meetingPoint:{description:"Rynek",latitude:51.4,longitude:21.1},heroImageUrl:"https://example.com/hero.jpg",sponsor:{name:"Example",logoUrl:"https://example.com/logo.png"}}});
@@ -42,9 +42,13 @@ describe("approved city directory",()=>{
  });
  it("retains every approved city and uses exact active or upcoming occurrence details",()=>{
   const rows=approvedDirectory([revision("a")],[decision("a","approved",1)],{}),point={description:"New meeting point",latitude:51.41,longitude:21.11},heroImageUrl="https://bitcoinwalk.org/api/media/files/"+"a".repeat(64)+".webp";
-  expect(directoryWithWalkSchedule(rows,new Map([[cityId,{start:1_800_000_000,status:"upcoming",meetingPoint:point,heroImageUrl}]]))).toMatchObject([{hasUpcomingWalk:true,city:{startAt:"2027-01-15T08:00:00.000Z",meetingPoint:point,heroImageUrl}}]);
+  expect(directoryWithWalkSchedule(rows,new Map([[cityId,{start:1_800_000_000,status:"upcoming",meetingPoint:point,heroImageUrl,timeZone:"Europe/Warsaw"}]]))).toMatchObject([{hasUpcomingWalk:true,timeZone:"Europe/Warsaw",city:{startAt:"2027-01-15T08:00:00.000Z",meetingPoint:point,heroImageUrl}}]);
   for(const status of ["grace","past"] as const)expect(directoryWithWalkSchedule(rows,new Map([[cityId,{start:1_800_000_000,status,meetingPoint:point}]]))).toEqual(rows);
   expect(directoryWithWalkSchedule(rows,new Map())).toEqual(rows);
+ });
+ it("formats the homepage time in the walk timezone",()=>{
+  expect(directoryWalkDate("2026-11-07T08:45:00.000Z","Europe/Amsterdam","en-GB")).toBe("7 Nov 2026, 09:45");
+  expect(directoryWalkDate("2026-11-07T08:45:00.000Z","Not/A_Timezone","en-GB")).toMatch(/7 Nov 2026/);
  });
  it("does not emit unsafe image URLs",()=>{
   expect(directoryImage("javascript:alert(1)")).toBeUndefined();
