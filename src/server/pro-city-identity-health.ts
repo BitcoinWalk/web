@@ -121,9 +121,28 @@ function latestProfile(events:Event[],pubkey:string):PublicProfile|null{
   for(const event of events.filter(value=>value.pubkey===pubkey).sort((a,b)=>b.created_at-a.created_at||a.id.localeCompare(b.id))){const profile=parsePublicProfile(event,requested);if(profile)return profile;}
   return null;
 }
+/** Compare city landing pages only; do not relax query, origin or path boundaries. */
+export function sameCityProfileWebsite(actual:string|undefined,expected:string|undefined):boolean{
+  if(!actual||!expected)return false;
+  const normalize=(value:string)=>{
+    try{
+      const url=new URL(value);
+      if(url.protocol!=="https:"||url.username||url.password||url.search||url.hash||url.pathname.endsWith("//"))return null;
+      // Only a single final slash may differ. Do not normalize other URL spelling.
+      return value.endsWith("/")?value.slice(0,-1):value;
+    }catch{return null;}
+  };
+  const left=normalize(actual),right=normalize(expected);
+  return left!==null&&right!==null&&left===right;
+}
+
+export function cityProfilePreviewEligible(binding:string,agreement:number,website:string,expectedWebsite:string,canonicalWebsite:string):boolean{
+  return binding==="pass"&&agreement>=2&&(sameCityProfileWebsite(website,expectedWebsite)||sameCityProfileWebsite(website,canonicalWebsite));
+}
+
 export function managedCityProfileMatches(profile:PublicProfile|null,active:ActiveBrand|null,cityName:string,canonicalWebsite?:string){
   const expected=active?.challenge.profile;
-  if(!profile||!profile.name||!profile.picture||!profile.website||profile.website!==expected?.website&&profile.website!==canonicalWebsite)return false;
+  if(!profile||!profile.name||!profile.picture||!profile.website||!sameCityProfileWebsite(profile.website,expected?.website)&&!sameCityProfileWebsite(profile.website,canonicalWebsite))return false;
   return profile.name===expected?.name||profile.name===`BitcoinWalk ${cityName}`||profile.name===`BitcoinWalk in ${cityName}`;
 }
 
@@ -167,7 +186,7 @@ export async function listProCityIdentityHealth(actor:string):Promise<CityIdenti
       if(profile?.name&&profile.picture&&profile.website){
         const fingerprint=profileFingerprint(cityId,current.eventId,brand,profile.name,profile.picture,profile.website);
         const agreement=publicProfileReads.filter(read=>{const p=read.error?null:latestProfile(read.events,brand);return p?.name===profile.name&&p?.picture===profile.picture&&p?.website===profile.website;}).length;
-        profilePreview={fingerprint,pubkey:brand,name:profile.name,picture:profile.picture,website:profile.website,eligible:binding==="pass"&&agreement>=2&&(profile.website===current.challenge.profile.website||profile.website===`${publicOrigin}/${canonicalSlug}`),accepted:profileAccepted(db,cityId,fingerprint)};
+        profilePreview={fingerprint,pubkey:brand,name:profile.name,picture:profile.picture,website:profile.website,eligible:cityProfilePreviewEligible(binding,agreement,profile.website,current.challenge.profile.website,`${publicOrigin}/${canonicalSlug}`),accepted:profileAccepted(db,cityId,fingerprint)};
       }
     }
     const capabilities=tier!=="basic"?cityProvisioningCapabilities(db,provisioningCityId):{overall:"setup-required",nip05:"setup-required",lightning:"setup-required",retryable:false,detail:"Not applicable."} as CityProvisioningCapabilities;
