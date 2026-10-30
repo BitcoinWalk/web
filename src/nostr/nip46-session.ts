@@ -41,6 +41,13 @@ export function readNip46Session(storage:BrowserStorage,now=Date.now()):StoredNi
 }
 
 export function clearNip46Session(storage:BrowserStorage){storage.removeItem(NIP46_SESSION_STORAGE_KEY);}
+export function persistNip46Session(storage:BrowserStorage,input:Parameters<typeof saveNip46Session>[1],now=Date.now()){
+ const saved=saveNip46Session(storage,input,now),readBack=readNip46Session(storage,now);
+ return !!readBack&&readBack.clientSecretHex===saved.clientSecretHex&&readBack.bunkerPubkey===saved.bunkerPubkey&&readBack.signerPubkey===saved.signerPubkey&&JSON.stringify(readBack.relays)===JSON.stringify(saved.relays);
+}
 export function readBrowserNip46Session(){try{return typeof window==="undefined"?null:readNip46Session(window.localStorage);}catch{return null;}}
-export function saveBrowserNip46Session(input:Parameters<typeof saveNip46Session>[1]){try{if(typeof window==="undefined")return false;saveNip46Session(window.localStorage,input);return true;}catch{return false;}}
+export function saveBrowserNip46Session(input:Parameters<typeof saveNip46Session>[1]){try{
+ if(typeof window==="undefined")return false;
+ return persistNip46Session(window.localStorage,input);
+}catch{return false;}}
 export function forgetBrowserNip46Session(){try{if(typeof window!=="undefined")clearNip46Session(window.localStorage);}catch{/* A blocked store has nothing usable to clear. */}}

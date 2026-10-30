@@ -1,5 +1,5 @@
 import {describe,expect,it} from "vitest";
-import {NIP46_SESSION_LIFETIME_MS,NIP46_SESSION_STORAGE_KEY,decodeNip46ClientSecret,readNip46Session,saveNip46Session} from "./nip46-session";
+import {NIP46_SESSION_LIFETIME_MS,NIP46_SESSION_STORAGE_KEY,decodeNip46ClientSecret,persistNip46Session,readNip46Session,saveNip46Session} from "./nip46-session";
 
 function memoryStorage(){
  const values=new Map<string,string>();
@@ -32,5 +32,10 @@ describe("bounded NIP-46 browser session",()=>{
   const storage=memoryStorage();
   expect(()=>saveNip46Session(storage,{clientSecretKey,bunker:{...bunker,relays:["wss://public.example/"]},signerPubkey})).toThrow("session is invalid");
   expect(storage.getItem(NIP46_SESSION_STORAGE_KEY)).toBeNull();
+ });
+
+ it("detects when a browser-like store drops a write",()=>{
+  const storage={getItem:()=>null,setItem:()=>{},removeItem:()=>{}};
+  expect(persistNip46Session(storage,{clientSecretKey,bunker,signerPubkey})).toBe(false);
  });
 });
