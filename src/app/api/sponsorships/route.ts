@@ -5,6 +5,8 @@ import {paymentBody} from "../../../payments/request-body";
 import {authorizeSponsor} from "../../../payments/sponsor-auth";
 import {SUPER_ADMIN_PUBKEY} from "../../../nostr/authority";
 import {promoteSponsorDraftLogo} from "../../../server/sponsor-logo-store";
+import {listProCityIdentityHealth} from "../../../server/pro-city-identity-health";
+import {proProfileOutcomes} from "../../../domain/pro-profile-outcomes";
 export const dynamic="force-dynamic",runtime="nodejs";
 const headers={"Cache-Control":"no-store"},token=z.string().regex(/^[a-f0-9]{64}$/),event=z.custom<Event>(value=>!!value&&typeof value==="object");
 const command=z.discriminatedUnion("action",[
@@ -16,6 +18,7 @@ const command=z.discriminatedUnion("action",[
  z.object({action:z.literal("save-draft"),token,id:z.uuid(),name:z.string().max(80),website:z.string().max(2048)}).strict(),
  z.object({action:z.literal("claim"),token,id:z.uuid(),event}).strict(),
  z.object({action:z.literal("list"),event}).strict(),
+ z.object({action:z.literal("profile-outcomes"),event}).strict(),
  z.object({action:z.literal("mine"),event}).strict(),
 ]);
 let catalogCache:{until:number;cities:Awaited<ReturnType<ReturnType<typeof getPaymentRuntime>["sponsors"]["available"]>>}|undefined;
@@ -25,7 +28,11 @@ export async function POST(request:Request){
  if(request.headers.get("origin")!==origin)return Response.json({error:"Origin not allowed."},{status:403,headers});
  let body:z.infer<typeof command>;try{body=command.parse(await paymentBody(request));}catch{return Response.json({error:"Invalid sponsorship request."},{status:400,headers});}
  try{
-  let actor:string|undefined;if(body.action==="list"||body.action==="mine"||body.action==="claim"){try{actor=authorizeSponsor(body.event,origin,body.action,body.action==="claim"?body.id:undefined);}catch{return Response.json({error:"A valid Nostr signature is required."},{status:403,headers});}if(body.action==="list"&&actor!==SUPER_ADMIN_PUBKEY)return Response.json({error:"Super-admin access required."},{status:403,headers});}
+  let actor:string|undefined;if(body.action==="list"||body.action==="mine"||body.action==="claim"||body.action==="profile-outcomes"){try{actor=authorizeSponsor(body.event,origin,body.action,body.action==="claim"?body.id:undefined);}catch{return Response.json({error:"A valid Nostr signature is required."},{status:403,headers});}if((body.action==="list"||body.action==="profile-outcomes")&&actor!==SUPER_ADMIN_PUBKEY)return Response.json({error:"Super-admin access required."},{status:403,headers});}
+  if(body.action==="profile-outcomes"){
+   try{return Response.json({profiles:proProfileOutcomes(await listProCityIdentityHealth(actor!),Math.floor(Date.now()/1000))},{headers});}
+   catch{return Response.json({error:"Pro profile checks are unavailable. Retry; payment reporting is unaffected."},{status:503,headers});}
+  }
   const service=getPaymentRuntime().sponsors;
   if(body.action==="preview-invitation"){const invitation=await service.previewInvitation(body.invitationToken);return invitation?Response.json({invitation},{headers}):Response.json({error:"This sponsor invitation is invalid, expired, revoked or no longer eligible."},{status:404,headers});}
   if(body.action==="list")return Response.json({orders:service.list(),outcomes:service.outcomeReport()},{headers});

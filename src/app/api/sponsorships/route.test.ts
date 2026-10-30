@@ -5,6 +5,8 @@ import * as sponsorAuth from "../../../payments/sponsor-auth";
 import {SUPER_ADMIN_PUBKEY} from "../../../nostr/authority";
 import {promoteSponsorDraftLogo} from "../../../server/sponsor-logo-store";
 import {POST} from "./route";
+import {listProCityIdentityHealth} from "../../../server/pro-city-identity-health";
+vi.mock("../../../server/pro-city-identity-health",()=>({listProCityIdentityHealth:vi.fn()}));
 const sponsors=vi.hoisted(()=>({create:vi.fn(),createBatch:vi.fn(),status:vi.fn(),acknowledgeRecovery:vi.fn(),saveDraft:vi.fn(),claim:vi.fn(),list:vi.fn(),mine:vi.fn(),available:vi.fn(),outcomeReport:vi.fn()}));
 vi.mock("../../../server/sponsor-logo-store",()=>({promoteSponsorDraftLogo:vi.fn()}));
 vi.mock("../../../payments/runtime",()=>({getPaymentRuntime:()=>({sponsors})}));
@@ -12,6 +14,20 @@ const origin="https://app-staging.bitcoinwalk.org",id="00000000-0000-4000-8000-0
 const request=(body:unknown,source=origin)=>new Request(origin+"/api/sponsorships",{method:"POST",headers:{Origin:source},body:JSON.stringify(body)});
 beforeEach(()=>{vi.resetAllMocks();vi.stubEnv("BITCOINWALK_PAYMENT_APP_ORIGIN",origin);});afterEach(()=>{vi.restoreAllMocks();vi.unstubAllEnvs();});
 describe("sponsor checkout authorization",()=>{
+ it("returns only aggregate profile results to a signed super-admin without touching payment operations",async()=>{
+  vi.spyOn(sponsorAuth,"authorizeSponsor").mockReturnValue(SUPER_ADMIN_PUBKEY);
+  vi.mocked(listProCityIdentityHealth).mockResolvedValue([{cityId:"private-id",cityName:"Private",slug:"private",availableInEnvironment:true,tier:"pro",status:"complete",checkedAt:100,checks:[]}]);
+  const response=await POST(request({action:"profile-outcomes",event:{}}));expect(response.status).toBe(200);const data=await response.json();expect(data.profiles).toMatchObject({checked:1,complete:1,unknown:0});expect(JSON.stringify(data)).not.toMatch(/private|Private/);expect(response.headers.get("cache-control")).toBe("no-store");expect(sponsors.list).not.toHaveBeenCalled();expect(sponsors.create).not.toHaveBeenCalled();
+ });
+ it("rejects ordinary, unsigned, wrong-action and foreign-origin profile requests before checking",async()=>{
+  const key=generateSecretKey();
+  for(const [event,source] of [[finalizeEvent(sponsorRequest("profile-outcomes",origin),key),origin],[{},origin],[finalizeEvent(sponsorRequest("list",origin),key),origin],[{},"https://other.example"]] as const)expect((await POST(request({action:"profile-outcomes",event},source))).status).toBe(403);
+  expect(listProCityIdentityHealth).not.toHaveBeenCalled();
+ });
+ it("reports failed profile reads as unavailable and redacts provider errors",async()=>{
+  vi.spyOn(sponsorAuth,"authorizeSponsor").mockReturnValue(SUPER_ADMIN_PUBKEY);vi.mocked(listProCityIdentityHealth).mockRejectedValue(Error("private provider secret"));
+  const response=await POST(request({action:"profile-outcomes",event:{}}));expect(response.status).toBe(503);expect(await response.text()).not.toContain("secret");
+ });
  it("includes aggregate city outcomes only after super-admin authorization",async()=>{
   vi.spyOn(sponsorAuth,"authorizeSponsor").mockReturnValue(SUPER_ADMIN_PUBKEY);
   const outcomes={citySetup:{status:"available",started:1,preparationReady:1,identityPublished:1,servicesActive:1,needsAttention:0}};

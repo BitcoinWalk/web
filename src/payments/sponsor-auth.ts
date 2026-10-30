@@ -1,4 +1,4 @@
 import {verifyEvent,type Event,type EventTemplate} from "nostr-tools";
-export type SponsorRequestAction="claim"|"list"|"mine";
+export type SponsorRequestAction="claim"|"list"|"mine"|"profile-outcomes";
 export function sponsorRequest(action:SponsorRequestAction,origin:string,orderId?:string):EventTemplate{return {kind:27235,created_at:Math.floor(Date.now()/1000),tags:[["u",`${origin}/api/sponsorships`],["method","POST"],["t","bitcoinwalk-sponsor-payment-v1"]],content:JSON.stringify({action,...(orderId?{orderId}:{})})};}
 export function authorizeSponsor(event:Event,origin:string,action:SponsorRequestAction,orderId?:string){const expected=sponsorRequest(action,origin,orderId);if(!verifyEvent(event)||event.kind!==27235||Math.abs(Date.now()/1000-event.created_at)>300||JSON.stringify(event.tags)!==JSON.stringify(expected.tags)||event.content!==expected.content)throw new Error("Connect your Nostr identity and sign again.");return event.pubkey;}
