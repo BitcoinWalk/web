@@ -31,7 +31,7 @@ activation. Never rotate directory ownership as a side effect of branding.
 
 ## Signed request and review
 
-`createCityBrandChallenge` creates a 15-minute request with a random UUID supplied
+`createCityBrandChallenge` creates a 24-hour request with a random UUID supplied
 by the private store, canonical HTTPS origin, current authority evidence and exact
 proposed binding. `cityBrandProofTemplate` prepares separate owner and brand
 proofs. These use the project's private kind-27235 signed-command convention,

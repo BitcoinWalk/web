@@ -4,6 +4,8 @@ import {SUPER_ADMIN_PUBKEY} from "./authority";
 
 /** Reserved BitcoinWalk application kind; not yet admitted by deployed relays. */
 export const CITY_BRAND_KIND = 30312;
+export const CITY_BRAND_APPROVAL_WINDOW_SECONDS = 24 * 60 * 60;
+const LEGACY_APPROVAL_WINDOW_SECONDS = 900;
 const hex = z.string().regex(/^[0-9a-f]{64}$/);
 const integer = z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER);
 const bindingSchema = z.object({
@@ -83,7 +85,7 @@ export function createCityBrandChallenge(input: {
   // server-side setup task is the admission boundary for the selected key.
   if (binding.action !== "revoke" && (!authority.eligible || binding.brandPubkey === SUPER_ADMIN_PUBKEY)) throw new Error("An eligible Pro city account is required.");
   return challengeSchema.parse({version: 1, requestId: input.requestId,
-    origin: canonicalOrigin(input.origin), issuedAt: input.now, expiresAt: input.now + 900, authority, binding, profile: profileSchema.parse(input.profile)});
+    origin: canonicalOrigin(input.origin), issuedAt: input.now, expiresAt: input.now + CITY_BRAND_APPROVAL_WINDOW_SECONDS, authority, binding, profile: profileSchema.parse(input.profile)});
 }
 export function cityBrandProofTemplate(challenge: CityBrandChallenge, role: "owner" | "brand"): EventTemplate {
   const request = challengeSchema.parse(challenge);
@@ -98,14 +100,16 @@ export function authorizeCityBrand(input: {
   previous: Event | null; ownerProof: Event; brandProof?: Event; now: number;
 }): EventTemplate {
   const request = challengeSchema.parse(input.challenge);
-  if (!Number.isSafeInteger(input.now) || request.expiresAt !== request.issuedAt + 900 ||
+  const duration = request.expiresAt - request.issuedAt;
+  // Retain the original signed expiry of existing requests; never extend old proofs.
+  if (!Number.isSafeInteger(input.now) || ![CITY_BRAND_APPROVAL_WINDOW_SECONDS, LEGACY_APPROVAL_WINDOW_SECONDS].includes(duration) ||
       input.now < request.issuedAt || input.now >= request.expiresAt) throw new Error("City account request expired or not yet valid.");
   if (JSON.stringify(authoritySchema.parse(input.currentAuthority)) !== JSON.stringify(request.authority)) throw new Error("City ownership, approval or entitlement changed. Prepare a new request.");
   successor(request.binding, input.previous);
   const expected = createCityBrandChallenge({requestId: request.requestId, origin: request.origin,
     authority: input.currentAuthority, brandPubkey: request.binding.brandPubkey,
     action: request.binding.action, previous: input.previous, now: request.issuedAt, profile: request.profile});
-  if (JSON.stringify(expected) !== JSON.stringify(request)) throw new Error("City account request changed.");
+  if (JSON.stringify({...expected, expiresAt: request.expiresAt}) !== JSON.stringify(request)) throw new Error("City account request changed.");
   for (const role of request.binding.action === "revoke" ? ["owner"] as const : ["owner", "brand"] as const) {
     const proof = role === "owner" ? input.ownerProof : input.brandProof;
     if (!proof) throw new Error("City account proof is required.");
