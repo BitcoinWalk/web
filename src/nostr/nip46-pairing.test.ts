@@ -1,5 +1,5 @@
 import {describe,expect,it,vi} from "vitest";
-import {NIP46_PAIRING_RELAYS,readBunkerPublicKey,replayableNip46Filter} from "./nip46-pairing";
+import {NIP46_PAIRING_RELAYS,readBunkerPublicKey,recoverNip46Handoff,replayableNip46Filter} from "./nip46-pairing";
 
 describe("NIP-46 pairing recovery",()=>{
  it("uses the dedicated BitcoinWalk remote-signer transport",()=>{
@@ -34,5 +34,27 @@ describe("NIP-46 pairing recovery",()=>{
    await vi.advanceTimersByTimeAsync(101);
    await assertion;
   }finally{vi.useRealTimers();}
+ });
+
+ it("re-subscribes after a mobile background close without changing the handoff",async()=>{
+  vi.useFakeTimers();
+  const connect=vi.fn<()=>Promise<string>>()
+   .mockRejectedValueOnce(new Error("subscription closed before connection was established."))
+   .mockRejectedValueOnce(new Error("subscription closed before connection was established."))
+   .mockResolvedValue("connected"),onRetry=vi.fn();
+  try{
+   const pending=recoverNip46Handoff(connect,{retryDelayMs:100,onRetry});
+   await vi.advanceTimersByTimeAsync(201);
+   await expect(pending).resolves.toBe("connected");
+   expect(connect).toHaveBeenCalledTimes(3);
+   expect(onRetry).toHaveBeenNthCalledWith(1,1);
+   expect(onRetry).toHaveBeenNthCalledWith(2,2);
+  }finally{vi.useRealTimers();}
+ });
+
+ it("does not retry a non-background handoff failure",async()=>{
+  const connect=vi.fn<()=>Promise<string>>().mockRejectedValue(new Error("invalid handoff"));
+  await expect(recoverNip46Handoff(connect)).rejects.toThrow("invalid handoff");
+  expect(connect).toHaveBeenCalledTimes(1);
  });
 });

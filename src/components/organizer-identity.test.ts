@@ -2,7 +2,7 @@ import {createElement} from "react";
 import {renderToStaticMarkup} from "react-dom/server";
 import {nip19} from "nostr-tools";
 import {describe,expect,it,vi} from "vitest";
-import OrganizerIdentity,{remoteSignerConnectionURI,validSignerInput} from "./organizer-identity";
+import OrganizerIdentity,{nip46TimeoutStatus,remoteSignerConnectionURI,savedNip46RecoveryFailure,shouldRetrySavedNip46AfterReturn,validSignerInput} from "./organizer-identity";
 
 describe("OrganizerIdentity",()=>{
   it("offers the browser extension and one unified private-key or remote-signer path",()=>{
@@ -40,6 +40,24 @@ describe("OrganizerIdentity",()=>{
       expect(uri.searchParams.get("perms")?.split(",")).toContain("get_public_key");
       expect(uri.searchParams.get("secret")).toBe("pairing-secret");
     }finally{vi.unstubAllGlobals();}
+  });
+
+  it("distinguishes an expired unapproved code from a delayed account response",()=>{
+    expect(nip46TimeoutStatus(false)).toBe("No approval arrived within 90 seconds. This code has expired. Generate a fresh code and try again.");
+    expect(nip46TimeoutStatus(true)).toBe("Amber approved, but its account response did not reach BitcoinWalk in time. Generate a fresh code and try again.");
+  });
+
+  it("retries a saved Amber session only after returning from the signer",()=>{
+    expect(shouldRetrySavedNip46AfterReturn(true,true,"visible")).toBe(true);
+    expect(shouldRetrySavedNip46AfterReturn(true,false,"visible")).toBe(false);
+    expect(shouldRetrySavedNip46AfterReturn(true,true,"hidden")).toBe(false);
+    expect(shouldRetrySavedNip46AfterReturn(false,true,"visible")).toBe(false);
+  });
+
+  it("stops retrying a saved capability that Amber discarded after a profile switch",()=>{
+    expect(savedNip46RecoveryFailure(false,false)).toEqual({retryable:true,reconnect:true,message:"Saved Amber connection is unavailable. Open Amber on the expected profile and retry, or connect Amber again with a fresh QR code."});
+    expect(savedNip46RecoveryFailure(false,true)).toEqual({retryable:false,reconnect:true,message:"Amber no longer recognizes this saved connection after the profile switch. Connect Amber again with a fresh QR code."});
+    expect(savedNip46RecoveryFailure(true,false)).toEqual({retryable:false,reconnect:true,message:"Amber is using a different account. Connect Amber again to choose the account for this browser."});
   });
 
   it("supports dashboard-specific heading and introductory copy",()=>{
