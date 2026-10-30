@@ -59,8 +59,9 @@ function room(destination:Nip29Destination,label:string,scope:"global"|"city"|"o
 /** Keep the city and network-wide communities as distinct destinations. The
  * public directory can expose both even when its legacy `chat.nip29` field
  * points at only the city's preferred room. */
-export function dashboardNip29Rooms(cities:Nip29CityRoom[],managedCityIds:string[],selectedCity="",organizerEligible=managedCityIds.length>0):DashboardNip29Rooms{
- const cityRooms=dashboardNip29CityRooms(cities,managedCityIds),city=cityRooms.find(row=>row.cityIds.includes(selectedCity))??cityRooms[0]??null;
+export function dashboardNip29Rooms(cities:Nip29CityRoom[],managedCityIds:string[],selectedCity="",organizerEligible=managedCityIds.length>0,preferredCityIds:string[]=[]):DashboardNip29Rooms{
+ // Preferences only choose among available rooms; they never grant access.
+ const cityRooms=dashboardNip29CityRooms(cities,managedCityIds),city=cityRooms.find(row=>row.cityIds.includes(selectedCity))??cityRooms.find(row=>row.cityIds.some(id=>preferredCityIds.includes(id)))??cityRooms[0]??null;
  const globalDestination=cities.map(row=>validNip29Destination(row.chat.communities?.global??(row.chat.scope==="global"?row.chat.nip29:null))).find(Boolean)??null;
  return {
   city,
