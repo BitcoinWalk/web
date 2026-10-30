@@ -6,7 +6,7 @@ vi.mock("../nostr/authority", async () => {
   return {SUPER_ADMIN_PUBKEY: getPublicKey(new Uint8Array(32).fill(1))};
 });
 import {CityBrandStore} from "./city-brand-store";
-import {cityBrandProofTemplate, readCityBrand, resolveCityBrand, type CityBrandAuthority, type CityBrandChallenge} from "../nostr/city-brand";
+import {authorizeCityBrand, cityBrandProofTemplate, readCityBrand, resolveCityBrand, type CityBrandAuthority, type CityBrandChallenge} from "../nostr/city-brand";
 const adminKey = new Uint8Array(32).fill(1), ownerKey = new Uint8Array(32).fill(2), brandKey = new Uint8Array(32).fill(3), otherKey = new Uint8Array(32).fill(4);
 const admin = getPublicKey(adminKey), owner = getPublicKey(ownerKey), brand = getPublicKey(brandKey), other = getPublicKey(otherKey);
 const authority: CityBrandAuthority = {cityId:"66f137cb-2ac1-4eef-8358-7dd66b45922f", ownerPubkey:owner,
@@ -31,6 +31,26 @@ function approve(store: CityBrandStore, request: CityBrandChallenge, secret = br
   return {signed, ownerProof, brandProof, result:store.approve(request.requestId,admin,current,ownerProof,brandProof,signed)};
 }
 describe("branded city authority contract and private storage", () => {
+  it("allows review until exactly 24 hours, but never at or after expiry",()=>{
+    const {store,advance}=setup(),request=store.prepare(owner,authority,origin,brand,"activate",profile);
+    expect(request.expiresAt-request.issuedAt).toBe(86400);
+    const signed=proofs(request);
+    advance(86399);
+    expect(store.reviewQueue()).toHaveLength(1);
+    expect(()=>store.review(request.requestId,admin,authority,signed.ownerProof,signed.brandProof)).not.toThrow();
+    advance(1);
+    expect(store.reviewQueue()).toEqual([]);
+    expect(()=>store.review(request.requestId,admin,authority,signed.ownerProof,signed.brandProof)).toThrow();
+  });
+  it("honours legacy signed deadlines without reviving or extending them",()=>{
+    const {store}=setup(),request=store.prepare(owner,authority,origin,brand,"activate",profile);
+    const legacy={...request,expiresAt:request.issuedAt+900};
+    const check=(challenge:CityBrandChallenge,now:number)=>authorizeCityBrand({challenge,currentAuthority:authority,previous:null,...proofs(challenge),now});
+    expect(()=>check(legacy,request.issuedAt+899)).not.toThrow();
+    expect(()=>check(legacy,request.issuedAt+900)).toThrow("expired");
+    expect(()=>check({...request,expiresAt:request.issuedAt+86401},request.issuedAt)).toThrow("expired");
+    expect(()=>authorizeCityBrand({challenge:request,currentAuthority:authority,previous:null,...proofs(legacy),now:request.issuedAt})).toThrow();
+  });
   it("requires both signatures and publishes no private owner evidence", () => {
     const {store,db} = setup(), request = store.prepare(owner,authority,origin,brand,"activate",profile);
     const result = approve(store,request);
@@ -61,7 +81,7 @@ describe("branded city authority contract and private storage", () => {
     const {store,advance}=setup(),first=store.prepare(owner,authority,origin,brand,"activate",profile);
     expect(store.prepare(owner,authority,origin,brand,"activate",profile).requestId).toBe(first.requestId);
     expect(()=>store.prepare(owner,authority,origin,brand,"activate",{...profile,name:"Changed"})).toThrow("different city account");
-    advance(900);expect(store.pending()).toEqual([]);expect(store.prepare(owner,authority,origin,brand,"activate",profile).requestId).not.toBe(first.requestId);
+    advance(86400);expect(store.pending()).toEqual([]);expect(store.prepare(owner,authority,origin,brand,"activate",profile).requestId).not.toBe(first.requestId);
   });
   it("denies editors, donors and super-admin impersonating owner", () => {
     const {store} = setup();
@@ -89,7 +109,7 @@ describe("branded city authority contract and private storage", () => {
   });
   it("expires requests and rejects replay onto a newly prepared request", () => {
     const {store,advance} = setup(), old = store.prepare(owner,authority,origin,brand,"activate",profile), p = proofs(old);
-    advance(900);
+    advance(86400);
     expect(() => store.review(old.requestId,admin,authority,p.ownerProof,p.brandProof)).toThrow("expired");
     const next = store.prepare(owner,authority,origin,brand,"activate",profile);
     expect(() => store.review(next.requestId,admin,authority,p.ownerProof,p.brandProof)).toThrow("proof");
@@ -143,7 +163,7 @@ describe("branded city authority contract and private storage", () => {
   });
   it("reports an expired cancellation without reviving or changing its saved setup", () => {
     const {store,advance} = setup(), request = store.prepare(owner,authority,origin,brand,"activate",profile);
-    advance(900);
+    advance(86400);
     expect(store.cancel(request.requestId,owner,authority)).toBe("expired");
     expect(store.prepare(owner,authority,origin,brand,"activate",profile).requestId).not.toBe(request.requestId);
   });
