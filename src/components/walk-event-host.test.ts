@@ -74,4 +74,13 @@ describe("walk route branded-host integration", () => {
     expect(html).toContain("London City");
     expect(html).not.toContain(`revisionId&quot;:&quot;${event.id}`);
   });
+  it("uses the current city identity for an activated Armada link on a historical walk", async () => {
+    vi.mocked(resolvePublicCityHost).mockResolvedValue({state: "personal", pubkey: event.pubkey});
+    const currentCity={...city,cityId:"00000000-0000-4000-8000-000000000002"};
+    const currentEvent=finalizeEvent(createInitialCalendarProposal(currentCity,"Europe/London"),new Uint8Array(32).fill(5));
+    const currentProfile:CalendarWalk={revision:{event:currentEvent,city:currentCity},approval:{event:currentEvent,approval:{cityId:currentCity.cityId,cityRevisionId:currentEvent.id,status:"approved"}}};
+    const chatConfig={environment:"production" as const,global:null,paidCities:{[currentCity.cityId]:{slug:"london",tier:"pro" as const,destination:{relay:"wss://london.bitcoinwalk.org/",groupId:"bitcoinwalk-london"},armadaEnabled:true}}};
+    const html=renderToStaticMarkup(await WalkEvent({event,walk,currentProfile,chatConfig}));
+    expect(html).toContain("https://armada.buzz/s/london.bitcoinwalk.org/bitcoinwalk-london");
+  });
 });

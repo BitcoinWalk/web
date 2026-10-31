@@ -48,7 +48,7 @@ export default async function WalkEvent({event,walk,currentProfile,logoHref,titl
         {host.state==="personal"&&<WalkDelegation event={publicEvent} readOnly/>}
         <CityHostPanel host={host} payment={await resolvePublicCityPayment(city.cityId,city.slug,host)} event={publicEvent}/>
         <PublicCitySupport cityId={currentProfile.revision.city.cityId} revisionId={currentProfile.revision.event.id} cityName={currentProfile.revision.city.cityName} requestedTier={currentProfile.revision.city.requestedTier}/>
-        <CityChat cityId={city.cityId} slug={city.slug} config={chatConfig}/>
+        <CityChat cityId={currentProfile.revision.city.cityId} slug={currentProfile.revision.city.slug} config={chatConfig}/>
     </>}
     utilities={<><CalendarShare nevent={calendarNevent(event,relayConfig.calendarRelayHints)}/>
       {logoHref&&<p><a href={logoHref}>Download the official BitcoinWalk {city.cityName} logo pack</a></p>}
