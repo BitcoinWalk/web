@@ -140,7 +140,7 @@
   "BW-141": "Validate dashboard journeys across roles, screen sizes, signers and accessibility needs.",
   "BW-142": "Recover outstanding London payouts while preserving settlement history and preventing duplicate sends.",
   "BW-143": "Help paid Pro organizers resume setup from the dashboard or a Guide message.",
-  "BW-144": "Bangkok's grant, binding, payout policy, managed addresses, profile, artwork, logo pack and dedicated relay pass production read-back. Closure waits only for the receiver-only relay to gain NIP-29 and activate its Armada group.",
+  "BW-144": "Bangkok's grant, payout policy, addresses, profile, artwork, logo pack and dedicated relay pass production read-back. Guarded combined-relay 0.9.14 is staged. Closure waits for rehearsal and activation, then the signed Armada-group workflow.",
   "BW-145": "Provide a private Hosts room whose access follows verified current city ownership.",
   "BW-146": "Add reviewed translations, sensible language selection and an accessible language switcher.",
   "BW-147": "Let country leaders manage country pages and make them available in Walkie Talkie.",
