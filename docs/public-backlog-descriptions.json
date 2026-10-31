@@ -146,7 +146,7 @@
   "BW-147": "Let country leaders manage country pages and make them available in Walkie Talkie.",
   "BW-148": "Enrol eligible Pro cities in payment services within an explicitly bounded operating policy.",
   "BW-149": "Carry the correct city and account context from web onboarding into Walkie Talkie.",
-  "BW-150": "Measure onboarding without exposing private data. City setup and verified Pro-profile completion reporting are accepted on staging and live in production. Confirmed app/community handoff evidence remains in coordination.",
+  "BW-150": "Measure onboarding without exposing private data. City setup and Pro-profile reporting are live in production. Signed city-community roster measurement is on staging and awaits its super-admin baseline; app installation is not claimed.",
   "BW-151": "Send each eligible host a welcome once and verify real recipient delivery.",
   "BW-152": "Ground Guide AI assistance in current documentation with human review and clear escalation.",
   "BW-153": "Let sponsors pay first and recover their booking before optional identity onboarding.",
