@@ -1,6 +1,6 @@
 # BW-112 — Guide reminders for cities without scheduled walks
 
-Status: local implementation and automated acceptance in progress (31 October 2026); no reminder job or messages enabled.
+Status: app controls deployed to staging 0.3.600 (31 October 2026); no reminder job or messages enabled.
 
 ## Implemented pilot and rollout gate
 
@@ -57,7 +57,7 @@ the application build and lint (zero errors; eight existing warnings).
 
 Still required: signed-in staging UI acceptance, an allow-listed organizer's real
 NIP-17 receipt, packaged service installation/backup rehearsal, and a reviewed
-production dry run. No deployment or real reminder has been performed.
+production dry run. App staging deployment is accepted; no worker installation or real reminder has been performed. Production is unchanged.
 
 ## Communication
 
