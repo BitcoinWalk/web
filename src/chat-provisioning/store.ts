@@ -5,7 +5,7 @@ const cityIdPattern=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}
 const slugPattern=/^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const groupPattern=/^[A-Za-z0-9_-]{1,128}$/;
 const hexPattern=/^[0-9a-f]{64}$/;
-const bindingPattern=/^[A-Za-z0-9_-]{1,128}$/;
+const bindingPattern=/^(?:[A-Za-z0-9_-]{1,128}|admin-pro:[0-9a-f]{64})$/;
 
 export type ChatProvisionPhase="candidate"|"verified"|"active"|"needs-attention";
 export type ChatProvisionTier="basic"|"pro";

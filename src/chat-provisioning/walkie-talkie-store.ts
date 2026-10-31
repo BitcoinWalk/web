@@ -6,7 +6,7 @@ export const WALKIE_TALKIE_RELAY="wss://chat.bitcoinwalk.org/";
 const cityIdPattern=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const slugPattern=/^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const hexPattern=/^[0-9a-f]{64}$/;
-const bindingPattern=/^[A-Za-z0-9_-]{1,128}$/;
+const bindingPattern=/^(?:[A-Za-z0-9_-]{1,128}|admin-pro:[0-9a-f]{64})$/;
 
 export type WalkieTalkieProvisionRow={cityId:string;authorityId:string;tier:ChatProvisionTier;slug:string;relay:string;groupId:string;phase:ChatProvisionPhase;evidenceDigest:string|null;metadataEventId:string|null;verifiedAt:number|null;activatedAt:number|null;publicEnabled:0|1;visibilityUpdatedAt:number|null;createdAt:number;updatedAt:number};
 type Input={cityId:string;slug:string;groupId:string};
