@@ -1,6 +1,63 @@
 # BW-112 — Guide reminders for cities without scheduled walks
 
-Status: proposed implementation; no reminder job or messages enabled.
+Status: app controls deployed to staging 0.3.600 (31 October 2026); no reminder job or messages enabled.
+
+## Implemented pilot and rollout gate
+
+The app exposes a signed, Guide/super-admin-only `/api/guide-reminders` snapshot.
+Current owners can read and change private on/off and 30/90-day snooze settings
+from **My cities → Guide reminders**. Ownership is re-read for every request;
+editors and former owners are refused. Settings use optimistic versions so an
+old signed request cannot undo a newer preference. The app-wide operator pause
+is `BITCOINWALK_IDLE_REMINDERS_ENABLED` (off unless exactly `true`).
+
+The standalone `src/guide/idle-runner.ts` reuses the existing encrypted outbox
+and transport helpers, but keeps `guide-idle.sqlite` separate from lifecycle
+deliveries so the lifecycle worker cannot bypass reminder-specific rechecks.
+It binds state to the Guide key, source relay and environment's admin URL.
+Daily scans require complete directory, permission, moderation and calendar
+reads; saturated or failed reads cannot establish inactivity. Active walks and
+the existing one-hour walk grace period suppress reminders too.
+
+Build with `npm run guide:idle:build`. Use the reviewed Guide configuration plus
+`idleEnabled: false` and `idleRecipients: []` initially. Delivery requires both
+the app-wide flag and `idleEnabled: true`, and only exact hex public keys in
+`idleRecipients` are eligible. Keep staging and production config/state separate.
+The endpoint is the existing environment's loopback app port (3338 staging,
+3345 production), never a user-provided URL.
+
+The runner's `--dry-run` reports aggregate eligibility only. It signs a private
+read request but writes no reminder observation, outbox or delivery state. The
+app may initialize its empty preference table. `--once` observes/queues and
+rechecks the full snapshot immediately before encrypted delivery. No runtime
+clock override exists; controlled clocks are test-only. A missed daily scan or
+failed snapshot restarts the seven-day observation, retaining the message cap.
+Transport retries retain the exact encrypted event; uncertain deliveries consume
+the two-message budget even if later cancelled, to avoid duplicate nudges.
+
+Disabled service/timer templates are in `deploy/guide/bitcoinwalk-guide-idle.*`.
+Before installation, verify the target's Node path, credential access and separate
+private state directory; run the scanner under the supplied non-overlap lock.
+The timer uses 10:15 UTC; systemd journal rotation handles aggregate logs. The
+scanner is independent of other Guide scan failures. Do not enable the timer
+until a willing staging organizer confirms receipt and the dashboard link.
+
+Before rollout, back up the app payment database (private preferences) and the
+idle worker SQLite database with SQLite's online backup API; verify the copies
+with `PRAGMA integrity_check`. Retain the previous bundle/config. Rollback:
+disable the timer and service, turn off the app flag and `idleEnabled`, restore
+the previous bundle only, and retain the live outbox/cooldown state. Do not restore
+an older delivery database merely to retry a deployment: it can replay messages.
+
+The user nominated Chlef for the staging pilot on 31 October 2026. Its current
+controlling organizer was resolved from verified staging approval and ownership
+records; no public city-profile identity was substituted and no message was sent.
+The merged implementation passes 398 test files / 2,399 tests, type checking,
+the application build and lint (zero errors; eight existing warnings).
+
+Still required: signed-in staging UI acceptance, an allow-listed organizer's real
+NIP-17 receipt, packaged service installation/backup rehearsal, and a reviewed
+production dry run. App staging deployment is accepted; no worker installation or real reminder has been performed. Production is unchanged.
 
 ## Communication
 

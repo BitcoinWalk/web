@@ -108,7 +108,7 @@
   "BW-109": "Provision administrator-approved Lightning addresses that do not use city revenue splits.",
   "BW-110": "Find an existing walk’s meeting point by address, landmark or pasted coordinates without changing its city ownership.",
   "BW-111": "The accepted durable payment authority supersedes the proposed per-city renewal workflow.",
-  "BW-112": "Send bounded Guide reminders to organizers who have no upcoming walk scheduled.",
+  "BW-112": "Bounded Guide reminder controls are on staging with private snooze and opt-out. Automated checks pass; signed-in settings and Chlef organizer receipt remain to be accepted. Sending remains disabled; production is unchanged.",
   "BW-113": "Manage sponsors, approved artwork and walk placements from a clear dashboard.",
   "BW-114": "Highlight currently sponsored walks in the homepage city grid.",
   "BW-115": "Explore additional sponsorship placements with explicit pricing and coverage rules.",

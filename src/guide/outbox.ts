@@ -6,7 +6,7 @@ import type {GuideDirectoryRequest} from "./directory";
 import type {GuideProSetupTask} from "./pro-setup";
 import type {GuideOrganizerChatHost} from "./organizer-chat";
 
-export type Delivery = { submission: string; recipient: string; wrapped: string; attempts: number; next_attempt: number; state: string; purpose: "review" | "live" | "replication-degraded" | "replication-recovered"|"directory-invitation"|"directory-active"|"directory-failed"|`pro-setup-${ProSetupAlertState}`|"payout-update-pending"|"payout-update-active"|"payout-update-attention"|"organizer-chat-invitation" };
+export type Delivery = { submission: string; recipient: string; wrapped: string; attempts: number; next_attempt: number; state: string; purpose: "idle-reminder" | "review" | "live" | "replication-degraded" | "replication-recovered"|"directory-invitation"|"directory-active"|"directory-failed"|`pro-setup-${ProSetupAlertState}`|"payout-update-pending"|"payout-update-active"|"payout-update-attention"|"organizer-chat-invitation" };
 export type ReplicationCityStatus={cityId:string;destination:string;state:"healthy"|"pending"|"degraded";counts:Record<string,number>};
 export type ReplicationRecipient={recipient:string;cityName:string};
 export type LivePublication = { revision: CityRevision; approval: ApprovalRecord; event: Event };

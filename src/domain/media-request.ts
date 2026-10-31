@@ -29,6 +29,7 @@ export const mediaRequestSchema=z.discriminatedUnion("action",[
  z.object({action:z.literal("list-directory-notifications")}),
  z.object({action:z.literal("list-pro-setup-notifications")}),
  z.object({action:z.literal("list-organizer-chat-invitations")}),
+ z.object({action:z.literal("list-idle-reminders")}),
 ]);
 export type MediaRequest=z.infer<typeof mediaRequestSchema>;
 export function mediaRequestTemplate(request:MediaRequest,now=Math.floor(Date.now()/1000)):EventTemplate{return {kind:MEDIA_REQUEST_KIND,created_at:now,tags:[["t","bitcoinwalk-media"],["action",request.action]],content:JSON.stringify(request)};}

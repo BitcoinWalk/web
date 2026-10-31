@@ -2,7 +2,7 @@ import {type Event} from "nostr-tools";
 import {parseMediaRequest} from "../domain/media-request";
 import {isSuperAdmin} from "../nostr/authority";
 
-export function isGuideRequester(event:Event,action:"list-replication-status"|"list-directory-notifications"|"list-pro-setup-notifications"|"list-organizer-chat-invitations"):boolean {
+export function isGuideRequester(event:Event,action:"list-replication-status"|"list-directory-notifications"|"list-pro-setup-notifications"|"list-organizer-chat-invitations"|"list-idle-reminders"):boolean {
  const command=parseMediaRequest(event);
  if(command?.action!==action)return false;
  if(isSuperAdmin(event.pubkey))return true;
