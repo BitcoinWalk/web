@@ -140,7 +140,7 @@
   "BW-141": "Validate dashboard journeys across roles, screen sizes, signers and accessibility needs.",
   "BW-142": "Recover outstanding London payouts while preserving settlement history and preventing duplicate sends.",
   "BW-143": "Help paid Pro organizers resume setup from the dashboard or a Guide message.",
-  "BW-144": "Let an administrator grant Pro without another invoice, then verify the complete organizer handoff.",
+  "BW-144": "Bangkok's organizer can access Pro setup and now sees the correct default city plus managed NIP-05, LNURL and payout fields. Signed address read-back and the remaining service bundle still need verification.",
   "BW-145": "Provide a private Hosts room whose access follows verified current city ownership.",
   "BW-146": "Add reviewed translations, sensible language selection and an accessible language switcher.",
   "BW-147": "Let country leaders manage country pages and make them available in Walkie Talkie.",
