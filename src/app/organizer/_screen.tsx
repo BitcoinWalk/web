@@ -20,6 +20,8 @@ import {cityAliases} from "../../domain/city";
 import {organizerDirectorySnapshot} from "../../nostr/dashboard-snapshot";
 import {organizerCityInventory,type OrganizerCityInventoryItem} from "../../domain/organizer-city-inventory";
 import {paymentFetch,signPayment,type LogoPackView} from "../../components/city-payment";
+import CityPayment from "../../components/city-payment";
+import type {PaymentView} from "../../payments/service";
 import {createInitialCalendarProposal} from "../../nostr/calendar-event";
 import {calendarRoute} from "../../nostr/calendar-records";
 import {ProCitySetup} from "../admin/pro-setup/screen";
@@ -28,10 +30,11 @@ import {ImageUploadButton} from "../../components/image-upload-button";
 import {IdleReminderSettings} from "../../components/idle-reminder-settings";
 import type {CityIdentityHealth} from "../../server/pro-city-identity-health";
 import styles from "./my-cities.module.css";
+import CityEditorsPanel from "../../components/city-editors-panel";
 
 const LocationPicker = dynamic(() => import("../../components/location-picker"), {ssr:false});
 function exactTag(event:Event,name:string){const tags=event.tags.filter(tag=>tag[0]===name&&tag.length===2);return tags.length===1?tags[0][1]:"";}
-type WorkspaceTab="profile"|"pro";
+type WorkspaceTab="profile"|"editors"|"pro";
 const stateLabel=(status:OrganizerCityInventoryItem["status"])=>status==="editable"||status==="approved"?"Active":status==="awaiting-approval"?"Pending":status==="needs-changes"?"Needs changes":status==="archived"?"Archived":"Rejected";
 function Icon({children}: {children:ReactNode}){return <svg aria-hidden="true" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">{children}</svg>;}
 function ReviewerNote({note,fallback}:{note?:string;fallback:string}){
@@ -46,6 +49,7 @@ export default function OrganizerPage() {
   const [cities,setCities] = useState<OrganizerCityInventoryItem[]>([]);
   const [logoPacks,setLogoPacks]=useState<LogoPackView[]>([]);
   const [proCityIds,setProCityIds]=useState<Set<string>>(new Set());
+  const [payments,setPayments]=useState<PaymentView[]>([]);
   const [identityHealth,setIdentityHealth]=useState<CityIdentityHealth[]>([]);
   const [decisions,setDecisions] = useState<ApprovalRecord[]>([]);
   const [base,setBase] = useState<CityRevision|null>(null);
@@ -56,11 +60,12 @@ export default function OrganizerPage() {
   const [heroImageInput,setHeroImageInput]=useState("");
   const [imageUploading,setImageUploading]=useState(false);
   const [workspaceTab,setWorkspaceTab]=useState<WorkspaceTab>("profile");
+  const [resumePayout,setResumePayout]=useState("");
 
   useEffect(()=>{if(window.location.hash!=="#pro-city-services")return;let active=true;queueMicrotask(()=>{if(active)setWorkspaceTab("pro");});return()=>{active=false;};},[]);
 
   function select(revision: CityRevision|null) {
-    setBase(revision); setPin(revision?.city.meetingPoint ?? null); setSubmitted(false);setSubmittedImageUrl("");setHeroImageInput(revision?.city.heroImageUrl??"");
+    setBase(revision); setPin(revision?.city.meetingPoint ?? null); setSubmitted(false);setSubmittedImageUrl("");setHeroImageInput(revision?.city.heroImageUrl??"");setResumePayout("");
   }
 
   async function uploadHero(file:File){
@@ -75,7 +80,7 @@ export default function OrganizerPage() {
   async function load() {
     if(lock.current) return;
     if (base && !submitted && !window.confirm("Reloading discards any unsent form changes. Continue?")) return;
-    lock.current=true;setBusy(true);select(null);setCities([]);setProCityIds(new Set());setIdentityHealth([]);setIdentity("");
+    lock.current=true;setBusy(true);select(null);setCities([]);setPayments([]);setProCityIds(new Set());setIdentityHealth([]);setIdentity("");
     try {
       if (!relayConfig.readRelays.length) throw new Error("No read relay configured.");
       const key=await getBrowserExtensionPubkey();
@@ -93,6 +98,7 @@ export default function OrganizerPage() {
       else if(available.length===1)select(available[0].revision);
       setIdentity(key);setCities(available);setDecisions([...approvals].sort((a,b)=>compareEvents(a.event,b.event)));
       setLogoPacks(logoResult?.logoPacks??[]);
+      setPayments(logoResult?.payments??[]);
       setProCityIds(new Set(logoResult?.proCityIds??(logoResult?.payments??[]).filter(payment=>payment.tier==="paid").map(payment=>payment.cityId)));
       setIdentityHealth(logoResult?.identityHealth??[]);
       setMessage(available.length ? "" : "No cities were returned for this identity. Check your signer account and relay connection.");
@@ -164,7 +170,10 @@ export default function OrganizerPage() {
   ].filter(group=>group.items.length);
   const archivedCities=cities.filter(item=>item.status==="archived");
   const selectedCity=base?cities.find(item=>item.revision.city.cityId===base.city.cityId):undefined;
+  const selectedGrant=base?dashboard.grants.find(record=>record.grant.cityId===base.city.cityId):undefined;
   const selectedLogo=base?logoPacks.find(pack=>pack.cityId===base.city.cityId&&pack.revisionId===base.event.id&&pack.ready&&pack.publiclyListed):undefined;
+  const selectedPayment=base?payments.find(payment=>payment.cityId===base.city.cityId):undefined;
+  const needsPayment=!!base&&base.city.requestedTier==="paid"&&!proCityIds.has(base.city.cityId)&&selectedPayment?.tier!=="paid";
   function chooseCity(cityId:string){
     const next=cities.find(item=>item.revision.city.cityId===cityId)?.revision??null;
     if(base&&!submitted&&(selectedCity?.editable||selectedCity?.correctable)&&base.city.cityId!==next?.city.cityId&&!window.confirm("Switching cities discards unsent changes. Continue?"))return false;
@@ -187,11 +196,13 @@ export default function OrganizerPage() {
       <section className={styles.cityWorkspace}>
         {!base||!selectedCity?<div className={styles.emptyState}><span className={styles.emptyIcon}><Icon><path d="M3 21h18"/><path d="M5 21V7l7-4 7 4v14"/><path d="M9 21v-8h6v8"/></Icon></span><h2>Select a city</h2><p>Choose a city to manage its profile and services.</p></div>:<>
           <header className={styles.cityHeader}><div className={styles.cityIdentity}><span className={styles.cityAvatar}>{base.city.cityName.slice(0,1).toUpperCase()}</span><div><div className={styles.cityTitleRow}><h2>{base.city.cityName}</h2><span className={styles.statusBadge} data-state={selectedCity.status}>{stateLabel(selectedCity.status)}</span>{proCityIds.has(base.city.cityId)&&<span className={styles.proBadge}>Pro</span>}</div><p>bitcoinwalk.org/{base.city.slug}</p></div></div><div className={styles.headerActions}>{selectedCity.editable&&<a className={styles.secondaryAction} href={`/${encodeURIComponent(base.city.slug)}`} target="_blank" rel="noreferrer">View public page <Icon><path d="M14 3h7v7"/><path d="M10 14 21 3"/><path d="M21 14v7H3V3h7"/></Icon></a>}{selectedLogo?.href&&<a className={styles.secondaryAction} href={selectedLogo.href} target="_blank" rel="noreferrer">Logo pack</a>}</div></header>
+          {needsPayment&&dashboard.role!=="super-admin"&&<section className={styles.paymentRecovery} aria-labelledby="resume-pro-payment"><p className={styles.eyebrow}>Pro payment</p><h3 id="resume-pro-payment">Resume payment for {base.city.cityName}</h3><p>This continues the existing signed city submission. It will not create another city.</p>{(!selectedPayment||selectedPayment.status==="expired")&&<label>Your payout destination<input value={resumePayout} onChange={event=>setResumePayout(event.target.value)} placeholder="you@example.com or lnurl1…" autoComplete="off" spellCheck={false}/><small>Reconfirm the Lightning address or LNURL-pay destination for your 79% city share.</small></label>}<CityPayment key={`${base.event.id}:${selectedPayment?.id??"new"}`} cityId={base.city.cityId} revisionId={base.event.id} owner={base.event.pubkey} payoutDestination={resumePayout} initialPayment={selectedPayment??null} onPaid={()=>{setProCityIds(current=>new Set(current).add(base.city.cityId));setWorkspaceTab("pro");}}/></section>}
           {selectedCity&&!selectedCity.editable&&!selectedCity.correctable&&workspaceTab==="profile"?<div className={styles.statePanel}><span className={styles.stateIcon}>!</span><div><h3>{stateLabel(selectedCity.status)}</h3>{selectedCity.status==="rejected"?<ReviewerNote note={selectedCity.reviewNote} fallback="This application was declined and cannot be resubmitted as a correction. Contact BitcoinWalk if the circumstances have materially changed."/>:<p>{selectedCity.status==="archived"?"This city is read-only and hidden from public and active host views. Contact BitcoinWalk to request restoration.":selectedCity.status==="needs-changes"?"This request is waiting for the original host to make the requested correction. A super-admin cannot replace that host's signed submission.":"This request is awaiting super-admin review. Its public profile cannot be changed while that review is pending."}</p>}{proCityIds.has(base.city.cityId)&&selectedCity.status==="awaiting-approval"&&<button className={styles.primaryAction} type="button" onClick={()=>setWorkspaceTab("pro")}>Continue Pro setup</button>}</div></div>:<>
             {selectedCity.correctable&&<div className={styles.reviewPanel} aria-labelledby="correction-heading"><p className={styles.eyebrow}>Reviewer feedback</p><h3 id="correction-heading">Correct and resubmit {base.city.cityName}</h3><p>{selectedCity.reviewNote?.trim()||"No specific reason was provided. Review the submitted details carefully before resubmitting."}</p><small>Update the fields below, then submit a replacement. The original signed walks remain in history.</small></div>}
-            <nav className={styles.tabs} aria-label="City settings"><button type="button" aria-current={workspaceTab==="profile"?"page":undefined} onClick={()=>setWorkspaceTab("profile")}><Icon><path d="M4 21v-7a4 4 0 0 1 4-4h8a4 4 0 0 1 4 4v7"/><circle cx="12" cy="4" r="3"/></Icon>Profile</button>{proCityIds.has(base.city.cityId)&&<button type="button" aria-current={workspaceTab==="pro"?"page":undefined} onClick={()=>setWorkspaceTab("pro")}><Icon><path d="m12 3 2.2 4.5 4.9.7-3.6 3.5.9 4.9-4.4-2.3-4.4 2.3.9-4.9-3.6-3.5 4.9-.7z"/></Icon>Pro services</button>}</nav>
-            <div className={styles.proPanel}><IdleReminderSettings key={base.city.cityId} cityId={base.city.cityId}/></div>
+            <nav className={styles.tabs} aria-label="City settings"><button type="button" aria-current={workspaceTab==="profile"?"page":undefined} onClick={()=>setWorkspaceTab("profile")}><Icon><path d="M4 21v-7a4 4 0 0 1 4-4h8a4 4 0 0 1 4 4v7"/><circle cx="12" cy="4" r="3"/></Icon>Profile</button>{selectedGrant&&<button type="button" aria-current={workspaceTab==="editors"?"page":undefined} onClick={()=>setWorkspaceTab("editors")}><Icon><circle cx="9" cy="8" r="3"/><path d="M3 21v-4a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v4M17 11h4M19 9v4"/></Icon>Editors</button>}{proCityIds.has(base.city.cityId)&&<button type="button" aria-current={workspaceTab==="pro"?"page":undefined} onClick={()=>setWorkspaceTab("pro")}><Icon><path d="m12 3 2.2 4.5 4.9.7-3.6 3.5.9 4.9-4.4-2.3-4.4 2.3.9-4.9-3.6-3.5 4.9-.7z"/></Icon>Pro services</button>}</nav>
+            <div className={styles.proPanel} hidden={workspaceTab!=="profile"}><IdleReminderSettings key={base.city.cityId} cityId={base.city.cityId}/></div>
             {proCityIds.has(base.city.cityId)&&<div className={styles.proPanel} hidden={workspaceTab!=="pro"}>{dashboard.role==="super-admin"?<CityIdentityHealthDetails row={identityHealth.find(row=>row.cityId===base.city.cityId)} onRecheck={load}/>:<ProCitySetup enabled cityId={base.city.cityId} active={workspaceTab==="pro"} onClose={()=>setWorkspaceTab("profile")}/>}</div>}
+            {selectedGrant&&<div className={styles.editorsPanel} hidden={workspaceTab!=="editors"}><CityEditorsPanel record={selectedGrant} identity={identity} cityName={base.city.cityName}/></div>}
             <section className={styles.profilePanel} aria-labelledby="city-profile-heading" hidden={workspaceTab!=="profile"}>
               <div className={styles.panelHeading}><div><p className={styles.eyebrow}>{selectedCity.correctable?"Correction":"Public information"}</p><h3 id="city-profile-heading">{selectedCity.correctable?"City correction":"City profile"}</h3><p>{selectedCity.correctable?"Only this replacement can be reviewed. It stays private until approved.":"Edit the description, hero image and default meeting point shown across your city and walks."}</p></div></div>
               <form className={styles.editorForm} key={base.event.id} onSubmit={submit}>
