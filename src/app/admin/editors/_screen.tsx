@@ -15,8 +15,9 @@ import { watchPublicProfiles, type PublicProfile } from "../../../nostr/profiles
 import CityFinder from "../../../components/city-finder";
 import {cityOwnerPubkey} from "../../../domain/city";
 import {pendingCityEditorRequests,queryCityEditorRequests,type CityEditorRequestRecord} from "../../../nostr/city-editor-requests";
+import queueStyles from "../../../components/requests-screen.module.css";
 
-export default function EditorsScreen() {
+export default function EditorsScreen({requestsOnly=false}:{requestsOnly?:boolean}) {
   const lock=useRef(false);
   const feedbackRef=useRef<HTMLDivElement>(null);
   const [feedback,setFeedback]=useState<{kind:"success"|"error"; title:string; detail:string; addedKey?:string}|null>(null);
@@ -33,6 +34,7 @@ export default function EditorsScreen() {
   const record=records.find(r=>r.grant.cityId===selected);
   const [profiles,setProfiles]=useState<Record<string,PublicProfile>>({});
   const [requests,setRequests]=useState<CityEditorRequestRecord[]>([]);
+  const [loaded,setLoaded]=useState(false);
   const profileKeys=[...new Set(record?.grant.editorPubkeys ?? [])].sort().join(",");
   useEffect(()=>watchPublicProfiles(profileKeys ? profileKeys.split(",") : [],(key,profile)=>setProfiles(current=>({...current,[key]:profile}))),[profileKeys]);
 
@@ -44,16 +46,23 @@ export default function EditorsScreen() {
 
   const dashboard=useDashboard();
   useDashboardAutoLoad(load);
+  const refreshRequests=useRef(load);
+  useEffect(()=>{refreshRequests.current=load;});
+  useEffect(()=>{
+    const refresh=()=>{if(requestsOnly&&document.visibilityState==="visible")void refreshRequests.current();};
+    window.addEventListener("focus",refresh);
+    return()=>window.removeEventListener("focus",refresh);
+  },[requestsOnly]);
   async function load() {
     if(lock.current) return;
-    lock.current=true;setBusy(true);setRecords([]);setRequests([]);setNpub("");setFeedback(null);
+    lock.current=true;setBusy(true);setLoaded(false);setRecords([]);setRequests([]);setNpub("");setFeedback(null);
     setMessage("Loading registered cities from the relay…");
     try {
       if(!relayConfig.readRelays.length) throw new Error("No read relay configured.");
       await adminIdentity();
       const [grants,revisions,editorRequests]=await Promise.all([queryAuthorizations(relayConfig.readRelays),queryCityRevisions(relayConfig.readRelays),queryCityEditorRequests(relayConfig.readRelays)]);
       await adminIdentity();
-      const cities=latestCityGrants(grants).filter(r=>!dashboard.selectedCity||r.grant.cityId===dashboard.selectedCity);
+      const cities=latestCityGrants(grants).filter(r=>requestsOnly||!dashboard.selectedCity||r.grant.cityId===dashboard.selectedCity);
       const labels:Record<string,string>={},search:Record<string,string[]>={},timestamps:Record<string,number>={};
       for(const revision of revisions) if((timestamps[revision.city.cityId]??-1)<=revision.event.created_at){
         timestamps[revision.city.cityId]=revision.event.created_at;
@@ -61,9 +70,10 @@ export default function EditorsScreen() {
         search[revision.city.cityId]=[revision.city.slug,revision.city.cityId,...(revision.city.aliases??[])];
       }
       setNames(labels);setKeywords(search);setRecords(cities);
-      setRequests(pendingCityEditorRequests(editorRequests,cities));
+      const pending=pendingCityEditorRequests(editorRequests,cities);
+      setRequests(pending);setLoaded(true);
       setSelected(current=>dashboard.selectedCity&&cities.some(item=>item.grant.cityId===dashboard.selectedCity)?dashboard.selectedCity:cities.some(item=>item.grant.cityId===current)?current:"");
-      setMessage(cities.length ? `${cities.length} registered cities loaded. Select a city to manage its editors.` : "The relay completed the read but returned no registered cities. Check the staging relay selection before creating anything new.");
+      setMessage(requestsOnly?`${pending.length} city editor request${pending.length===1?"":"s"} awaiting approval.`:cities.length ? `${cities.length} registered cities loaded. Select a city to manage its editors.` : "The relay completed the read but returned no registered cities. Check the staging relay selection before creating anything new.");
     } catch(error) {
       const detail=error instanceof Error ? error.message : "Could not load editors.";
       setMessage(detail);setFeedback({kind:"error",title:"Could not load city editors",detail});
@@ -108,22 +118,23 @@ export default function EditorsScreen() {
       const detail=error instanceof Error ? error.message : "Permission update failed.";
       setMessage(detail);
       setFeedback({kind:"error",title:acknowledged ? "Update received — confirmation incomplete" : "Editor change not confirmed",detail});
-      if(acknowledged) {setRecords([]);setSelected("");}
+      if(acknowledged) {setRecords([]);setRequests([]);setLoaded(false);setSelected("");}
     } finally {lock.current=false;setBusy(false);}
   }
 
-  return <section>
-    <h2>City editors</h2>
-    <p>Enter public npubs only; never paste an nsec. These permissions apply to a whole city, not to hosting one walk.</p>
+  return <section className={requestsOnly?queueStyles.module:undefined}>
+    <h2>{requestsOnly?`City editor requests${loaded?` (${requests.length})`:""}`:"City editors"}</h2>
+    <p>{requestsOnly?"Review owner-requested additions and removals. Access changes only after your approval; a removal request does not revoke access yet.":"Enter public npubs only; never paste an nsec. These permissions apply to a whole city, not to hosting one walk."}</p>
     <button disabled={busy} onClick={load}>{busy?"Loading editors…":"Refresh city editors"}</button>
     <p role="status" aria-live="polite">{message}</p>
-    {!!requests.length&&<section><h2>Owner requests</h2><p>Each request was signed by the current city owner against the exact editor list shown when they submitted it. Your signature applies the final permission change.</p><ul>{requests.map(row=>{const ownerRecord=records.find(item=>item.grant.cityId===row.request.cityId);return <li key={row.event.id}><strong>{names[row.request.cityId]??"City"}</strong>{" — "}{row.request.action==="add"?"Add":"Remove"} <code>{nip19.npubEncode(row.request.editorPubkey)}</code>{ownerRecord&&<button disabled={busy} onClick={()=>void change(row.request.action,row.request.editorPubkey,ownerRecord)}>Review and apply</button>}</li>;})}</ul></section>}
-    <CityFinder disabled={busy||!records.length} label="City" placeholder="Search cities to manage editors…" value={selected} onChange={cityId=>{setSelected(cityId);setNpub("");setFeedback(null);}} items={records.map(item=>({id:item.grant.cityId,name:names[item.grant.cityId]??"City",keywords:keywords[item.grant.cityId]??[item.grant.cityId]}))}/>
+    {!!requests.length&&<section>{!requestsOnly&&<h2>Owner requests</h2>}<p>Each request was signed by the current city owner. Your signature applies the final permission change.</p><div className={queueStyles.activationList}>{requests.map(row=>{const ownerRecord=records.find(item=>item.grant.cityId===row.request.cityId);return <section className={queueStyles.activationCard} key={row.event.id}><h3>{names[row.request.cityId]??"City"} — {row.request.action==="add"?"Add editor":"Remove editor"}</h3><p className={queueStyles.identityMeta}>Requested by owner: <code>{nip19.npubEncode(row.event.pubkey)}</code></p><p className={queueStyles.identityMeta}>Editor: <code>{nip19.npubEncode(row.request.editorPubkey)}</code></p><p>{row.request.action==="add"?"No access granted yet. Approval permits edits for this city only.":"Access remains active until this removal is approved."}</p>{ownerRecord&&<button className={queueStyles.primaryAction} disabled={busy} onClick={()=>void change(row.request.action,row.request.editorPubkey,ownerRecord)}>Review and apply</button>}</section>;})}</div></section>}
+    {requestsOnly&&loaded&&!requests.length&&<p className={queueStyles.empty}>No city editor requests need approval.</p>}
+    {!requestsOnly&&<CityFinder disabled={busy||!records.length} label="City" placeholder="Search cities to manage editors…" value={selected} onChange={cityId=>{setSelected(cityId);setNpub("");setFeedback(null);}} items={records.map(item=>({id:item.grant.cityId,name:names[item.grant.cityId]??"City",keywords:keywords[item.grant.cityId]??[item.grant.cityId]}))}/>}
     {feedback && <div ref={feedbackRef} tabIndex={-1} role={feedback.kind==="success" ? "status" : "alert"} aria-atomic="true" className={`${styles.feedback} ${feedback.kind==="success" ? styles.success : styles.error}`}>
       <strong>{feedback.kind==="success" ? "✓ " : "! "}{feedback.title}</strong>
       <p>{feedback.detail}</p>
     </div>}
-    {record && <section>
+    {!requestsOnly&&record && <section>
       <h2>{names[selected] ?? "City editors"}</h2><p>City UUID: {selected}</p>
       <p>The current owner cannot be removed. After an ownership transfer, the original creator remains immutable historical provenance but no longer has to retain access. The super-admin always retains access to every city.</p>
       <p>Names and photos come from public Nostr profiles and are not identity verification. Always check the npub. Profile relays receive these public-key lookups; external image hosts receive avatar requests.</p>

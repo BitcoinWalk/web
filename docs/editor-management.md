@@ -13,6 +13,12 @@ current city owner and rejects stale authorization references, owner removal,
 already-applied changes, malformed keys and additions beyond the 100-editor limit.
 
 The request appears under **Hosts → Editors** for the BitcoinWalk super-admin.
+The same pending requests now also appear in **Requests → City editor requests**
+(local implementation, not yet deployed). Both views reuse the same signed
+approval handler and current-authorization filtering. The central queue includes
+all cities, displays the requesting owner's and editor's public npubs, and makes
+clear that removal requests leave access active until approval. Applied or stale
+requests are excluded on reload; the central queue also refreshes on window focus.
 Applying it uses the existing kind-30302 permission update, including confirmation,
 fresh-state checks, the super-admin signature, relay acknowledgement and exact
 read-back. Once that grant changes, any other request against its predecessor is

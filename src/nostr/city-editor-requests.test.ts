@@ -18,4 +18,13 @@ describe("city editor requests",()=>{
     const event=finalizeEvent(createCityEditorRequest(record(),owner,"add",editor,2),ownerKey),parsed=parseCityEditorRequest(event)!;
     expect(pendingCityEditorRequests([parsed],[record([owner,editor])])).toEqual([]);
   });
+  it("removes a removal request from both queue views when the signed grant changes",()=>{
+    const before=record([owner,editor]);
+    const request=parseCityEditorRequest(finalizeEvent(createCityEditorRequest(before,owner,"remove",editor,2),ownerKey))!;
+    expect(pendingCityEditorRequests([request],[before])).toHaveLength(1);
+    const after=record();after.event={...after.event,id:"d".repeat(64),created_at:3};
+    expect(pendingCityEditorRequests([request],[after])).toEqual([]);
+    const changed=record([owner,editor]);changed.event={...changed.event,id:"e".repeat(64)};
+    expect(pendingCityEditorRequests([request],[changed])).toEqual([]);
+  });
 });

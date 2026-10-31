@@ -3,8 +3,16 @@ import {createElement} from "react";
 import {renderToStaticMarkup} from "react-dom/server";
 import {describe,expect,it} from "vitest";
 import RequestsPage from "./page";
+import {DashboardContext,emptyDashboardSession} from "../../../components/dashboard-context";
+import {SUPER_ADMIN_PUBKEY} from "../../../nostr/authority";
 
 describe("city request review interface",()=>{
+ it("shows city editor requests only to the super-admin",()=>{
+  const admin=renderToStaticMarkup(createElement(DashboardContext.Provider,{value:{...emptyDashboardSession,role:"super-admin",pubkey:SUPER_ADMIN_PUBKEY}},createElement(RequestsPage)));
+  expect(admin).toContain("City editor requests");
+  const organizer=renderToStaticMarkup(createElement(DashboardContext.Provider,{value:{...emptyDashboardSession,role:"organizer",pubkey:"a".repeat(64)}},createElement(RequestsPage)));
+  expect(organizer).not.toContain("City editor requests");
+ });
  const source=readFileSync(new URL("../_approvals-screen.tsx",import.meta.url),"utf8"),styles=readFileSync(new URL("../../styles.css",import.meta.url),"utf8");
  it("renders the three city-lifecycle action queues without the redundant summary",()=>{const html=renderToStaticMarkup(createElement(RequestsPage)),screen=readFileSync(new URL("../../../components/requests-screen.tsx",import.meta.url),"utf8");expect(html).toContain("<h1>Requests</h1>");expect(screen).toContain("<SuperAdminActionQueue");expect(screen).toContain("<CityBrandReview");expect(html).toContain("City request queue (0)");expect(html).toContain('role="combobox"');expect(html).toContain("Search waiting city requests…");expect(html).not.toContain("City request queues");});
  it("keeps machine service checks outside approval actions",()=>{const source=readFileSync(new URL("../../../components/super-admin-action-queue.tsx",import.meta.url),"utf8");expect(source).toContain("identityApprovalProblems");expect(source).toContain("no approval required");expect(source).not.toContain('action:"retry-city-provisioning"');expect(source).toContain("Open host setup");expect(source).toContain("Review activation request");});
