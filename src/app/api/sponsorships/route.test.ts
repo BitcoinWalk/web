@@ -6,7 +6,9 @@ import {SUPER_ADMIN_PUBKEY} from "../../../nostr/authority";
 import {promoteSponsorDraftLogo} from "../../../server/sponsor-logo-store";
 import {POST} from "./route";
 import {listProCityIdentityHealth} from "../../../server/pro-city-identity-health";
+import {loadProCommunityHandoffOutcomes} from "../../../server/pro-community-handoff";
 vi.mock("../../../server/pro-city-identity-health",()=>({listProCityIdentityHealth:vi.fn()}));
+vi.mock("../../../server/pro-community-handoff",()=>({loadProCommunityHandoffOutcomes:vi.fn()}));
 const sponsors=vi.hoisted(()=>({create:vi.fn(),createBatch:vi.fn(),status:vi.fn(),acknowledgeRecovery:vi.fn(),saveDraft:vi.fn(),claim:vi.fn(),list:vi.fn(),mine:vi.fn(),available:vi.fn(),outcomeReport:vi.fn()}));
 vi.mock("../../../server/sponsor-logo-store",()=>({promoteSponsorDraftLogo:vi.fn()}));
 vi.mock("../../../payments/runtime",()=>({getPaymentRuntime:()=>({sponsors})}));
@@ -17,12 +19,14 @@ describe("sponsor checkout authorization",()=>{
  it("returns only aggregate profile results to a signed super-admin without touching payment operations",async()=>{
   vi.spyOn(sponsorAuth,"authorizeSponsor").mockReturnValue(SUPER_ADMIN_PUBKEY);
   vi.mocked(listProCityIdentityHealth).mockResolvedValue([{cityId:"private-id",cityName:"Private",slug:"private",availableInEnvironment:true,tier:"pro",status:"complete",checkedAt:100,checks:[]}]);
-  const response=await POST(request({action:"profile-outcomes",event:{}}));expect(response.status).toBe(200);const data=await response.json();expect(data.profiles).toMatchObject({checked:1,complete:1,unknown:0});expect(JSON.stringify(data)).not.toMatch(/private|Private/);expect(response.headers.get("cache-control")).toBe("no-store");expect(sponsors.list).not.toHaveBeenCalled();expect(sponsors.create).not.toHaveBeenCalled();
+  vi.mocked(loadProCommunityHandoffOutcomes).mockResolvedValue({checked:1,confirmed:1,actionRequired:0,unknown:0,checkedAt:100});
+  const response=await POST(request({action:"profile-outcomes",event:{}}));expect(response.status).toBe(200);const data=await response.json();expect(data.profiles).toMatchObject({checked:1,complete:1,unknown:0});expect(data.communityHandoff).toEqual({checked:1,confirmed:1,actionRequired:0,unknown:0,checkedAt:expect.any(Number)});expect(JSON.stringify(data)).not.toMatch(/private|Private|pubkey|relay|group/i);expect(response.headers.get("cache-control")).toBe("no-store");expect(loadProCommunityHandoffOutcomes).toHaveBeenCalledWith(SUPER_ADMIN_PUBKEY,expect.any(Array),expect.any(Number));expect(sponsors.list).not.toHaveBeenCalled();expect(sponsors.create).not.toHaveBeenCalled();
  });
  it("rejects ordinary, unsigned, wrong-action and foreign-origin profile requests before checking",async()=>{
   const key=generateSecretKey();
   for(const [event,source] of [[finalizeEvent(sponsorRequest("profile-outcomes",origin),key),origin],[{},origin],[finalizeEvent(sponsorRequest("list",origin),key),origin],[{},"https://other.example"]] as const)expect((await POST(request({action:"profile-outcomes",event},source))).status).toBe(403);
   expect(listProCityIdentityHealth).not.toHaveBeenCalled();
+  expect(loadProCommunityHandoffOutcomes).not.toHaveBeenCalled();
  });
  it("reports failed profile reads as unavailable and redacts provider errors",async()=>{
   vi.spyOn(sponsorAuth,"authorizeSponsor").mockReturnValue(SUPER_ADMIN_PUBKEY);vi.mocked(listProCityIdentityHealth).mockRejectedValue(Error("private provider secret"));

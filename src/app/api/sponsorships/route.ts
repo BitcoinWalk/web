@@ -7,6 +7,7 @@ import {SUPER_ADMIN_PUBKEY} from "../../../nostr/authority";
 import {promoteSponsorDraftLogo} from "../../../server/sponsor-logo-store";
 import {listProCityIdentityHealth} from "../../../server/pro-city-identity-health";
 import {proProfileOutcomes} from "../../../domain/pro-profile-outcomes";
+import {loadProCommunityHandoffOutcomes} from "../../../server/pro-community-handoff";
 export const dynamic="force-dynamic",runtime="nodejs";
 const headers={"Cache-Control":"no-store"},token=z.string().regex(/^[a-f0-9]{64}$/),event=z.custom<Event>(value=>!!value&&typeof value==="object");
 const command=z.discriminatedUnion("action",[
@@ -30,8 +31,8 @@ export async function POST(request:Request){
  try{
   let actor:string|undefined;if(body.action==="list"||body.action==="mine"||body.action==="claim"||body.action==="profile-outcomes"){try{actor=authorizeSponsor(body.event,origin,body.action,body.action==="claim"?body.id:undefined);}catch{return Response.json({error:"A valid Nostr signature is required."},{status:403,headers});}if((body.action==="list"||body.action==="profile-outcomes")&&actor!==SUPER_ADMIN_PUBKEY)return Response.json({error:"Super-admin access required."},{status:403,headers});}
   if(body.action==="profile-outcomes"){
-   try{return Response.json({profiles:proProfileOutcomes(await listProCityIdentityHealth(actor!),Math.floor(Date.now()/1000))},{headers});}
-   catch{return Response.json({error:"Pro profile checks are unavailable. Retry; payment reporting is unaffected."},{status:503,headers});}
+   try{const checkedAt=Math.floor(Date.now()/1000),health=await listProCityIdentityHealth(actor!);return Response.json({profiles:proProfileOutcomes(health,checkedAt),communityHandoff:await loadProCommunityHandoffOutcomes(actor!,health,checkedAt)},{headers});}
+   catch{return Response.json({error:"Pro outcome checks are unavailable. Retry; payment reporting is unaffected."},{status:503,headers});}
   }
   const service=getPaymentRuntime().sponsors;
   if(body.action==="preview-invitation"){const invitation=await service.previewInvitation(body.invitationToken);return invitation?Response.json({invitation},{headers}):Response.json({error:"This sponsor invitation is invalid, expired, revoked or no longer eligible."},{status:404,headers});}
