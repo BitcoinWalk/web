@@ -49,6 +49,12 @@ disable the timer and service, turn off the app flag and `idleEnabled`, restore
 the previous bundle only, and retain the live outbox/cooldown state. Do not restore
 an older delivery database merely to retry a deployment: it can replay messages.
 
+The user nominated Chlef for the staging pilot on 31 October 2026. Its current
+controlling organizer was resolved from verified staging approval and ownership
+records; no public city-profile identity was substituted and no message was sent.
+The merged implementation passes 398 test files / 2,399 tests, type checking,
+the application build and lint (zero errors; eight existing warnings).
+
 Still required: signed-in staging UI acceptance, an allow-listed organizer's real
 NIP-17 receipt, packaged service installation/backup rehearsal, and a reviewed
 production dry run. No deployment or real reminder has been performed.
