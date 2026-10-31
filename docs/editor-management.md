@@ -3,6 +3,27 @@
 Current staging URL: https://app-staging.bitcoinwalk.org/admin/cities?tab=editors
 (Cities → Editors). The legacy `/admin/editors` route redirects to the unified dashboard.
 
+## Owner-requested editors — 30 October 2026
+
+Existing city owners now have an **Editors** tab in **My cities**. They enter only
+the additional organizer's public npub and sign an add or removal request. The
+request is kind `30314` and references the exact current super-admin authorization;
+it does not itself grant access. The organizer relay accepts it only from the
+current city owner and rejects stale authorization references, owner removal,
+already-applied changes, malformed keys and additions beyond the 100-editor limit.
+
+The request appears under **Hosts → Editors** for the BitcoinWalk super-admin.
+Applying it uses the existing kind-30302 permission update, including confirmation,
+fresh-state checks, the super-admin signature, relay acknowledgement and exact
+read-back. Once that grant changes, any other request against its predecessor is
+stale and disappears; the owner must refresh and review the new list before another
+change. Added editors use their own Nostr accounts. No nsec is shared, and editor
+access does not automatically add chat membership or permit onward delegation.
+
+Deploy the relay policy before the app. Staging acceptance requires a real owner
+request, super-admin application, intended-city edit, unrelated-city isolation and
+removal/revocation check before production promotion.
+
 ## BW-11 acceptance review — 29 September 2026
 
 Staging health reports `app-staging-0.3.83`. The four focused suites for editor
