@@ -167,7 +167,7 @@ The 16 October onboarding reconciliation established the product lane BW-153 →
 | ID | State | Resume gate |
 |---|---|---|
 | **BW-108** | Blocked | A willing real city owner is available to sign and verify the ownership/recovery transfer. |
-| **BW-112** | Blocked | A real eligible organizer is available to receive and confirm the bounded reminder flow. |
+| **BW-112** | In progress — acceptance gate | Local bounded-reminder implementation started on user approval, 31 October 2026. A willing allow-listed organizer is still needed for staging receipt acceptance; production reminders remain disabled. |
 | **BW-119** | Blocked | Graz organizer completes the retained production payout/signer/proof steps. |
 | **BW-96** | Blocked | A genuine directory transition occurs and its organizer can confirm the Guide message. |
 | **BW-10** | Blocked | The named external clients provide a supported discovery/import path and consent where required. |
@@ -450,7 +450,7 @@ No stage status, dependency or blocker changed in this review. BW-112 remains pl
 
 | ID | Stage | Item | Status | Depends on | Notes |
 |---|---:|---|---|---|---|
-| BW-112 | 5, 6, 10 | Guide nudges for organizers with no scheduled walks | 🔴 Blocked | BW-42, BW-39, BW-38 | Proposed daily cron scan; first private reminder after seven verified idle days, one follow-up fourteen days later, then pause for that idle period. Group cities by current controlling organizer; exclude suspended/disapproved/archived cities, recheck before delivery, reuse durable NIP-17 retry, and support snooze/opt-out. Direct CTA: https://bitcoinwalk.org/admin/walks. No reminders are enabled. See [communication and implementation plan](guide-idle-organizer-reminders.md). The item is held until a real eligible organizer is available for private receipt, owner-change, scheduling-cancellation, restart-deduplication and cooldown acceptance; do not generate a production reminder solely to manufacture evidence. |
+| BW-112 | 5, 6, 10 | Guide nudges for organizers with no scheduled walks | 🟠 In progress | BW-42, BW-39, BW-38 | User resumed implementation on 31 October 2026. Local pilot adds complete-read owner/calendar/moderation snapshots, private owner-only on/off and 30/90-day snooze settings in My cities, durable seven-day grace and fourteen-day follow-up, grouped cities, recipient cooldown, conservative two-envelope cap, delivery-time rechecks and exact encrypted retries. Independent disabled timer/runner reuses Guide transport; both environment flag and explicit recipient allow-list are required. Automated controlled-clock and authorization checks pass. No deployment, timer activation or real reminder performed. Remaining: signed-in staging UI and consenting organizer receipt, service/backup rehearsal, reviewed production dry run. See [communication and implementation plan](guide-idle-organizer-reminders.md). Never change production walk dates or generate a reminder solely to manufacture evidence. |
 
 ## City directory and organizer-owned relay onboarding — 7 October 2026
 

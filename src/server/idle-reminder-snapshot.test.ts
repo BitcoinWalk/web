@@ -1,0 +1,24 @@
+import {beforeEach,afterEach,describe,it,expect,vi} from "vitest";
+import {DatabaseSync} from "node:sqlite";
+import {idleReminderSnapshot} from "./idle-reminder-snapshot";
+import {IdleReminderPreferences} from "./idle-reminder-preferences";
+import {queryAuthorizations,queryCalendarEvents,queryDirectoryRecords,queryRelayEvents} from "../nostr/city-records";
+import {approvedCalendarWalks} from "../nostr/calendar-records";
+import {managedCalendarEvents} from "../domain/event-routing";
+import {parseEventModeration} from "../nostr/event-moderation";
+vi.mock("../nostr/city-records",()=>({queryAuthorizations:vi.fn(),queryCalendarEvents:vi.fn(),queryDirectoryRecords:vi.fn(),queryRelayEvents:vi.fn()}));
+vi.mock("../nostr/calendar-records",()=>({approvedCalendarWalks:vi.fn()}));
+vi.mock("../domain/event-routing",()=>({managedCalendarEvents:vi.fn()}));
+vi.mock("../nostr/event-moderation",async original=>({...await original<typeof import("../nostr/event-moderation")>(),parseEventModeration:vi.fn()}));
+const city="10000000-0000-4000-8000-000000000001",owner="a".repeat(64),creator="b".repeat(64);
+let db:DatabaseSync,preferences:IdleReminderPreferences;
+beforeEach(()=>{vi.resetAllMocks();db=new DatabaseSync(":memory:");preferences=new IdleReminderPreferences(db);vi.mocked(queryDirectoryRecords).mockResolvedValue({revisions:[],approvals:[]});vi.mocked(queryAuthorizations).mockResolvedValue([{event:{created_at:1,id:"c".repeat(64)},grant:{cityId:city,creatorPubkey:creator,ownerPubkey:owner}}] as never);vi.mocked(queryRelayEvents).mockResolvedValue([]);vi.mocked(queryCalendarEvents).mockResolvedValue([]);vi.mocked(approvedCalendarWalks).mockReturnValue([{revision:{city:{cityId:city,cityName:"Bangkok"}}}] as never);vi.mocked(managedCalendarEvents).mockReturnValue([]);});
+afterEach(()=>{db.close();vi.unstubAllEnvs();});
+describe("authoritative reminder snapshot",()=>{
+ it("uses controlling owner, never creator, and defaults to paused",async()=>{const report=await idleReminderSnapshot(preferences,100);expect(report.paused).toBe(true);expect(report.cities[0]).toMatchObject({recipient:owner,empty:true,allowed:true});});
+ it("does not count active, grace or upcoming walks as idle",async()=>{for(const status of ["active","grace","upcoming"]){vi.mocked(managedCalendarEvents).mockReturnValue([{status}] as never);expect((await idleReminderSnapshot(preferences,100)).cities[0].empty).toBe(false);}});
+ it("omits cities without current ownership evidence",async()=>{vi.mocked(queryAuthorizations).mockResolvedValue([]);expect((await idleReminderSnapshot(preferences,100)).cities).toEqual([]);});
+ it("suppresses snoozed and suspended cities",async()=>{preferences.save(city,owner,{action:"save",cityId:city,choice:"30",version:0},100);expect((await idleReminderSnapshot(preferences,101)).cities[0].allowed).toBe(false);preferences.save(city,owner,{action:"save",cityId:city,choice:"on",version:1},102);vi.mocked(queryRelayEvents).mockResolvedValue([{}] as never);vi.mocked(parseEventModeration).mockReturnValue({event:{created_at:1,id:"c".repeat(64)},decision:{cityId:city,scope:"city",target:city,status:"suspended"}} as never);expect((await idleReminderSnapshot(preferences,103)).cities[0].allowed).toBe(false);});
+ it("refuses partial or saturated reads instead of reporting an empty schedule",async()=>{vi.mocked(queryCalendarEvents).mockRejectedValueOnce(new Error("timeout"));await expect(idleReminderSnapshot(preferences,100)).rejects.toThrow();vi.mocked(queryCalendarEvents).mockResolvedValue(Array(500).fill({}));await expect(idleReminderSnapshot(preferences,100)).rejects.toThrow("Incomplete calendar");});
+ it("refuses unverified moderation evidence",async()=>{vi.mocked(queryRelayEvents).mockResolvedValue([{}] as never);vi.mocked(parseEventModeration).mockReturnValue(null);await expect(idleReminderSnapshot(preferences,100)).rejects.toThrow("Unverified moderation");});
+});

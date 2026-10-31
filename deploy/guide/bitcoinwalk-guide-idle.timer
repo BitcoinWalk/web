@@ -1,0 +1,10 @@
+[Unit]
+Description=Daily bounded Guide idle scan (install disabled until acceptance)
+
+[Timer]
+OnCalendar=*-*-* 10:15:00 UTC
+Persistent=true
+Unit=bitcoinwalk-guide-idle.service
+
+[Install]
+WantedBy=timers.target

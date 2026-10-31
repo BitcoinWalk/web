@@ -1,0 +1,29 @@
+[Unit]
+Description=BitcoinWalk bounded idle-organizer reminder pilot
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+DynamicUser=yes
+StateDirectory=bitcoinwalk-guide-idle
+StateDirectoryMode=0700
+LoadCredential=guide-key:/etc/bitcoinwalk-guide/guide-key
+Environment=GUIDE_CONFIG=/etc/bitcoinwalk-guide/idle-config.json
+# Review runtime and configuration paths for the target environment before installing.
+ExecStart=/usr/bin/flock -n /var/lib/bitcoinwalk-guide-idle/scan.lock /opt/bitcoinwalk-app-staging/runtime/bin/node /opt/bitcoinwalk-guide/idle.cjs --once
+TimeoutStartSec=5min
+MemoryMax=256M
+UMask=0077
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+CapabilityBoundingSet=
+LimitCORE=0
