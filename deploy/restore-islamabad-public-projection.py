@@ -52,7 +52,17 @@ if conflict:
     raise SystemExit("Islamabad request authority is already bound to another city.")
 authority_fields = ("request", "reserved_config", "activation_config", "proof", "public_origin")
 differences = [key for key in authority_fields if previous and previous[key] != row[key]]
-if differences:
+safe_version_upgrade = False
+if differences == ["reserved_config", "activation_config"]:
+    current_reserved, approved_reserved = json.loads(previous["reserved_config"]), json.loads(row["reserved_config"])
+    current_activation, approved_activation = json.loads(previous["activation_config"]), json.loads(row["activation_config"])
+    def without_payout_version(value):
+        return {key: item for key, item in value.items() if key != "payoutVersion"}
+    safe_version_upgrade = (current_reserved.get("payoutVersion") == current_activation.get("payoutVersion") == 3 and
+                            approved_reserved.get("payoutVersion") == approved_activation.get("payoutVersion") == 4 and
+                            without_payout_version(current_reserved) == without_payout_version(approved_reserved) and
+                            without_payout_version(current_activation) == without_payout_version(approved_activation))
+if differences and not safe_version_upgrade:
     target_config = json.loads(previous["activation_config"])
     safe = {
         "result": "EXISTING_PROJECTION_DIFFERS",
@@ -69,7 +79,7 @@ values = [row[key] for key in COLUMNS]
 values[6:12] = ["verifying", "provisioning", "provisioning", None, 0, int(time.time() * 1000)]
 target.execute("BEGIN IMMEDIATE")
 if previous:
-    target.execute("UPDATE rustress_activation_task SET phase='verifying',nip05='provisioning',lnurl='provisioning',lease=NULL,until=0,updated_at=? WHERE city=?", (values[-1], CITY))
+    target.execute("UPDATE rustress_activation_task SET reserved_config=?,activation_config=?,phase='verifying',nip05='provisioning',lnurl='provisioning',lease=NULL,until=0,updated_at=? WHERE city=?", (row["reserved_config"], row["activation_config"], values[-1], CITY))
 else:
     target.execute(f"INSERT INTO rustress_activation_task({','.join(COLUMNS)}) VALUES({','.join('?' for _ in COLUMNS)})", values)
 target.commit()
