@@ -11,7 +11,7 @@ import {CityBrandStore} from "../directory/city-brand-store";
 import {ProSetupTaskStore} from "../payments/pro-setup-task-store";
 import {PayoutDestinationStore} from "../payments/payout-destination-store";
 import {cityBrandProofTemplate} from "../nostr/city-brand";
-import {brandPublicationDependencies, proSetupDependencies, resolveRustressActivationEvidence, resolveRustressProvisionEvidence} from "./pro-setup";
+import {brandPublicationDependencies, proSetupDependencies, resolveRustressActivationEvidence, resolveRustressAuthorityRefreshEvidence, resolveRustressProvisionEvidence} from "./pro-setup";
 import {createCityActivation} from "../rustress/activation-contract";
 import * as lnurl from "./lnurl-pay";
 
@@ -98,4 +98,10 @@ it("uses a fresh owner-signed payout before initial provisioning without replaci
   const result=await resolveRustressProvisionEvidence(requestId);
   expect(result.config).toMatchObject({payoutVersion:2,payoutDestination:changed.normalized,brandEventId:signed.id});
   expect(db.prepare("SELECT COUNT(*) total FROM city_brand_request").get()).toEqual({total:1});
+});
+it("refreshes changed administrative authority without rotating identity or payout",async()=>{
+ const first=await resolveRustressActivationEvidence(requestId),active=createCityActivation(first.reserved),nextApproval="9".repeat(64);
+ vi.mocked(proSetupDependencies.snapshot).mockResolvedValue({revisions:[{event:{id:revisionId,pubkey:admin,created_at:1,kind:30304,tags:[],content:"",sig:""},city:{cityId,slug:"test",cityName:"Test",description:"Test",startAt:"2030-01-01T10:00:00Z",meetingPoint:{description:"Square",latitude:1,longitude:2}}}],approvals:[{event:{id:nextApproval,pubkey:admin,created_at:2,kind:30304,tags:[],content:"",sig:""},approval:{cityId,cityRevisionId:revisionId,status:"approved"}}]});
+ const result=await resolveRustressAuthorityRefreshEvidence(cityId,active);
+ expect(result.config).toEqual({...active,version:active.version+1,approvalEventId:nextApproval});expect(result.proofHash).toMatch(/^[0-9a-f]{64}$/);
 });
