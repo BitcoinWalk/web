@@ -39,9 +39,11 @@ if (row["public_origin"] != "https://bitcoinwalk.org" or config.get("cityId") !=
         config.get("retainedBasisPoints") != 2100 or not isinstance(config.get("brandPubkey"), str) or
         len(config["brandPubkey"]) != 64):
     raise SystemExit("Islamabad staging activation evidence does not match the approved public projection.")
-source.close()
 
 backup = pathlib.Path(tempfile.mkdtemp(prefix="islamabad-public-projection-restore-", dir="/home/bitcoinwalk/backups"))
+with sqlite3.connect(backup / "staging.before.sqlite") as saved:
+    source.backup(saved)
+source.close()
 target = sqlite3.connect(TARGET, timeout=30)
 target.row_factory = sqlite3.Row
 with sqlite3.connect(backup / "payments.before.sqlite") as saved:
@@ -100,6 +102,24 @@ try:
         raise RuntimeError("Islamabad Lightning metadata did not pass public read-back.")
     target.execute("UPDATE rustress_activation_task SET phase='active',nip05='active',lnurl='active',updated_at=? WHERE city=?", (int(time.time() * 1000), CITY))
     target.commit()
+
+    # The public projection and its read-back are now exact. Record that same
+    # result in staging without changing any authority or payout evidence.
+    staging = sqlite3.connect(SOURCE, timeout=30)
+    current = staging.execute(f"SELECT {','.join(COLUMNS)} FROM rustress_activation_task WHERE city=?", (CITY,)).fetchone()
+    authority = tuple(current[index] for index in range(1, 6)) if current else ()
+    expected = tuple(row[key] for key in COLUMNS[1:6])
+    if authority != expected or current[9] is not None and current[10] > int(time.time() * 1000):
+        staging.close()
+        raise RuntimeError("Islamabad staging evidence changed during public verification.")
+    updated = staging.execute("UPDATE rustress_activation_task SET phase='active',nip05='active',lnurl='active',lease=NULL,until=0,updated_at=? WHERE city=? AND request=? AND reserved_config=? AND activation_config=? AND proof=? AND public_origin=?",
+                             (int(time.time() * 1000), CITY, row["request"], row["reserved_config"], row["activation_config"], row["proof"], row["public_origin"]))
+    if updated.rowcount != 1:
+        staging.rollback()
+        staging.close()
+        raise RuntimeError("Islamabad staging status was not reconciled.")
+    staging.commit()
+    staging.close()
 except Exception:
     target.execute("BEGIN IMMEDIATE")
     if previous:
@@ -112,4 +132,5 @@ finally:
     target.close()
 
 os.chmod(backup / "payments.before.sqlite", 0o600)
-print(json.dumps({"result": "ISLAMABAD_PUBLIC_PROJECTION_RESTORED", "cityId": CITY, "nip05": "active", "lnurl": "active", "backup": str(backup), "payoutEnrolmentEnabled": False}))
+os.chmod(backup / "staging.before.sqlite", 0o600)
+print(json.dumps({"result": "ISLAMABAD_PUBLIC_PROJECTION_RESTORED", "cityId": CITY, "nip05": "active", "lnurl": "active", "stagingReconciled": True, "backup": str(backup), "payoutEnrolmentEnabled": False}))
