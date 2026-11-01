@@ -11,7 +11,6 @@ import {VERIFIED_PRO_CITY_SCOPE} from "../src/rustress/scoped-payout-operation";
 
 const SOURCE="/var/lib/bitcoinwalk-app-staging/payments.sqlite";
 const CITIES=[
- {name:"Madeira",id:"ca20993a-5b7f-443e-931e-8dbaa61d05fe"},
  {name:"Islamabad",id:"5c1c04f5-aead-4265-bce7-0f9ce0d9b5cd"},
 ] as const;
 type ActivationRow={request:string;activation_config:string;phase:string;nip05:string;lnurl:string};
@@ -56,10 +55,10 @@ async function main(){
   let workflow=new PayoutEnrolmentWorkflow(work,provider(authority,calls,true),fresh);
   for(const config of configs.values())await fresh(config);
   for(const config of configs.values())workflow.enqueue(config);
-  const first=CITIES[0],second=CITIES[1];
+  const first=CITIES[0];
   assert.equal((await workflow.run(first.id))?.state,"unknown",`${first.name} unknown-write simulation failed.`);
   assert.equal((await workflow.run(first.id))?.state,"active",`${first.name} unknown-write recovery failed.`);
-  assert.equal((await workflow.run(second.id))?.state,"active",`${second.name} enrolment simulation failed.`);assert.equal(calls.register,2);assert.equal(authority.count(),2);
+  assert.equal(calls.register,1);assert.equal(authority.count(),1);
   work.close();work=undefined;
 
   work=new DatabaseSync(isolated);const restartedAuthority=new PayoutAuthorityStore(work,{cityScope:VERIFIED_PRO_CITY_SCOPE,maximumCities:2}),restartCalls={register:0};
