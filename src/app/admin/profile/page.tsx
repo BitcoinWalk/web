@@ -28,11 +28,11 @@ export function CityProfile({cityId,actor}:{cityId:string;actor:string}){
  return <section className={styles.panel} id="city-profile" aria-labelledby="city-profile-title">
   <h2 id="city-profile-title">Nostr addresses{preview?` · ${preview.cityName}`:""}</h2>
   <p>Use your BitcoinWalk addresses on Nostr without editing your profile in another app.</p>
-  <div className={styles.addresses}>
-   <label className={styles.selector}>NIP-05 · verified public address<input readOnly value={preview?.profile.nip05??""} placeholder="Check verified addresses to load your NIP-05" /></label>
-   <label className={styles.selector}>LNURL · public Lightning address<input readOnly value={preview?.profile.lud16??""} placeholder="Check verified addresses to load your Lightning address" /></label>
-  </div>
-  <p className={styles.hint}>These city addresses are assigned by BitcoinWalk and verified before publishing. They are not your private payout wallet.</p>
+  <dl className={styles.addresses}>
+   <div><dt>NIP-05 · verified public address</dt><dd>{preview?.profile.nip05||"Check the assigned address below"}</dd></div>
+   <div><dt>LNURL · public Lightning address</dt><dd>{preview?.profile.lud16||"Check the assigned address below"}</dd></div>
+  </dl>
+  <p className={styles.hint}>BitcoinWalk assigns and verifies these city addresses automatically; you do not type them manually. They are not your private payout wallet.</p>
   <button type="button" disabled={busy} onClick={()=>void load()}>{busy?"Checking city services…":"Check verified addresses"}</button>
   <p className={styles.hint}>This asks your organizer signer to approve a private status check. Nothing is published.</p>
   {error&&<p role="alert">{error}</p>}

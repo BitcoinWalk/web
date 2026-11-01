@@ -1,0 +1,85 @@
+#!/usr/bin/env python3
+"""Restore Islamabad's previously approved public address projection only."""
+import json
+import os
+import pathlib
+import pwd
+import sqlite3
+import tempfile
+import time
+import urllib.request
+
+CITY = "5c1c04f5-aead-4265-bce7-0f9ce0d9b5cd"
+SOURCE = pathlib.Path("/var/lib/bitcoinwalk-app-staging/payments.sqlite")
+TARGET = pathlib.Path("/home/bitcoinwalk/.local/state/bitcoinwalk-production/payments.sqlite")
+COLUMNS = ("city", "request", "reserved_config", "activation_config", "proof", "public_origin", "phase", "nip05", "lnurl", "lease", "until", "updated_at")
+
+
+def read_json(url):
+    request = urllib.request.Request(url, headers={"Accept": "application/json", "User-Agent": "BitcoinWalk-Islamabad-Projection-Restore/1"})
+    with urllib.request.urlopen(request, timeout=15) as response:
+        if response.status != 200:
+            raise RuntimeError(f"Public read-back returned HTTP {response.status}.")
+        return json.load(response)
+
+
+if os.geteuid() == 0 or pwd.getpwuid(os.geteuid()).pw_name != "bitcoinwalk":
+    raise SystemExit("Run as the non-root bitcoinwalk account.")
+
+source = sqlite3.connect(f"file:{SOURCE}?mode=ro", uri=True)
+source.row_factory = sqlite3.Row
+row = source.execute(f"SELECT {','.join(COLUMNS)} FROM rustress_activation_task WHERE city=?", (CITY,)).fetchone()
+if not row:
+    raise SystemExit("Islamabad staging activation evidence is missing.")
+config = json.loads(row["activation_config"])
+if (row["public_origin"] != "https://bitcoinwalk.org" or config.get("cityId") != CITY or
+        config.get("domain") != "bitcoinwalk.org" or config.get("localPart") != "islamabad" or
+        config.get("invoiceIssuance") != "enabled" or config.get("organizerBasisPoints") != 7900 or
+        config.get("retainedBasisPoints") != 2100 or not isinstance(config.get("brandPubkey"), str) or
+        len(config["brandPubkey"]) != 64):
+    raise SystemExit("Islamabad staging activation evidence does not match the approved public projection.")
+source.close()
+
+backup = pathlib.Path(tempfile.mkdtemp(prefix="islamabad-public-projection-restore-", dir="/home/bitcoinwalk/backups"))
+target = sqlite3.connect(TARGET, timeout=30)
+target.row_factory = sqlite3.Row
+with sqlite3.connect(backup / "payments.before.sqlite") as saved:
+    target.backup(saved)
+previous = target.execute(f"SELECT {','.join(COLUMNS)} FROM rustress_activation_task WHERE city=?", (CITY,)).fetchone()
+conflict = target.execute("SELECT city FROM rustress_activation_task WHERE request=? AND city<>?", (row["request"], CITY)).fetchone()
+if conflict:
+    raise SystemExit("Islamabad request authority is already bound to another city.")
+if previous and any(previous[key] != row[key] for key in ("request", "reserved_config", "activation_config", "proof", "public_origin")):
+    raise SystemExit("Existing Islamabad public projection differs; nothing changed.")
+
+values = [row[key] for key in COLUMNS]
+values[6:12] = ["verifying", "provisioning", "provisioning", None, 0, int(time.time() * 1000)]
+target.execute("BEGIN IMMEDIATE")
+if previous:
+    target.execute("UPDATE rustress_activation_task SET phase='verifying',nip05='provisioning',lnurl='provisioning',lease=NULL,until=0,updated_at=? WHERE city=?", (values[-1], CITY))
+else:
+    target.execute(f"INSERT INTO rustress_activation_task({','.join(COLUMNS)}) VALUES({','.join('?' for _ in COLUMNS)})", values)
+target.commit()
+
+try:
+    nip05 = read_json("https://bitcoinwalk.org/.well-known/nostr.json?name=islamabad")
+    lnurl = read_json("https://bitcoinwalk.org/.well-known/lnurlp/islamabad")
+    if nip05.get("names", {}).get("islamabad") != config["brandPubkey"]:
+        raise RuntimeError("NIP-05 public key does not match the approved Islamabad city key.")
+    if lnurl.get("tag") != "payRequest" or not str(lnurl.get("callback", "")).startswith("https://"):
+        raise RuntimeError("Islamabad Lightning metadata did not pass public read-back.")
+    target.execute("UPDATE rustress_activation_task SET phase='active',nip05='active',lnurl='active',updated_at=? WHERE city=?", (int(time.time() * 1000), CITY))
+    target.commit()
+except Exception:
+    target.execute("BEGIN IMMEDIATE")
+    if previous:
+        target.execute(f"UPDATE rustress_activation_task SET {','.join(f'{key}=?' for key in COLUMNS[1:])} WHERE city=?", [previous[key] for key in COLUMNS[1:]] + [CITY])
+    else:
+        target.execute("DELETE FROM rustress_activation_task WHERE city=?", (CITY,))
+    target.commit()
+    raise
+finally:
+    target.close()
+
+os.chmod(backup / "payments.before.sqlite", 0o600)
+print(json.dumps({"result": "ISLAMABAD_PUBLIC_PROJECTION_RESTORED", "cityId": CITY, "nip05": "active", "lnurl": "active", "backup": str(backup), "payoutEnrolmentEnabled": False}))
