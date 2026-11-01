@@ -21,7 +21,7 @@ import { resolveCityChat } from "../../domain/chat";
 import type { Event } from "nostr-tools";
 import {resolvedFeatureFlags} from "../../nostr/feature-flags";
 import {RichDescriptionEditor} from "../../components/rich-description";
-import {HOUR_24_OPTIONS,MINUTE_OPTIONS,registrationLocalDateTime} from "../../domain/registration-time";
+import {HOUR_24_OPTIONS,MINUTE_OPTIONS,registrationDateLabel,registrationLocalDateTime} from "../../domain/registration-time";
 import {registrationSubmissionMessage} from "../../domain/registration-flow";
 import {registrationDashboardHref,setRegistrationHandoff} from "../../domain/registration-handoff";
 import {REGISTRATION_SERIES_SIZE,registrationSeriesDates,registrationSeriesStarts,type RegistrationRepeat} from "../../domain/registration-recurrence";
@@ -84,7 +84,7 @@ export default function StartWalkPage() {
   }
   const [state, setState] = useState<SubmissionState>({ kind: "idle" });
   const [cityName, setCityName] = useState("");
-  const [walkDate,setWalkDate]=useState(""),[walkHour,setWalkHour]=useState(""),[walkMinute,setWalkMinute]=useState("");
+  const [walkDate,setWalkDate]=useState(""),[walkHour,setWalkHour]=useState(""),[walkMinute,setWalkMinute]=useState("00");
   const [repeat,setRepeat]=useState<RegistrationRepeat>("weekly"),[customInterval,setCustomInterval]=useState(3),[customWeekday,setCustomWeekday]=useState(6);
   const [description, setDescription] = useState(DEFAULT_DESCRIPTION);
   const [location, setLocation] = useState<LocationValue | null>(null);
@@ -99,13 +99,13 @@ export default function StartWalkPage() {
     let active=true;
     queueMicrotask(()=>{
     if(!active)return;
-    try{const saved=parseRegistrationDraft(localStorage.getItem(REGISTRATION_DRAFT_KEY));if(saved){setCityName(saved.cityName);setLocation(saved.location);setWalkDate(saved.walkDate);setWalkHour(!saved.timeFormat&&saved.meridiem&&/^(1[0-2]|[1-9])$/.test(saved.walkHour)?String(Number(saved.walkHour)%12+(saved.meridiem==="PM"?12:0)).padStart(2,"0"):saved.walkHour);setWalkMinute(saved.walkMinute);setRepeat(saved.repeat);setCustomInterval(saved.customInterval);setCustomWeekday(saved.customWeekday);setDescription(saved.description);setMeetingDescription(saved.meetingDescription);setDetailStep(saved.detailStep);setStep(saved.step>1?2:1);}else localStorage.removeItem(REGISTRATION_DRAFT_KEY);}catch{/* Storage may be disabled. */}setDraftReady(true);
+    try{const saved=parseRegistrationDraft(localStorage.getItem(REGISTRATION_DRAFT_KEY));if(saved){setCityName(saved.cityName);setLocation(saved.location);setWalkDate(saved.walkDate);setWalkHour(!saved.timeFormat&&saved.meridiem&&/^(1[0-2]|[1-9])$/.test(saved.walkHour)?String(Number(saved.walkHour)%12+(saved.meridiem==="PM"?12:0)).padStart(2,"0"):saved.walkHour);setWalkMinute(MINUTE_OPTIONS.includes(saved.walkMinute)?saved.walkMinute:"00");setRepeat(saved.repeat);setCustomInterval(saved.customInterval);setCustomWeekday(saved.customWeekday);setDescription(saved.description);setMeetingDescription(saved.meetingDescription);setDetailStep(saved.detailStep);setStep(saved.step>1?2:1);}else localStorage.removeItem(REGISTRATION_DRAFT_KEY);}catch{/* Storage may be disabled. */}setDraftReady(true);
     });
     return()=>{active=false;};
   },[]);
   useEffect(()=>{
     if(!draftReady||state.kind==="success"||checkout)return;
-    if(!cityName&&!location&&!walkDate&&!walkHour&&!walkMinute&&description===DEFAULT_DESCRIPTION&&!meetingDescription){try{localStorage.removeItem(REGISTRATION_DRAFT_KEY);}catch{}return;}
+    if(!cityName&&!location&&!walkDate&&!walkHour&&walkMinute==="00"&&description===DEFAULT_DESCRIPTION&&!meetingDescription){try{localStorage.removeItem(REGISTRATION_DRAFT_KEY);}catch{}return;}
     try{saveRegistrationDraft(localStorage,{version:1,savedAt:Date.now(),step,detailStep,cityName,location,walkDate,walkHour,walkMinute,timeFormat:"24h",repeat,customInterval,customWeekday,description,meetingDescription});}catch{/* Continue when browser storage is unavailable. */}
   },[draftReady,state.kind,checkout,step,detailStep,cityName,location,walkDate,walkHour,walkMinute,repeat,customInterval,customWeekday,description,meetingDescription]);
   const cityId = useRef("");
@@ -220,9 +220,9 @@ export default function StartWalkPage() {
           <div className={styles.location}>{draftReady&&<LocationPicker cityName={cityName} onCityNameChange={setCityName} value={location} onChange={setLocation} mobileMapTabs stepped={desktopStepped} />}</div>
           <fieldset className="walk-datetime" data-detail-step="3">
             <legend>Walk date and time</legend>
-            <div data-date-field className={styles.dateField}><label htmlFor="walk-date">Date</label><span className={styles.dateControl} data-empty={!walkDate}><input ref={dateRef} id="walk-date" name="walkDate" type="date" value={walkDate} onChange={event=>setWalkDate(event.target.value)} required/>{!walkDate&&<span className={styles.datePlaceholder} aria-hidden="true">Choose a date</span>}<button type="button" className={styles.calendarButton} aria-label="Choose walk date" onClick={()=>{const input=dateRef.current;if(!input)return;input.focus();try{input.showPicker?.();}catch{/* Native input remains usable if the browser doesn't support showPicker. */}}}><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 11h18"/></svg></button></span></div>
+            <div data-date-field className={styles.dateField}><label htmlFor="walk-date">Date</label><span className={styles.dateControl} data-empty={!walkDate}><input ref={dateRef} id="walk-date" name="walkDate" type="date" lang="en-GB" aria-describedby="walk-date-format" value={walkDate} onChange={event=>setWalkDate(event.target.value)} required/>{walkDate?<span className={styles.dateValue} aria-hidden="true">{registrationDateLabel(walkDate)}</span>:<span className={styles.datePlaceholder} aria-hidden="true">DD/MM/YYYY</span>}<span id="walk-date-format" className="sr-only">Date format: day, month, year.</span><button type="button" className={styles.calendarButton} aria-label="Choose walk date" onClick={()=>{const input=dateRef.current;if(!input)return;input.focus();try{input.showPicker?.();}catch{/* Native input remains usable if the browser doesn't support showPicker. */}}}><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 11h18"/></svg></button></span></div>
             <label>Hour (24 hour clock)<input name="walkHour" list="walk-hour-options" placeholder="00" inputMode="numeric" pattern="([01]?[0-9]|2[0-3])" maxLength={2} title="Enter an hour from 00 to 23" value={walkHour} onChange={event=>setWalkHour(event.target.value)} required/><datalist id="walk-hour-options">{HOUR_24_OPTIONS.map(hour=><option key={hour} value={hour}/>)}</datalist></label>
-            <label>Minutes<input name="walkMinute" list="walk-minute-options" placeholder="00" inputMode="numeric" pattern="[0-5]?[0-9]" maxLength={2} title="Enter minutes from 00 to 59" value={walkMinute} onChange={event=>setWalkMinute(event.target.value)} required/><datalist id="walk-minute-options">{MINUTE_OPTIONS.map(minute=><option key={minute} value={minute}/>)}</datalist></label>
+            <label>Minutes<select name="walkMinute" value={walkMinute} onChange={event=>setWalkMinute(event.target.value)} required>{MINUTE_OPTIONS.map(minute=><option key={minute} value={minute}>{minute}</option>)}</select></label>
           </fieldset>
           <div data-detail-step="4"><RichDescriptionEditor value={description} onChange={setDescription} placeholder="What can people expect on your walk?" previewFirst/></div>
           <div data-detail-step="5" className={styles.detailsGroup}>
