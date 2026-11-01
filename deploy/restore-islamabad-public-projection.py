@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Restore Islamabad's previously approved public address projection only."""
 import json
+import hashlib
 import os
 import pathlib
 import pwd
@@ -49,8 +50,20 @@ previous = target.execute(f"SELECT {','.join(COLUMNS)} FROM rustress_activation_
 conflict = target.execute("SELECT city FROM rustress_activation_task WHERE request=? AND city<>?", (row["request"], CITY)).fetchone()
 if conflict:
     raise SystemExit("Islamabad request authority is already bound to another city.")
-if previous and any(previous[key] != row[key] for key in ("request", "reserved_config", "activation_config", "proof", "public_origin")):
-    raise SystemExit("Existing Islamabad public projection differs; nothing changed.")
+authority_fields = ("request", "reserved_config", "activation_config", "proof", "public_origin")
+differences = [key for key in authority_fields if previous and previous[key] != row[key]]
+if differences:
+    target_config = json.loads(previous["activation_config"])
+    safe = {
+        "result": "EXISTING_PROJECTION_DIFFERS",
+        "fields": differences,
+        "currentState": {key: previous[key] for key in ("phase", "nip05", "lnurl")},
+        "currentPublicConfig": {key: target_config.get(key) for key in ("cityId", "domain", "localPart", "brandPubkey", "payoutVersion", "invoiceIssuance", "organizerBasisPoints", "retainedBasisPoints")},
+        "approvedPublicConfig": {key: config.get(key) for key in ("cityId", "domain", "localPart", "brandPubkey", "payoutVersion", "invoiceIssuance", "organizerBasisPoints", "retainedBasisPoints")},
+        "currentConfigHash": hashlib.sha256(previous["activation_config"].encode()).hexdigest(),
+        "approvedConfigHash": hashlib.sha256(row["activation_config"].encode()).hexdigest(),
+    }
+    raise SystemExit(json.dumps(safe))
 
 values = [row[key] for key in COLUMNS]
 values[6:12] = ["verifying", "provisioning", "provisioning", None, 0, int(time.time() * 1000)]
