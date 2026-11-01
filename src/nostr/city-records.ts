@@ -9,6 +9,7 @@ import {
 } from "../domain/city";
 import {isSuperAdmin, SUPER_ADMIN_PUBKEY } from "./authority";
 import {AUTOMATED_CITY_REVISION_NOTE,cityRevisionAutomationPubkey} from "./city-revision-automation-contract";
+import {AUTOMATED_NEW_CITY_MARKER,AUTOMATED_NEW_CITY_NOTE,newCityAutomationPubkey} from "./new-city-automation-contract";
 import { CITY_AUTHORIZATION_KIND, cityAuthorizationSchema, type CityAuthorization } from "../domain/city";
 
 function uniqueTag(event: Event, name: string, value: string): boolean {
@@ -23,14 +24,26 @@ function workflowAddress(event: Event, cityId: string): boolean {
   return d === cityId || (d?.startsWith(`${cityId}:`) && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(d.slice(cityId.length + 1)));
 }
 
+function exactJSONFields(content:string,fields:string[]):boolean{
+ try{return JSON.stringify(Object.keys(JSON.parse(content)).sort())===JSON.stringify([...fields].sort());}catch{return false;}
+}
+
 export type AuthorizationRecord = { event: Event; grant: CityAuthorization };
 export function parseAuthorizationRecord(event: Event): AuthorizationRecord | null {
-  if (event.kind !== CITY_AUTHORIZATION_KIND || !verifyEvent(event) || !isSuperAdmin(event.pubkey)) return null;
+  if (event.kind !== CITY_AUTHORIZATION_KIND || !verifyEvent(event)) return null;
   try {
     const grant = cityAuthorizationSchema.parse(JSON.parse(event.content));
-    return uniqueTag(event, "d", grant.cityId) && isSuperAdmin(grant.superAdminPubkey) ? { event, grant } : null;
+    const automated=event.pubkey===newCityAutomationPubkey(SUPER_ADMIN_PUBKEY)
+      && uniqueTag(event,"automation",AUTOMATED_NEW_CITY_MARKER)
+      && uniqueTag(event,"client","bitcoinwalk.org")&&event.tags.length===3
+      && exactJSONFields(event.content,["cityId","creatorPubkey","creatorRevisionId","editorPubkeys","superAdminPubkey"])
+      && grant.creatorPubkey===grant.editorPubkeys[0]&&grant.editorPubkeys.length===1
+      && !grant.version&&!grant.ownerPubkey&&!grant.ownershipEventId;
+    return uniqueTag(event, "d", grant.cityId) && isSuperAdmin(grant.superAdminPubkey) && (isSuperAdmin(event.pubkey)||automated) ? { event, grant } : null;
   } catch { return null; }
 }
+
+function authorizationAuthors():string[]{const automation=newCityAutomationPubkey(SUPER_ADMIN_PUBKEY);return [SUPER_ADMIN_PUBKEY,...(automation?[automation]:[])];}
 
 export async function queryCalendarEvents(relays:string[], filter:{ids?:string[];cityId?:string;cityIds?:string[];authors?:string[]}={}):Promise<Event[]> {
   const cityIds=filter.cityIds??(filter.cityId?[filter.cityId]:undefined);
@@ -56,7 +69,7 @@ export async function queryCityCalendarCancellations(relays:string[],cityId:stri
 }
 
 export async function queryAuthorizations(relays: string[]): Promise<AuthorizationRecord[]> {
-  const events = await queryRelayEvents(relays, [CITY_AUTHORIZATION_KIND], undefined, {authors:[SUPER_ADMIN_PUBKEY]});
+  const events = await queryRelayEvents(relays, [CITY_AUTHORIZATION_KIND], undefined, {authors:authorizationAuthors()});
   if(events.length>=500)throw new Error("City permission discovery reached its read limit. A complete list cannot be confirmed.");
   const records=events.map(parseAuthorizationRecord).filter((r): r is AuthorizationRecord=>r!==null);
   if(events.length && !records.length) throw new Error("The relay returned city lists, but none passed signature/schema verification. No permissions were changed.");
@@ -64,7 +77,7 @@ export async function queryAuthorizations(relays: string[]): Promise<Authorizati
 }
 
 export async function queryCityAuthorization(relays: string[], cityId: string): Promise<AuthorizationRecord | null> {
-  const events = await queryRelayEvents(relays, [CITY_AUTHORIZATION_KIND], undefined, { authors: [SUPER_ADMIN_PUBKEY], "#d": [cityId] });
+  const events = await queryRelayEvents(relays, [CITY_AUTHORIZATION_KIND], undefined, { authors: authorizationAuthors(), "#d": [cityId] });
   return events.map(parseAuthorizationRecord).filter((r): r is AuthorizationRecord => r !== null && r.grant.cityId === cityId).sort((a,b)=>compareEvents(a.event,b.event))[0] ?? null;
 }
 
@@ -88,12 +101,18 @@ export function parseApprovalRecord(event: Event): ApprovalRecord | null {
     const parsed = cityApprovalSchema.safeParse(JSON.parse(event.content));
     if (!parsed.success) return null;
     const data = parsed.data;
-    const automation=cityRevisionAutomationPubkey(SUPER_ADMIN_PUBKEY);
-    if(!isSuperAdmin(event.pubkey)&&!(event.pubkey===automation&&data.note===AUTOMATED_CITY_REVISION_NOTE))return null;
-    if(!isSuperAdmin(event.pubkey)&&(data.status!=="approved"||data.initialEventId||data.initialEventIds||data.heroImageUrl||data.slug||data.aliases||data.note!==AUTOMATED_CITY_REVISION_NOTE))return null;
+    const revisionAutomation=cityRevisionAutomationPubkey(SUPER_ADMIN_PUBKEY),newCityAutomation=newCityAutomationPubkey(SUPER_ADMIN_PUBKEY);
+    const automatedRevision=event.pubkey===revisionAutomation&&data.note===AUTOMATED_CITY_REVISION_NOTE;
+    const automatedNewCity=event.pubkey===newCityAutomation&&data.note===AUTOMATED_NEW_CITY_NOTE;
+    if(!isSuperAdmin(event.pubkey)&&!automatedRevision&&!automatedNewCity)return null;
+    if(automatedRevision&&(data.status!=="approved"||data.initialEventId||data.initialEventIds||data.heroImageUrl||data.slug||data.aliases))return null;
+    if(automatedNewCity&&(data.status!=="approved"||!(data.initialEventIds?.length||data.initialEventId)||data.heroImageUrl||data.slug||data.aliases))return null;
     const initialTags = event.tags.filter(t => t[0] === "e" && t[3] === "initial-walk");
     const cityTags = event.tags.filter(t => t[0] === "city");
-    return workflowAddress(event, data.cityId) && (uniqueTag(event, "d", data.cityId) || uniqueTag(event, "i", data.cityId)) && uniqueTag(event, "status", data.status)
+    const exactNewCity= !automatedNewCity || (!!data.initialEventIds&&!data.initialEventId
+      && exactJSONFields(event.content,["cityId","cityRevisionId","initialEventIds","status","note"])
+      && uniqueTag(event,"client","bitcoinwalk.org")&&event.tags.length===5+data.initialEventIds.length);
+    return exactNewCity && workflowAddress(event, data.cityId) && (uniqueTag(event, "d", data.cityId) || uniqueTag(event, "i", data.cityId)) && uniqueTag(event, "status", data.status)
       && (data.slug ? cityTags.length === 1 && cityTags[0][1] === data.slug : cityTags.length === 0)
       && event.tags.filter(t => t[0] === "e" && t[1] === data.cityRevisionId && t[3] === "city-revision").length === 1
       && (()=>{const ids=data.initialEventIds??(data.initialEventId?[data.initialEventId]:[]);return initialTags.length===ids.length&&ids.every(id=>initialTags.some(tag=>tag[1]===id));})()
@@ -103,7 +122,7 @@ export function parseApprovalRecord(event: Event): ApprovalRecord | null {
   }
 }
 
-function approvalAuthors():string[]{const automation=cityRevisionAutomationPubkey(SUPER_ADMIN_PUBKEY);return [SUPER_ADMIN_PUBKEY,...(automation?[automation]:[])];}
+function approvalAuthors():string[]{const keys=[cityRevisionAutomationPubkey(SUPER_ADMIN_PUBKEY),newCityAutomationPubkey(SUPER_ADMIN_PUBKEY)].filter((key):key is string=>!!key);return [SUPER_ADMIN_PUBKEY,...new Set(keys)];}
 
 let readPool: SimplePool | undefined;
 let activeReads=0;
