@@ -56,20 +56,22 @@ safe_version_upgrade = False
 if differences == ["reserved_config", "activation_config"]:
     current_reserved, approved_reserved = json.loads(previous["reserved_config"]), json.loads(row["reserved_config"])
     current_activation, approved_activation = json.loads(previous["activation_config"]), json.loads(row["activation_config"])
-    def without_payout_version(value):
-        return {key: item for key, item in value.items() if key != "payoutVersion"}
-    safe_version_upgrade = (current_reserved.get("payoutVersion") == current_activation.get("payoutVersion") == 3 and
+    def without_versions(value):
+        return {key: item for key, item in value.items() if key not in ("version", "payoutVersion")}
+    safe_version_upgrade = (current_reserved.get("version") == current_activation.get("version") == 2 and
+                            approved_reserved.get("version") == approved_activation.get("version") == 3 and
+                            current_reserved.get("payoutVersion") == current_activation.get("payoutVersion") == 3 and
                             approved_reserved.get("payoutVersion") == approved_activation.get("payoutVersion") == 4 and
-                            without_payout_version(current_reserved) == without_payout_version(approved_reserved) and
-                            without_payout_version(current_activation) == without_payout_version(approved_activation))
+                            without_versions(current_reserved) == without_versions(approved_reserved) and
+                            without_versions(current_activation) == without_versions(approved_activation))
 if differences and not safe_version_upgrade:
     target_config = json.loads(previous["activation_config"])
     safe = {
         "result": "EXISTING_PROJECTION_DIFFERS",
         "fields": differences,
         "currentState": {key: previous[key] for key in ("phase", "nip05", "lnurl")},
-        "currentPublicConfig": {key: target_config.get(key) for key in ("cityId", "domain", "localPart", "brandPubkey", "payoutVersion", "invoiceIssuance", "organizerBasisPoints", "retainedBasisPoints")},
-        "approvedPublicConfig": {key: config.get(key) for key in ("cityId", "domain", "localPart", "brandPubkey", "payoutVersion", "invoiceIssuance", "organizerBasisPoints", "retainedBasisPoints")},
+        "currentPublicConfig": {key: target_config.get(key) for key in ("cityId", "domain", "localPart", "brandPubkey", "version", "payoutVersion", "invoiceIssuance", "organizerBasisPoints", "retainedBasisPoints")},
+        "approvedPublicConfig": {key: config.get(key) for key in ("cityId", "domain", "localPart", "brandPubkey", "version", "payoutVersion", "invoiceIssuance", "organizerBasisPoints", "retainedBasisPoints")},
         "currentConfigHash": hashlib.sha256(previous["activation_config"].encode()).hexdigest(),
         "approvedConfigHash": hashlib.sha256(row["activation_config"].encode()).hexdigest(),
         "reservedChangedKeys": sorted(key for key in set(current_reserved) | set(approved_reserved) if current_reserved.get(key) != approved_reserved.get(key)) if differences == ["reserved_config", "activation_config"] else [],
