@@ -410,10 +410,10 @@ export async function saveProSetupPayout(cityId: string, actor: string, destinat
  * every call. Initial activation also probes the private payout destination;
  * an already applied immutable version is rechecked from durable signed state.
  * Calling this does not create invoices or make provisioning publicly active. */
-export async function resolveRustressProvisionEvidence(requestId: string, payoutVersion?: number, revalidatePayout = true,allowPresentationChange=false) {
+export async function resolveRustressProvisionEvidence(requestId: string, payoutVersion?: number, revalidatePayout = true,allowPresentationChange=false,allowEquivalentActiveAuthority=false) {
   const before = await brandReviewEvidence(requestId, SUPER_ADMIN_PUBKEY, true,allowPresentationChange);
   const {authority} = before.resolved;
-  const approved = before.store.approvedForPublication(requestId, SUPER_ADMIN_PUBKEY, authority);
+  const approved = before.store.approvedForPublication(requestId, SUPER_ADMIN_PUBKEY, authority,allowEquivalentActiveAuthority);
   if (approved.row.status !== "active") throw new Error("City identity must be active before provisioning.");
   // Worker read-back uses the same authoritative relay's internal listener.
   // Public write URLs remain unchanged for browser publication.
@@ -443,7 +443,7 @@ export async function resolveRustressProvisionEvidence(requestId: string, payout
     : normalizePayoutDestination(payout.normalized).normalized;
   if (normalized !== payout.normalized) throw new Error("Payout destination changed.");
   const after = await brandReviewEvidence(requestId, SUPER_ADMIN_PUBKEY, true,allowPresentationChange);
-  const confirmed = after.store.approvedForPublication(requestId, SUPER_ADMIN_PUBKEY, after.resolved.authority);
+  const confirmed = after.store.approvedForPublication(requestId, SUPER_ADMIN_PUBKEY, after.resolved.authority,allowEquivalentActiveAuthority);
   if (JSON.stringify(authority) !== JSON.stringify(after.resolved.authority) || confirmed.event.id !== approved.event.id ||
       confirmed.row.status !== "active" || JSON.stringify(destinations.current(authority.cityId)) !== JSON.stringify(payout))
     throw new Error("City provisioning evidence changed during verification.");
@@ -460,33 +460,17 @@ export async function resolveRustressProvisionEvidence(requestId: string, payout
 
 /** Managed activation evidence uses the same freshly revalidated authority as
  * fixture reservation, but binds the real managed wallet reference. */
+const activePaymentFields=["cityId","domain","localPart","brandPubkey","brandEventId","walletRef","organizerBasisPoints","retainedBasisPoints","invoiceIssuance"] as const satisfies readonly (keyof ProvisionConfig)[];
 export async function resolveRustressActivationEvidence(requestId: string, publicOrigin = "https://bitcoinwalk.org",current?:ProvisionConfig) {
-  const evidence = await resolveRustressProvisionEvidence(requestId,current?.payoutVersion,current===undefined,current!==undefined);
+  const evidence = await resolveRustressProvisionEvidence(requestId,current?.payoutVersion,current===undefined,current!==undefined,current!==undefined);
   const reserved = provisionConfigSchema.parse({...evidence.config, walletRef: "bitcoinwalk-rustress"});
   const activation = current??createCityActivation(reserved);
-  if(current){const base=createCityActivation(reserved);if(payoutUpdateStableFields.some(field=>current[field]!==base[field])||current.payoutVersion!==base.payoutVersion)
+  if(current){const base=createCityActivation(reserved);if(activePaymentFields.some(field=>current[field]!==base[field])||current.payoutVersion!==base.payoutVersion||current.payoutDestination!==base.payoutDestination)
     throw new Error("Active city payment authority changed.");}
   const predecessor=current?provisionConfigSchema.parse({...current,version:current.version-1,invoiceIssuance:"disabled"}):reserved;
   return {reserved:predecessor, activation, publicOrigin,
     proofHash: createHash("sha256").update(JSON.stringify({reservationProof: evidence.proofHash,
       reserved: provisionDigest(predecessor), activation: provisionDigest(activation)})).digest("hex")};
-}
-
-/** Advances stale administrative authority without rotating the already active
- * city identity or changing its payout destination, version or split. */
-export async function resolveRustressAuthorityRefreshEvidence(cityId:string,current:ProvisionConfig,publicOrigin="https://bitcoinwalk.org"){
- const parsed=managedProvisionConfigSchema.parse(current),before=await resolveProSetupEvidence(cityId),db=getPaymentStore().db,{task}=ensureSetupTask(before);
- if(parsed.cityId!==cityId||parsed.invoiceIssuance!=="enabled"||task.signer?.pubkey!==parsed.brandPubkey||task.payoutVersion!==parsed.payoutVersion)
-  throw new Error("Current city payment authority does not match completed setup.");
- const binding=resolveCityBrand(brandStore().publicHistory(cityId),cityId);
- if(!binding||binding.event.id!==parsed.brandEventId||binding.binding.brandPubkey!==parsed.brandPubkey||binding.binding.action==="revoke")throw new Error("Current city identity binding changed.");
- const payout=new PayoutDestinationStore(db).version(cityId,parsed.payoutVersion);
- if(!payout||payout.ownerPubkey!==before.authority.ownerPubkey||normalizePayoutDestination(payout.normalized).normalized!==parsed.payoutDestination)throw new Error("Current owner payout confirmation changed.");
- for(const relay of serverReadRelays()){const history=await brandPublicationDependencies.read(relay,cityId),remote=history.length<500?resolveCityBrand(history,cityId):null;if(!remote||remote.event.id!==binding.event.id)throw new Error("City identity read-back is incomplete or superseded.");}
- const after=await resolveProSetupEvidence(cityId),confirmed=new PayoutDestinationStore(db).version(cityId,parsed.payoutVersion);
- if(JSON.stringify(before.authority)!==JSON.stringify(after.authority)||JSON.stringify(payout)!==JSON.stringify(confirmed))throw new Error("City authority changed during refresh verification.");
- const config=managedProvisionConfigSchema.parse({...parsed,version:parsed.version+1,authorityEventId:after.authority.authorityEventId,approvalEventId:after.authority.approvalEventId});
- return {config,publicOrigin,proofHash:createHash("sha256").update(JSON.stringify({previous:provisionDigest(parsed),next:provisionDigest(config),entitlementId:after.authority.entitlementId,ownerPubkey:after.authority.ownerPubkey,brandEventId:binding.event.id})).digest("hex")};
 }
 
 const payoutUpdateStableFields=["cityId","domain","localPart","brandPubkey","authorityEventId","approvalEventId","brandEventId","walletRef","organizerBasisPoints","retainedBasisPoints"] as const satisfies readonly (keyof import("../rustress/contract").ProvisionConfig)[];

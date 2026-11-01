@@ -121,10 +121,15 @@ export class CityBrandStore {
     resolveCityBrand(events, cityId);
     return events;
   }
-  approvedForPublication(id:string,actor:string,authority:CityBrandAuthority){
+  approvedForPublication(id:string,actor:string,authority:CityBrandAuthority,allowEquivalentActiveAuthority=false){
     if(actor!==SUPER_ADMIN_PUBKEY)throw new Error("Super-admin publication required.");
     const row=this.request(id),challenge=JSON.parse(row.challenge) as CityBrandChallenge;
-    if(JSON.stringify(challenge.authority)!==JSON.stringify(authority))throw new Error("City ownership, approval or entitlement changed. Prepare a new request.");
+    // An active binding survives equivalent reapproval; unpublished requests remain exact.
+    const equivalent=challenge.authority.cityId===authority.cityId&&challenge.authority.ownerPubkey===authority.ownerPubkey&&
+      challenge.authority.entitlementId===authority.entitlementId&&challenge.authority.eligible===authority.eligible;
+    if(JSON.stringify(challenge.authority)!==JSON.stringify(authority)&&
+      !(allowEquivalentActiveAuthority&&row.status==="active"&&equivalent))
+      throw new Error("City ownership, approval or entitlement changed. Prepare a new request.");
     if(row.status==="active"){
       const publication=this.db.prepare("SELECT * FROM city_brand_publication WHERE request_id=?").get(id) as PublicationRow|undefined;
       if(!row.approved_event||!publication)throw new Error("Active city identity evidence is incomplete.");

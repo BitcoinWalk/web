@@ -89,6 +89,14 @@ describe("branded city authority contract and private storage", () => {
     expect(store.activate(request.requestId,admin,authority,[p.signed],["wss://relay.example/"])).toMatchObject({row:{status:"active"}});
     expect(store.currentForCity(authority.cityId)).toMatchObject({id:request.requestId,status:"active"});
   });
+  it("accepts only administrative event refreshes when reading an active identity",()=>{
+    const {store}=setup(),request=store.prepare(owner,authority,origin,brand,"activate",profile),approved=approve(store,request);
+    store.activate(request.requestId,admin,authority,[approved.signed],["wss://relay.example/"]);
+    const refreshed={...authority,authorityEventId:"d".repeat(64),approvalEventId:"e".repeat(64)};
+    expect(store.approvedForPublication(request.requestId,admin,refreshed,true).row.status).toBe("active");
+    expect(()=>store.approvedForPublication(request.requestId,admin,{...refreshed,ownerPubkey:other},true)).toThrow("changed");
+    expect(()=>store.approvedForPublication(request.requestId,admin,refreshed)).toThrow("changed");
+  });
   it("reuses only an identical unexpired request and expires abandoned requests",()=>{
     const {store,advance}=setup(),first=store.prepare(owner,authority,origin,brand,"activate",profile);
     expect(store.prepare(owner,authority,origin,brand,"activate",profile).requestId).toBe(first.requestId);
