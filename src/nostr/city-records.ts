@@ -103,6 +103,12 @@ let readPool: SimplePool | undefined;
 let activeReads=0;
 let idleClose: ReturnType<typeof setTimeout> | undefined;
 
+export function closeRelayReadPool():void {
+  if(activeReads)throw new Error("Cannot close relay reads while a query is active.");
+  if(idleClose){clearTimeout(idleClose);idleClose=undefined;}
+  readPool?.destroy();readPool=undefined;
+}
+
 export async function queryRelayEvents(relays: string[], kinds: number[], onAuthentication?: RelayReadAuthentication, filter: Partial<Filter> = {}): Promise<Event[]> {
   if (relays.length === 0) throw new Error("No read relay configured.");
   if(idleClose) clearTimeout(idleClose);
@@ -134,10 +140,7 @@ export async function queryRelayEvents(relays: string[], kinds: number[], onAuth
     });
   } finally {
     activeReads--;
-    if(activeReads===0) idleClose=setTimeout(()=>{
-      pool.destroy();
-      if(readPool===pool)readPool=undefined;
-    },5*60_000);
+    if(activeReads===0) idleClose=setTimeout(closeRelayReadPool,5*60_000);
   }
 }
 

@@ -6,6 +6,7 @@ import {readCityBrandAutomationPolicy} from "../src/nostr/city-brand-automation"
 import {relayConfig} from "../src/lib/relay-config";
 import {publishVerifiedEvent} from "../src/nostr/relay";
 import {signTransportAuth} from "../src/guide/core";
+import {closeRelayReadPool} from "../src/nostr/city-records";
 import {approveBrandRequestAutomated,confirmBrandPublication,listBrandRequests,prepareBrandPublication,recordAutomatedBrandPublication,reviewBrandRequest} from "../src/server/pro-setup";
 
 function protectedFile(path:string,maximum:number){
@@ -44,4 +45,4 @@ async function main(){
   }
  }finally{secret.fill(0);}
 }
-main().catch(error=>{console.error(error instanceof Error?error.message:"City identity automation failed.");process.exitCode=1;});
+main().finally(closeRelayReadPool).catch(error=>{console.error(error instanceof Error?error.message:"City identity automation failed.");process.exitCode=1;});
