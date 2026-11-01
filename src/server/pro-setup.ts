@@ -10,7 +10,7 @@ import {citySetupEvidence} from "./city-setup-evidence";
 import {managedCities} from "../nostr/moderation";
 import {relayConfig} from "../lib/relay-config";
 import {serverReadRelays} from "../lib/server-relay-config";
-import {getPaymentStore} from "../payments/runtime";
+import {getPaymentStore} from "../payments/store-runtime";
 import {ProfileArtworkStore} from "../logos/profile-artwork";
 import {managedBackground} from "./share-image";
 import {PayoutDestinationStore} from "../payments/payout-destination-store";

@@ -16,6 +16,7 @@ function protectedFile(path:string,maximum:number){
 async function main(){
  process.umask(0o077);
  const mode=process.argv[2];if(mode!=="--dry-run"&&mode!=="--run")throw new Error("Use --dry-run or --run.");
+ if(process.env.BITCOINWALK_RUSTRESS_FIXTURE_ENABLED==="1"||process.env.BITCOINWALK_RUSTRESS_MANAGED_ENABLED==="1")throw new Error("City identity automation cannot run with payment provisioning enabled.");
  const credentials=process.env.CREDENTIALS_DIRECTORY,environment=process.env.BITCOINWALK_CITY_BRAND_AUTOMATION_ENVIRONMENT;
  if(!credentials||(environment!=="staging"&&environment!=="production"))throw new Error("Run through the isolated city identity automation service.");
  const policyEvent=JSON.parse(protectedFile(join(credentials,"policy.json"),16_384)) as Event,policy=readCityBrandAutomationPolicy(policyEvent,environment);

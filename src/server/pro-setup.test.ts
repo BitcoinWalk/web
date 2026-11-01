@@ -2,7 +2,7 @@ import {afterEach, beforeEach, describe, expect, it, vi} from "vitest";
 import type {AuthorizationRecord, ApprovalRecord, CityRevision} from "../nostr/city-records";
 import {finalizeEvent, generateSecretKey, getPublicKey, type Event} from "nostr-tools";
 import {DatabaseSync} from "node:sqlite";
-vi.mock("../payments/runtime", () => ({getPaymentStore: vi.fn()}));
+vi.mock("../payments/store-runtime", () => ({getPaymentStore: vi.fn()}));
 vi.mock("./share-image", () => ({managedBackground: vi.fn()}));
 vi.mock("./existing-city-artwork", () => ({existingCityArtwork: vi.fn()}));
 vi.mock("../logos/profile-artwork", () => ({ProfileArtworkStore: class {ensure = vi.fn().mockResolvedValue({avatar: {url: "https://bitcoinwalk.org/api/media/files/avatar.webp"}, banner: {url: "https://bitcoinwalk.org/api/media/files/banner.webp"}});}}));
@@ -10,7 +10,7 @@ vi.mock("../payments/payout-destination-store", () => ({PayoutDestinationStore: 
   current = vi.fn().mockReturnValue(null);
   registration = vi.fn().mockReturnValue({cityId: "66f137cb-2ac1-4eef-8358-7dd66b45922f", revisionId: "d".repeat(64), version: 1, ownerPubkey: "a".repeat(64), normalized: "alice@example.com", confirmedAt: 1});
 }}));
-import {getPaymentStore} from "../payments/runtime";
+import {getPaymentStore} from "../payments/store-runtime";
 import {managedBackground} from "./share-image";
 import {existingCityArtwork} from "./existing-city-artwork";
 import {installNamedIdentity} from "../rustress/public-identity-store";

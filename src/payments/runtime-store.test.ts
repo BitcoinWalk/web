@@ -18,7 +18,7 @@ describe("payment store boundary",()=>{
   directory=mkdtempSync(join(tmpdir(),"bitcoinwalk-store-"));
   vi.stubEnv("BITCOINWALK_PAYMENT_DATABASE",join(directory,"payments.sqlite"));
   vi.stubEnv("BITCOINWALK_NWC_URL","");
-  const {getPaymentStore}=await import("./runtime");
+  const {getPaymentStore}=await import("./store-runtime");
   expect(getPaymentStore().db.prepare("SELECT 1 value").get()).toEqual({value:1});
  });
 });

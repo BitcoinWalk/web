@@ -1,19 +1,16 @@
-import {mkdirSync} from "node:fs";
-import {dirname} from "node:path";
 import {PaymentService,PaymentStore} from "./service";
 import {NwcWallet} from "./nwc";
 import {verifyGiftableCity,verifyPurchasableCity} from "./cities";
 import {SponsorService} from "./sponsor-service";
 import {sponsorshipCatalog} from "./sponsor-catalog";
 import {SponsorInvitationStore} from "./sponsor-invitation-store";
-import {isApprovedPaymentDatabase} from "../lib/app-storage";
 import {eligibleSponsorHostCities} from "../server/sponsor-invitation-eligibility";
 import {sponsorHostPayoutScope} from "./sponsor-host-payout-scope";
+import {getPaymentStore} from "./store-runtime";
 
 type PaymentRuntime={service:PaymentService;sponsors:SponsorService;sponsorInvitations:SponsorInvitationStore;store:PaymentStore;timer:NodeJS.Timeout};
 const runtimeKey=Symbol.for("bitcoinwalk.payment-runtime");
-const storeKey=Symbol.for("bitcoinwalk.payment-store");
-type RuntimeGlobal=typeof globalThis&{[runtimeKey]?:PaymentRuntime;[storeKey]?:PaymentStore};
+type RuntimeGlobal=typeof globalThis&{[runtimeKey]?:PaymentRuntime};
 
 function required(name:string):string{
  const value=process.env[name]?.trim();
@@ -62,15 +59,6 @@ export function getPaymentRuntime():PaymentRuntime{
   setInterval(relayReconcile,30_000).unref();setTimeout(relayReconcile,2_000).unref();
  }
  return shared[runtimeKey];
-}
-
-export function getPaymentStore():PaymentStore{
- const shared=globalThis as RuntimeGlobal;
- if(shared[storeKey])return shared[storeKey];
- const database=required("BITCOINWALK_PAYMENT_DATABASE");
- if(process.env.NODE_ENV==="production"&&!isApprovedPaymentDatabase(database))throw new Error("Application database must be inside an approved app state directory");
- mkdirSync(dirname(database),{recursive:true,mode:0o700});
- return shared[storeKey]=new PaymentStore(database);
 }
 
 export function startPaymentRuntime():void{
