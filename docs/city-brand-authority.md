@@ -227,3 +227,25 @@ recovered an interrupted approved event exactly once. The live-row digest was
 identical before and after. This accepts only the existing-approved-city initial
 binding slice; creator revisions, new-city registration and financial enrolment
 remain separate work.
+
+## BW-78 content-revision automation slice
+
+The next disabled-by-default slice covers only a direct signed revision of an
+already approved city by a current editor. Its dedicated, revocable signer may
+approve changes to the default start, description and meeting point. City name,
+slug, aliases, country, locale, plan, chat, image, sponsor, ownership, editor
+list, first walks, rejection, revocation and suspension remain in Requests.
+
+A separate short-lived super-admin-signed policy binds the signer, environment,
+exact three-field allow-list, expiry and maximum revision count. The worker
+stores the exact signed decision before publication and resumes that same event
+after interruption. It rereads authority immediately before signing and needs
+exact relay read-back before recording publication. The app recognizes only the
+minimal marked approval from the configured key.
+
+The relay independently requires one exact predecessor pointing to the current
+approved revision, unchanged protected JSON, a current editor signature, no
+later manual decision and no city or organizer suspension. Manual moderation
+wins. The relay also carries this narrowly authorized approval through the
+existing occurrence-replication bundle with its predecessor evidence. No signer,
+policy, service or enable flag is installed by this source change.

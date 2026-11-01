@@ -7,7 +7,8 @@ import {
   type CityApproval,
   type CityDocument,
 } from "../domain/city";
-import { isSuperAdmin, SUPER_ADMIN_PUBKEY } from "./authority";
+import {isSuperAdmin, SUPER_ADMIN_PUBKEY } from "./authority";
+import {AUTOMATED_CITY_REVISION_NOTE,cityRevisionAutomationPubkey} from "./city-revision-automation-contract";
 import { CITY_AUTHORIZATION_KIND, cityAuthorizationSchema, type CityAuthorization } from "../domain/city";
 
 function uniqueTag(event: Event, name: string, value: string): boolean {
@@ -82,11 +83,14 @@ export function parseCityRevision(event: Event): CityRevision | null {
 }
 
 export function parseApprovalRecord(event: Event): ApprovalRecord | null {
-  if (event.kind !== ADMIN_APPROVAL_KIND || !verifyEvent(event) || !isSuperAdmin(event.pubkey)) return null;
+  if (event.kind !== ADMIN_APPROVAL_KIND || !verifyEvent(event)) return null;
   try {
     const parsed = cityApprovalSchema.safeParse(JSON.parse(event.content));
     if (!parsed.success) return null;
     const data = parsed.data;
+    const automation=cityRevisionAutomationPubkey(SUPER_ADMIN_PUBKEY);
+    if(!isSuperAdmin(event.pubkey)&&!(event.pubkey===automation&&data.note===AUTOMATED_CITY_REVISION_NOTE))return null;
+    if(!isSuperAdmin(event.pubkey)&&(data.status!=="approved"||data.initialEventId||data.initialEventIds||data.heroImageUrl||data.slug||data.aliases||data.note!==AUTOMATED_CITY_REVISION_NOTE))return null;
     const initialTags = event.tags.filter(t => t[0] === "e" && t[3] === "initial-walk");
     const cityTags = event.tags.filter(t => t[0] === "city");
     return workflowAddress(event, data.cityId) && (uniqueTag(event, "d", data.cityId) || uniqueTag(event, "i", data.cityId)) && uniqueTag(event, "status", data.status)
@@ -98,6 +102,8 @@ export function parseApprovalRecord(event: Event): ApprovalRecord | null {
     return null;
   }
 }
+
+function approvalAuthors():string[]{const automation=cityRevisionAutomationPubkey(SUPER_ADMIN_PUBKEY);return [SUPER_ADMIN_PUBKEY,...(automation?[automation]:[])];}
 
 let readPool: SimplePool | undefined;
 let activeReads=0;
@@ -151,7 +157,7 @@ export async function queryRelayEvents(relays: string[], kinds: number[], onAuth
 export async function queryPublishedCity(relays: string[], slug: string): Promise<CityRevision | null> {
   const candidates = (await queryRelayEvents(relays, [CITY_UPDATE_KIND], undefined, { "#city": [slug], limit: 200 }))
     .map(parseCityRevision).filter((r): r is CityRevision => r !== null);
-  const overrideApprovals = (await queryRelayEvents(relays, [ADMIN_APPROVAL_KIND], undefined, { authors: [SUPER_ADMIN_PUBKEY], "#city": [slug], limit: 200 }))
+  const overrideApprovals = (await queryRelayEvents(relays, [ADMIN_APPROVAL_KIND], undefined, { authors: approvalAuthors(), "#city": [slug], limit: 200 }))
     .map(parseApprovalRecord).filter((r): r is ApprovalRecord => r !== null && r.approval.slug === slug);
   const overrideIds = [...new Set(overrideApprovals.map(r => r.approval.cityRevisionId))];
   for (let offset = 0; offset < overrideIds.length; offset += 100) {
@@ -161,12 +167,12 @@ export async function queryPublishedCity(relays: string[], slug: string): Promis
   const cityIds = [...new Set(candidates.map(r => r.city.cityId))];
   const approvals: ApprovalRecord[] = [...overrideApprovals];
   for (const cityId of cityIds) {
-    const legacy = await queryRelayEvents(relays, [ADMIN_APPROVAL_KIND], undefined, { authors: [SUPER_ADMIN_PUBKEY], "#d": [cityId] });
+    const legacy = await queryRelayEvents(relays, [ADMIN_APPROVAL_KIND], undefined, { authors: approvalAuthors(), "#d": [cityId] });
     approvals.push(...legacy.map(parseApprovalRecord).filter((r): r is ApprovalRecord => r !== null));
     let until: number | undefined;
     for (let page = 0; ; page++) {
       if (page >= 100) throw new Error("City decision history exceeds the safe read limit.");
-      const events = await queryRelayEvents(relays, [ADMIN_APPROVAL_KIND], undefined, { authors: [SUPER_ADMIN_PUBKEY], "#i": [cityId], limit: 200, ...(until === undefined ? {} : { until }) });
+      const events = await queryRelayEvents(relays, [ADMIN_APPROVAL_KIND], undefined, { authors: approvalAuthors(), "#i": [cityId], limit: 200, ...(until === undefined ? {} : { until }) });
       approvals.push(...events.map(parseApprovalRecord).filter((r): r is ApprovalRecord => r !== null && r.approval.cityId === cityId));
       if (events.length < 200) break;
       const oldest = Math.min(...events.map(e => e.created_at));
@@ -190,8 +196,8 @@ export async function queryCityRevisions(relays: string[], onAuthentication?: Re
 }
 
 export async function queryApprovals(relays: string[], onAuthentication?: RelayReadAuthentication): Promise<ApprovalRecord[]> {
-  const events = await queryRelayEvents(relays, [ADMIN_APPROVAL_KIND], onAuthentication);
-  return events.map(parseApprovalRecord).filter((record): record is ApprovalRecord => record !== null && isSuperAdmin(record.event.pubkey));
+  const events = await queryRelayEvents(relays, [ADMIN_APPROVAL_KIND], onAuthentication,{authors:approvalAuthors()});
+  return events.map(parseApprovalRecord).filter((record): record is ApprovalRecord => record !== null);
 }
 
 /** Complete bounded history for discovery; never publish a partial directory
@@ -202,7 +208,7 @@ export async function queryDirectoryRecords(relays:string[]):Promise<{revisions:
     const collected=new Map<string,Event>();
     let until:number|undefined;
     for(let page=0;page<100;page++) {
-      const events=await queryRelayEvents(relays,[kind],undefined,{limit:200,...(kind===ADMIN_APPROVAL_KIND?{authors:[SUPER_ADMIN_PUBKEY]}:{}),...(until===undefined?{}:{until})});
+      const events=await queryRelayEvents(relays,[kind],undefined,{limit:200,...(kind===ADMIN_APPROVAL_KIND?{authors:approvalAuthors()}:{}),...(until===undefined?{}:{until})});
       for(const event of events)collected.set(event.id,event);
       if(events.length<200)return [...collected.values()];
       const oldest=Math.min(...events.map(e=>e.created_at));
