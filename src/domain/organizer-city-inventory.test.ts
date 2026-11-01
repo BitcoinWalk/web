@@ -13,6 +13,10 @@ describe("organizer city inventory",()=>{
  it("does not expose another creator's pending city",()=>{
   expect(organizerCityInventory("b".repeat(64),[],[pending],[])).toEqual([]);
  });
+ it("keeps an approved city pending until its organizer permission is active",()=>{
+  const decisions=[{event:{id:"2".repeat(64),created_at:2},approval:{cityId:pending.city.cityId,cityRevisionId:pending.event.id,status:"approved"}}] as never;
+  expect(organizerCityInventory(creator,[],[pending],decisions)).toEqual([{revision:pending,editable:false,correctable:false,status:"awaiting-activation"}]);
+ });
  it("keeps an archived creator city in a read-only archived section",()=>{
   const decisions=[{event:{id:"2".repeat(64),created_at:2},approval:{cityId:pending.city.cityId,cityRevisionId:pending.event.id,status:"approved"}},{event:{id:"3".repeat(64),created_at:3},approval:{cityId:pending.city.cityId,cityRevisionId:pending.event.id,status:"revoked",note:ARCHIVE_NOTE}}] as never;
   expect(organizerCityInventory(creator,[],[pending],decisions)).toEqual([{revision:pending,editable:false,correctable:false,reviewNote:ARCHIVE_NOTE,status:"archived"}]);

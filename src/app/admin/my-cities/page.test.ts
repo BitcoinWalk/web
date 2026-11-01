@@ -7,7 +7,8 @@ describe("my cities inventory",()=>{
  it("shows direct status groups without a redundant city finder",()=>{
   const page=source();
   for(const label of ['label:"Pending"','label:"Awaits change"'])expect(page).toContain(label);
-  expect(page).toContain('const activeCities=cities.filter(item=>item.status==="editable"||item.status==="approved")');
+  expect(page).toContain('const activeCities=cities.filter(item=>item.status==="editable")');
+  expect(page).toContain('item.status==="awaiting-approval"||item.status==="awaiting-activation"');
   expect(page).toContain('className={styles.cityRail}');
   expect(page).toContain('className={styles.cityGroup}');
   expect(page).not.toContain('{key:"active",label:"Active"');

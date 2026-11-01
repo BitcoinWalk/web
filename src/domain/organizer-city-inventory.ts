@@ -4,7 +4,7 @@ import {correctableRejectedCityRevisions,editableCityRevisions} from "../nostr/o
 import {creatorSubmissions,type CreatorSubmission} from "./creator-submissions";
 import {visibleDecisionNote} from "./admin-city-requests";
 
-export type OrganizerCityInventoryItem={revision:CityRevision;editable:boolean;correctable:boolean;reviewNote?:string;status:CreatorSubmission["status"]|"editable"};
+export type OrganizerCityInventoryItem={revision:CityRevision;editable:boolean;correctable:boolean;reviewNote?:string;status:CreatorSubmission["status"]|"editable"|"awaiting-activation"};
 
 /** Includes creator-owned submissions without treating visibility as edit permission. */
 export function organizerCityInventory(pubkey:string,grants:AuthorizationRecord[],revisions:CityRevision[],approvals:ApprovalRecord[]):OrganizerCityInventoryItem[]{
@@ -20,7 +20,7 @@ export function organizerCityInventory(pubkey:string,grants:AuthorizationRecord[
   }
   const review=approvals.filter(record=>record.approval.cityId===submission.cityId&&record.approval.cityRevisionId===submission.revisionId).sort((a,b)=>compareEvents(a.event,b.event))[0];
   const reviewNote=visibleDecisionNote(review?.approval.note);
-  items.set(submission.cityId,{revision,editable:false,correctable:correctable.has(submission.revisionId),...(reviewNote?{reviewNote}:{}),status:submission.status});
+  items.set(submission.cityId,{revision,editable:false,correctable:correctable.has(submission.revisionId),...(reviewNote?{reviewNote}:{}),status:submission.status==="approved"?"awaiting-activation":submission.status});
  }
  return [...items.values()].sort((a,b)=>a.revision.city.cityName.localeCompare(b.revision.city.cityName)||a.revision.city.cityId.localeCompare(b.revision.city.cityId));
 }
