@@ -3,12 +3,13 @@ import {compareEvents} from "nostr-tools";
 import {correctableRejectedCityRevisions,editableCityRevisions} from "../nostr/organizer-edit";
 import {creatorSubmissions,type CreatorSubmission} from "./creator-submissions";
 import {visibleDecisionNote} from "./admin-city-requests";
+import {approvedCalendarWalks} from "../nostr/calendar-records";
 
 export type OrganizerCityInventoryItem={revision:CityRevision;editable:boolean;correctable:boolean;reviewNote?:string;status:CreatorSubmission["status"]|"editable"|"awaiting-activation"};
 
 /** Includes creator-owned submissions without treating visibility as edit permission. */
 export function organizerCityInventory(pubkey:string,grants:AuthorizationRecord[],revisions:CityRevision[],approvals:ApprovalRecord[]):OrganizerCityInventoryItem[]{
- const editable=editableCityRevisions(pubkey,grants,revisions,approvals),correctable=new Set(correctableRejectedCityRevisions(pubkey,grants,revisions,approvals).map(revision=>revision.event.id)),items=new Map<string,OrganizerCityInventoryItem>();
+ const approved=new Map(approvedCalendarWalks(revisions,approvals).map(walk=>[walk.revision.city.cityId,walk.revision])),editable=editableCityRevisions(pubkey,grants,revisions,approvals).map(revision=>approved.get(revision.city.cityId)??revision),correctable=new Set(correctableRejectedCityRevisions(pubkey,grants,revisions,approvals).map(revision=>revision.event.id)),items=new Map<string,OrganizerCityInventoryItem>();
  for(const revision of editable)items.set(revision.city.cityId,{revision,editable:true,correctable:false,status:"editable"});
  for(const submission of creatorSubmissions(pubkey,revisions,approvals)){
   const revision=revisions.find(item=>item.event.id===submission.revisionId);
