@@ -58,8 +58,8 @@ if differences == ["reserved_config", "activation_config"]:
     current_activation, approved_activation = json.loads(previous["activation_config"]), json.loads(row["activation_config"])
     def without_versions(value):
         return {key: item for key, item in value.items() if key not in ("version", "payoutVersion")}
-    safe_version_upgrade = (current_reserved.get("version") == current_activation.get("version") == 2 and
-                            approved_reserved.get("version") == approved_activation.get("version") == 3 and
+    safe_version_upgrade = (current_reserved.get("version") == 1 and approved_reserved.get("version") == 2 and
+                            current_activation.get("version") == 2 and approved_activation.get("version") == 3 and
                             current_reserved.get("payoutVersion") == current_activation.get("payoutVersion") == 3 and
                             approved_reserved.get("payoutVersion") == approved_activation.get("payoutVersion") == 4 and
                             without_versions(current_reserved) == without_versions(approved_reserved) and
@@ -77,6 +77,8 @@ if differences and not safe_version_upgrade:
         "reservedChangedKeys": sorted(key for key in set(current_reserved) | set(approved_reserved) if current_reserved.get(key) != approved_reserved.get(key)) if differences == ["reserved_config", "activation_config"] else [],
         "activationChangedKeys": sorted(key for key in set(current_activation) | set(approved_activation) if current_activation.get(key) != approved_activation.get(key)) if differences == ["reserved_config", "activation_config"] else [],
         "samePayoutDestination": current_activation.get("payoutDestination") == approved_activation.get("payoutDestination") if differences == ["reserved_config", "activation_config"] else False,
+        "reservationVersions": {"current": current_reserved.get("version"), "approved": approved_reserved.get("version"), "currentPayout": current_reserved.get("payoutVersion"), "approvedPayout": approved_reserved.get("payoutVersion")} if differences == ["reserved_config", "activation_config"] else {},
+        "activationVersions": {"current": current_activation.get("version"), "approved": approved_activation.get("version"), "currentPayout": current_activation.get("payoutVersion"), "approvedPayout": approved_activation.get("payoutVersion")} if differences == ["reserved_config", "activation_config"] else {},
     }
     raise SystemExit(json.dumps(safe))
 
