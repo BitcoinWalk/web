@@ -72,6 +72,9 @@ if differences and not safe_version_upgrade:
         "approvedPublicConfig": {key: config.get(key) for key in ("cityId", "domain", "localPart", "brandPubkey", "payoutVersion", "invoiceIssuance", "organizerBasisPoints", "retainedBasisPoints")},
         "currentConfigHash": hashlib.sha256(previous["activation_config"].encode()).hexdigest(),
         "approvedConfigHash": hashlib.sha256(row["activation_config"].encode()).hexdigest(),
+        "reservedChangedKeys": sorted(key for key in set(current_reserved) | set(approved_reserved) if current_reserved.get(key) != approved_reserved.get(key)) if differences == ["reserved_config", "activation_config"] else [],
+        "activationChangedKeys": sorted(key for key in set(current_activation) | set(approved_activation) if current_activation.get(key) != approved_activation.get(key)) if differences == ["reserved_config", "activation_config"] else [],
+        "samePayoutDestination": current_activation.get("payoutDestination") == approved_activation.get("payoutDestination") if differences == ["reserved_config", "activation_config"] else False,
     }
     raise SystemExit(json.dumps(safe))
 
