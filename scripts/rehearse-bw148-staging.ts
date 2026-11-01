@@ -8,6 +8,7 @@ import {PayoutAuthorityStore,PAYOUT_AUTHORITY_API} from "../src/rustress/payout-
 import {PayoutEnrolmentError,PayoutEnrolmentWorkflow,type PayoutAuthorityProvider,type PayoutAuthorityReceipt} from "../src/rustress/payout-enrolment";
 import {verifyCityPublicProvisioning} from "../src/rustress/public-provisioning";
 import {VERIFIED_PRO_CITY_SCOPE} from "../src/rustress/scoped-payout-operation";
+import {closeRelayReadPool} from "../src/nostr/city-records";
 
 const SOURCE="/var/lib/bitcoinwalk-app-staging/payments.sqlite";
 const CITIES=[
@@ -79,6 +80,6 @@ async function main(){
    unknownWriteRecovered:true,restartDuplicateRegistrations:restartCalls.register,changedEvidenceBlocked:true,revokedPolicyBlocked:true,
    cities:CITIES.map(city=>{const config=configs.get(city.id)!;return {name:city.name,cityId:city.id,localPart:config.localPart,payoutVersion:config.payoutVersion,configHash:provisionDigest(config),state:"active"};})};
   console.log(JSON.stringify({...report,reportHash:createHash("sha256").update(JSON.stringify(report)).digest("hex")}));
- }finally{source?.close();read?.close();work?.close();rmSync(directory,{recursive:true,force:true});}
+ }finally{source?.close();read?.close();work?.close();closeRelayReadPool();rmSync(directory,{recursive:true,force:true});}
 }
 void main().catch(error=>{console.error(JSON.stringify({result:"BW148_NO_MONEY_STAGING_REHEARSAL_FAILED",reason:error instanceof Error?error.message:"unknown"}));process.exitCode=1;});

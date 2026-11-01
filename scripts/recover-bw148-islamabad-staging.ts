@@ -7,6 +7,7 @@ import {managedProvisionConfigSchema,provisionDigest} from "../src/rustress/cont
 import {loopbackApiTransport} from "../src/rustress/loopback-http";
 import {verifyCityLnurl,verifyCityNip05} from "../src/rustress/public-provisioning";
 import {resolveRustressActivationEvidence} from "../src/server/pro-setup";
+import {closeRelayReadPool} from "../src/nostr/city-records";
 
 const DATABASE="/var/lib/bitcoinwalk-app-staging/payments.sqlite",CITY="5c1c04f5-aead-4265-bce7-0f9ce0d9b5cd";
 const EXPECTED_HASH="c2711193bceb4c94a2660ae3955ad1fb45603b51b1fe692c2b60f4898a93b111";
@@ -28,6 +29,6 @@ async function main(){
    {nip05:verifyCityNip05,lnurl:verifyCityLnurl},(request,current)=>resolveRustressActivationEvidence(request,"https://bitcoinwalk.org",current));
   const recovered=await workflow.retry(CITY);assert.deepEqual(recovered&&{state:recovered.state,nip05:recovered.nip05,lnurl:recovered.lnurl},{state:"active",nip05:"active",lnurl:"active"});
   console.log(JSON.stringify({result:"ISLAMABAD_EXACT_ACTIVATION_RECOVERED",cityId:CITY,configHash:EXPECTED_HASH,providerWrite:false,payoutEnrolment:false}));
- }finally{db.close();}
+ }finally{db.close();closeRelayReadPool();}
 }
 void main().catch(error=>{console.error(JSON.stringify({result:"ISLAMABAD_EXACT_ACTIVATION_RECOVERY_FAILED",reason:error instanceof Error?error.message:"unknown"}));process.exitCode=1;});
