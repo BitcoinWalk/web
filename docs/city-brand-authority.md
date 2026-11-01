@@ -211,3 +211,19 @@ second time. Activation is recorded only after every configured write relay
 returns that exact event. Conflicts, stale proofs, changed authority, disabled
 policy, capacity exhaustion and failed read-back remain visible for the existing
 Requests/manual workflow.
+
+### Accepted staging boundary
+
+On 1 November 2026, the bounded one-city staging policy activated Madeira request
+`1dc081f8-7d17-49d9-8065-9856135127e5`. Exact relay read-back confirmed valid
+event `7f18e9dce83d71a4ceb8457e355ca370855d82cb8b00a07872674cd99fd11329`;
+the private request, publication evidence and automation audit agree, and the
+one-shot signer was removed afterward.
+
+A later rehearsal used an online-consistent temporary copy of those exact rows.
+It rejected wrong ownership, stale proof replay, policy mismatch/revocation,
+capacity reuse, prior moderation, changed authority and missing read-back, then
+recovered an interrupted approved event exactly once. The live-row digest was
+identical before and after. This accepts only the existing-approved-city initial
+binding slice; creator revisions, new-city registration and financial enrolment
+remain separate work.
