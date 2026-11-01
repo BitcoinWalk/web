@@ -49,6 +49,11 @@ export function cityProfileAddressesTemplate(profile: ManagedCityProfile, previo
   return {kind:0,created_at:Math.max(now,previous.created_at+1),tags:[],content:encoded};
 }
 
+/** Preserves an existing profile, or creates the city's first approved profile. */
+export function verifiedCityProfileTemplate(profile: ManagedCityProfile, previous?: Event, now = Math.floor(Date.now()/1000)): EventTemplate {
+  return previous?cityProfileAddressesTemplate(profile,previous,now):cityProfileTemplate(profile,undefined,now);
+}
+
 export function authorizeCityProfile(event: Event, expectedPubkey: string, template: EventTemplate): Event {
   if (event.pubkey !== expectedPubkey || event.kind !== 0 || event.created_at !== template.created_at || event.content !== template.content ||
       JSON.stringify(event.tags) !== JSON.stringify(template.tags) || getEventHash(event) !== event.id || !verifyEvent(event)) {
