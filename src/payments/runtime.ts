@@ -12,7 +12,8 @@ import {sponsorHostPayoutScope} from "./sponsor-host-payout-scope";
 
 type PaymentRuntime={service:PaymentService;sponsors:SponsorService;sponsorInvitations:SponsorInvitationStore;store:PaymentStore;timer:NodeJS.Timeout};
 const runtimeKey=Symbol.for("bitcoinwalk.payment-runtime");
-type RuntimeGlobal=typeof globalThis&{[runtimeKey]?:PaymentRuntime};
+const storeKey=Symbol.for("bitcoinwalk.payment-store");
+type RuntimeGlobal=typeof globalThis&{[runtimeKey]?:PaymentRuntime;[storeKey]?:PaymentStore};
 
 function required(name:string):string{
  const value=process.env[name]?.trim();
@@ -29,10 +30,7 @@ function sourceRelay():string{
 export function getPaymentRuntime():PaymentRuntime{
  const shared=globalThis as RuntimeGlobal;
  if(shared[runtimeKey])return shared[runtimeKey];
- const database=required("BITCOINWALK_PAYMENT_DATABASE");
- if(process.env.NODE_ENV==="production"&&!isApprovedPaymentDatabase(database))throw new Error("Application database must be inside an approved app state directory");
- mkdirSync(dirname(database),{recursive:true,mode:0o700});
- const store=new PaymentStore(database),sponsorInvitations=new SponsorInvitationStore(store.db);
+ const store=getPaymentStore(),sponsorInvitations=new SponsorInvitationStore(store.db);
  const sponsorScope=sponsorHostPayoutScope();
  const wallet=new NwcWallet(required("BITCOINWALK_NWC_URL")),service=new PaymentService(store,wallet,(city,revision)=>verifyPurchasableCity([sourceRelay()],city,revision),undefined,
   (city,revision)=>verifyGiftableCity([sourceRelay()],city,revision)),sponsors=new SponsorService(store.db,wallet,sponsorshipCatalog,undefined,sponsorInvitations,sponsorScope.enabled,
@@ -64,6 +62,15 @@ export function getPaymentRuntime():PaymentRuntime{
   setInterval(relayReconcile,30_000).unref();setTimeout(relayReconcile,2_000).unref();
  }
  return shared[runtimeKey];
+}
+
+export function getPaymentStore():PaymentStore{
+ const shared=globalThis as RuntimeGlobal;
+ if(shared[storeKey])return shared[storeKey];
+ const database=required("BITCOINWALK_PAYMENT_DATABASE");
+ if(process.env.NODE_ENV==="production"&&!isApprovedPaymentDatabase(database))throw new Error("Application database must be inside an approved app state directory");
+ mkdirSync(dirname(database),{recursive:true,mode:0o700});
+ return shared[storeKey]=new PaymentStore(database);
 }
 
 export function startPaymentRuntime():void{

@@ -174,3 +174,40 @@ fork/gap rejection. BW-103 supplies these executable rules and the integration
 contract. BW-105/BW-106 must test fresh evidence resolution, live relay admission,
 outage recovery and publication before any account becomes active. BW-102 remains
 the end-to-end branded-profile and payment pilot.
+
+## BW-78 approved-city automation slice
+
+The first BW-78 slice automates only the final review and publication of an
+existing approved city's first identity binding. It does not approve a city,
+create an entitlement, change a payout, replace or revoke an identity, moderate
+content, or register a new city.
+
+The automation identity is a dedicated revocable Nostr key. A super-admin-signed
+private policy binds its public key, staging or production environment, policy
+revision, maximum distinct city count, issue time and nonce. The worker receives
+that policy and the secret through separate owner-only systemd credentials. The
+main super-admin secret is never present. The app and relay must both be pinned
+to the same automation public key; disabling the app gate or removing the relay
+setting stops new automated decisions.
+
+The worker opens the existing protected evidence database through a store-only
+boundary. It neither receives the NWC wallet credential nor starts invoice or
+sponsor-payment reconciliation. Dry-run mode requires only the signed policy;
+the dedicated signer credential is loaded only after an explicit write run.
+
+Candidates come only from retained requests that already contain exact owner and
+city-signer proofs. Immediately before signing, the worker repeats the existing
+fresh entitlement, owner, approval, suspension, signer, payout and artwork
+checks. Its signed event is restricted to `activate`, sequence zero and an empty
+predecessor. The relay independently repeats its public city approval and
+suspension checks and serializes successors under the existing city-brand lock.
+Manual moderation therefore wins and a removed or changed city cannot be
+resurrected.
+
+The private database records planned, approved, published or blocked state per
+request and policy. Approval and publication remain separate. After a crash, an
+approved request resumes from its already-stored exact event; it is not signed a
+second time. Activation is recorded only after every configured write relay
+returns that exact event. Conflicts, stale proofs, changed authority, disabled
+policy, capacity exhaustion and failed read-back remain visible for the existing
+Requests/manual workflow.

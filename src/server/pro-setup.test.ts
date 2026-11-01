@@ -2,7 +2,7 @@ import {afterEach, beforeEach, describe, expect, it, vi} from "vitest";
 import type {AuthorizationRecord, ApprovalRecord, CityRevision} from "../nostr/city-records";
 import {finalizeEvent, generateSecretKey, getPublicKey, type Event} from "nostr-tools";
 import {DatabaseSync} from "node:sqlite";
-vi.mock("../payments/runtime", () => ({getPaymentRuntime: vi.fn()}));
+vi.mock("../payments/runtime", () => ({getPaymentStore: vi.fn()}));
 vi.mock("./share-image", () => ({managedBackground: vi.fn()}));
 vi.mock("./existing-city-artwork", () => ({existingCityArtwork: vi.fn()}));
 vi.mock("../logos/profile-artwork", () => ({ProfileArtworkStore: class {ensure = vi.fn().mockResolvedValue({avatar: {url: "https://bitcoinwalk.org/api/media/files/avatar.webp"}, banner: {url: "https://bitcoinwalk.org/api/media/files/banner.webp"}});}}));
@@ -10,7 +10,7 @@ vi.mock("../payments/payout-destination-store", () => ({PayoutDestinationStore: 
   current = vi.fn().mockReturnValue(null);
   registration = vi.fn().mockReturnValue({cityId: "66f137cb-2ac1-4eef-8358-7dd66b45922f", revisionId: "d".repeat(64), version: 1, ownerPubkey: "a".repeat(64), normalized: "alice@example.com", confirmedAt: 1});
 }}));
-import {getPaymentRuntime} from "../payments/runtime";
+import {getPaymentStore} from "../payments/runtime";
 import {managedBackground} from "./share-image";
 import {existingCityArtwork} from "./existing-city-artwork";
 import {installNamedIdentity} from "../rustress/public-identity-store";
@@ -31,7 +31,7 @@ beforeEach(() => {
     CREATE TABLE payment_invoice_payout(invoiceId TEXT PRIMARY KEY,destinationVersion INTEGER NOT NULL);
     INSERT INTO payment_invoice VALUES('private-invoice','${revision.event.id}');
     INSERT INTO payment_invoice_payout VALUES('private-invoice',1);`);
-  vi.mocked(getPaymentRuntime).mockReturnValue({store: {db: database}} as never);
+  vi.mocked(getPaymentStore).mockReturnValue({db: database} as never);
   deps = {snapshot: vi.fn().mockResolvedValue({revisions: [revision], approvals: [approval]}), grants: vi.fn().mockResolvedValue([grant]),
     discover: vi.fn().mockResolvedValue(null), entitlement: vi.fn().mockReturnValue({invoiceId: "private-invoice", owner}), restrictions: vi.fn().mockResolvedValue(false),
     ownerCityProfileMatches:vi.fn().mockResolvedValue(true)};
