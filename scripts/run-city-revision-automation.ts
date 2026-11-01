@@ -27,10 +27,14 @@ async function candidates(){
 async function main(){
  process.umask(0o077);const mode=process.argv[2];if(mode!=="--dry-run"&&mode!=="--run")throw new Error("Use --dry-run or --run.");
  if(process.env.BITCOINWALK_RUSTRESS_FIXTURE_ENABLED==="1"||process.env.BITCOINWALK_RUSTRESS_MANAGED_ENABLED==="1")throw new Error("Revision automation cannot run with payment provisioning enabled.");
- const credentials=process.env.CREDENTIALS_DIRECTORY,environment=process.env.BITCOINWALK_CITY_REVISION_AUTOMATION_ENVIRONMENT,database=process.env.BITCOINWALK_PAYMENT_DATABASE;
- if(!credentials||(environment!=="staging"&&environment!=="production")||!database)throw new Error("Run through the isolated city revision automation service.");
- const policyEvent=JSON.parse(protectedFile(join(credentials,"policy.json"),16_384)) as Event,policy=readCityRevisionAutomationPolicy(policyEvent,environment),queue=await candidates();
- console.log(JSON.stringify({mode:mode.slice(2),environment,policyId:policyEvent.id,maximumRevisions:policy.maximumRevisions,candidates:queue.map(({row})=>({revisionId:row.revision.event.id,cityId:row.revision.city.cityId}))}));if(mode==="--dry-run")return;
+ const environment=process.env.BITCOINWALK_CITY_REVISION_AUTOMATION_ENVIRONMENT;
+ if(environment!=="staging"&&environment!=="production")throw new Error("Run through the isolated city revision automation service.");
+ const queue=await candidates();
+ if(mode==="--dry-run"){console.log(JSON.stringify({mode:"dry-run",environment,candidates:queue.map(({row})=>({revisionId:row.revision.event.id,cityId:row.revision.city.cityId}))}));return;}
+ const credentials=process.env.CREDENTIALS_DIRECTORY,database=process.env.BITCOINWALK_PAYMENT_DATABASE;
+ if(!credentials||!database)throw new Error("Run through the isolated city revision automation service.");
+ const policyEvent=JSON.parse(protectedFile(join(credentials,"policy.json"),16_384)) as Event,policy=readCityRevisionAutomationPolicy(policyEvent,environment);
+ console.log(JSON.stringify({mode:"run",environment,policyId:policyEvent.id,maximumRevisions:policy.maximumRevisions,candidates:queue.map(({row})=>({revisionId:row.revision.event.id,cityId:row.revision.city.cityId}))}));
  if(!relayConfig.writeRelays.length)throw new Error("No city revision publication relay is configured.");
  const raw=protectedFile(join(credentials,"signer-key"),66);if(!/^[0-9a-f]{64}$/.test(raw))throw new Error("Invalid automation credential.");const secret=Uint8Array.from(Buffer.from(raw,"hex")),db=new DatabaseSync(database),store=new CityRevisionAutomationStore(db);
  try{
