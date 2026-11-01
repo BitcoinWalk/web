@@ -26,7 +26,7 @@ export function serverChatConfig():ChatConfig{
    if(row.relay!==WALKIE_TALKIE_RELAY||row.groupId!==`bitcoinwalk-${row.slug}`)continue;
    if(row.tier==="pro"&&currentEntitlement(db,row.cityId)!==row.authorityId)continue;
    const existing=paidCities[row.cityId],walkieTalkieDestination={relay:row.relay,groupId:row.groupId};
-   paidCities[row.cityId]={slug:row.slug,tier:row.tier,destination:existing?.destination??null,armadaDestination:existing?.armadaDestination??null,walkieTalkieDestination,walkieTalkieEnabled:row.publicEnabled===1,armadaEnabled:existing?.armadaEnabled??false};
+   paidCities[row.cityId]={slug:row.slug,tier:existing?.tier??row.tier,destination:existing?.destination??null,armadaDestination:existing?.armadaDestination??null,walkieTalkieDestination,walkieTalkieEnabled:row.publicEnabled===1,armadaEnabled:existing?.armadaEnabled??false};
   }
   return {...chatConfig,paidCities};
  }catch{return chatConfig;}
