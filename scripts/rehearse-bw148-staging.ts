@@ -11,7 +11,7 @@ import {VERIFIED_PRO_CITY_SCOPE} from "../src/rustress/scoped-payout-operation";
 
 const SOURCE="/var/lib/bitcoinwalk-app-staging/payments.sqlite";
 const CITIES=[
- {name:"Bangkok",id:"d7d1cda8-7a58-42ad-ab60-c4bad61dab9a"},
+ {name:"Madeira",id:"ca20993a-5b7f-443e-931e-8dbaa61d05fe"},
  {name:"Islamabad",id:"5c1c04f5-aead-4265-bce7-0f9ce0d9b5cd"},
 ] as const;
 type ActivationRow={request:string;activation_config:string;phase:string;nip05:string;lnurl:string};
