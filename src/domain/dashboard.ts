@@ -16,8 +16,8 @@ export const dashboardItems=[
  {href:"/admin/monitoring/alerts",label:"Operations",access:"admin"},
 ] as const;
 export function dashboardNavigation(role:DashboardRole,capabilities:DashboardCapabilities={}){return dashboardItems.filter(item=>{
- if(role==="super-admin"&&(item.href==="/admin/profile"||item.href==="/admin/notifications"||item.href==="/admin/directory"))return false;
- return item.access==="all"||item.access==="connected"&&role!=="disconnected"||item.access==="walks"&&(role==="organizer"||role==="super-admin"||role==="member"&&capabilities.hostedWalks===true)||item.access==="organizer"&&role==="organizer"||item.access==="admin"&&role==="super-admin"||item.access==="relay"&&(role==="organizer"||role==="super-admin");
+ if(item.href==="/admin/profile"||item.href==="/admin/notifications"||item.href==="/admin/directory")return false;
+ return item.access==="all"||item.access==="connected"&&role!=="disconnected"||item.access==="walks"&&(role==="organizer"||role==="super-admin"||role==="member"&&capabilities.hostedWalks===true)||item.access==="organizer"&&role==="organizer"||item.access==="admin"&&role==="super-admin";
  });}
 export function dashboardProfileVisible(path:string){return path==="/admin";}
 export type DashboardMenuBadges={cities:number|null;walks:number|null;requests:number|null};

@@ -9,7 +9,7 @@ import styles from "./dashboard-account-menu.module.css";
 
 function roleLabel(role:DashboardRole){return role==="super-admin"?"Super-admin":role==="organizer"?"Host":"Participant";}
 
-export default function DashboardAccountMenu({pubkey,role,walkCount,onDisconnect}:{pubkey:string;role:DashboardRole;walkCount:number|null;onDisconnect:()=>void}){
+export default function DashboardAccountMenu({pubkey,role,onDisconnect}:{pubkey:string;role:DashboardRole;onDisconnect:()=>void}){
  const [resolved,setResolved]=useState<{key:string;profile:PublicProfile}>(),[failed,setFailed]=useState("");
  const profile=resolved?.key===pubkey?resolved.profile:undefined;
  useEffect(()=>watchPublicProfiles([pubkey],(key,value)=>{if(key===pubkey)setResolved({key,profile:value});}),[pubkey]);
@@ -27,10 +27,8 @@ export default function DashboardAccountMenu({pubkey,role,walkCount,onDisconnect
    <small>{npub.slice(0,16)}…{npub.slice(-8)}</small>
    <Link href="/admin/profile">Profile</Link>
    <Link href="/admin/notifications">Notifications</Link>
-   <a href={`nostr:${npub}`}>Public Nostr profile</a>
    {profile?.lnurl?<a href={`lightning:${profile.lnurl}`}>Wallet</a>:<span>Wallet <small>Not added</small></span>}
    <span>Badge <small>{roleLabel(role)}</small></span>
-   <span>Walk count <small>{walkCount??"Loading…"}</small></span>
    <button type="button" onClick={onDisconnect}>Disconnect</button>
   </div>
  </details>;

@@ -13,6 +13,6 @@ describe("profile entry",()=>{
   expect(html).toContain("Your default city");expect(html).toContain("Saves automatically across devices.");
   expect(html).toContain('role="status"');expect(html).not.toContain("Save default city across devices");
  });
- it("remains in organizer navigation while super-admins use the account menu",()=>{expect(dashboardAccess("/admin/profile","organizer")).toBe(true);expect(dashboardAccess("/admin/profile","disconnected")).toBe(false);expect(dashboardNavigation("organizer").some(row=>row.href==="/admin/profile")).toBe(true);expect(dashboardNavigation("super-admin").some(row=>String(row.href)==="/admin/profile")).toBe(false);});
+ it("is available to connected accounts from the account menu rather than primary navigation",()=>{expect(dashboardAccess("/admin/profile","organizer")).toBe(true);expect(dashboardAccess("/admin/profile","disconnected")).toBe(false);expect(dashboardNavigation("organizer").some(row=>String(row.href)==="/admin/profile")).toBe(false);expect(dashboardNavigation("super-admin").some(row=>String(row.href)==="/admin/profile")).toBe(false);});
  it("does not expose another city's private payout information before an owner-signed check",()=>{const html=renderToStaticMarkup(createElement(DashboardContext.Provider,{value:emptyDashboardSession},createElement(ProfilePage)));expect(html).toContain("No managed cities");expect(html).not.toContain("Private organizer payout wallet");});
 });
