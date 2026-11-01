@@ -2,7 +2,7 @@ import {afterEach,describe,expect,it,vi} from "vitest";
 import {DatabaseSync} from "node:sqlite";
 vi.mock("server-only",()=>({}));
 vi.mock("./pro-setup",()=>({resolveRustressActivationEvidence:vi.fn()}));
-import {managedProCityIds,managedProvisioningStatus,managedReservationPreflightReason,payoutEnrolmentCityIds,queueManagedProvisioning,reconcileManagedProvisioning} from "./rustress-activation";
+import {activePayoutEnrolmentConfig,managedProCityIds,managedProvisioningStatus,managedReservationPreflightReason,payoutEnrolmentCityIds,queueManagedProvisioning,reconcileManagedProvisioning} from "./rustress-activation";
 
 const saved={...process.env};
 afterEach(()=>{for(const key of Object.keys(process.env))if(!(key in saved))delete process.env[key];Object.assign(process.env,saved);});
@@ -55,5 +55,15 @@ describe("automatic verified-Pro provisioning scope",()=>{
     expect([...payoutEnrolmentCityIds(city,managed)]).toEqual([city]);
     expect(()=>payoutEnrolmentCityIds("",managed)).toThrow("scope");
     expect(()=>payoutEnrolmentCityIds("00000000-0000-4000-8000-000000000002",managed)).toThrow("scope");
+  });
+  it("accepts an exact active legacy activation without a current city request",()=>{
+    const db=new DatabaseSync(":memory:"),config={cityId:city,version:2,domain:"bitcoinwalk.org",localPart:"city",brandPubkey:"a".repeat(64),
+      authorityEventId:"b".repeat(64),approvalEventId:"c".repeat(64),brandEventId:"d".repeat(64),payoutVersion:1,
+      payoutDestination:"host@example.com",walletRef:"bitcoinwalk-rustress",organizerBasisPoints:7900,retainedBasisPoints:2100,invoiceIssuance:"enabled"};
+    db.exec("CREATE TABLE rustress_activation_task(city TEXT,request TEXT,phase TEXT,nip05 TEXT,lnurl TEXT,activation_config TEXT)");
+    db.prepare("INSERT INTO rustress_activation_task VALUES(?,?,?,?,?,?)").run(city,"legacy","active","active","active",JSON.stringify(config));
+    expect(activePayoutEnrolmentConfig(db,city)).toEqual({request:"legacy",config});
+    db.prepare("UPDATE rustress_activation_task SET lnurl='needs-attention'").run();
+    expect(activePayoutEnrolmentConfig(db,city)).toBeNull();db.close();
   });
 });
