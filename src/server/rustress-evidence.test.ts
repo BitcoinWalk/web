@@ -81,6 +81,7 @@ it("rejects failed endpoint validation",async()=>{
 });
 it("does not re-probe an immutable payout destination while rechecking an applied activation",async()=>{
   const first=await resolveRustressActivationEvidence(requestId),active=createCityActivation(first.reserved);
+  new ProSetupTaskStore(db).confirmArtwork(cityId,"paid",owner,{revisionId,avatar:profile.picture,banner:"https://example.org/new-banner.webp"});
   vi.mocked(lnurl.validatePayoutDestination).mockClear();
   vi.mocked(lnurl.validatePayoutDestination).mockRejectedValue(new Error("personal endpoint temporarily unavailable"));
   const result=await resolveRustressActivationEvidence(requestId,"https://bitcoinwalk.org",active);
