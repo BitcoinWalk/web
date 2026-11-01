@@ -15,7 +15,7 @@ export function organizerCityInventory(pubkey:string,grants:AuthorizationRecord[
   if(!revision)continue;
   const existing=items.get(submission.cityId);
   if(existing){
-   if(existing.revision.event.id===submission.revisionId)items.set(submission.cityId,{...existing,status:submission.status});
+   if(existing.revision.event.id===submission.revisionId&&submission.status!=="approved")items.set(submission.cityId,{...existing,status:submission.status});
    continue;
   }
   const review=approvals.filter(record=>record.approval.cityId===submission.cityId&&record.approval.cityRevisionId===submission.revisionId).sort((a,b)=>compareEvents(a.event,b.event))[0];

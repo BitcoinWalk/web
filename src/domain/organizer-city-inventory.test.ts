@@ -17,6 +17,10 @@ describe("organizer city inventory",()=>{
   const decisions=[{event:{id:"2".repeat(64),created_at:2},approval:{cityId:pending.city.cityId,cityRevisionId:pending.event.id,status:"approved"}}] as never;
   expect(organizerCityInventory(creator,[],[pending],decisions)).toEqual([{revision:pending,editable:false,correctable:false,status:"awaiting-activation"}]);
  });
+ it("shows an approved city as active once its organizer grant is recognized",()=>{
+  const grants=[{event:{id:"3".repeat(64),created_at:3},grant:{cityId:pending.city.cityId,creatorPubkey:creator,creatorRevisionId:pending.event.id,editorPubkeys:[creator],superAdminPubkey:"b".repeat(64)}}] as never,decisions=[{event:{id:"2".repeat(64),created_at:2},approval:{cityId:pending.city.cityId,cityRevisionId:pending.event.id,status:"approved"}}] as never;
+  expect(organizerCityInventory(creator,grants,[pending],decisions)).toEqual([{revision:pending,editable:true,correctable:false,status:"editable"}]);
+ });
  it("keeps an archived creator city in a read-only archived section",()=>{
   const decisions=[{event:{id:"2".repeat(64),created_at:2},approval:{cityId:pending.city.cityId,cityRevisionId:pending.event.id,status:"approved"}},{event:{id:"3".repeat(64),created_at:3},approval:{cityId:pending.city.cityId,cityRevisionId:pending.event.id,status:"revoked",note:ARCHIVE_NOTE}}] as never;
   expect(organizerCityInventory(creator,[],[pending],decisions)).toEqual([{revision:pending,editable:false,correctable:false,reviewNote:ARCHIVE_NOTE,status:"archived"}]);
