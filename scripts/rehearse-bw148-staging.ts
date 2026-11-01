@@ -1,12 +1,11 @@
 import assert from "node:assert/strict";
 import {createHash} from "node:crypto";
-import {mkdtempSync,rmSync} from "node:fs";
-import {tmpdir} from "node:os";
-import {join,realpathSync} from "node:path";
+import {mkdtempSync,realpathSync,rmSync} from "node:fs";
+import {join} from "node:path";
 import {DatabaseSync,backup} from "node:sqlite";
 import {managedProvisionConfigSchema,provisionDigest,type ProvisionConfig} from "../src/rustress/contract";
 import {PayoutAuthorityStore,PAYOUT_AUTHORITY_API} from "../src/rustress/payout-authority";
-import {PayoutEnrolmentError,PayoutEnrolmentWorkflow,type PayoutAuthorityProvider} from "../src/rustress/payout-enrolment";
+import {PayoutEnrolmentError,PayoutEnrolmentWorkflow,type PayoutAuthorityProvider,type PayoutAuthorityReceipt} from "../src/rustress/payout-enrolment";
 import {verifyCityPublicProvisioning} from "../src/rustress/public-provisioning";
 import {VERIFIED_PRO_CITY_SCOPE} from "../src/rustress/scoped-payout-operation";
 
@@ -21,8 +20,8 @@ function row(db:DatabaseSync,cityId:string){return db.prepare("SELECT request,ac
 function provider(store:PayoutAuthorityStore,calls:{register:number},unknownOnce=false):PayoutAuthorityProvider{
  let unknown=unknownOnce;
  return {
-  status:async config=>{const receipt=store.record(config.cityId,config.payoutVersion);if(!receipt)throw new PayoutEnrolmentError("absent");return receipt;},
-  register:async config=>{calls.register++;const receipt=store.register(config);if(unknown){unknown=false;throw new PayoutEnrolmentError("unknown");}return receipt;},
+  status:async config=>{const receipt=store.record(config.cityId,config.payoutVersion);if(!receipt)throw new PayoutEnrolmentError("absent");return receipt as PayoutAuthorityReceipt;},
+  register:async config=>{calls.register++;const receipt=store.register(config) as PayoutAuthorityReceipt;if(unknown){unknown=false;throw new PayoutEnrolmentError("unknown");}return receipt;},
  };
 }
 
@@ -30,11 +29,11 @@ async function main(){
  assert(process.getuid?.()!==0,"Run the rehearsal as the non-root bitcoinwalk user.");
  assert.equal(process.env.BITCOINWALK_RUSTRESS_PAYOUT_ENROLMENT_ENABLED,"0","Real payout enrolment must be explicitly disabled.");
  assert.equal(realpathSync(SOURCE),SOURCE,"Exact staging database required.");
- const directory=mkdtempSync(join(tmpdir(),"bw148-staging-")),copy=join(directory,"staging.sqlite"),isolated=join(directory,"isolated.sqlite"),changed=join(directory,"changed.sqlite"),revoked=join(directory,"revoked.sqlite");
+ const directory=mkdtempSync("/var/lib/bitcoinwalk-app-staging/bw148-rehearsal-"),copy=join(directory,"staging.sqlite"),isolated=join(directory,"isolated.sqlite"),changed=join(directory,"changed.sqlite"),revoked=join(directory,"revoked.sqlite");
  let source:DatabaseSync|undefined,read:DatabaseSync|undefined,work:DatabaseSync|undefined;
  try{
   source=new DatabaseSync(SOURCE,{readOnly:true});await backup(source,copy);source.close();source=undefined;
-  process.env.BITCOINWALK_PAYMENT_DATABASE=copy;delete process.env.NODE_ENV;
+  process.env.BITCOINWALK_PAYMENT_DATABASE=copy;
   const {resolveRustressActivationEvidence}=await import("../src/server/pro-setup");
   read=new DatabaseSync(copy,{readOnly:true});
   const configs=new Map<string,ProvisionConfig>();
