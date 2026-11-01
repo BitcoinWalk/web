@@ -74,7 +74,7 @@ export default function CommunityChatsPage(){
  function chooseCity(id:string){const row=rows.find(value=>value.cityId===id),city=cities.find(value=>value.cityId===id);setCityId(id);setGroupId(row?.groupId??(city?`bitcoinwalk-${city.slug}`:""));setActionMessage("");}
  const mayVerify=!current||current.phase==="candidate"||current.phase==="needs-attention";
  return <main>
-  <p>BitcoinWalk / dashboard / monitoring / communities</p>
+  <p>BitcoinWalk / dashboard / operations / communities</p>
   <h1>City communities</h1>
   <p>Create a city-scoped NIP-29 Walkie Talkie channel for every approved city. Each channel is named BitcoinWalk + city, uses the approved city artwork, and starts with the super-admin, current city host and BitcoinWalk Guide. Every Walkie Talkie channel uses the shared chat relay. Pro-city Armada and Concord routing remains on the city relay.</p>
   <button type="button" disabled={busy} onClick={load}>{busy?"Working…":"Refresh"}</button>

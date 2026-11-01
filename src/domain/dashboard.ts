@@ -13,7 +13,7 @@ export const dashboardItems=[
  {href:"/admin/organizers",label:"Hosts",access:"admin"},
  {href:"/admin/content",label:"Content",access:"admin"},
  {href:"/admin/directory",label:"City relay setup",access:"relay"},
- {href:"/admin/monitoring/alerts",label:"Monitoring",access:"admin"},
+ {href:"/admin/monitoring/alerts",label:"Operations",access:"admin"},
 ] as const;
 export function dashboardNavigation(role:DashboardRole,capabilities:DashboardCapabilities={}){return dashboardItems.filter(item=>item.access==="all"||item.access==="connected"&&role!=="disconnected"||item.access==="walks"&&(role==="organizer"||role==="super-admin"||role==="member"&&capabilities.hostedWalks===true)||item.access==="organizer"&&role==="organizer"||item.access==="admin"&&role==="super-admin"||item.access==="relay"&&(role==="organizer"||role==="super-admin"));}
 export function dashboardProfileVisible(path:string){return path==="/admin";}
@@ -56,5 +56,5 @@ export function dashboardHomeActions(role:DashboardRole,capabilities:DashboardCa
   {href:"/start",label:"Start a BitcoinWalk",description:"Apply to organize BitcoinWalk in your city."},
  ];
 }
-export const legacyDashboardRoutes:Record<string,string>={"/organizer":"/admin/walks","/organizer/events":"/admin/walks","/organizer/invitations":"/admin/accept-invitation","/organizer/team":"/admin/walks","/admin/calendar":"/admin/walks","/admin/hosting":"/admin/walks","/admin/approvals":"/admin/requests","/admin/moderation":"/admin/walks?tab=moderation","/admin/editors":"/admin/organizers?tab=editors","/admin/invitations":"/admin/organizers?tab=invitations","/admin/guide":"/admin/chat?room=guide"};
+export const legacyDashboardRoutes:Record<string,string>={"/organizer":"/admin/walks","/organizer/events":"/admin/walks","/organizer/invitations":"/admin/accept-invitation","/organizer/team":"/admin/walks","/admin/calendar":"/admin/walks","/admin/hosting":"/admin/walks","/admin/appearance":"/admin/walks","/admin/approvals":"/admin/requests","/admin/moderation":"/admin/walks?tab=moderation","/admin/editors":"/admin/organizers?tab=editors","/admin/invitations":"/admin/organizers?tab=invitations","/admin/guide":"/admin/chat?room=guide","/admin/monitoring":"/admin/monitoring/alerts"};
 export function legacyDashboardHref(path:string,search="",hash=""){const target=legacyDashboardRoutes[path];if(!target)throw new Error("Unknown legacy dashboard route");return target+(search?target.includes("?")?`&${search.slice(1)}`:search:"")+hash;}

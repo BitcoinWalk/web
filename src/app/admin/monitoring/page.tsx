@@ -1,2 +1,2 @@
-import {redirect} from "next/navigation";
-export default function MonitoringPage(){redirect("/admin/monitoring/alerts");}
+import DashboardRedirect from "../../../components/dashboard-redirect";
+export default function MonitoringPage(){return <DashboardRedirect from="/admin/monitoring"/>;}
