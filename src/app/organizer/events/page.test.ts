@@ -21,6 +21,7 @@ describe("organizer events landing view",()=>{
     expect(source).toContain("className={sponsorStyles.statusToggle}");
     expect(source.indexOf('aria-label="Filter walks"')).toBeLessThan(source.indexOf("{message&&"));
     expect(source).not.toContain('aria-label="Filter walks by status"');
+    expect(source).toContain('!rows.length&&!!walks.length&&<p>No walks found. Choose + Add a walk to prepare one.</p>');
   });
   it("edits published walks in a full-screen modal with persistent actions",()=>{
     const source=readFileSync(new URL("./_screen.tsx",import.meta.url),"utf8");

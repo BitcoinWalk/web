@@ -652,7 +652,7 @@ export default function OrganizerEventsPage({canModerate=false}:{canModerate?:bo
     </div>}
     {!!owner&&<section>
       {draftWarnings.map(warning=><p role="alert" key={warning}>{warning}</p>)}
-      {!rows.length&&<p>No walks found. Choose + Add a walk to prepare one.</p>}
+      {!rows.length&&!!walks.length&&<p>No walks found. Choose + Add a walk to prepare one.</p>}
       {!!rows.length&&!cities.length&&<p>No walks match this filter.</p>}
       {cities.map(([id,city])=><section key={id}><h3>{city.name}</h3><ol>{city.rows.map(row=><li key={row.key}>
         <strong>{row.kind==="draft"?"DRAFT":row.kind==="canceled"?"CANCELED":row.kind==="past"?"PAST":"UPCOMING"}</strong> — {row.walk.revision.city.cityName}<br/>
