@@ -9,7 +9,7 @@ const sha=value=>createHash("sha256").update(value).digest("hex");
 try{
  const worker=readFileSync(join(root,"release-build/city-brand-automation.cjs"));
  const source=worker.toString("utf8");
- for(const forbidden of ["BITCOINWALK_NWC_URL","Payment reconciliation deferred","class NwcWallet"]){if(source.includes(forbidden))throw new Error(`Automation bundle contains forbidden payment runtime: ${forbidden}`);}
+ for(const forbidden of ["BITCOINWALK_NWC_URL","Payment reconciliation deferred","class NwcWallet","sharp/dist"]){if(source.includes(forbidden))throw new Error(`Automation bundle contains forbidden runtime: ${forbidden}`);}
  writeFileSync(join(temporary,"city-brand-automation.cjs"),worker,{mode:0o600});
  copyFileSync(join(root,"docs/city-brand-automation-operations.md"),join(temporary,"OPERATIONS.md"));
  const names=["city-brand-automation.cjs","OPERATIONS.md"];

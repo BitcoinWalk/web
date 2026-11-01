@@ -11,8 +11,7 @@ import {managedCities} from "../nostr/moderation";
 import {relayConfig} from "../lib/relay-config";
 import {serverReadRelays} from "../lib/server-relay-config";
 import {getPaymentStore} from "../payments/store-runtime";
-import {ProfileArtworkStore} from "../logos/profile-artwork";
-import {managedBackground} from "./share-image";
+import type {ProfileArtworkStore} from "../logos/profile-artwork";
 import {PayoutDestinationStore} from "../payments/payout-destination-store";
 import {ProSetupTaskStore} from "../payments/pro-setup-task-store";
 import {normalizePayoutDestination,validatePayoutDestination} from "./lnurl-pay";
@@ -157,6 +156,7 @@ async function profileBrandLogo():Promise<Buffer>{
 export async function prepareProSetupPreview(cityId: string, actor: string, origin: string): Promise<ProSetupPreview> {
   const {authority, row} = await resolveProSetupAuthority(cityId, actor);
   const city = row.revision.city, slug = row.decision.approval.slug ?? city.slug;
+  const {managedBackground}=await import("./share-image");
   const hero = await managedBackground([row.decision.approval.heroImageUrl, city.heroImageUrl]);
   const canonicalOrigin=process.env.BITCOINWALK_PUBLIC_ORIGIN?.trim()||"https://bitcoinwalk.org";
   const namedIdentity=!hero?activeNamedIdentity(getPaymentStore().db,slug):null;
@@ -171,7 +171,7 @@ export async function prepareProSetupPreview(cityId: string, actor: string, orig
   const mediaRoot = process.env.BITCOINWALK_MEDIA_ROOT;
   if (!mediaRoot) throw new Error("Persistent profile artwork storage is not configured.");
   const config = `${mediaRoot}\n${origin}`;
-  if (!artworkStore || artworkConfig !== config) {artworkStore = new ProfileArtworkStore(mediaRoot, origin); artworkConfig = config;}
+  if (!artworkStore || artworkConfig !== config) {const {ProfileArtworkStore}=await import("../logos/profile-artwork");artworkStore = new ProfileArtworkStore(mediaRoot, origin); artworkConfig = config;}
   artwork = await artworkStore.ensure({cityId, revisionId: row.revision.event.id, hero:hero!, cityLogo: logo});
   }
   // A changing owner/approval/entitlement must not receive a stale prepared profile.
