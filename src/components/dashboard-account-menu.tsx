@@ -1,6 +1,7 @@
 "use client";
 
 import {nip19} from "nostr-tools";
+import Link from "next/link";
 import {useEffect,useState} from "react";
 import type {DashboardRole} from "../domain/dashboard";
 import {watchPublicProfiles,type PublicProfile} from "../nostr/profiles";
@@ -24,7 +25,9 @@ export default function DashboardAccountMenu({pubkey,role,walkCount,onDisconnect
   <div className={styles.menu}>
    <strong>{label}</strong>
    <small>{npub.slice(0,16)}…{npub.slice(-8)}</small>
-   <a href={`nostr:${npub}`}>Profile</a>
+   <Link href="/admin/profile">Profile</Link>
+   <Link href="/admin/notifications">Notifications</Link>
+   <a href={`nostr:${npub}`}>Public Nostr profile</a>
    {profile?.lnurl?<a href={`lightning:${profile.lnurl}`}>Wallet</a>:<span>Wallet <small>Not added</small></span>}
    <span>Badge <small>{roleLabel(role)}</small></span>
    <span>Walk count <small>{walkCount??"Loading…"}</small></span>
