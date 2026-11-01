@@ -2,7 +2,7 @@ import {afterEach,describe,expect,it,vi} from "vitest";
 import {DatabaseSync} from "node:sqlite";
 vi.mock("server-only",()=>({}));
 vi.mock("./pro-setup",()=>({resolveRustressActivationEvidence:vi.fn()}));
-import {managedProCityIds,managedProvisioningStatus,managedReservationPreflightReason,queueManagedProvisioning,reconcileManagedProvisioning} from "./rustress-activation";
+import {managedProCityIds,managedProvisioningStatus,managedReservationPreflightReason,payoutEnrolmentCityIds,queueManagedProvisioning,reconcileManagedProvisioning} from "./rustress-activation";
 
 const saved={...process.env};
 afterEach(()=>{for(const key of Object.keys(process.env))if(!(key in saved))delete process.env[key];Object.assign(process.env,saved);});
@@ -49,5 +49,11 @@ describe("automatic verified-Pro provisioning scope",()=>{
   });
   it("keeps the explicit compatibility scope available during rollout",()=>{
     const db=fixture();expect([...managedProCityIds(db,city)]).toEqual([city]);db.close();
+  });
+  it("requires payout enrolment to use a bounded subset of managed cities",()=>{
+    const managed=new Set([city]);
+    expect([...payoutEnrolmentCityIds(city,managed)]).toEqual([city]);
+    expect(()=>payoutEnrolmentCityIds("",managed)).toThrow("scope");
+    expect(()=>payoutEnrolmentCityIds("00000000-0000-4000-8000-000000000002",managed)).toThrow("scope");
   });
 });
