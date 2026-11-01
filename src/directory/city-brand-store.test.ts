@@ -14,7 +14,7 @@ const authority: CityBrandAuthority = {cityId:"66f137cb-2ac1-4eef-8358-7dd66b459
 const origin = "https://bitcoinwalk.org";
 const profile = {revisionId:"c".repeat(64),artworkVersion:1,signerVersion:1,payoutVersion:1,name:"BitcoinWalk in Test",picture:"https://bitcoinwalk.org/avatar.webp",banner:"https://bitcoinwalk.org/banner.webp",website:"https://bitcoinwalk.org/test"};
 const databases: DatabaseSync[] = [];
-afterEach(() => {for (const db of databases.splice(0)) db.close();});
+afterEach(() => {for (const db of databases.splice(0)) db.close();vi.unstubAllEnvs();});
 function setup() {
   const db = new DatabaseSync(":memory:"); databases.push(db);
   let now = 2000000000;
@@ -65,6 +65,18 @@ describe("branded city authority contract and private storage", () => {
     const template=store.reviewStored(request.requestId,admin,authority),signed=finalizeEvent(template,adminKey);
     expect(store.approveStored(request.requestId,admin,authority,signed).id).toBe(signed.id);
     expect(JSON.stringify(store.publicHistory(authority.cityId))).not.toContain(profile.picture);
+  });
+  it("accepts a configured automation signature only for the first activation",()=>{
+    const automationKey=new Uint8Array(32).fill(5),automation=getPublicKey(automationKey);vi.stubEnv("NEXT_PUBLIC_CITY_BRAND_AUTOMATION_PUBKEY",automation);
+    const {store,advance}=setup(),request=store.prepare(owner,authority,origin,brand,"activate",profile),p=proofs(request);
+    store.submitProofs(request.requestId,owner,authority,p.ownerProof,p.brandProof);
+    const first=finalizeEvent(store.reviewStored(request.requestId,admin,authority),automationKey);
+    expect(store.approveStored(request.requestId,admin,authority,first).pubkey).toBe(automation);
+    advance(1);
+    const replacement=store.prepare(owner,authority,origin,other,"replace",profile),next=proofs(replacement,otherKey);
+    store.submitProofs(replacement.requestId,owner,authority,next.ownerProof,next.brandProof);
+    const signed=finalizeEvent(store.reviewStored(replacement.requestId,admin,authority),automationKey);
+    expect(()=>store.approveStored(replacement.requestId,admin,authority,signed)).toThrow("only create");
   });
   it("activates only the exact independently read-back approved event and reuses exact retries",()=>{
     const {store}=setup(),request=store.prepare(owner,authority,origin,brand,"activate",profile),p=approve(store,request);

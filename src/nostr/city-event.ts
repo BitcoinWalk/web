@@ -2,11 +2,17 @@ import { ADMIN_APPROVAL_KIND, CITY_UPDATE_KIND, cityApprovalSchema, type CityApp
 import type { EventTemplate } from "nostr-tools";
 import { CITY_AUTHORIZATION_KIND, cityAuthorizationSchema, type CityAuthorization } from "../domain/city";
 import { SUPER_ADMIN_PUBKEY } from "./authority";
+import {AUTOMATED_NEW_CITY_MARKER} from "./new-city-automation-contract";
 
 export function createAuthorizationEvent(grant: CityAuthorization): EventTemplate {
   const data = cityAuthorizationSchema.parse(grant);
   if (data.superAdminPubkey !== SUPER_ADMIN_PUBKEY) throw new Error("Incorrect super-admin identity");
   return { kind: CITY_AUTHORIZATION_KIND, created_at: Math.floor(Date.now()/1000), content: JSON.stringify(data), tags: [["d", data.cityId], ["client", "bitcoinwalk.org"]] };
+}
+
+export function createAutomatedNewCityAuthorizationEvent(grant:CityAuthorization):EventTemplate {
+ const event=createAuthorizationEvent(grant);
+ return {...event,tags:[...event.tags,["automation",AUTOMATED_NEW_CITY_MARKER]]};
 }
 
 /** Each signed revision has its own address, retaining all approved snapshots. */

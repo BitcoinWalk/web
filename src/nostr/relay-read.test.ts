@@ -1,6 +1,6 @@
 import {describe,it,expect,vi,afterEach} from "vitest";
-import {queryAuthorizations} from "./city-records";
-const state=vi.hoisted(()=>({mode:"failure",pools:0}));
+import {closeRelayReadPool,queryAuthorizations} from "./city-records";
+const state=vi.hoisted(()=>({mode:"failure",pools:0,destroys:0}));
 vi.mock("nostr-tools",async original=>{
   const actual=await original<typeof import("nostr-tools")>();
   return {...actual,SimplePool:class {
@@ -9,10 +9,10 @@ vi.mock("nostr-tools",async original=>{
       if(state.mode!=="timeout") queueMicrotask(()=>callbacks.onclose([{url:"wss://test.invalid",reason:state.mode==="failure"?"connection failed":"closed automatically on eose"}]));
       return {close:()=>{}};
     }
-    destroy(){}
+    destroy(){state.destroys++;}
   }};
 });
-afterEach(()=>vi.useRealTimers());
+afterEach(()=>{closeRelayReadPool();vi.useRealTimers();});
 describe("relay read outcomes",()=>{
  it("does not turn failed connections into zero cities",async()=>{
   state.mode="failure";
@@ -23,6 +23,13 @@ describe("relay read outcomes",()=>{
   const before=state.pools;
   expect(await Promise.all([queryAuthorizations(["wss://test.invalid"]),queryAuthorizations(["wss://test.invalid"])])).toEqual([[],[]]);
   expect(state.pools-before).toBeLessThanOrEqual(1);
+ });
+ it("lets a one-shot worker close the shared connection immediately",async()=>{
+  state.mode="success";
+  await queryAuthorizations(["wss://test.invalid"]);
+  const before=state.destroys;
+  closeRelayReadPool();
+  expect(state.destroys).toBe(before+1);
  });
  it("rejects missing configuration",async()=>{
   await expect(queryAuthorizations([])).rejects.toThrow("No read relay");

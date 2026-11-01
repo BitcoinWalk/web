@@ -4,15 +4,14 @@ import {readFile} from "node:fs/promises";
 import {join} from "node:path";
 import {managedProvisionConfigSchema,provisionConfigSchema, provisionDigest,type ProvisionConfig} from "../rustress/contract";
 import {createCityActivation} from "../rustress/activation-contract";
-import {resolveCityBrand,type CityBrandAuthority} from "../nostr/city-brand";
+import {cityBrandIssuerPubkeys,resolveCityBrand,type CityBrandAuthority} from "../nostr/city-brand";
 import {queryRelayEvents} from "../nostr/city-records";
 import {citySetupEvidence} from "./city-setup-evidence";
 import {managedCities} from "../nostr/moderation";
 import {relayConfig} from "../lib/relay-config";
 import {serverReadRelays} from "../lib/server-relay-config";
-import {getPaymentRuntime} from "../payments/runtime";
-import {ProfileArtworkStore} from "../logos/profile-artwork";
-import {managedBackground} from "./share-image";
+import {getPaymentStore} from "../payments/store-runtime";
+import type {ProfileArtworkStore} from "../logos/profile-artwork";
 import {PayoutDestinationStore} from "../payments/payout-destination-store";
 import {ProSetupTaskStore} from "../payments/pro-setup-task-store";
 import {normalizePayoutDestination,validatePayoutDestination} from "./lnurl-pay";
@@ -30,6 +29,8 @@ import {legacyProEntitlement,type LegacyProEntitlement} from "../payments/legacy
 import {isSilentActiveOverride} from "../domain/admin-city-requests";
 import {activeNamedIdentity} from "../rustress/public-identity-store";
 import {existingCityArtwork} from "./existing-city-artwork";
+import {readCityBrandAutomationPolicy} from "../nostr/city-brand-automation";
+import {CityBrandAutomationStore} from "./city-brand-automation-store";
 
 /** This preflight cannot publish, create invoices, assign identities or activate payments. */
 export type ProSetupPreview = {
@@ -61,7 +62,7 @@ export async function ownerCityProfileNameMatches(pubkey:string,expectedNames:st
 export const proSetupDependencies = {
   ...citySetupEvidence,
   entitlement: (cityId: string):({invoiceId:string;owner:string;legacy?:false}|LegacyProEntitlement)|undefined => {
-    const db=getPaymentRuntime().store.db,paid=db.prepare("SELECT invoiceId,owner FROM paid_city_entitlement WHERE cityId=?").get(cityId) as {invoiceId:string;owner:string}|undefined;
+    const db=getPaymentStore().db,paid=db.prepare("SELECT invoiceId,owner FROM paid_city_entitlement WHERE cityId=?").get(cityId) as {invoiceId:string;owner:string}|undefined;
     return paid??legacyProEntitlement(db,cityId);
   },
   ownerCityProfileMatches: ownerCityProfileNameMatches,
@@ -85,7 +86,7 @@ async function resolveProSetupEvidence(cityId: string, deps = proSetupDependenci
 
 function mepOwnerBrandEligible(resolved:Awaited<ReturnType<typeof resolveProSetupEvidence>>,brandPubkey:string){
  if(resolved.grant.grant.version!==2||resolved.grant.grant.ownerPubkey!==brandPubkey||resolved.grant.grant.ownershipEventId!==resolved.authority.authorityEventId)return false;
- const rows=getPaymentRuntime().store.db.prepare("SELECT challenge FROM city_brand_request WHERE city_id=? AND status='active' ORDER BY rowid DESC").all(resolved.authority.cityId) as Array<{challenge:string}>;
+ const rows=getPaymentStore().db.prepare("SELECT challenge FROM city_brand_request WHERE city_id=? AND status='active' ORDER BY rowid DESC").all(resolved.authority.cityId) as Array<{challenge:string}>;
  return rows.some(row=>{try{return (JSON.parse(row.challenge) as import("../nostr/city-brand").CityBrandChallenge).binding.brandPubkey===brandPubkey;}catch{return false;}});
 }
 
@@ -101,7 +102,7 @@ export function proSetupNotificationState(taskState:ProSetupPreview["setup"]["st
 /** Guide-safe projection. Each row is re-authorized against current approval,
  * ownership, entitlement and moderation before it can name a recipient. */
 export async function listProSetupNotifications():Promise<ProSetupNotification[]> {
-  const db=getPaymentRuntime().store.db,store=new ProSetupTaskStore(db),rows:ProSetupNotification[]=[];
+  const db=getPaymentStore().db,store=new ProSetupTaskStore(db),rows:ProSetupNotification[]=[];
   const updateTable=db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='rustress_payout_update_task'").get();
   for(const cityId of store.cityIds()){
     const request=db.prepare(`SELECT status,expires_at expiresAt,owner_proof ownerProof,brand_proof brandProof
@@ -129,10 +130,10 @@ export async function resolveProSetupAuthority(cityId: string, actor: string, de
   return result;
 }
 
-const brandStore = () => new CityBrandStore(getPaymentRuntime().store.db);
+const brandStore = () => new CityBrandStore(getPaymentStore().db);
 
 function ensureSetupTask(resolved: Awaited<ReturnType<typeof resolveProSetupAuthority>>) {
-  const db = getPaymentRuntime().store.db;
+  const db = getPaymentStore().db;
   const binding = resolved.entitlement.legacy?{revisionId:resolved.row.revision.event.id,destinationVersion:resolved.entitlement.registrationVersion}:db.prepare(`SELECT payment_invoice.revisionId,payment_invoice_payout.destinationVersion
     FROM payment_invoice LEFT JOIN payment_invoice_payout ON payment_invoice_payout.invoiceId=payment_invoice.id WHERE payment_invoice.id=?`)
     .get(resolved.entitlement.invoiceId) as {revisionId: string; destinationVersion: number | null} | undefined;
@@ -155,9 +156,10 @@ async function profileBrandLogo():Promise<Buffer>{
 export async function prepareProSetupPreview(cityId: string, actor: string, origin: string): Promise<ProSetupPreview> {
   const {authority, row} = await resolveProSetupAuthority(cityId, actor);
   const city = row.revision.city, slug = row.decision.approval.slug ?? city.slug;
+  const {managedBackground}=await import("./share-image");
   const hero = await managedBackground([row.decision.approval.heroImageUrl, city.heroImageUrl]);
   const canonicalOrigin=process.env.BITCOINWALK_PUBLIC_ORIGIN?.trim()||"https://bitcoinwalk.org";
-  const namedIdentity=!hero?activeNamedIdentity(getPaymentRuntime().store.db,slug):null;
+  const namedIdentity=!hero?activeNamedIdentity(getPaymentStore().db,slug):null;
   const existing=!hero&&namedIdentity?await existingCityArtwork(namedIdentity.brandPubkey,city.cityName,slug,canonicalOrigin):null;
   if (!hero&&!existing) throw new Error("The approved city photo is unavailable and existing city profile artwork could not be verified. Retry or ask BitcoinWalk to review the existing image; do not create another identity.");
   // The public identity already carries the city in its display name. Profile
@@ -169,7 +171,7 @@ export async function prepareProSetupPreview(cityId: string, actor: string, orig
   const mediaRoot = process.env.BITCOINWALK_MEDIA_ROOT;
   if (!mediaRoot) throw new Error("Persistent profile artwork storage is not configured.");
   const config = `${mediaRoot}\n${origin}`;
-  if (!artworkStore || artworkConfig !== config) {artworkStore = new ProfileArtworkStore(mediaRoot, origin); artworkConfig = config;}
+  if (!artworkStore || artworkConfig !== config) {const {ProfileArtworkStore}=await import("../logos/profile-artwork");artworkStore = new ProfileArtworkStore(mediaRoot, origin); artworkConfig = config;}
   artwork = await artworkStore.ensure({cityId, revisionId: row.revision.event.id, hero:hero!, cityLogo: logo});
   }
   // A changing owner/approval/entitlement must not receive a stale prepared profile.
@@ -179,7 +181,7 @@ export async function prepareProSetupPreview(cityId: string, actor: string, orig
   const {store: taskStore, binding} = ensureSetupTask(fresh);
   const artworkTask = taskStore.confirmArtwork(cityId, fresh.authority.entitlementId, fresh.authority.ownerPubkey,
     {revisionId: row.revision.event.id, avatar: artwork.avatar.url, banner: artwork.banner.url});
-  const destinations = new PayoutDestinationStore(getPaymentRuntime().store.db);
+  const destinations = new PayoutDestinationStore(getPaymentStore().db);
   const stored = destinations.current(cityId);
   const payout = stored?.ownerPubkey === fresh.authority.ownerPubkey ? stored : null;
   const task = payout && artworkTask.payoutVersion !== payout.version ?
@@ -187,13 +189,13 @@ export async function prepareProSetupPreview(cityId: string, actor: string, orig
   const registration = !payout && task.registrationVersion ? destinations.registration(cityId, task.registrationVersion) : undefined;
   const suggestion = registration?.ownerPubkey === fresh.authority.ownerPubkey && registration.revisionId === binding.revisionId ? registration : undefined;
   const currentActivation = brandStore().currentForCity(cityId);
-  const activationTable=getPaymentRuntime().store.db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='rustress_activation_task'").get();
-  const activeRow=activationTable?getPaymentRuntime().store.db.prepare("SELECT phase,json_extract(activation_config,'$.payoutVersion') payoutVersion FROM rustress_activation_task WHERE city=?").get(cityId) as {phase:string;payoutVersion:number}|undefined:undefined;
-  const updateTable=getPaymentRuntime().store.db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='rustress_payout_update_task'").get();
-  const update=updateTable?getPaymentRuntime().store.db.prepare("SELECT payout_version payoutVersion,phase state FROM rustress_payout_update_task WHERE city=? ORDER BY payout_version DESC LIMIT 1").get(cityId) as {payoutVersion:number;state:string}|undefined:undefined;
+  const activationTable=getPaymentStore().db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='rustress_activation_task'").get();
+  const activeRow=activationTable?getPaymentStore().db.prepare("SELECT phase,json_extract(activation_config,'$.payoutVersion') payoutVersion FROM rustress_activation_task WHERE city=?").get(cityId) as {phase:string;payoutVersion:number}|undefined:undefined;
+  const updateTable=getPaymentStore().db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='rustress_payout_update_task'").get();
+  const update=updateTable?getPaymentStore().db.prepare("SELECT payout_version payoutVersion,phase state FROM rustress_payout_update_task WHERE city=? ORDER BY payout_version DESC LIMIT 1").get(cityId) as {payoutVersion:number;state:string}|undefined:undefined;
   const payoutActivation=activeRow?.phase==="active"?update&&update.payoutVersion>activeRow.payoutVersion?{activeVersion:activeRow.payoutVersion,pendingVersion:update.payoutVersion,state:update.state==="active"?"active" as const:update.state==="blocked"||update.state==="needs-attention"?"needs-attention" as const:"pending" as const}:{activeVersion:activeRow.payoutVersion,state:"active" as const}:{state:"not-active" as const};
-  const capabilities = cityProvisioningCapabilities(getPaymentRuntime().store.db,cityId);
-  const database=getPaymentRuntime().store.db,communityRow=new ChatProvisionStore(database).get(cityId),walkieTalkieRow=new WalkieTalkieProvisionStore(database).get(cityId);
+  const capabilities = cityProvisioningCapabilities(getPaymentStore().db,cityId);
+  const database=getPaymentStore().db,communityRow=new ChatProvisionStore(database).get(cityId),walkieTalkieRow=new WalkieTalkieProvisionStore(database).get(cityId);
   const armadaActive=communityRow?.phase==="active",walkieTalkieActive=walkieTalkieRow?.phase==="active";
   const communityUrl=armadaActive?armadaChatUrl({relay:communityRow.relay,groupId:communityRow.groupId}):null;
   const publicOriginValue=process.env.BITCOINWALK_PUBLIC_ORIGIN?.trim()||"https://bitcoinwalk.org",publicOrigin=new URL(publicOriginValue);
@@ -221,7 +223,7 @@ export async function prepareProSetupPreview(cityId: string, actor: string, orig
 }
 
 export async function setProCommunityVisibility(cityId:string,actor:string,surface:ChatVisibilitySurface,enabled:boolean){
-  const before=await resolveProSetupAuthority(cityId,actor),database=getPaymentRuntime().store.db,armadaStore=new ChatProvisionStore(database),walkieTalkieStore=new WalkieTalkieProvisionStore(database);
+  const before=await resolveProSetupAuthority(cityId,actor),database=getPaymentStore().db,armadaStore=new ChatProvisionStore(database),walkieTalkieStore=new WalkieTalkieProvisionStore(database);
   const row=surface==="walkie-talkie"?walkieTalkieStore.get(cityId):armadaStore.get(cityId);
   if(!row||row.phase!=="active")throw new Error(`Active ${surface==="walkie-talkie"?"Walkie Talkie":"Armada"} setup is required before changing public visibility.`);
   const after=await resolveProSetupAuthority(cityId,actor);if(JSON.stringify(before.authority)!==JSON.stringify(after.authority))throw new Error("City authority changed during the community visibility update. Reload and try again.");
@@ -260,11 +262,14 @@ export async function cancelBrandRequest(cityId: string, requestId: string, acto
       "Activation request cancelled. Your signer, payout setup and Pro entitlement remain saved."};
 }
 
-export async function listBrandRequests(actor: string) {
+export async function listBrandRequests(actor: string, initializeAutomationAudit = true) {
   if (actor !== SUPER_ADMIN_PUBKEY) throw new Error("Super-admin review required.");
-  const store=brandStore();
-  return [...store.reviewQueue(),...store.completed()].map(row => ({requestId: row.id, cityId: row.city_id, expiresAt: row.expires_at,state:row.status as "pending"|"approved"|"active",
-    brandPubkey: row.challenge.binding.brandPubkey, profile: row.challenge.profile, proofsReady: !!row.owner_proof && !!row.brand_proof}));
+  const store=brandStore(),audit=new CityBrandAutomationStore(getPaymentStore().db,undefined,initializeAutomationAudit);
+  return [...store.reviewQueue(),...store.completed()].map(row => {
+    const automation=audit.get(row.id);
+    return {requestId: row.id, cityId: row.city_id, expiresAt: row.expires_at,state:row.status as "pending"|"approved"|"active",
+      brandPubkey: row.challenge.binding.brandPubkey, profile: row.challenge.profile, proofsReady: !!row.owner_proof && !!row.brand_proof,...(automation?{automation}:{})};
+  });
 }
 
 async function brandReviewEvidence(requestId: string, actor: string, allowPayoutChange = false) {
@@ -287,9 +292,29 @@ export async function approveBrandRequest(requestId: string, actor: string, sign
     message: "Exact city binding signed and stored privately. Publish it separately; it becomes active only after exact relay read-back."};
 }
 
+export async function approveBrandRequestAutomated(requestId:string,policyEvent:Event,signed:Event){
+  const environment=process.env.BITCOINWALK_CITY_BRAND_AUTOMATION_ENVIRONMENT;
+  if(environment!=="staging"&&environment!=="production")throw new Error("City identity automation environment is not configured.");
+  if(process.env.BITCOINWALK_CITY_BRAND_AUTOMATION_ENABLED!=="1")throw new Error("City identity automation is disabled.");
+  const policy=readCityBrandAutomationPolicy(policyEvent,environment),configured=process.env.NEXT_PUBLIC_CITY_BRAND_AUTOMATION_PUBKEY?.trim();
+  if(!configured||configured!==policy.automationPubkey||signed.pubkey!==configured)throw new Error("Automation signer does not match the active policy.");
+  const store=brandStore(),request=store.details(requestId),audit=new CityBrandAutomationStore(getPaymentStore().db);audit.plan(policyEvent,policy,requestId,request.city_id);
+  try{
+    const {resolved}=await brandReviewEvidence(requestId,SUPER_ADMIN_PUBKEY),binding=request.challenge.binding;
+    if(binding.action!=="activate"||binding.sequence!==0||binding.previous!=="")throw new Error("Automation can only approve an initial city identity binding.");
+    const event=store.approveStored(requestId,SUPER_ADMIN_PUBKEY,resolved.authority,signed);
+    audit.record(requestId,"approved","exact initial binding approved",event.id);
+    return {requestId,eventId:event.id,state:"approved-not-published" as const,message:"Dedicated automation signer approved the exact initial binding. Publication and relay read-back remain separate."};
+  }catch(error){const detail=(error instanceof Error?error.message:"approval preflight refused").replace(/[^\x20-\x7e]/g," ").slice(0,200);audit.record(requestId,"blocked",detail||"approval preflight refused");throw error;}
+}
+
+export function recordAutomatedBrandPublication(requestId:string,eventId:string){
+  new CityBrandAutomationStore(getPaymentStore().db).record(requestId,"published","exact relay read-back confirmed",eventId);
+}
+
 export const brandPublicationDependencies={
   relays:()=>relayConfig.writeRelays,
-  read:(relay:string,cityId:string)=>queryRelayEvents([relay],[30312],undefined,{authors:[SUPER_ADMIN_PUBKEY],"#i":[cityId],limit:500}),
+  read:(relay:string,cityId:string)=>queryRelayEvents([relay],[30312],undefined,{authors:cityBrandIssuerPubkeys(),"#i":[cityId],limit:500}),
 };
 export async function prepareBrandPublication(requestId:string,actor:string){
   const {store,request,resolved}=await brandReviewEvidence(requestId,actor);assertBrandTask(request.challenge,resolved);
@@ -368,7 +393,7 @@ export async function saveProSetupPayout(cityId: string, actor: string, destinat
   const after = await resolveProSetupAuthority(cityId, actor);
   if (JSON.stringify(before.authority) !== JSON.stringify(after.authority)) throw new Error("City authority changed during payout validation. Reload and confirm again.");
   const {store: taskStore} = ensureSetupTask(after);
-  const saved = new PayoutDestinationStore(getPaymentRuntime().store.db).save(after.authority, event, validated);
+  const saved = new PayoutDestinationStore(getPaymentStore().db).save(after.authority, event, validated);
   taskStore.confirmPayout(cityId, after.authority.entitlementId, after.authority.ownerPubkey, saved.version);
   let update:"not-required"|"queued"|"deferred"="not-required";
   if(process.env.BITCOINWALK_RUSTRESS_MANAGED_ENABLED==="1")try{update=await (await import("./rustress-activation")).queueManagedPayoutUpdate(cityId)?"queued":"not-required";}catch{update="deferred";}
@@ -400,7 +425,7 @@ export async function resolveRustressProvisionEvidence(requestId: string, payout
     if (!current || current.event.id !== approved.event.id || current.binding.action === "revoke")
       throw new Error("City identity read-back is incomplete or superseded.");
   }
-  const destinations = new PayoutDestinationStore(getPaymentRuntime().store.db);
+  const destinations = new PayoutDestinationStore(getPaymentStore().db);
   const payout = payoutVersion === undefined ? destinations.current(authority.cityId) : destinations.version(authority.cityId, payoutVersion);
   // The published binding establishes the city identity, not an immutable
   // payout destination. Before initial provisioning, accept the freshest
@@ -452,7 +477,7 @@ const payoutUpdateStableFields=["cityId","domain","localPart","brandPubkey","aut
 /** Rebuilds a payout-only successor from live owner, binding and endpoint
  * evidence. The active configuration is never replaced by browser input. */
 export async function resolveRustressPayoutUpdateEvidence(requestId:string,current:ProvisionConfig,publicOrigin="https://bitcoinwalk.org"){
-  const db=getPaymentRuntime().store.db,regular=db.prepare("SELECT 1 FROM city_brand_request WHERE id=? AND status='active'").get(requestId);
+  const db=getPaymentStore().db,regular=db.prepare("SELECT 1 FROM city_brand_request WHERE id=? AND status='active'").get(requestId);
   if(!regular){
     const active=db.prepare("SELECT request FROM rustress_activation_task WHERE city=? AND phase='active'").get(current.cityId) as {request:string}|undefined;
     const resolved=await resolveProSetupEvidence(current.cityId);

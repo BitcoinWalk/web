@@ -174,3 +174,101 @@ fork/gap rejection. BW-103 supplies these executable rules and the integration
 contract. BW-105/BW-106 must test fresh evidence resolution, live relay admission,
 outage recovery and publication before any account becomes active. BW-102 remains
 the end-to-end branded-profile and payment pilot.
+
+## BW-78 approved-city automation slice
+
+The first BW-78 slice automates only the final review and publication of an
+existing approved city's first identity binding. It does not approve a city,
+create an entitlement, change a payout, replace or revoke an identity, moderate
+content, or register a new city.
+
+The automation identity is a dedicated revocable Nostr key. A super-admin-signed
+private policy binds its public key, staging or production environment, policy
+revision, maximum distinct city count, issue time and nonce. The worker receives
+that policy and the secret through separate owner-only systemd credentials. The
+main super-admin secret is never present. The app and relay must both be pinned
+to the same automation public key; disabling the app gate or removing the relay
+setting stops new automated decisions.
+
+The worker opens the existing protected evidence database through a store-only
+boundary. It neither receives the NWC wallet credential nor starts invoice or
+sponsor-payment reconciliation. Dry-run mode requires only the signed policy;
+the dedicated signer credential is loaded only after an explicit write run.
+
+Candidates come only from retained requests that already contain exact owner and
+city-signer proofs. Immediately before signing, the worker repeats the existing
+fresh entitlement, owner, approval, suspension, signer, payout and artwork
+checks. Its signed event is restricted to `activate`, sequence zero and an empty
+predecessor. The relay independently repeats its public city approval and
+suspension checks and serializes successors under the existing city-brand lock.
+Manual moderation therefore wins and a removed or changed city cannot be
+resurrected.
+
+The private database records planned, approved, published or blocked state per
+request and policy. Approval and publication remain separate. After a crash, an
+approved request resumes from its already-stored exact event; it is not signed a
+second time. Activation is recorded only after every configured write relay
+returns that exact event. Conflicts, stale proofs, changed authority, disabled
+policy, capacity exhaustion and failed read-back remain visible for the existing
+Requests/manual workflow.
+
+### Accepted staging boundary
+
+On 1 November 2026, the bounded one-city staging policy activated Madeira request
+`1dc081f8-7d17-49d9-8065-9856135127e5`. Exact relay read-back confirmed valid
+event `7f18e9dce83d71a4ceb8457e355ca370855d82cb8b00a07872674cd99fd11329`;
+the private request, publication evidence and automation audit agree, and the
+one-shot signer was removed afterward.
+
+A later rehearsal used an online-consistent temporary copy of those exact rows.
+It rejected wrong ownership, stale proof replay, policy mismatch/revocation,
+capacity reuse, prior moderation, changed authority and missing read-back, then
+recovered an interrupted approved event exactly once. The live-row digest was
+identical before and after. This accepts only the existing-approved-city initial
+binding slice; creator revisions, new-city registration and financial enrolment
+remain separate work.
+
+## BW-78 content-revision automation slice
+
+The next disabled-by-default slice covers only a direct signed revision of an
+already approved city by a current editor. Its dedicated, revocable signer may
+approve changes to the default start, description and meeting point. City name,
+slug, aliases, country, locale, plan, chat, image, sponsor, ownership, editor
+list, first walks, rejection, revocation and suspension remain in Requests.
+
+A separate short-lived super-admin-signed policy binds the signer, environment,
+exact three-field allow-list, expiry and maximum revision count. The worker
+stores the exact signed decision before publication and resumes that same event
+after interruption. It rereads authority immediately before signing and needs
+exact relay read-back before recording publication. The app recognizes only the
+minimal marked approval from the configured key.
+
+The relay independently requires one exact predecessor pointing to the current
+approved revision, unchanged protected JSON, a current editor signature, no
+later manual decision and no city or organizer suspension. Manual moderation
+wins. The relay also carries this narrowly authorized approval through the
+existing occurrence-replication bundle with its predecessor evidence. No signer,
+policy, service or enable flag is installed by this source change.
+
+### Accepted content-revision staging boundary
+
+On 1 November 2026, the user authorized exact Madeira editor revision
+`13cfc61216ee9567e5e769489ff731a59ffdaef9dde0ad145cd4eed9a3bfa251`
+under a two-hour, staging-only, one-revision policy. The isolated worker
+published approval event
+`80a557fb32061d0dc566e5be9bf242184e56721ec6b6b54e01676417fd663eaa`.
+Independent relay read-back verified its dedicated automation signature, exact
+revision/city tags and content-only marker. The editor revision itself also has
+a valid current-editor signature and changes only the city description.
+
+The protected automation audit records the same policy, event and exact relay
+read-back. A pre-write SQLite backup remains at
+`/home/bitcoinwalk/backups/bw78-madeira-revision-before-1793534431.sqlite`.
+The staging app's trusted view reports no remaining candidate. Cleanup removed
+the one-shot signing key and temporary relay permission; the staging and
+production relays are active, and production stayed on app `0.3.606`. Staging
+app `0.3.607` used package SHA-256
+`c2957d4bf16b520bf3d9bcd1b3c6d5166ad9f8f37b1e57cd1cf0a372c6dc9ca7`
+with deployment evidence `/home/bitcoinwalk/backups/app-staging-deploy.d4rZME`.
+This accepts the bounded existing-city editor-revision slice. New-city approval
+and its exact first walk remain later BW-78 work.

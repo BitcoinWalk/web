@@ -15,6 +15,13 @@ const bindingSchema = z.object({
 }).strict();
 export type CityBrandBinding = z.infer<typeof bindingSchema>;
 
+export function cityBrandIssuerPubkeys():string[]{
+  const automation=process.env.NEXT_PUBLIC_CITY_BRAND_AUTOMATION_PUBKEY?.trim()??"";
+  if(automation&& !hex.safeParse(automation).success)throw new Error("Invalid city identity automation public key.");
+  if(automation===SUPER_ADMIN_PUBKEY)throw new Error("City identity automation must use a dedicated key.");
+  return automation?[SUPER_ADMIN_PUBKEY,automation]:[SUPER_ADMIN_PUBKEY];
+}
+
 /** Server-resolved evidence, never accepted from browser request fields.
  * Owner is the anchored directory owner, or signed creator grant when no
  * directory exists. An unavailable directory is NOT evidence of absence. */
@@ -53,9 +60,11 @@ function tags(binding: CityBrandBinding) {
 export function readCityBrand(event: Event): CityBrandBinding {
   const signed = freshEvent(event);
   const binding = bindingSchema.parse(JSON.parse(signed.content));
-  if (signed.pubkey !== SUPER_ADMIN_PUBKEY || signed.kind !== CITY_BRAND_KIND ||
+  const issuers=cityBrandIssuerPubkeys(),automation=signed.pubkey!==SUPER_ADMIN_PUBKEY&&issuers.includes(signed.pubkey);
+  if (!issuers.includes(signed.pubkey) || signed.kind !== CITY_BRAND_KIND ||
       JSON.stringify(signed.tags) !== JSON.stringify(tags(binding)) ||
       signed.content !== JSON.stringify(binding)) throw new Error("Unapproved city account binding.");
+  if(automation&&(binding.action!=="activate"||binding.sequence!==0||binding.previous!==""))throw new Error("City identity automation can only create an initial binding.");
   return binding;
 }
 function successor(binding: CityBrandBinding, previous: Event | null) {
