@@ -249,3 +249,26 @@ later manual decision and no city or organizer suspension. Manual moderation
 wins. The relay also carries this narrowly authorized approval through the
 existing occurrence-replication bundle with its predecessor evidence. No signer,
 policy, service or enable flag is installed by this source change.
+
+### Accepted content-revision staging boundary
+
+On 1 November 2026, the user authorized exact Madeira editor revision
+`13cfc61216ee9567e5e769489ff731a59ffdaef9dde0ad145cd4eed9a3bfa251`
+under a two-hour, staging-only, one-revision policy. The isolated worker
+published approval event
+`80a557fb32061d0dc566e5be9bf242184e56721ec6b6b54e01676417fd663eaa`.
+Independent relay read-back verified its dedicated automation signature, exact
+revision/city tags and content-only marker. The editor revision itself also has
+a valid current-editor signature and changes only the city description.
+
+The protected automation audit records the same policy, event and exact relay
+read-back. A pre-write SQLite backup remains at
+`/home/bitcoinwalk/backups/bw78-madeira-revision-before-1793534431.sqlite`.
+The staging app's trusted view reports no remaining candidate. Cleanup removed
+the one-shot signing key and temporary relay permission; the staging and
+production relays are active, and production stayed on app `0.3.606`. Staging
+app `0.3.607` used package SHA-256
+`c2957d4bf16b520bf3d9bcd1b3c6d5166ad9f8f37b1e57cd1cf0a372c6dc9ca7`
+with deployment evidence `/home/bitcoinwalk/backups/app-staging-deploy.d4rZME`.
+This accepts the bounded existing-city editor-revision slice. New-city approval
+and its exact first walk remain later BW-78 work.
