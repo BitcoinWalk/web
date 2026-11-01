@@ -270,5 +270,34 @@ production relays are active, and production stayed on app `0.3.606`. Staging
 app `0.3.607` used package SHA-256
 `c2957d4bf16b520bf3d9bcd1b3c6d5166ad9f8f37b1e57cd1cf0a372c6dc9ca7`
 with deployment evidence `/home/bitcoinwalk/backups/app-staging-deploy.d4rZME`.
-This accepts the bounded existing-city editor-revision slice. New-city approval
-and its exact first walk remain later BW-78 work.
+This accepts the bounded existing-city editor-revision slice. At this checkpoint,
+new-city approval and its exact first walk remained later BW-78 work.
+
+## BW-78 new-city automation acceptance
+
+The final slice accepts only a new Basic city submission and every exact
+organizer-signed initial walk referenced by that revision. A separate
+super-admin-signed policy binds the environment, city, organizer, revision,
+complete initial-walk ID list, one-city capacity and expiry. The automation key
+may issue only the matching creator grant and approval. Duplicate or reserved
+names, an existing city, altered walks, protected changes, suspension and any
+financial enrolment fail closed into manual review.
+
+On 1 November 2026, the bounded staging policy approved Lublin city
+`5256cd07-0df6-4599-904f-a1baa9942273`, revision
+`9342a60e756afe09ba2aeeab004261cd290a6d7856305d77e62d1b67e04e4ad8`
+and eight exact initial walks. Independent public read-back found valid grant
+`cf1ddfd95c18b83f057975ac0d5d4a0673df96346e2b8e9811cc055eba12a369`,
+valid approval
+`8a8ca76af7e3ad861e0b2270c5f489420fb8d223001ac71bd66ac6f85badc57b`
+and exactly all eight expected valid walk signatures. The staging `/lublin`
+route resolves to a live 200 walk page.
+
+Relay `0.9.19` makes the calendar read guard recognize the same bounded
+automation approval authorities already used by decision validation. Its
+regression test and full suite pass in CI `41308917894`; staging backup
+`/var/backups/bitcoinwalk-new-city-calendar-release-staging.r4XyTz` preserves
+the prior state. Cleanup removed the one-shot private key locally and on the
+server. The public key remains configured only to verify its retained records.
+Production remained on relay `0.9.15`. This completes BW-78; financial Pro
+enrolment remains independently gated by BW-148.
