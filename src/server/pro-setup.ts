@@ -262,9 +262,9 @@ export async function cancelBrandRequest(cityId: string, requestId: string, acto
       "Activation request cancelled. Your signer, payout setup and Pro entitlement remain saved."};
 }
 
-export async function listBrandRequests(actor: string) {
+export async function listBrandRequests(actor: string, initializeAutomationAudit = true) {
   if (actor !== SUPER_ADMIN_PUBKEY) throw new Error("Super-admin review required.");
-  const store=brandStore(),audit=new CityBrandAutomationStore(getPaymentStore().db);
+  const store=brandStore(),audit=new CityBrandAutomationStore(getPaymentStore().db,undefined,initializeAutomationAudit);
   return [...store.reviewQueue(),...store.completed()].map(row => {
     const automation=audit.get(row.id);
     return {requestId: row.id, cityId: row.city_id, expiresAt: row.expires_at,state:row.status as "pending"|"approved"|"active",

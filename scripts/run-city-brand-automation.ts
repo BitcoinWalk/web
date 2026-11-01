@@ -20,7 +20,7 @@ async function main(){
  const credentials=process.env.CREDENTIALS_DIRECTORY,environment=process.env.BITCOINWALK_CITY_BRAND_AUTOMATION_ENVIRONMENT;
  if(!credentials||(environment!=="staging"&&environment!=="production"))throw new Error("Run through the isolated city identity automation service.");
  const policyEvent=JSON.parse(protectedFile(join(credentials,"policy.json"),16_384)) as Event,policy=readCityBrandAutomationPolicy(policyEvent,environment);
- const queue=(await listBrandRequests(SUPER_ADMIN_PUBKEY)).filter(row=>row.state==="approved"||row.state==="pending"&&row.proofsReady);
+ const queue=(await listBrandRequests(SUPER_ADMIN_PUBKEY,mode!=="--dry-run")).filter(row=>row.state==="approved"||row.state==="pending"&&row.proofsReady);
  console.log(JSON.stringify({mode:mode.slice(2),environment,policyId:policyEvent.id,maximumCities:policy.maximumCities,candidates:queue.map(row=>({requestId:row.requestId,cityId:row.cityId,state:row.state}))}));
  if(mode==="--dry-run")return;
  if(!relayConfig.writeRelays.length)throw new Error("No city identity publication relay is configured.");

@@ -4,8 +4,8 @@ import type {CityBrandAutomationPolicy} from "../nostr/city-brand-automation";
 
 type State="planned"|"approved"|"published"|"blocked";
 export class CityBrandAutomationStore{
- constructor(private db:DatabaseSync,private now=()=>Math.floor(Date.now()/1000)){
-  db.exec(`CREATE TABLE IF NOT EXISTS city_brand_automation_audit(
+ constructor(private db:DatabaseSync,private now=()=>Math.floor(Date.now()/1000),initialize=true){
+  if(initialize)db.exec(`CREATE TABLE IF NOT EXISTS city_brand_automation_audit(
    request_id TEXT PRIMARY KEY,city_id TEXT NOT NULL,policy_id TEXT NOT NULL,event_id TEXT,
    state TEXT NOT NULL,detail TEXT NOT NULL,updated_at INTEGER NOT NULL);`);
  }
@@ -27,6 +27,9 @@ export class CityBrandAutomationStore{
    .run(state,detail,eventId??null,this.now(),requestId);
   if(!changed.changes)throw new Error("Automation audit record not found.");
  }
- get(requestId:string){return this.db.prepare("SELECT state,detail FROM city_brand_automation_audit WHERE request_id=?").get(requestId) as {state:State;detail:string}|undefined;}
+ get(requestId:string){
+  if(!this.db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='city_brand_automation_audit'").get())return undefined;
+  return this.db.prepare("SELECT state,detail FROM city_brand_automation_audit WHERE request_id=?").get(requestId) as {state:State;detail:string}|undefined;
+ }
  rows(){return this.db.prepare("SELECT request_id requestId,city_id cityId,policy_id policyId,event_id eventId,state,detail,updated_at updatedAt FROM city_brand_automation_audit ORDER BY updated_at,request_id").all();}
 }
