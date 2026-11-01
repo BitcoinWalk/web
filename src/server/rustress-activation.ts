@@ -5,6 +5,8 @@ import {ActivationWorkflow} from "../rustress/activation-workflow";
 import {PayoutUpdateWorkflow} from "../rustress/payout-update-workflow";
 import {verifyCityLnurl,verifyCityNip05} from "../rustress/public-provisioning";
 import {ProvisionWorkflow} from "../rustress/workflow";
+import {PayoutAuthorityClient} from "../rustress/payout-authority-client";
+import {PayoutEnrolmentError,PayoutEnrolmentWorkflow} from "../rustress/payout-enrolment";
 import {SUPER_ADMIN_PUBKEY} from "../nostr/authority";
 import {getPaymentRuntime} from "../payments/runtime";
 import {resolveRustressActivationEvidence,resolveRustressPayoutUpdateEvidence} from "./pro-setup";
@@ -94,7 +96,14 @@ function runtime(){
   const payoutUpdates=new PayoutUpdateWorkflow(db,activationProvider,
     {nip05:input=>verifyCityNip05(input,publicTransport),lnurl:input=>verifyCityLnurl(input,publicTransport)},
     (request,current)=>resolveRustressPayoutUpdateEvidence(request,current,publicOrigin));
-  return {allow,db,reservation,activation,payoutUpdates,activationEnabled,madeiraBridge};
+  const payoutEnrolment=process.env.BITCOINWALK_RUSTRESS_PAYOUT_ENROLMENT_ENABLED==="1"?new PayoutEnrolmentWorkflow(db,
+    new PayoutAuthorityClient(process.env.BITCOINWALK_RUSTRESS_PAYOUT_ENROLMENT_ORIGIN??"",privateToken(process.env.BITCOINWALK_RUSTRESS_PAYOUT_ENROLMENT_TOKEN_FILE??"")),async current=>{
+      if(!allow.has(current.cityId))throw new PayoutEnrolmentError("rejected");
+      const row=db.prepare("SELECT request,phase,nip05,lnurl FROM rustress_activation_task WHERE city=?").get(current.cityId) as {request:string;phase:string;nip05:string;lnurl:string}|undefined;
+      if(!row||row.phase!=="active"||row.nip05!=="active"||row.lnurl!=="active")throw new PayoutEnrolmentError("rejected");
+      return (await resolveActivation(row.request,current)).activation;
+    }):null;
+  return {allow,db,reservation,activation,payoutUpdates,payoutEnrolment,activationEnabled,madeiraBridge};
 }
 
 export async function queueManagedProvisioning(requestId:string){const service=runtime();if(service)await service.reservation.enqueue(requestId);}
@@ -148,6 +157,13 @@ async function reconcileCity(service:NonNullable<ReturnType<typeof runtime>>,cit
       try{await service.payoutUpdates.enqueue(request.id,service.madeiraBridge&&city===MADEIRA_PILOT.cityId?city:undefined);}catch(error){console.warn(`Managed payout update deferred for ${city}: ${managedReservationPreflightReason(error)}.`);}
     }
     const update=service.payoutUpdates.status(city);if(update&&update.state!=="active"&&update.state!=="blocked")await service.payoutUpdates.run(city);
+    if(service.payoutEnrolment){
+      const current=service.db.prepare("SELECT activation_config,phase,nip05,lnurl FROM rustress_activation_task WHERE city=?").get(city) as {activation_config:string;phase:string;nip05:string;lnurl:string}|undefined;
+      if(current?.phase==="active"&&current.nip05==="active"&&current.lnurl==="active"){
+        try{service.payoutEnrolment.enqueue(JSON.parse(current.activation_config));await service.payoutEnrolment.run(city);}
+        catch(error){console.warn(`Managed payout enrolment deferred for ${city}: ${managedReservationPreflightReason(error)}.`);}
+      }
+    }
   }
 }
 
@@ -157,7 +173,7 @@ export async function reconcileManagedProvisioning(){
 }
 
 export function managedProvisioningStatus(city:string){const service=runtime();return service?{
-  reservation:service.reservation.status(city),activation:service.activation.status(city),payoutUpdate:service.payoutUpdates.status(city),activationEnabled:service.activationEnabled}:null;}
+  reservation:service.reservation.status(city),activation:service.activation.status(city),payoutUpdate:service.payoutUpdates.status(city),payoutEnrolment:service.payoutEnrolment?.status(city)??null,activationEnabled:service.activationEnabled}:null;}
 
 export async function queueManagedPayoutUpdate(city:string){const service=runtime();if(!service||!service.allow.has(city))return null;
  let request=service.db.prepare("SELECT id FROM city_brand_request WHERE city_id=? AND status='active' ORDER BY rowid DESC LIMIT 1").get(city) as {id:string}|undefined;

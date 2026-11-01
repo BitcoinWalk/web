@@ -25,6 +25,11 @@ export class PayoutAuthorityStore{
   this.db.prepare("INSERT INTO bw_payout_authority VALUES(?,?,?,?)").run(config.cityId,config.payoutVersion,hash,document);
   return {api:PAYOUT_AUTHORITY_API,state:"recorded" as const,cityId:config.cityId,payoutVersion:config.payoutVersion,configHash:hash};
  }
+ record(cityId:string,payoutVersion:number){
+  this.allowed(cityId);
+  const row=this.db.prepare("SELECT config_hash FROM bw_payout_authority WHERE city=? AND version=?").get(cityId,payoutVersion) as {config_hash:string}|undefined;
+  return row?{api:PAYOUT_AUTHORITY_API,state:"recorded" as const,cityId,payoutVersion,configHash:row.config_hash}:null;
+ }
  resolve(cityId:string,payoutVersion:number){
   this.allowed(cityId);
   const row=this.db.prepare("SELECT document FROM bw_payout_authority WHERE city=? AND version=?").get(cityId,payoutVersion) as {document:string}|undefined;
