@@ -22,6 +22,8 @@ async function main(){
   const options={origin:process.env.BITCOINWALK_RUSTRESS_MANAGED_ORIGIN??"",token:readFileSync(tokenFile,"utf8").trim(),domain:"bitcoinwalk.org",adapterRevision:process.env.BITCOINWALK_RUSTRESS_MANAGED_REVISION??""};
   const activation=new RustressActivator(options,loopbackApiTransport(options.origin,options.domain)),receipt=await activation.status(config);
   assert.deepEqual({state:receipt.state,hash:receipt.configHash},{state:"applied",hash:EXPECTED_HASH});
+  const fresh=await resolveRustressActivationEvidence(row.request,"https://bitcoinwalk.org",config);assert.equal(JSON.stringify(fresh.activation),JSON.stringify(config));
+  await Promise.all([verifyCityNip05({publicOrigin:fresh.publicOrigin,...config}),verifyCityLnurl({publicOrigin:fresh.publicOrigin,...config})]);
   const workflow=new ActivationWorkflow(db,{status:async()=>{throw new Error("Reservation read-back must not run for an applied recovery.");}},activation,
    {nip05:verifyCityNip05,lnurl:verifyCityLnurl},(request,current)=>resolveRustressActivationEvidence(request,"https://bitcoinwalk.org",current));
   const recovered=await workflow.retry(CITY);assert.deepEqual(recovered&&{state:recovered.state,nip05:recovered.nip05,lnurl:recovered.lnurl},{state:"active",nip05:"active",lnurl:"active"});
