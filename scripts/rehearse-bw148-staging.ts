@@ -54,10 +54,12 @@ async function main(){
 
   work=new DatabaseSync(isolated);const authority=new PayoutAuthorityStore(work,{cityScope:VERIFIED_PRO_CITY_SCOPE,maximumCities:2}),calls={register:0};
   let workflow=new PayoutEnrolmentWorkflow(work,provider(authority,calls,true),fresh);
+  for(const config of configs.values())await fresh(config);
   for(const config of configs.values())workflow.enqueue(config);
   const first=CITIES[0],second=CITIES[1];
-  assert.equal((await workflow.run(first.id))?.state,"unknown");assert.equal((await workflow.run(first.id))?.state,"active");
-  assert.equal((await workflow.run(second.id))?.state,"active");assert.equal(calls.register,2);assert.equal(authority.count(),2);
+  assert.equal((await workflow.run(first.id))?.state,"unknown",`${first.name} unknown-write simulation failed.`);
+  assert.equal((await workflow.run(first.id))?.state,"active",`${first.name} unknown-write recovery failed.`);
+  assert.equal((await workflow.run(second.id))?.state,"active",`${second.name} enrolment simulation failed.`);assert.equal(calls.register,2);assert.equal(authority.count(),2);
   work.close();work=undefined;
 
   work=new DatabaseSync(isolated);const restartedAuthority=new PayoutAuthorityStore(work,{cityScope:VERIFIED_PRO_CITY_SCOPE,maximumCities:2}),restartCalls={register:0};
