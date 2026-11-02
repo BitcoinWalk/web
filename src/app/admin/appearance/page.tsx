@@ -1,3 +1,2 @@
-import {redirect} from "next/navigation";
-
-export default function RetiredWalkPhotoPage(){redirect("/admin/walks");}
+import DashboardRedirect from "../../../components/dashboard-redirect";
+export default function RetiredWalkPhotoPage(){return <DashboardRedirect from="/admin/appearance"/>;}

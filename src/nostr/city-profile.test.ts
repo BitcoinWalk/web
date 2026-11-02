@@ -1,6 +1,6 @@
 import {describe, expect, it} from "vitest";
 import {finalizeEvent, generateSecretKey, getPublicKey} from "nostr-tools";
-import {authorizeCityProfile, cityProfileTemplate, cityProfileAddressesTemplate} from "./city-profile";
+import {authorizeCityProfile, cityProfileTemplate, cityProfileAddressesTemplate, verifiedCityProfileTemplate} from "./city-profile";
 
 const managed={name:"BitcoinWalk in Madeira",picture:"https://bitcoinwalk.org/avatar.webp",banner:"https://bitcoinwalk.org/banner.webp",
   website:"https://bitcoinwalk.org/madeira",nip05:"madeira@bitcoinwalk.org"};
@@ -26,6 +26,10 @@ describe("managed city profile",()=>{
   it("adds the Lightning address only when independently enabled",()=>{
     const body=JSON.parse(cityProfileTemplate({...managed,lud16:"madeira@bitcoinwalk.org"},undefined,2).content);
     expect(body.lud16).toBe("madeira@bitcoinwalk.org");
+  });
+  it("creates the first approved profile when the city identity has no public profile yet",()=>{
+    const body=JSON.parse(verifiedCityProfileTemplate({...managed,lud16:"madeira@bitcoinwalk.org"},undefined,2).content);
+    expect(body).toEqual({...managed,display_name:managed.name,lud16:"madeira@bitcoinwalk.org"});
   });
   it("accepts only the exact city-signed template",()=>{
     const secret=generateSecretKey(),template=cityProfileTemplate(managed,undefined,2),signed=finalizeEvent(template,secret);

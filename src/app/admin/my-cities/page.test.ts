@@ -7,7 +7,8 @@ describe("my cities inventory",()=>{
  it("shows direct status groups without a redundant city finder",()=>{
   const page=source();
   for(const label of ['label:"Pending"','label:"Awaits change"'])expect(page).toContain(label);
-  expect(page).toContain('const activeCities=cities.filter(item=>item.status==="editable"||item.status==="approved")');
+  expect(page).toContain('const activeCities=cities.filter(item=>item.status==="editable")');
+  expect(page).toContain('item.status==="awaiting-approval"||item.status==="awaiting-activation"');
   expect(page).toContain('className={styles.cityRail}');
   expect(page).toContain('className={styles.cityGroup}');
   expect(page).not.toContain('{key:"active",label:"Active"');
@@ -67,4 +68,5 @@ describe("my cities inventory",()=>{
  it("resumes an unpaid Pro request against the existing signed city",()=>{const page=source();expect(page).toContain('base.city.requestedTier==="paid"');expect(page).toContain("Resume payment for {base.city.cityName}");expect(page).toContain("It will not create another city.");expect(page).toContain("initialPayment={selectedPayment??null}");expect(page).toContain("revisionId={base.event.id}");});
  it("shows super-admin Pro identity health without opening owner-only setup",()=>{const page=source();expect(page).toContain('dashboard.role==="super-admin"?<CityIdentityHealthDetails');expect(page).toContain('identityHealth.find(row=>row.cityId===base.city.cityId)');});
  it("uses a focused workspace with profile, editor and Pro service views",()=>{const page=source();expect(page).toContain('type WorkspaceTab="profile"|"editors"|"pro"');expect(page).toContain('aria-label="City settings"');expect(page).toContain('>Profile</button>');expect(page).toContain('>Editors</button>');expect(page).toContain('>Pro services</button>');expect(page).toContain('active={workspaceTab==="pro"}');expect(page).toContain('Alternative names and technical details');});
+ it("keeps city relay setup inside the selected city's technical details",()=>{expect(source()).toContain('href="/admin/directory">Manage city relay setup</Link>');});
 });

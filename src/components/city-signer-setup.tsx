@@ -7,7 +7,7 @@ import type {NostrBrowserExtension} from "../nostr/signer";
 import {signWithBrowserExtension} from "../nostr/signer";
 import {authorizeProSetup, citySignerProofTemplate, proSetupTemplate} from "../nostr/pro-setup-command";
 import {cityBrandProofTemplate, type CityBrandChallenge} from "../nostr/city-brand";
-import {authorizeCityProfile, cityProfileTemplate, cityProfileAddressesTemplate, type ManagedCityProfile} from "../nostr/city-profile";
+import {authorizeCityProfile, cityProfileTemplate, verifiedCityProfileTemplate, type ManagedCityProfile} from "../nostr/city-profile";
 import {profileRelays} from "../nostr/profiles";
 import {publishVerifiedEvent} from "../nostr/relay";
 import {responseJSON} from "../lib/response-json";
@@ -126,8 +126,7 @@ export default function CitySignerSetup({cityId, cityName, actor, saved, activat
       previous=events.filter(event=>verifyEvent(event)&&event.pubkey===pubkey&&event.kind===0).sort((a,b)=>b.created_at-a.created_at||a.id.localeCompare(b.id))[0];
     }finally{pool.close(profileRelays);pool.destroy();}
     const currentProfile=refreshProfile?await refreshProfile():profile;
-    if(profileOnly&&!previous)throw new Error("The existing city profile could not be read. Retry later; nothing was published.");
-    const template=profileOnly?cityProfileAddressesTemplate(currentProfile,previous!):cityProfileTemplate(currentProfile,previous),signed=await signer.current.signEvent(template);authorizeCityProfile(signed,pubkey,template);
+    const template=profileOnly?verifiedCityProfileTemplate(currentProfile,previous):cityProfileTemplate(currentProfile,previous),signed=await signer.current.signEvent(template);authorizeCityProfile(signed,pubkey,template);
     if(await signer.current.getPublicKey()!==pubkey)throw new Error("City signer changed. Reconnect before publishing.");
     const published=await publishVerifiedEvent(signed,profileRelays,2),readPool=new SimplePool();
     try{
@@ -147,7 +146,7 @@ export default function CitySignerSetup({cityId, cityName, actor, saved, activat
   </div>;
   if(profileOnly)return <fieldset className={styles.panel} disabled={busy||parentBusy}>
     <legend>Publish with your city identity</legend>
-    <p>Your name, avatar, banner and bio stay unchanged. Only the verified address and public Lightning address are updated.</p>
+    <p>An existing profile keeps its name, avatar, banner and bio. If this is the first profile, BitcoinWalk publishes the approved city profile with its verified addresses.</p>
     {!pubkey?<>{saved.pubkey===actor&&<button type="button" onClick={connectExistingCityAccount}>Connect saved identity</button>}<details><summary>Connect a backup or remote city signer</summary>{existingConnection}</details></>:<><p>Connected city identity: <code>{short(pubkey)}</code></p><button className={styles.primaryAction} type="button" disabled={mismatch||!profile?.nip05||!profile?.lud16} onClick={publishProfile}>{busy?"Publishing and verifying…":"Publish verified city profile"}</button><button type="button" onClick={disconnect}>Disconnect city signer</button></>}
     {message&&<p role="status">{message}</p>}
   </fieldset>;

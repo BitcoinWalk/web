@@ -20,7 +20,7 @@ import {recipientJson} from "../src/rustress/recipient-invoice";
 import {PrivateNwcTransport} from "../src/rustress/nwc-transport";
 import {receiptEvidenceSocketHandler} from "../src/rustress/receipt-evidence-socket";
 
-const version="0.2.18",admin="90cf043861e5b5a9972cb7b529a5ba71b215d6d1e314c749d5526ec133f1db73",walletRef="bitcoinwalk-rustress",maximumCities=100;
+const version="0.2.19",admin="90cf043861e5b5a9972cb7b529a5ba71b215d6d1e314c749d5526ec133f1db73",walletRef="bitcoinwalk-rustress",maximumCities=100;
 const configRoot="/run/bitcoinwalk-config",secretRoot="/run/bitcoinwalk-secrets",stateRoot="/var/lib/bitcoinwalk-payout";
 const evidenceSocket="/run/bitcoinwalk-payout-evidence/socket/evidence.sock";
 const tokenPattern=/^[A-Za-z0-9_-]{43,256}$/;

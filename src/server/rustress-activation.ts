@@ -5,12 +5,14 @@ import {ActivationWorkflow} from "../rustress/activation-workflow";
 import {PayoutUpdateWorkflow} from "../rustress/payout-update-workflow";
 import {verifyCityLnurl,verifyCityNip05} from "../rustress/public-provisioning";
 import {ProvisionWorkflow} from "../rustress/workflow";
+import {PayoutAuthorityClient} from "../rustress/payout-authority-client";
+import {PayoutEnrolmentError,PayoutEnrolmentWorkflow} from "../rustress/payout-enrolment";
 import {SUPER_ADMIN_PUBKEY} from "../nostr/authority";
 import {getPaymentRuntime} from "../payments/runtime";
 import {resolveRustressActivationEvidence,resolveRustressPayoutUpdateEvidence} from "./pro-setup";
 import {MADEIRA_PILOT} from "../nostr/madeira-pilot";
 import {createCityActivation} from "../rustress/activation-contract";
-import {provisionConfigSchema,provisionDigest} from "../rustress/contract";
+import {managedProvisionConfigSchema,provisionConfigSchema,provisionDigest} from "../rustress/contract";
 import {canonicalLoopbackTransport,loopbackApiTransport} from "../rustress/loopback-http";
 import {configuredPaidCityEntry} from "../lib/directory-config";
 import type {CityBrandChallenge} from "../nostr/city-brand";
@@ -36,6 +38,16 @@ export function managedProCityIds(db:DatabaseSync,configured:string):Set<string>
     ORDER BY task.cityId LIMIT ?`).all(MAXIMUM_MANAGED_PRO_CITIES+1) as Array<{cityId:string}>;
   if(rows.length>MAXIMUM_MANAGED_PRO_CITIES||rows.some(row=>!cityId.test(row.cityId)))throw new Error("Managed provisioning city scope is invalid.");
   return new Set(rows.map(row=>row.cityId));
+}
+export function payoutEnrolmentCityIds(configured:string,managed:Set<string>):Set<string>{
+  const scoped=new Set(configured.split(",").map(value=>value.trim()).filter(Boolean));
+  if(!scoped.size||scoped.size>MAXIMUM_MANAGED_PRO_CITIES||[...scoped].some(value=>!cityId.test(value)||!managed.has(value)))throw new Error("Payout enrolment city scope required.");
+  return scoped;
+}
+export function activePayoutEnrolmentConfig(db:DatabaseSync,city:string){
+ const row=db.prepare("SELECT request,phase,nip05,lnurl,activation_config FROM rustress_activation_task WHERE city=?").get(city) as {request:string;phase:string;nip05:string;lnurl:string;activation_config:string}|undefined;
+ if(!row||row.phase!=="active"||row.nip05!=="active"||row.lnurl!=="active")return null;
+ return {request:row.request,config:managedProvisionConfigSchema.parse(JSON.parse(row.activation_config))};
 }
 function privateToken(path:string){
   if(!path.startsWith("/"))throw new Error("Private managed provisioning token file required.");
@@ -94,7 +106,17 @@ function runtime(){
   const payoutUpdates=new PayoutUpdateWorkflow(db,activationProvider,
     {nip05:input=>verifyCityNip05(input,publicTransport),lnurl:input=>verifyCityLnurl(input,publicTransport)},
     (request,current)=>resolveRustressPayoutUpdateEvidence(request,current,publicOrigin));
-  return {allow,db,reservation,activation,payoutUpdates,activationEnabled,madeiraBridge};
+  const payoutEnrolmentAllow=process.env.BITCOINWALK_RUSTRESS_PAYOUT_ENROLMENT_ENABLED==="1"?
+    payoutEnrolmentCityIds(process.env.BITCOINWALK_RUSTRESS_PAYOUT_ENROLMENT_CITIES??"",allow):new Set<string>();
+  const payoutEnrolment=payoutEnrolmentAllow.size?new PayoutEnrolmentWorkflow(db,
+    new PayoutAuthorityClient(process.env.BITCOINWALK_RUSTRESS_PAYOUT_ENROLMENT_ORIGIN??"",privateToken(process.env.BITCOINWALK_RUSTRESS_PAYOUT_ENROLMENT_TOKEN_FILE??"")),async current=>{
+      if(!payoutEnrolmentAllow.has(current.cityId))throw new PayoutEnrolmentError("rejected");
+      const active=activePayoutEnrolmentConfig(db,current.cityId);if(!active)throw new PayoutEnrolmentError("rejected");
+      const activeRequest=db.prepare("SELECT 1 FROM city_brand_request WHERE id=? AND city_id=? AND status='active'").get(active.request,current.cityId);
+      if(!activeRequest){if(JSON.stringify(active.config)!==JSON.stringify(current))throw new PayoutEnrolmentError("rejected");return active.config;}
+      return (await resolveActivation(active.request,current)).activation;
+    }):null;
+  return {allow,db,reservation,activation,payoutUpdates,payoutEnrolment,payoutEnrolmentAllow,activationEnabled,madeiraBridge};
 }
 
 export async function queueManagedProvisioning(requestId:string){const service=runtime();if(service)await service.reservation.enqueue(requestId);}
@@ -123,7 +145,7 @@ async function reconcileCity(service:NonNullable<ReturnType<typeof runtime>>,cit
     const view=(await import("./madeira-pilot")).getMadeiraPilot().managedStore.view();
     if(view?.ownerConfirmed&&view.adminConfirmed)request={id:view.challenge.requestId};
   }
-  if(!request)return;
+  if(!request){await reconcilePayoutEnrolment(service,city);return;}
   if(!service.reservation.status(city)){try{
     if(service.madeiraBridge&&city===MADEIRA_PILOT.cityId){
       const evidence=(await import("./madeira-pilot")).getMadeiraPilot().managedStore.storedEvidence(request.id);
@@ -148,7 +170,15 @@ async function reconcileCity(service:NonNullable<ReturnType<typeof runtime>>,cit
       try{await service.payoutUpdates.enqueue(request.id,service.madeiraBridge&&city===MADEIRA_PILOT.cityId?city:undefined);}catch(error){console.warn(`Managed payout update deferred for ${city}: ${managedReservationPreflightReason(error)}.`);}
     }
     const update=service.payoutUpdates.status(city);if(update&&update.state!=="active"&&update.state!=="blocked")await service.payoutUpdates.run(city);
+    await reconcilePayoutEnrolment(service,city);
   }
+}
+
+async function reconcilePayoutEnrolment(service:NonNullable<ReturnType<typeof runtime>>,city:string){
+ if(!service.payoutEnrolment||!service.payoutEnrolmentAllow.has(city))return;
+ const active=activePayoutEnrolmentConfig(service.db,city);if(!active)return;
+ try{service.payoutEnrolment.enqueue(active.config);await service.payoutEnrolment.run(city);}
+ catch(error){console.warn(`Managed payout enrolment deferred for ${city}: ${managedReservationPreflightReason(error)}.`);}
 }
 
 export async function reconcileManagedProvisioning(){
@@ -157,7 +187,7 @@ export async function reconcileManagedProvisioning(){
 }
 
 export function managedProvisioningStatus(city:string){const service=runtime();return service?{
-  reservation:service.reservation.status(city),activation:service.activation.status(city),payoutUpdate:service.payoutUpdates.status(city),activationEnabled:service.activationEnabled}:null;}
+  reservation:service.reservation.status(city),activation:service.activation.status(city),payoutUpdate:service.payoutUpdates.status(city),payoutEnrolment:service.payoutEnrolment?.status(city)??null,activationEnabled:service.activationEnabled}:null;}
 
 export async function queueManagedPayoutUpdate(city:string){const service=runtime();if(!service||!service.allow.has(city))return null;
  let request=service.db.prepare("SELECT id FROM city_brand_request WHERE city_id=? AND status='active' ORDER BY rowid DESC LIMIT 1").get(city) as {id:string}|undefined;

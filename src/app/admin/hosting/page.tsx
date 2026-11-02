@@ -1,2 +1,2 @@
-import {redirect} from "next/navigation";
-export default function HostingPage(){redirect("/admin/walks");}
+import DashboardRedirect from "../../../components/dashboard-redirect";
+export default function HostingPage(){return <DashboardRedirect from="/admin/hosting"/>;}

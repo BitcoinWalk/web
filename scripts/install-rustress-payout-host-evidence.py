@@ -82,7 +82,7 @@ def main() -> None:
         choices=["ledger-and-journal"],
         help="explicit human confirmation that both real encrypted archives passed the offline restore verifier",
     )
-    parser.add_argument("--release", required=True, choices=["0.2.1", "0.2.2", "0.2.3", "0.2.4", "0.2.5", "0.2.6", "0.2.7", "0.2.8", "0.2.9", "0.2.10", "0.2.11", "0.2.12", "0.2.13", "0.2.14", "0.2.15", "0.2.16", "0.2.17", "0.2.18"])
+    parser.add_argument("--release", required=True, choices=["0.2.1", "0.2.2", "0.2.3", "0.2.4", "0.2.5", "0.2.6", "0.2.7", "0.2.8", "0.2.9", "0.2.10", "0.2.11", "0.2.12", "0.2.13", "0.2.14", "0.2.15", "0.2.16", "0.2.17", "0.2.18", "0.2.19"])
     parser.add_argument("--service-mode", choices=["disabled", "invoice-only", "operation"], default="disabled")
     args = parser.parse_args()
     if args.restore_rehearsal_verified != "ledger-and-journal":

@@ -35,6 +35,17 @@ export class PayoutControlApi{
     if(!this.allowed(authorization,this.#tokens.authority))return {status:401,body:{error:"unauthorized"}};
     return {status:200,body:this.authority.register(body)};
    }
+   if(method==="POST"&&url==="/v1/authority/enrol"){
+    if(!this.allowed(authorization,this.#tokens.authority))return {status:401,body:{error:"unauthorized"}};
+    if(this.healthState()!=="operation"||!this.enabled())return {status:503,body:{error:"payout-enrolment-disabled"}};
+    return {status:200,body:this.authority.register(body)};
+   }
+   const authorityRead=method==="GET"&&url?.match(/^\/v1\/authority\/([0-9a-f-]{36})\/([1-9][0-9]*)$/);
+   if(authorityRead){
+    if(!this.allowed(authorization,this.#tokens.authority))return {status:401,body:{error:"unauthorized"}};
+    const record=this.authority.record(authorityRead[1],Number(authorityRead[2]));
+    return record?{status:200,body:record}:{status:404,body:{error:"not-found"}};
+   }
    if(method==="POST"&&url==="/v1/retained-address-authority"){
     if(!this.allowed(authorization,this.#tokens.authority))return {status:401,body:{error:"unauthorized"}};
     if(!this.retained)return {status:503,body:{error:"retained-address-authority-disabled"}};

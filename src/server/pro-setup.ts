@@ -272,15 +272,15 @@ export async function listBrandRequests(actor: string, initializeAutomationAudit
   });
 }
 
-async function brandReviewEvidence(requestId: string, actor: string, allowPayoutChange = false) {
+async function brandReviewEvidence(requestId: string, actor: string, allowPayoutChange = false,allowPresentationChange=false) {
   if (actor !== SUPER_ADMIN_PUBKEY) throw new Error("Super-admin review required.");
-  const store = brandStore(), request = store.details(requestId), resolved = await resolveProSetupEvidence(request.city_id);assertBrandTask(request.challenge,resolved,allowPayoutChange);
+  const store = brandStore(), request = store.details(requestId), resolved = await resolveProSetupEvidence(request.city_id);assertBrandTask(request.challenge,resolved,allowPayoutChange,allowPresentationChange);
   return {store, request, resolved};
 }
-function assertBrandTask(challenge: import("../nostr/city-brand").CityBrandChallenge, resolved: Awaited<ReturnType<typeof resolveProSetupEvidence>>, allowPayoutChange = false) {
+function assertBrandTask(challenge: import("../nostr/city-brand").CityBrandChallenge, resolved: Awaited<ReturnType<typeof resolveProSetupEvidence>>, allowPayoutChange = false,allowPresentationChange=false) {
   const {task}=ensureSetupTask(resolved),profile=challenge.profile;
-  if(!task.signer||!task.artwork||!task.payoutVersion||task.signer.pubkey!==challenge.binding.brandPubkey||task.signer.version!==profile.signerVersion||
-    task.artwork.version!==profile.artworkVersion||task.artwork.revisionId!==profile.revisionId||task.artwork.avatar!==profile.picture||task.artwork.banner!==profile.banner||
+  if(!task.signer||!task.artwork||!task.payoutVersion||task.signer.pubkey!==challenge.binding.brandPubkey||!allowPresentationChange&&(task.signer.version!==profile.signerVersion||
+    task.artwork.version!==profile.artworkVersion||task.artwork.revisionId!==profile.revisionId||task.artwork.avatar!==profile.picture||task.artwork.banner!==profile.banner)||
     !allowPayoutChange&&task.payoutVersion!==profile.payoutVersion)throw new Error("City signer, payout or artwork changed. Cancel this request and prepare a new one.");
 }
 export async function reviewBrandRequest(requestId: string, actor: string): Promise<EventTemplate> {
@@ -410,10 +410,10 @@ export async function saveProSetupPayout(cityId: string, actor: string, destinat
  * every call. Initial activation also probes the private payout destination;
  * an already applied immutable version is rechecked from durable signed state.
  * Calling this does not create invoices or make provisioning publicly active. */
-export async function resolveRustressProvisionEvidence(requestId: string, payoutVersion?: number, revalidatePayout = true) {
-  const before = await brandReviewEvidence(requestId, SUPER_ADMIN_PUBKEY, true);
+export async function resolveRustressProvisionEvidence(requestId: string, payoutVersion?: number, revalidatePayout = true,allowPresentationChange=false,allowEquivalentActiveAuthority=false) {
+  const before = await brandReviewEvidence(requestId, SUPER_ADMIN_PUBKEY, true,allowPresentationChange);
   const {authority} = before.resolved;
-  const approved = before.store.approvedForPublication(requestId, SUPER_ADMIN_PUBKEY, authority);
+  const approved = before.store.approvedForPublication(requestId, SUPER_ADMIN_PUBKEY, authority,allowEquivalentActiveAuthority);
   if (approved.row.status !== "active") throw new Error("City identity must be active before provisioning.");
   // Worker read-back uses the same authoritative relay's internal listener.
   // Public write URLs remain unchanged for browser publication.
@@ -442,8 +442,8 @@ export async function resolveRustressProvisionEvidence(requestId: string, payout
         ...(process.env.BITCOINWALK_PAYOUT_BLOCKED_DOMAINS ?? "").split(",").map(value => value.trim()).filter(Boolean)]})).normalized
     : normalizePayoutDestination(payout.normalized).normalized;
   if (normalized !== payout.normalized) throw new Error("Payout destination changed.");
-  const after = await brandReviewEvidence(requestId, SUPER_ADMIN_PUBKEY, true);
-  const confirmed = after.store.approvedForPublication(requestId, SUPER_ADMIN_PUBKEY, after.resolved.authority);
+  const after = await brandReviewEvidence(requestId, SUPER_ADMIN_PUBKEY, true,allowPresentationChange);
+  const confirmed = after.store.approvedForPublication(requestId, SUPER_ADMIN_PUBKEY, after.resolved.authority,allowEquivalentActiveAuthority);
   if (JSON.stringify(authority) !== JSON.stringify(after.resolved.authority) || confirmed.event.id !== approved.event.id ||
       confirmed.row.status !== "active" || JSON.stringify(destinations.current(authority.cityId)) !== JSON.stringify(payout))
     throw new Error("City provisioning evidence changed during verification.");
@@ -460,11 +460,12 @@ export async function resolveRustressProvisionEvidence(requestId: string, payout
 
 /** Managed activation evidence uses the same freshly revalidated authority as
  * fixture reservation, but binds the real managed wallet reference. */
+const activePaymentFields=["cityId","domain","localPart","brandPubkey","brandEventId","walletRef","organizerBasisPoints","retainedBasisPoints","invoiceIssuance"] as const satisfies readonly (keyof ProvisionConfig)[];
 export async function resolveRustressActivationEvidence(requestId: string, publicOrigin = "https://bitcoinwalk.org",current?:ProvisionConfig) {
-  const evidence = await resolveRustressProvisionEvidence(requestId,current?.payoutVersion,current===undefined);
+  const evidence = await resolveRustressProvisionEvidence(requestId,current?.payoutVersion,current===undefined,current!==undefined,current!==undefined);
   const reserved = provisionConfigSchema.parse({...evidence.config, walletRef: "bitcoinwalk-rustress"});
   const activation = current??createCityActivation(reserved);
-  if(current){const base=createCityActivation(reserved);if(payoutUpdateStableFields.some(field=>current[field]!==base[field])||current.payoutVersion!==base.payoutVersion)
+  if(current){const base=createCityActivation(reserved);if(activePaymentFields.some(field=>current[field]!==base[field])||current.payoutVersion!==base.payoutVersion||current.payoutDestination!==base.payoutDestination)
     throw new Error("Active city payment authority changed.");}
   const predecessor=current?provisionConfigSchema.parse({...current,version:current.version-1,invoiceIssuance:"disabled"}):reserved;
   return {reserved:predecessor, activation, publicOrigin,

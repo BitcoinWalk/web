@@ -9,7 +9,7 @@ import {
 } from "../domain/city";
 import {isSuperAdmin, SUPER_ADMIN_PUBKEY } from "./authority";
 import {AUTOMATED_CITY_REVISION_NOTE,cityRevisionAutomationPubkey} from "./city-revision-automation-contract";
-import {AUTOMATED_NEW_CITY_MARKER,AUTOMATED_NEW_CITY_NOTE,newCityAutomationPubkey} from "./new-city-automation-contract";
+import {AUTOMATED_NEW_CITY_MARKER,AUTOMATED_NEW_CITY_NOTE,newCityAutomationAuthorities} from "./new-city-automation-contract";
 import { CITY_AUTHORIZATION_KIND, cityAuthorizationSchema, type CityAuthorization } from "../domain/city";
 
 function uniqueTag(event: Event, name: string, value: string): boolean {
@@ -33,7 +33,7 @@ export function parseAuthorizationRecord(event: Event): AuthorizationRecord | nu
   if (event.kind !== CITY_AUTHORIZATION_KIND || !verifyEvent(event)) return null;
   try {
     const grant = cityAuthorizationSchema.parse(JSON.parse(event.content));
-    const automated=event.pubkey===newCityAutomationPubkey(SUPER_ADMIN_PUBKEY)
+    const automated=newCityAutomationAuthorities(SUPER_ADMIN_PUBKEY).includes(event.pubkey)
       && uniqueTag(event,"automation",AUTOMATED_NEW_CITY_MARKER)
       && uniqueTag(event,"client","bitcoinwalk.org")&&event.tags.length===3
       && exactJSONFields(event.content,["cityId","creatorPubkey","creatorRevisionId","editorPubkeys","superAdminPubkey"])
@@ -43,7 +43,7 @@ export function parseAuthorizationRecord(event: Event): AuthorizationRecord | nu
   } catch { return null; }
 }
 
-function authorizationAuthors():string[]{const automation=newCityAutomationPubkey(SUPER_ADMIN_PUBKEY);return [SUPER_ADMIN_PUBKEY,...(automation?[automation]:[])];}
+function authorizationAuthors():string[]{return [SUPER_ADMIN_PUBKEY,...newCityAutomationAuthorities(SUPER_ADMIN_PUBKEY)];}
 
 export async function queryCalendarEvents(relays:string[], filter:{ids?:string[];cityId?:string;cityIds?:string[];authors?:string[]}={}):Promise<Event[]> {
   const cityIds=filter.cityIds??(filter.cityId?[filter.cityId]:undefined);
@@ -101,9 +101,9 @@ export function parseApprovalRecord(event: Event): ApprovalRecord | null {
     const parsed = cityApprovalSchema.safeParse(JSON.parse(event.content));
     if (!parsed.success) return null;
     const data = parsed.data;
-    const revisionAutomation=cityRevisionAutomationPubkey(SUPER_ADMIN_PUBKEY),newCityAutomation=newCityAutomationPubkey(SUPER_ADMIN_PUBKEY);
+    const revisionAutomation=cityRevisionAutomationPubkey(SUPER_ADMIN_PUBKEY),newCityAutomation=newCityAutomationAuthorities(SUPER_ADMIN_PUBKEY);
     const automatedRevision=event.pubkey===revisionAutomation&&data.note===AUTOMATED_CITY_REVISION_NOTE;
-    const automatedNewCity=event.pubkey===newCityAutomation&&data.note===AUTOMATED_NEW_CITY_NOTE;
+    const automatedNewCity=newCityAutomation.includes(event.pubkey)&&data.note===AUTOMATED_NEW_CITY_NOTE;
     if(!isSuperAdmin(event.pubkey)&&!automatedRevision&&!automatedNewCity)return null;
     if(automatedRevision&&(data.status!=="approved"||data.initialEventId||data.initialEventIds||data.heroImageUrl||data.slug||data.aliases))return null;
     if(automatedNewCity&&(data.status!=="approved"||!(data.initialEventIds?.length||data.initialEventId)||data.heroImageUrl||data.slug||data.aliases))return null;
@@ -122,7 +122,7 @@ export function parseApprovalRecord(event: Event): ApprovalRecord | null {
   }
 }
 
-function approvalAuthors():string[]{const keys=[cityRevisionAutomationPubkey(SUPER_ADMIN_PUBKEY),newCityAutomationPubkey(SUPER_ADMIN_PUBKEY)].filter((key):key is string=>!!key);return [SUPER_ADMIN_PUBKEY,...new Set(keys)];}
+function approvalAuthors():string[]{const keys=[cityRevisionAutomationPubkey(SUPER_ADMIN_PUBKEY),...newCityAutomationAuthorities(SUPER_ADMIN_PUBKEY)].filter((key):key is string=>!!key);return [SUPER_ADMIN_PUBKEY,...new Set(keys)];}
 
 let readPool: SimplePool | undefined;
 let activeReads=0;
