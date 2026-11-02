@@ -1,7 +1,7 @@
 "use client";
 import {useDashboard,useDashboardAutoLoad} from "../../components/dashboard-context";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import {cityAliases,type CityDocument} from "../../domain/city";
@@ -35,6 +35,7 @@ type Submission = { eventId: string; initialEventIds: string[]; author: string; 
 type State = { message: string; tone: "info" | "error" | "success"; approvedWalk?: { href: string; name: string } };
 type ImageState={status:"idle"|"waiting"|"working"|"ready"|"error";message:string};
 type ActivationState=CityActivationResult["checks"];
+const REVIEWER_NOTE_REQUIRED="Add a clear reason for the host before publishing this decision.";
 const pendingActivation=(paid:boolean):ActivationState=>({
   logos:{status:"amber",message:"Generating after approval…"},
   og:{status:"amber",message:"Creating localized share image…"},
@@ -108,6 +109,7 @@ export default function SubmissionApprovals() {
   const [statusFilter,setStatusFilter]=useState<"all"|AdminCityRequestStatus>("all");
   const [reviewing,setReviewing]=useState("");
   const [busy, setBusy] = useState(false);
+  const reviewerNoteRef=useRef<HTMLTextAreaElement>(null);
   const [state, setState] = useState<State>({ message: "Connect the BitcoinWalk super-admin signer to load submissions.", tone: "info" });
   useEffect(() => {
     const target = window.location.hash.slice(1);
@@ -193,7 +195,7 @@ export default function SubmissionApprovals() {
       const status=action==="accept"||silentActivation?"approved" as const:"rejected" as const;
       const initialRequest=!submission.established;
       const rejectionNote=(rejectionOverride??rejectionNotes[submission.eventId]??"").trim();
-      if(status==="rejected"&&!rejectionNote)throw new Error("Add a clear reason for the host before publishing this decision.");
+      if(status==="rejected"&&!rejectionNote){setTimeout(()=>reviewerNoteRef.current?.focus());throw new Error(REVIEWER_NOTE_REQUIRED);}
       if(action==="reject"){
         const duplicate=submission.existingCity;
         if(!window.confirm(duplicate?`Reject this ${submission.cityName} application because BitcoinWalk ${duplicate.cityName} already exists?\n\nThis publishes a final decision, removes the duplicate from the active requests queue and prevents correction resubmission. Signed history is retained.`:`Reject the ${submission.registered?"revision":"application"} for ${submission.cityName}?\n\nThis is a final rejection, not a request for corrections. Signed history is retained.`))throw new Error("Rejection cancelled. No decision was signed.");
@@ -333,7 +335,7 @@ export default function SubmissionApprovals() {
           {announcementErrors[selectedSubmission.eventId]&&<section className="request-modal__panel" role="alert"><h3>Announcement unavailable</h3><p>{announcementErrors[selectedSubmission.eventId]}</p></section>}
           {announcementCandidates[selectedSubmission.eventId]&&<CityAnnouncementAction candidate={announcementCandidates[selectedSubmission.eventId]} rolloutVerified onSkip={()=>{const candidate=announcementCandidates[selectedSubmission.eventId];setAnnouncementCandidates(current=>{const next={...current};delete next[selectedSubmission.eventId];return next;});setState({message:`${selectedSubmission.cityName} was approved. Announcement skipped; it remains available in New-city announcements.`,tone:"success",approvedWalk:{href:`/${encodeURIComponent(candidate.walk.revision.city.slug)}`,name:selectedSubmission.cityName}});setReviewing("");}} onPublished={()=>{const candidate=announcementCandidates[selectedSubmission.eventId];setAnnouncementCandidates(current=>{const next={...current};delete next[selectedSubmission.eventId];return next;});setState({message:`${selectedSubmission.cityName} was approved and its launch announcement was verified on every configured relay.`,tone:"success",approvedWalk:{href:`/${encodeURIComponent(candidate.walk.revision.city.slug)}`,name:selectedSubmission.cityName}});setReviewing("");}}/>}
         </div>
-        {selectedSubmission.status==="pending"&&<footer className="request-modal__footer"><label>Reviewer note <textarea maxLength={500} value={rejectionNotes[selectedSubmission.eventId]??""} onChange={event=>setRejectionNotes(current=>({...current,[selectedSubmission.eventId]:event.target.value}))} placeholder="Required when asking for changes or rejecting."/></label><div className="request-decision-actions"><button className={`request-action ${selectedSubmission.existingCity?"request-action--duplicate":"request-action--reject"}`} disabled={busy} type="button" onClick={()=>decide(selectedSubmission,"reject")}>{selectedSubmission.existingCity?"Reject as duplicate":"Reject"}</button><button className="request-action request-action--changes" disabled={busy} type="button" onClick={()=>decide(selectedSubmission,"changes")}>Need changes</button><button className="request-action request-action--accept" disabled={busy||!!selectedSubmission.previous&&!selectedSubmission.previousCity||!selectedSubmission.registered&&(!selectedSubmission.initialEventIds.length||!heroImages[selectedSubmission.eventId]?.trim())} type="button" onClick={()=>decide(selectedSubmission,"accept")}>{busy?"Working…":"Accept"}</button></div><small>Need changes lets the host correct and resubmit. Reject is a final decision for this application.</small></footer>}
+        {selectedSubmission.status==="pending"&&<footer className="request-modal__footer"><label>Reviewer note <textarea ref={reviewerNoteRef} maxLength={500} aria-invalid={state.tone==="error"&&state.message===REVIEWER_NOTE_REQUIRED} aria-describedby="reviewer-note-help" value={rejectionNotes[selectedSubmission.eventId]??""} onChange={event=>setRejectionNotes(current=>({...current,[selectedSubmission.eventId]:event.target.value}))} placeholder="Required when asking for changes or rejecting."/>{state.tone==="error"&&state.message===REVIEWER_NOTE_REQUIRED&&<small id="reviewer-note-help" role="alert">{REVIEWER_NOTE_REQUIRED}</small>}</label><div className="request-decision-actions"><button className={`request-action ${selectedSubmission.existingCity?"request-action--duplicate":"request-action--reject"}`} disabled={busy} type="button" onClick={()=>decide(selectedSubmission,"reject")}>{selectedSubmission.existingCity?"Reject as duplicate":"Reject"}</button><button className="request-action request-action--changes" disabled={busy} type="button" onClick={()=>decide(selectedSubmission,"changes")}>Need changes</button><button className="request-action request-action--accept" disabled={busy||!!selectedSubmission.previous&&!selectedSubmission.previousCity||!selectedSubmission.registered&&(!selectedSubmission.initialEventIds.length||!heroImages[selectedSubmission.eventId]?.trim())} type="button" onClick={()=>decide(selectedSubmission,"accept")}>{busy?"Working…":"Accept"}</button></div><small>Need changes lets the host correct and resubmit. Reject is a final decision for this application.</small></footer>}
         {selectedSubmission.status==="needs-changes"&&selectedSubmission.existingCity&&<footer className="request-modal__footer request-modal__footer--duplicate"><div><strong>Close this duplicate application</strong><p>The applicant will see why it was declined and where to find the established BitcoinWalk. The request will disappear from this active queue.</p></div><div className="request-decision-actions"><button className="request-action request-action--duplicate" disabled={busy} type="button" onClick={()=>decide(selectedSubmission,"reject",duplicateCityRejectionNote(selectedSubmission.existingCity!))}>{busy?"Working…":"Reject as duplicate"}</button></div></footer>}
         {selectedSubmission.status==="needs-changes"&&!selectedSubmission.existingCity&&<footer className="request-modal__footer"><div><strong>Super-admin override</strong><p>Dismiss Needs changes and approve this exact signed revision. No organizer message, field edit, permission, service provisioning or activation task will be created.</p></div><div className="request-decision-actions"><button className="request-action request-action--accept" disabled={busy} type="button" onClick={()=>decide(selectedSubmission,"activate")}>{busy?"Working…":"Set Active as-is"}</button></div></footer>}
       </section>
