@@ -91,8 +91,8 @@ task is still required to accept DM receipt, link selection and restart deduplic
 - `guide@bitcoinwalk.org` is the verified NIP-05 identifier and public Lightning
   address for the deployed Guide key. The signed profile advertises it through
   `nip05` and `lud16`; both public endpoints must verify before publication.
-- Notifications only. No AI replies, approvals, relay management, payments, or
-  privileges inferred from the recipient list. Existing approval authority is unchanged.
+- No automatic AI replies, approvals, relay management, payments, or privileges
+  inferred from the recipient list. Existing approval authority is unchanged.
 - Initial recipient is the existing BitcoinWalk super-admin. More recipient
   hex pubkeys can be explicitly configured without granting them admin powers.
 
@@ -137,6 +137,23 @@ NIP-17 kind-10050 inbox lists are signature-checked and rediscovered on retry.
 Destinations must also be in the operator-reviewed allowlist. No public-note,
 plaintext or NIP-04 fallback. Recipient inbox changes to a new host require
 configuration review. NIP-42 transport authentication uses only the bot key.
+
+### Human-reviewed support drafts
+
+`--draft-support-case <case-id>` prepares one reply for an operator to review. It
+does not send a message, change the case or call any BitcoinWalk operation. The
+command redacts secrets, identifiers, addresses and URLs from the last 20 retained
+messages before using the model. It supplies only the build-generated, hash-checked
+snapshot of the public documentation and accepts only citations from that snapshot.
+
+Run the command as an isolated one-shot unit with the existing Guide state, the
+Guide credential, a separate `openai-key` credential, `GUIDE_KNOWLEDGE` pointing
+to the reviewed `knowledge.json` artifact and an explicitly reviewed
+`GUIDE_AI_MODEL`. The provider request uses `store: false`. Output is structured
+JSON ending in `"sent": false`; a human must inspect the draft and citations.
+Payments, approvals, identity or signer changes, city-state mutations, destructive
+actions and uncertain guidance are always marked for escalation. No reply transport
+is implemented in this slice.
 
 The Memphis staging rehearsal on 27 September 2026 produced one durable
 `replication-degraded` row and one `replication-recovered` row while a controlled
