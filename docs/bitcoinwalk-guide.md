@@ -155,6 +155,13 @@ Payments, approvals, identity or signer changes, city-state mutations, destructi
 actions and uncertain guidance are always marked for escalation. No reply transport
 is implemented in this slice.
 
+Build the disabled staging package with `npm run guide:ai-disabled:package`. Its
+installer replaces only the reviewed worker and public knowledge snapshot, restarts
+the existing Guide service, and refuses any pre-existing AI model, knowledge or
+credential unit configuration. It runs a network-free synthetic escalation check
+before installation. Installing this package does not make `--draft-support-case`
+usable; that requires a separately reviewed one-shot unit and credential later.
+
 The Memphis staging rehearsal on 27 September 2026 produced one durable
 `replication-degraded` row and one `replication-recovered` row while a controlled
 receiver outage moved the real source outbox through retry and back to acknowledged.
