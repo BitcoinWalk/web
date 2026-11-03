@@ -1,6 +1,6 @@
 import {getEventHash,verifyEvent,type Event,type EventTemplate,type SimplePool,type VerifiedEvent} from "nostr-tools";
 
-export type Nip17Message={id:string;wrapId:string;pubkey:string;content:string;createdAt:number};
+export type Nip17Message={id:string;wrapId:string;pubkey:string;recipient:string;content:string;createdAt:number};
 type Decrypt=(pubkey:string,ciphertext:string)=>Promise<string>;
 type InboxPool=Pick<SimplePool,"subscribeEose">;
 
@@ -25,10 +25,11 @@ export async function unwrapNip17Message(wrap:Event,recipientPubkey:string,decry
  if(!HEX.test(recipientPubkey)||wrap.kind!==1059||wrap.content.length>MAX_CIPHERTEXT||!verifyEvent(wrap)||!recipient(wrap,recipientPubkey))throw new Error("Gift wrap is invalid or belongs to another account.");
  const seal=signedEvent(object(await decrypt(wrap.pubkey,wrap.content),"Decrypted seal"),13,"Decrypted seal");
  const rumor=object(await decrypt(seal.pubkey,seal.content),"Decrypted message");
- if(rumor.kind!==14||rumor.pubkey!==seal.pubkey||typeof rumor.id!=="string"||typeof rumor.content!=="string"||rumor.content.length>MAX_CONTENT||typeof rumor.created_at!=="number"||!Number.isSafeInteger(rumor.created_at)||!recipient(rumor,recipientPubkey))throw new Error("Decrypted message is invalid.");
+ const targets=Array.isArray(rumor.tags)?rumor.tags.filter(tag=>Array.isArray(tag)&&tag[0]==="p"&&HEX.test(String(tag[1]))).map(tag=>String(tag[1])):[];
+ if(rumor.kind!==14||rumor.pubkey!==seal.pubkey||typeof rumor.id!=="string"||typeof rumor.content!=="string"||rumor.content.length>MAX_CONTENT||typeof rumor.created_at!=="number"||!Number.isSafeInteger(rumor.created_at)||targets.length!==1||(targets[0]!==recipientPubkey&&rumor.pubkey!==recipientPubkey))throw new Error("Decrypted message is invalid.");
  const unsigned={pubkey:rumor.pubkey,kind:rumor.kind,created_at:rumor.created_at,tags:rumor.tags,content:rumor.content};
  if(!HEX.test(rumor.pubkey as string)||rumor.id!==getEventHash(unsigned as Parameters<typeof getEventHash>[0]))throw new Error("Decrypted message identity is invalid.");
- return {id:rumor.id,wrapId:wrap.id,pubkey:rumor.pubkey as string,content:rumor.content,createdAt:rumor.created_at};
+ return {id:rumor.id,wrapId:wrap.id,pubkey:rumor.pubkey as string,recipient:targets[0],content:rumor.content,createdAt:rumor.created_at};
 }
 
 /** Reads only completed relay responses. A failed relay cannot turn an inbox

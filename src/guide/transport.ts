@@ -19,7 +19,7 @@ export async function publishIdempotent(pool:SimplePool,relays:string[],event:Ev
 }
 
 /** Require a real EOSE from every queried relay, not a timeout mistaken for an empty result. */
-export async function readComplete(pool: SimplePool, relays: string[], filter: Filter): Promise<Event[]> {
+export async function readComplete(pool: SimplePool, relays: string[], filter: Filter, onauth?: (template:EventTemplate)=>Promise<VerifiedEvent>): Promise<Event[]> {
   return new Promise((resolve, reject) => {
     const events = new Map<string, Event>();
     let settled = false;
@@ -33,14 +33,15 @@ export async function readComplete(pool: SimplePool, relays: string[], filter: F
         if (reasons.length !== relays.length || reasons.some(r => r.reason !== "closed automatically on eose")) reject(new Error("Incomplete relay read."));
         else resolve([...events.values()]);
       },
+      onauth,
     });
   });
 }
 
 /** Inbox preferences are signed by the recipient and their destinations remain
  * operator-allowlisted. One unavailable discovery relay must not block delivery. */
-export async function readAnyComplete(pool:SimplePool,relays:string[],filter:Filter):Promise<Event[]>{
- const results=await Promise.allSettled(relays.map(relay=>readComplete(pool,[relay],filter)));
+export async function readAnyComplete(pool:SimplePool,relays:string[],filter:Filter,onauth?: (template:EventTemplate)=>Promise<VerifiedEvent>):Promise<Event[]>{
+ const results=await Promise.allSettled(relays.map(relay=>readComplete(pool,[relay],filter,onauth)));
  const completed=results.flatMap(result=>result.status==="fulfilled"?[result.value]:[]);
  if(!completed.length)throw new Error("No discovery relay completed the signed inbox read.");
  const events=new Map<string,Event>();for(const rows of completed)for(const event of rows)events.set(event.id,event);

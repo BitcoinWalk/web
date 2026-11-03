@@ -21,12 +21,13 @@ const relayURL = z.string().url().refine(value => {
     && u.hostname.includes(".") && !/^[\d.]+$/.test(u.hostname) && !u.hostname.includes(":")
     && !/(?:^|\.)(localhost|local|internal|test|invalid)$/.test(u.hostname);
 }, "Use a public WSS hostname without credentials, port or query.").transform(value => new URL(value).href);
-export const configSchema = z.object({
+const supportConfig=z.object({enabled:z.boolean().default(false),inboxRelays:z.array(relayURL).max(3).default([]),retentionDays:z.number().int().min(1).max(30).default(30)}).superRefine((value,ctx)=>{if(value.enabled&&!value.inboxRelays.length)ctx.addIssue({code:"custom",message:"Support intake needs at least one reviewed inbox relay."});});
+export const guideConfigBase = z.object({
   sourceRelay: relayURL,
   // A Guide running beside the relay may read its private listener when the
   // host cannot hairpin through the public TLS endpoint. Public links and the
   // durable outbox identity always remain bound to sourceRelay above.
-  sourceReadRelay:z.string().url().refine(value=>new URL(value).href==="ws://127.0.0.1:3334/","Use the exact reviewed relay loopback listener.").optional(),
+  sourceReadRelay:z.string().url().refine(value=>["ws://127.0.0.1:3334/","ws://127.0.0.1:3340/"].includes(new URL(value).href),"Use an exact reviewed relay loopback listener.").optional(),
   discoveryRelays: z.array(relayURL).min(1).max(5),
   // Operator-reviewed destinations only; discovery never authorizes arbitrary outbound hosts.
   allowedInboxRelays: z.array(relayURL).min(1).max(10),
@@ -42,8 +43,10 @@ export const configSchema = z.object({
   proSetupAdminURL:z.string().url().refine(value=>{const u=new URL(value);return u.protocol==="https:"&&["bitcoinwalk.org","app-staging.bitcoinwalk.org"].includes(u.hostname)&&["/admin/my-cities","/admin/upgrade"].includes(u.pathname)&&!u.port&&!u.search&&!u.hash&&!u.username&&!u.password;}).optional(),
   organizerChatStatusURL:z.string().url().refine(value=>{const u=new URL(value);return (u.href==="http://127.0.0.1:3345/api/organizer-chat-invitations"||u.href==="http://127.0.0.1:3338/api/organizer-chat-invitations")&&!u.username&&!u.password&&!u.hash&&!u.search;}).optional(),
   organizerChatURL:z.string().url().refine(value=>{const u=new URL(value);return u.protocol==="https:"&&["bitcoinwalk.org","app-staging.bitcoinwalk.org"].includes(u.hostname)&&u.pathname==="/chat/hosts"&&!u.search&&!u.hash&&!u.port&&!u.username&&!u.password;}).optional(),
+  support:supportConfig.default({enabled:false,inboxRelays:[],retentionDays:30}),
   enabled: z.boolean().default(false),
 });
+export const configSchema=guideConfigBase.superRefine((value,ctx)=>{for(const relay of value.support.inboxRelays)if(!value.allowedInboxRelays.includes(relay))ctx.addIssue({code:"custom",path:["support","inboxRelays"],message:"Support inbox relays must already be operator-allowlisted."});});
 export type GuideConfig = z.infer<typeof configSchema>;
 
 export function assertBotKey(secret: Uint8Array, recipients: string[]): string {

@@ -5,6 +5,7 @@ import { approvalAlert, directoryAlert, liveAlert, organizerChatInvitation, payo
 import type {GuideDirectoryRequest} from "./directory";
 import type {GuideProSetupTask} from "./pro-setup";
 import type {GuideOrganizerChatHost} from "./organizer-chat";
+import {GuideSupportCases} from "./support";
 
 export type Delivery = { submission: string; recipient: string; wrapped: string; attempts: number; next_attempt: number; state: string; purpose: "idle-reminder" | "review" | "live" | "replication-degraded" | "replication-recovered"|"directory-invitation"|"directory-active"|"directory-failed"|`pro-setup-${ProSetupAlertState}`|"payout-update-pending"|"payout-update-active"|"payout-update-attention"|"organizer-chat-invitation" };
 export type ReplicationCityStatus={cityId:string;destination:string;state:"healthy"|"pending"|"degraded";counts:Record<string,number>};
@@ -12,6 +13,7 @@ export type ReplicationRecipient={recipient:string;cityName:string};
 export type LivePublication = { revision: CityRevision; approval: ApprovalRecord; event: Event };
 export class Outbox {
   readonly db: DatabaseSync;
+  readonly support:GuideSupportCases;
   constructor(path: string) {
     this.db = new DatabaseSync(path);
     this.db.exec(`PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL;
@@ -30,6 +32,7 @@ export class Outbox {
       INSERT OR IGNORE INTO pro_setup_transition(city_id,kind,recipient,state)
       SELECT city_id,CASE WHEN state LIKE 'payout-update:%' THEN 'payout-update' ELSE 'setup' END,recipient,state FROM pro_setup_state;`);
     this.db.exec("CREATE TABLE IF NOT EXISTS pro_welcome_baseline (city_id TEXT NOT NULL, recipient TEXT NOT NULL, PRIMARY KEY(city_id,recipient))");
+    this.support=new GuideSupportCases(this.db);
   }
   ingestOrganizerChat(hosts:GuideOrganizerChatHost[],secret:Uint8Array,chatURL:string):number{
     this.db.exec("BEGIN IMMEDIATE");

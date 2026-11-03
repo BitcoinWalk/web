@@ -12,6 +12,12 @@ describe("NIP-17 inbox",()=>{
   await expect(unwrapNip17Message(wrap,recipient,decryptWith(receiver))).resolves.toMatchObject({pubkey:getPublicKey(sender),content:"Guide update",createdAt:created_at,wrapId:wrap.id});
  });
 
+ it("opens the sender copy while preserving its actual recipient",async()=>{
+  const sender=generateSecretKey(),recipient=getPublicKey(generateSecretKey()),pubkey=getPublicKey(sender),created_at=1_700_000_001;
+  const wrap=wrapEvent({kind:14,created_at,tags:[["p",recipient]],content:"Support request"},sender,pubkey);
+  await expect(unwrapNip17Message(wrap,pubkey,decryptWith(sender))).resolves.toMatchObject({pubkey,recipient,content:"Support request",createdAt:created_at});
+ });
+
  it("rejects a wrap addressed to another account before asking the signer",async()=>{
   const sender=generateSecretKey(),receiver=generateSecretKey(),other=generateSecretKey(),recipient=getPublicKey(receiver),decrypt=vi.fn(decryptWith(receiver));
   const wrap=wrapEvent({kind:14,tags:[["p",getPublicKey(other)]],content:"Not yours"},sender,getPublicKey(other));
