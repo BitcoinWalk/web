@@ -155,6 +155,19 @@ Payments, approvals, identity or signer changes, city-state mutations, destructi
 actions and uncertain guidance are always marked for escalation. No reply transport
 is implemented in this slice.
 
+The separate operator utility built by `npm run guide:reviewed-reply:build` sends
+one explicitly reviewed response. Supply a `reviewed-reply` systemd credential
+containing JSON with `caseId`, the complete ordered `messageIds` from
+`--support-case`, and the approved `reply` text. Pin the exact file bytes with
+`GUIDE_REVIEW_SHA256`. The command requires the existing Guide configuration,
+state and `guide-key` credential; it needs no OpenAI key and makes no model call.
+Run it only after inspecting the exact reply artifact. It derives the recipient
+from the open case, refuses changed conversations and a different second reply,
+and persists the encrypted event before publication. Retrying reuses that event;
+an acknowledged reply is not sent again. Recipient inbox discovery and relay
+allowlisting use the existing Guide delivery checks. Relay acknowledgement is
+not a read receipt. Case closure remains a separate operator action.
+
 Build the disabled staging package with `npm run guide:ai-disabled:package`. Its
 installer replaces only the reviewed worker and public knowledge snapshot, restarts
 the existing Guide service, and refuses any pre-existing AI model, knowledge or
