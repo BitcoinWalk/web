@@ -10,6 +10,7 @@ check="$release_dir/check-guide-ai-drafting-disabled.cjs"
 target=/opt/bitcoinwalk-guide/guide.cjs
 knowledge_target=/opt/bitcoinwalk-guide/knowledge-bw152.json
 unit=bitcoinwalk-guide.service
+node=/opt/bitcoinwalk-app-staging/runtime/bin/node
 expected_old=a78cc3370453ec8e400e7aa745f0ec9ae79e5f57f61d60c11fc082dbe28b1622
 expected_worker=49b07fc9e8f9b4016b5fde6679d4a12b55d7321a2f03199a8984680c09270422
 expected_knowledge=29af47d88ed208412668d20c16c6021bb7eb1661ba72a7ea94c04ab1fa460229
@@ -23,7 +24,7 @@ echo "$expected_knowledge  $knowledge"|sha256sum -c -
 echo "$expected_check  $check"|sha256sum -c -
 systemctl is-active --quiet "$unit" || { echo "Guide service is not active." >&2; exit 1; }
 if systemctl cat "$unit"|grep -Eq 'GUIDE_(AI_MODEL|KNOWLEDGE)|openai-key';then echo "Guide AI configuration already exists; review manually." >&2;exit 1;fi
-"$check" "$knowledge"
+"$node" "$check" "$knowledge"
 
 backup=$(mktemp -d /var/backups/bitcoinwalk-guide-bw152-disabled.XXXXXX)
 cp -a "$target" "$backup/guide.cjs"
