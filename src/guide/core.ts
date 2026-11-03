@@ -27,7 +27,7 @@ export const guideConfigBase = z.object({
   // A Guide running beside the relay may read its private listener when the
   // host cannot hairpin through the public TLS endpoint. Public links and the
   // durable outbox identity always remain bound to sourceRelay above.
-  sourceReadRelay:z.string().url().refine(value=>new URL(value).href==="ws://127.0.0.1:3334/","Use the exact reviewed relay loopback listener.").optional(),
+  sourceReadRelay:z.string().url().refine(value=>["ws://127.0.0.1:3334/","ws://127.0.0.1:3340/"].includes(new URL(value).href),"Use an exact reviewed relay loopback listener.").optional(),
   discoveryRelays: z.array(relayURL).min(1).max(5),
   // Operator-reviewed destinations only; discovery never authorizes arbitrary outbound hosts.
   allowedInboxRelays: z.array(relayURL).min(1).max(10),

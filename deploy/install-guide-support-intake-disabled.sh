@@ -10,7 +10,7 @@ target=/opt/bitcoinwalk-guide/guide.cjs
 config=/etc/bitcoinwalk-guide/config.json
 unit=bitcoinwalk-guide.service
 expected_old=8b47860a8265be137ab54fa6aa28480ef4f9554ea1d4ea66575e5d067fbc1b7c
-expected_new=72dcb127b5cd73c1a9c4ecc2c473c2438259b10bad2bd4623d21ceb258e91439
+expected_new=049989c40279474f7f21a6c3bb26337f7b090fb232f44c8abf2b35c55faca350
 
 test -f "$bundle" && test ! -L "$bundle" || { echo "Guide bundle is missing or unsafe." >&2; exit 1; }
 test -f "$target" && test ! -L "$target" || { echo "Installed Guide bundle is missing or unsafe." >&2; exit 1; }

@@ -103,6 +103,7 @@ describe("BitcoinWalk Guide", () => {
     expect(configSchema.safeParse({...config,adminURL:"https://evil.example/admin"}).success).toBe(false);
     expect(configSchema.safeParse({...config,sourceRelay:"ws://127.0.0.1"}).success).toBe(false);
     expect(configSchema.safeParse({...config,sourceReadRelay:"ws://127.0.0.1:3334/"}).success).toBe(true);
+    expect(configSchema.safeParse({...config,sourceReadRelay:"ws://127.0.0.1:3340/"}).success).toBe(true);
     expect(configSchema.safeParse({...config,sourceReadRelay:"ws://127.0.0.1:3335/"}).success).toBe(false);
     expect(configSchema.safeParse({...config,sourceReadRelay:"ws://localhost:3334/"}).success).toBe(false);
     expect(configSchema.parse(config).support).toEqual({enabled:false,inboxRelays:[],retentionDays:30});
