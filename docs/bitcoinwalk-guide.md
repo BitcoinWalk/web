@@ -248,7 +248,8 @@ sender copies are prepared before publication, retained across partial failure a
 described only as relay-stored, never read. Enabling intake requires a reviewed
 `support` configuration whose inbox relays are already in the Guide relay allowlist,
 followed by the separate `--publish-support-inbox` and `--check-support-inbox`
-operator actions. Operators can inspect metadata with
+operator actions. `--check-support-relays` authenticates a read against every
+configured inbox relay before publication. Operators can inspect metadata with
 `--support-report`, open one exact case with `--support-case <case-id>` and close
 it with `--close-support-case <case-id>`. A relay acknowledgement is never called
 a read receipt or a resolved case.

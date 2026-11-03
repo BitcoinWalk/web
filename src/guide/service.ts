@@ -5,7 +5,7 @@ import { DatabaseSync } from "node:sqlite";
 import { SimplePool, finalizeEvent, getPublicKey, nip19, verifyEvent, type Event } from "nostr-tools";
 import { configSchema, assertBotKey, selectInbox, guideProfile, signTransportAuth } from "./core";
 import { Outbox } from "./outbox";
-import { history, publishIdempotent, readAnyComplete } from "./transport";
+import { history, publishIdempotent, readAnyComplete, readComplete } from "./transport";
 import { SUPER_ADMIN_PUBKEY } from "../nostr/authority";
 import { parseCityRevision, parseApprovalRecord, pendingCityRevisions, type CityRevision, type ApprovalRecord } from "../nostr/city-records";
 import {managedCities} from "../nostr/moderation";
@@ -25,6 +25,7 @@ async function main() {
   const publishProfile = process.argv.includes("--publish-profile");
   const publishSupportInbox = process.argv.includes("--publish-support-inbox");
   const checkSupportInbox = process.argv.includes("--check-support-inbox");
+  const checkSupportRelays = process.argv.includes("--check-support-relays");
   const checkProfile = process.argv.includes("--check-profile");
   const printIdentity = process.argv.includes("--print-identity");
   const checkReplication = process.argv.includes("--check-replication");
@@ -44,9 +45,9 @@ async function main() {
   const retryPurpose=retryReplicationDelivery?process.argv[selectedRetryIndex+3]:undefined;
   if(retryDelivery&&(!retrySubmission||!retryRecipient))throw new Error("Retry requires an exact live submission and recipient.");
   if(retryReplicationDelivery&&(!retrySubmission||!retryRecipient||!retryPurpose))throw new Error("Replication retry requires an exact submission, recipient and purpose.");
-  if([dryRun,publishProfile,publishSupportInbox,checkSupportInbox,checkProfile,printIdentity,checkReplication,checkDirectory,checkProSetup,checkOrganizerChat,baselineDirectory,retryDelivery,retryReplicationDelivery,supportReport,!!supportCase,!!closeSupportCase].filter(Boolean).length>1)throw new Error("Choose only one Guide operation mode.");
-  if (!dryRun && !publishProfile && !publishSupportInbox && !checkSupportInbox && !checkProfile && !printIdentity && !checkReplication && !checkDirectory && !checkProSetup && !checkOrganizerChat && !baselineDirectory && !retryDelivery && !retryReplicationDelivery&&!supportReport&&!supportCase&&!closeSupportCase && !config.enabled) throw new Error("Guide is disabled. Complete dry-run and operator review before enabling.");
-  if((publishSupportInbox||checkSupportInbox)&&!config.support.enabled)throw new Error("Guide support intake is disabled in the reviewed configuration.");
+  if([dryRun,publishProfile,publishSupportInbox,checkSupportInbox,checkSupportRelays,checkProfile,printIdentity,checkReplication,checkDirectory,checkProSetup,checkOrganizerChat,baselineDirectory,retryDelivery,retryReplicationDelivery,supportReport,!!supportCase,!!closeSupportCase].filter(Boolean).length>1)throw new Error("Choose only one Guide operation mode.");
+  if (!dryRun && !publishProfile && !publishSupportInbox && !checkSupportInbox && !checkSupportRelays && !checkProfile && !printIdentity && !checkReplication && !checkDirectory && !checkProSetup && !checkOrganizerChat && !baselineDirectory && !retryDelivery && !retryReplicationDelivery&&!supportReport&&!supportCase&&!closeSupportCase && !config.enabled) throw new Error("Guide is disabled. Complete dry-run and operator review before enabling.");
+  if((publishSupportInbox||checkSupportInbox||checkSupportRelays)&&!config.support.enabled)throw new Error("Guide support intake is disabled in the reviewed configuration.");
   let secret: Uint8Array | undefined;
   let outbox: Outbox | undefined;
   if (!dryRun) {
@@ -80,6 +81,7 @@ async function main() {
   process.on("SIGTERM", () => { stopping = true; });
   process.on("SIGINT", () => { stopping = true; });
   try {
+    if(checkSupportRelays&&!dryRun){for(const relay of config.support.inboxRelays)await readComplete(pool,[relay],{kinds:[1059],"#p":[getPublicKey(secret!)],limit:1},async template=>signTransportAuth(template,secret!,config.support.inboxRelays));console.log(`Guide support inbox access verified on ${config.support.inboxRelays.length}/${config.support.inboxRelays.length} configured relays.`);return;}
     if (publishProfile && !dryRun) {
       const profile=finalizeEvent({kind:0,created_at:Math.floor(Date.now()/1000),tags:[],content:JSON.stringify(guideProfile)}, secret!);
       const outcomes=await Promise.allSettled(config.discoveryRelays.map(relay=>Promise.any(pool.publish([relay],profile,{maxWait:10_000}))));

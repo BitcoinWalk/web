@@ -9,8 +9,8 @@ bundle="$release_dir/guide.cjs"
 target=/opt/bitcoinwalk-guide/guide.cjs
 config=/etc/bitcoinwalk-guide/config.json
 unit=bitcoinwalk-guide.service
-expected_old=049989c40279474f7f21a6c3bb26337f7b090fb232f44c8abf2b35c55faca350
-expected_new=540e5c4c9df19e8ba3fd93a019a0be4ba1dcd07f887f35df472e4aecfeb9a40b
+expected_old=540e5c4c9df19e8ba3fd93a019a0be4ba1dcd07f887f35df472e4aecfeb9a40b
+expected_new=a78cc3370453ec8e400e7aa745f0ec9ae79e5f57f61d60c11fc082dbe28b1622
 
 test -f "$bundle" && test ! -L "$bundle" || { echo "Guide bundle is missing or unsafe." >&2; exit 1; }
 test -f "$target" && test ! -L "$target" || { echo "Installed Guide bundle is missing or unsafe." >&2; exit 1; }
