@@ -13,7 +13,7 @@ async function main(){
  process.umask(0o077);
  const configPath=process.env.GUIDE_CONFIG,state=process.env.STATE_DIRECTORY,credentials=process.env.CREDENTIALS_DIRECTORY;
  if(!configPath||!state||!credentials)throw Error("Dedicated Guide configuration and credential directories required.");
- const config=configSchema.extend({idleEnabled:z.boolean().default(false),idleRecipients:z.array(z.string().regex(/^[0-9a-f]{64}$/)).max(100).default([])}).parse(JSON.parse(readFileSync(configPath,"utf8")));
+ const config=configSchema.safeExtend({idleEnabled:z.boolean().default(false),idleRecipients:z.array(z.string().regex(/^[0-9a-f]{64}$/)).max(100).default([])}).parse(JSON.parse(readFileSync(configPath,"utf8")));
  const dry=process.argv.includes("--dry-run");
  if(!dry&&!process.argv.includes("--once"))throw Error("Choose --dry-run or --once.");
  if(!dry&&!config.idleEnabled)throw Error("Idle reminders are disabled.");

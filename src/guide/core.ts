@@ -22,7 +22,7 @@ const relayURL = z.string().url().refine(value => {
     && !/(?:^|\.)(localhost|local|internal|test|invalid)$/.test(u.hostname);
 }, "Use a public WSS hostname without credentials, port or query.").transform(value => new URL(value).href);
 const supportConfig=z.object({enabled:z.boolean().default(false),inboxRelays:z.array(relayURL).max(3).default([]),retentionDays:z.number().int().min(1).max(30).default(30)}).superRefine((value,ctx)=>{if(value.enabled&&!value.inboxRelays.length)ctx.addIssue({code:"custom",message:"Support intake needs at least one reviewed inbox relay."});});
-export const configSchema = z.object({
+export const guideConfigBase = z.object({
   sourceRelay: relayURL,
   // A Guide running beside the relay may read its private listener when the
   // host cannot hairpin through the public TLS endpoint. Public links and the
@@ -45,7 +45,8 @@ export const configSchema = z.object({
   organizerChatURL:z.string().url().refine(value=>{const u=new URL(value);return u.protocol==="https:"&&["bitcoinwalk.org","app-staging.bitcoinwalk.org"].includes(u.hostname)&&u.pathname==="/chat/hosts"&&!u.search&&!u.hash&&!u.port&&!u.username&&!u.password;}).optional(),
   support:supportConfig.default({enabled:false,inboxRelays:[],retentionDays:30}),
   enabled: z.boolean().default(false),
-}).superRefine((value,ctx)=>{for(const relay of value.support.inboxRelays)if(!value.allowedInboxRelays.includes(relay))ctx.addIssue({code:"custom",path:["support","inboxRelays"],message:"Support inbox relays must already be operator-allowlisted."});});
+});
+export const configSchema=guideConfigBase.superRefine((value,ctx)=>{for(const relay of value.support.inboxRelays)if(!value.allowedInboxRelays.includes(relay))ctx.addIssue({code:"custom",path:["support","inboxRelays"],message:"Support inbox relays must already be operator-allowlisted."});});
 export type GuideConfig = z.infer<typeof configSchema>;
 
 export function assertBotKey(secret: Uint8Array, recipients: string[]): string {
