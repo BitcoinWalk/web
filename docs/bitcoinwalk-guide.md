@@ -162,6 +162,20 @@ credential unit configuration. It runs a network-free synthetic escalation check
 before installation. Installing this package does not make `--draft-support-case`
 usable; that requires a separately reviewed one-shot unit and credential later.
 
+The selected pilot model is `gpt-6.1-sol`. On 3 November 2026, the isolated live
+synthetic check passed with the reviewed knowledge content hash
+`8c69ae8e386740759e81eff3064c3971125943fe6f06f9366e953035ef7dfae8`:
+the sensitive request escalated, two allowed citations were returned, and no
+message was sent. The temporary provider credential was removed after the check.
+The public knowledge file must be installed with mode `0644` so an isolated
+dynamic user can read it; provider credentials remain private.
+
+For the first real-case pilot, run `--support-report` to select an exact open case
+without exposing its message text. Obtain authorization for that case's redacted
+text to be processed by OpenAI before running `--draft-support-case`. Inspect the
+result locally, including citations and escalation, before sharing it. The pilot
+does not enable a persistent model configuration or automatic replies.
+
 The Memphis staging rehearsal on 27 September 2026 produced one durable
 `replication-degraded` row and one `replication-recovered` row while a controlled
 receiver outage moved the real source outbox through retry and back to acknowledged.
