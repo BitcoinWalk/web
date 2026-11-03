@@ -40,3 +40,10 @@ All baselines unknown until measured. Track escaped defects per release, failed/
 ## Coordination and completion
 
 Support supplies redacted reproduction and user impact. Development supplies ticket/commit, affected release, verification, rollback and a plain-language resolution note. Walkie Talkie approves mobile-facing contract changes through compatibility evidence. Update the shared backlog once integration is ready. Close after evidence and Support/user confirmation when required; record remaining external waits explicitly.
+
+## BW-67 development checkpoint — 3 November 2026
+
+- Checkout: `feat/bw67-guide-support-intake`, based on current `main` at `985ed8e` plus the accepted BW-10 closure.
+- Owned paths: `src/guide/*`, Guide operations documentation and the BW-67 backlog row.
+- Boundary: verified inbound NIP-17 intake, private retained cases and explicit operator inspection only. Web replies, automatic answers and deployment are not part of this checkpoint.
+- Next gate: automated validation, peer review, then a separate staging enablement with an explicit Guide inbox announcement and two-client round trip.

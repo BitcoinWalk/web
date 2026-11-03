@@ -105,6 +105,10 @@ describe("BitcoinWalk Guide", () => {
     expect(configSchema.safeParse({...config,sourceReadRelay:"ws://127.0.0.1:3334/"}).success).toBe(true);
     expect(configSchema.safeParse({...config,sourceReadRelay:"ws://127.0.0.1:3335/"}).success).toBe(false);
     expect(configSchema.safeParse({...config,sourceReadRelay:"ws://localhost:3334/"}).success).toBe(false);
+    expect(configSchema.parse(config).support).toEqual({enabled:false,inboxRelays:[],retentionDays:30});
+    expect(configSchema.safeParse({...config,support:{enabled:true,inboxRelays:[],retentionDays:30}}).success).toBe(false);
+    expect(configSchema.safeParse({...config,support:{enabled:true,inboxRelays:["wss://other.example.com"],retentionDays:30}}).success).toBe(false);
+    expect(configSchema.safeParse({...config,support:{enabled:true,inboxRelays:["wss://relay.example.com"],retentionDays:31}}).success).toBe(false);
   });
   it("validates accepted submissions using the same parser as the admin page", () => {
     expect(parseCityRevision(revision().event)?.city.cityId).toBe(city.cityId);

@@ -2,7 +2,7 @@ import { readFileSync, lstatSync } from "node:fs";
 import { join } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import { DatabaseSync } from "node:sqlite";
-import { SimplePool, finalizeEvent, getPublicKey, verifyEvent, type Event } from "nostr-tools";
+import { SimplePool, finalizeEvent, getPublicKey, nip19, verifyEvent, type Event } from "nostr-tools";
 import { configSchema, assertBotKey, selectInbox, guideProfile, signTransportAuth } from "./core";
 import { Outbox } from "./outbox";
 import { history, publishIdempotent, readAnyComplete } from "./transport";
@@ -23,6 +23,8 @@ async function main() {
   const config = configSchema.parse(JSON.parse(readFileSync(configPath, "utf8")));
   const dryRun = process.argv.includes("--dry-run");
   const publishProfile = process.argv.includes("--publish-profile");
+  const publishSupportInbox = process.argv.includes("--publish-support-inbox");
+  const checkSupportInbox = process.argv.includes("--check-support-inbox");
   const checkProfile = process.argv.includes("--check-profile");
   const printIdentity = process.argv.includes("--print-identity");
   const checkReplication = process.argv.includes("--check-replication");
@@ -30,6 +32,8 @@ async function main() {
   const checkProSetup = process.argv.includes("--check-pro-setup");
   const checkOrganizerChat = process.argv.includes("--check-organizer-chat");
   const baselineDirectory = process.argv.includes("--baseline-directory");
+  const supportReport=process.argv.includes("--support-report"),supportCaseIndex=process.argv.indexOf("--support-case"),closeSupportIndex=process.argv.indexOf("--close-support-case"),supportCase=supportCaseIndex===-1?undefined:process.argv[supportCaseIndex+1],closeSupportCase=closeSupportIndex===-1?undefined:process.argv[closeSupportIndex+1];
+  if((supportCaseIndex!==-1&&!supportCase)||(closeSupportIndex!==-1&&!closeSupportCase)||supportCase&&!/^[0-9a-f]{64}$/.test(supportCase)||closeSupportCase&&!/^[0-9a-f]{64}$/.test(closeSupportCase))throw new Error("Support case operations require one exact case ID.");
   const retryIndex=process.argv.indexOf("--retry-delivery");
   const retryDelivery=retryIndex!==-1;
   const retryReplicationIndex=process.argv.indexOf("--retry-replication-delivery");
@@ -40,8 +44,9 @@ async function main() {
   const retryPurpose=retryReplicationDelivery?process.argv[selectedRetryIndex+3]:undefined;
   if(retryDelivery&&(!retrySubmission||!retryRecipient))throw new Error("Retry requires an exact live submission and recipient.");
   if(retryReplicationDelivery&&(!retrySubmission||!retryRecipient||!retryPurpose))throw new Error("Replication retry requires an exact submission, recipient and purpose.");
-  if([dryRun,publishProfile,checkProfile,printIdentity,checkReplication,checkDirectory,checkProSetup,checkOrganizerChat,baselineDirectory,retryDelivery,retryReplicationDelivery].filter(Boolean).length>1)throw new Error("Choose only one Guide operation mode.");
-  if (!dryRun && !publishProfile && !checkProfile && !printIdentity && !checkReplication && !checkDirectory && !checkProSetup && !checkOrganizerChat && !baselineDirectory && !retryDelivery && !retryReplicationDelivery && !config.enabled) throw new Error("Guide is disabled. Complete dry-run and operator review before enabling.");
+  if([dryRun,publishProfile,publishSupportInbox,checkSupportInbox,checkProfile,printIdentity,checkReplication,checkDirectory,checkProSetup,checkOrganizerChat,baselineDirectory,retryDelivery,retryReplicationDelivery,supportReport,!!supportCase,!!closeSupportCase].filter(Boolean).length>1)throw new Error("Choose only one Guide operation mode.");
+  if (!dryRun && !publishProfile && !publishSupportInbox && !checkSupportInbox && !checkProfile && !printIdentity && !checkReplication && !checkDirectory && !checkProSetup && !checkOrganizerChat && !baselineDirectory && !retryDelivery && !retryReplicationDelivery&&!supportReport&&!supportCase&&!closeSupportCase && !config.enabled) throw new Error("Guide is disabled. Complete dry-run and operator review before enabling.");
+  if((publishSupportInbox||checkSupportInbox)&&!config.support.enabled)throw new Error("Guide support intake is disabled in the reviewed configuration.");
   let secret: Uint8Array | undefined;
   let outbox: Outbox | undefined;
   if (!dryRun) {
@@ -64,6 +69,9 @@ async function main() {
     if(!retryDelivery&&!retryReplicationDelivery){
       outbox = new Outbox(join(state, "guide.sqlite"));
       outbox.bind(bot, config.sourceRelay);
+      if(supportReport){console.log(JSON.stringify({cases:outbox.support.list()}));outbox.close();secret.fill(0);return;}
+      if(supportCase){const row=outbox.support.list().find(item=>item.id===supportCase);if(!row)throw new Error("Support case was not found.");console.log(JSON.stringify({case:row,messages:outbox.support.messages(supportCase).map(message=>({...message,sender:nip19.npubEncode(message.sender)}))}));outbox.close();secret.fill(0);return;}
+      if(closeSupportCase){if(!outbox.support.close(closeSupportCase))throw new Error("Open support case was not found.");console.log(JSON.stringify({caseId:closeSupportCase,state:"closed"}));outbox.close();secret.fill(0);return;}
       console.log("BitcoinWalk Guide notification worker started; bot public key:", bot);
     }
   }
@@ -79,6 +87,19 @@ async function main() {
       if(!accepted)throw new Error("No configured discovery relay acknowledged the Guide profile.");
       console.log(`BitcoinWalk Guide public profile ${profile.id} acknowledged by ${accepted}/${config.discoveryRelays.length} discovery relays.`);
       return;
+    }
+    if(publishSupportInbox&&!dryRun){
+      const inbox=finalizeEvent({kind:10050,created_at:Math.floor(Date.now()/1000),content:"",tags:config.support.inboxRelays.map(relay=>["relay",relay])},secret!);
+      const outcomes=await Promise.allSettled(config.discoveryRelays.map(relay=>Promise.any(pool.publish([relay],inbox,{maxWait:10_000}))));
+      const accepted=outcomes.filter(result=>result.status==="fulfilled").length;
+      if(!accepted)throw new Error("No configured discovery relay acknowledged the Guide support inbox.");
+      console.log(`BitcoinWalk Guide support inbox ${inbox.id} acknowledged by ${accepted}/${config.discoveryRelays.length} discovery relays.`);return;
+    }
+    if(checkSupportInbox&&!dryRun){
+      const bot=getPublicKey(secret!),expected=JSON.stringify(config.support.inboxRelays);let matches=0;
+      for(const relay of config.discoveryRelays){const events=await pool.querySync([relay],{kinds:[10050],authors:[bot],limit:10},{maxWait:10_000});if(events.some(event=>verifyEvent(event)&&JSON.stringify(event.tags.filter(tag=>tag[0]==="relay").map(tag=>tag[1]))===expected))matches++;}
+      if(!matches)throw new Error("The configured discovery relays did not return the exact Guide support inbox.");
+      console.log(`BitcoinWalk Guide support inbox verified on ${matches}/${config.discoveryRelays.length} discovery relays.`);return;
     }
     if(checkProfile&&!dryRun){
       let matches=0;
@@ -120,6 +141,8 @@ async function main() {
         const directory=dryRun||!config.directoryStatusURL||!config.directoryAdminURL?undefined:await readGuideDirectoryRequests(secret!,config.directoryStatusURL);
         const proSetup=dryRun||!config.proSetupStatusURL||!config.proSetupAdminURL?undefined:await readGuideProSetupTasks(secret!,config.proSetupStatusURL);
         const organizerChat=dryRun||!config.organizerChatStatusURL||!config.organizerChatURL?undefined:await readGuideOrganizerChatHosts(secret!,config.organizerChatStatusURL);
+        let supportMessages=0,supportRejected=0;
+        if(!dryRun&&config.support.enabled){const wraps=await readAnyComplete(pool,config.support.inboxRelays,{kinds:[1059],"#p":[getPublicKey(secret!)],since:Math.floor(Date.now()/1000)-config.support.retentionDays*86400,limit:500});if(wraps.length>=500)throw new Error("Guide support inbox scan saturated; no intake cursor advanced.");for(const wrap of wraps)try{if(outbox!.support.ingest(wrap,secret!,Math.floor(Date.now()/1000),config.support.retentionDays)==="created")supportMessages++;}catch{supportRejected++;}outbox!.support.prune(Math.floor(Date.now()/1000),config.support.retentionDays);}
         const replicationOrganizers=new Map(managedCities(revisions,decisions).filter(city=>city.state==="approved").map(city=>[city.revision.city.cityId,{recipient:city.revision.event.pubkey,cityName:city.revision.city.cityName}]));
         if (dryRun) {
           for (const recipient of config.recipients) {
@@ -135,7 +158,7 @@ async function main() {
           + (directory?outbox!.ingestDirectory(directory,secret!,config.directoryAdminURL!):0)
           + (proSetup?outbox!.ingestProSetup(proSetup,secret!,config.proSetupAdminURL!):0)
           + (organizerChat?outbox!.ingestOrganizerChat(organizerChat,secret!,config.organizerChatURL!):0);
-        console.log(`Scan complete; ${queued} new recipient notification(s) queued.`);
+        console.log(`Scan complete; ${queued} new recipient notification(s) queued; ${supportMessages} new support message(s) stored; ${supportRejected} invalid support envelope(s) ignored.`);
         const pendingIDs = new Set(pending.map(r => r.event.id));
         const liveIDs = new Set(live.map(item => `live:${item.approval.event.id}`));
         const replicationStates=new Map(replication!.cities.map(city=>[city.cityId,city.state]));

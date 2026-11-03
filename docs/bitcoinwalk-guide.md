@@ -231,6 +231,24 @@ decryption was enabled. Relay 0.8.24 separately fixed a staging-discovered limit
 bug so unauthenticated NIP-42 attempts and exact retransmissions no longer spend
 the three-per-day initial-walk budget.
 
+## BW-67 support intake checkpoint
+
+The source now contains a disabled-by-default, server-only NIP-17 support intake.
+It accepts only valid kind-1059 wraps addressed to the exact Guide identity, opens
+their kind-13 seal, verifies the bounded kind-14 rumor and stores one logical
+message even when several relays return different wrappers. Message text stays in
+the Guide's private SQLite state; logs and the summary report contain no body text.
+Cases and messages expire after the reviewed retention period (maximum 30 days).
+
+This checkpoint does **not** publish a Guide inbox automatically, change the web
+chat's truthful read-only notice, send a reply or enable AI. Enabling requires a
+reviewed `support` configuration whose inbox relays are already in the Guide relay
+allowlist, followed by the separate `--publish-support-inbox` and
+`--check-support-inbox` operator actions. Operators can inspect metadata with
+`--support-report`, open one exact case with `--support-case <case-id>` and close
+it with `--close-support-case <case-id>`. A relay acknowledgement is never called
+a read receipt or a resolved case.
+
 ## Operations and rollback
 
 ```sh
