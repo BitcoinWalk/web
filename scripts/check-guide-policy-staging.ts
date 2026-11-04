@@ -16,7 +16,7 @@ async function main(){
  const keyPath=join(credentials,"guide-key"),stat=lstatSync(keyPath);assert(stat.isFile()&&(stat.mode&0o027)===0&&stat.size<=66,"Invalid Guide credential permissions.");
  const raw=readFileSync(keyPath,"utf8").trim();assert(/^[0-9a-f]{64}$/.test(raw),"Invalid Guide key.");
  const secret=Uint8Array.from(Buffer.from(raw,"hex"));
- assert.equal(getPublicKey(secret),"9bb58bb2727e98e2008e3385ebfaa512caac9b99daacfc3d0392523d75b34d3c","Unexpected Guide identity.");
+ assert.notEqual(getPublicKey(secret),"9bb58bb2727e98e2008e3385ebfaa512caac9b99daacfc3d0392523d75b34d3c","Use a separate staging test identity.");
  const db=new DatabaseSync(join(state,"guide-policy.sqlite")),store=new GuideSupportCases(db),now=Math.floor(Date.now()/1000),basicRecipient=getPublicKey(generateSecretKey());
  try{
   const url="http://127.0.0.1:3338/api/pro-setup-notifications",basicPlan=await readGuideSupportPlan(secret,url,basicRecipient),proPlan=await readGuideSupportPlan(secret,url,proRecipient);

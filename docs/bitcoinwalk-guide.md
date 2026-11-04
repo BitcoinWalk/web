@@ -203,9 +203,11 @@ Automatic answers remain disabled. Verified Pro access removes the cooldown,
 not the human-review requirement or protections on accounts and money.
 
 For staging acceptance, build `npm run guide:policy-staging:build` and install the
-tools with `install-guide-policy-staging.sh` into their separate `/opt` directory.
+tools with `install-guide-policy-staging.sh` into the application owner's separate
+`.local/lib` directory, without sudo. Generate a dedicated private staging test
+identity there; it must differ from the production Guide identity.
 Configure only the staging app's public Guide authorization key and deploy the web
-projection first. `check-guide-policy-staging.sh` uses the Guide credential only to
+projection first. `check-guide-policy-staging.sh` uses the staging test credential only to
 authenticate plan lookups against port 3338; it operates on synthetic conversations
 in `bitcoinwalk-guide-policy-staging`, never the production Guide state. It verifies
 Basic/pro plans, three Basic replies, duplicate counting, fourth-reply rejection,
