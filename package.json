@@ -58,6 +58,8 @@
     "guide:ai-disabled:package": "npm run guide:build && esbuild scripts/check-guide-ai-drafting-disabled.ts --bundle --platform=node --target=node24 --format=cjs --outfile=release-build/check-guide-ai-drafting-disabled.cjs && node scripts/package-guide-ai-drafting.mjs && node release-build/bw152-guide-ai-disabled/check-guide-ai-drafting-disabled.cjs release-build/bw152-guide-ai-disabled/knowledge.json",
     "guide:ai-live-synthetic:package": "npm run guide:build && esbuild scripts/check-guide-ai-live-synthetic.ts --bundle --platform=node --target=node24 --format=cjs --outfile=release-build/check-guide-ai-live-synthetic.cjs && node scripts/package-guide-ai-live-synthetic.mjs",
     "guide:reviewed-reply:build": "esbuild scripts/send-guide-reviewed-reply.ts --bundle --platform=node --target=node24 --format=cjs --outfile=release-build/send-guide-reviewed-reply.cjs",
+    "guide:ai-evaluation:build": "esbuild scripts/check-guide-ai-evaluation.ts --bundle --platform=node --target=node24 --format=cjs --outfile=release-build/check-guide-ai-evaluation.cjs",
+    "guide:ai-evaluation:package": "npm run guide:build && npm run guide:ai-evaluation:build && node scripts/package-guide-ai-evaluation.mjs",
     "guide:idle:build": "esbuild src/guide/idle-runner.ts --bundle --platform=node --target=node24 --format=cjs --outfile=guide-build/idle.cjs",
     "dev": "next dev",
     "build": "next typegen && tsc --noEmit && next build",

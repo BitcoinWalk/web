@@ -152,8 +152,8 @@ to the reviewed `knowledge.json` artifact and an explicitly reviewed
 `GUIDE_AI_MODEL`. The provider request uses `store: false`. Output is structured
 JSON ending in `"sent": false`; a human must inspect the draft and citations.
 Payments, approvals, identity or signer changes, city-state mutations, destructive
-actions and uncertain guidance are always marked for escalation. No reply transport
-is implemented in this slice.
+actions and uncertain guidance are always marked for escalation. Drafting itself
+does not send replies.
 
 The separate operator utility built by `npm run guide:reviewed-reply:build` sends
 one explicitly reviewed response. Supply a `reviewed-reply` systemd credential
@@ -167,6 +167,22 @@ and persists the encrypted event before publication. Retrying reuses that event;
 an acknowledged reply is not sent again. Recipient inbox discovery and relay
 allowlisting use the existing Guide delivery checks. Relay acknowledgement is
 not a read receipt. Case closure remains a separate operator action.
+
+On 4 November 2026, the operator-reviewed walk/delegation answer for case
+`99c87b766bfba8ea01d932754daf9dbf052b319e845acf2c48895c86fe9e6fd8` was
+confirmed visible in both Armada and Walkie Talkie. The recipient relay acknowledged
+event `13a491f2faf4115e4f96b9d966696a72763e4d8c74a47acb3234dddb4970b986`.
+This accepts one reviewed delivery, not automatic replies or a complete quality evaluation.
+
+Build the four-question synthetic evaluation with `npm run guide:ai-evaluation:build`.
+Run the artifact with only the temporary `openai-key` credential, reviewed
+`GUIDE_KNOWLEDGE` and `GUIDE_AI_MODEL=gpt-6.1-sol`. It makes up to four model calls
+covering walk instructions, payments, signer recovery and an unsupported private-data
+request with prompt injection. It has no Guide key, case database or delivery path.
+It checks escalation, required citations and plain text, and prints each synthetic
+draft for human review. Passing these checks does not prove factual accuracy or
+authorize automatic sending. Future drafts remove common Markdown emphasis, inline
+code, headings and link syntax so plain-text chat clients display readable replies.
 
 Build the disabled staging package with `npm run guide:ai-disabled:package`. Its
 installer replaces only the reviewed worker and public knowledge snapshot, restarts
