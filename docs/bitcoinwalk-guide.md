@@ -168,6 +168,40 @@ an acknowledged reply is not sent again. Recipient inbox discovery and relay
 allowlisting use the existing Guide delivery checks. Relay acknowledgement is
 not a read receipt. Case closure remains a separate operator action.
 
+### Bitcoin-only scope and Basic response allowance
+
+Guide speaks as a Bitcoin maximalist and sound-money educator, grounded in the
+reviewed public snapshot. It handles Bitcoin, BitcoinWalk and the tools needed
+to use BitcoinWalk. It redirects other-cryptocurrency promotions and unrelated
+questions. It does not manufacture allegations, forecast prices or promise returns.
+
+The allowance is per Nostr recipient across cases: Basic receives three delivered
+support replies, then a 24-hour cooldown starting at the third acknowledgement.
+At expiry the account receives three more replies. Incoming messages, model drafts,
+notification messages and retries do not consume another response. Pending replies
+reserve slots so concurrent operators cannot exceed the allowance. Pro current
+owners and editors bypass this Basic limit only after the signed, no-store
+`/api/guide-support-access` projection verifies current permissions and entitlement.
+A requested Pro plan or the sender's own claim is not sufficient. Incomplete
+verification pauses drafting and sending rather than guessing the plan.
+
+Both drafting preflight and reviewed sending enforce the allowance. Sending binds
+each reviewed artifact to the complete current message snapshot, allowing later
+reviewed turns in the same case. Historical pilot replies retain their exact
+encrypted event IDs and do not count against the newly introduced policy.
+During migration, old replies that lack saved message IDs are conservatively
+bound to the current case snapshot; a changed reply for that same snapshot is
+refused. Reply records are removed with retained cases. Minimal recipient counters
+remain until the three-reply cycle and cooldown finish, so pruning message content
+cannot reset a partially used allowance. Completed counters with no retained case
+are removed during pruning.
+
+Deploy the web access projection before the updated Guide worker and reviewed
+sender. Existing configuration's reviewed Pro-setup loopback origin determines
+the access endpoint; no caller-supplied public URL or model input can choose it.
+Automatic answers remain disabled. Verified Pro access removes the cooldown,
+not the human-review requirement or protections on accounts and money.
+
 On 4 November 2026, the operator-reviewed walk/delegation answer for case
 `99c87b766bfba8ea01d932754daf9dbf052b319e845acf2c48895c86fe9e6fd8` was
 confirmed visible in both Armada and Walkie Talkie. The recipient relay acknowledged

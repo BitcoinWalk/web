@@ -6,6 +6,9 @@ import {SimplePool} from "nostr-tools";
 import {assertBotKey,configSchema,selectInbox,signTransportAuth} from "../src/guide/core";
 import {prepareReviewedReply} from "../src/guide/reviewed-reply";
 import {readAnyComplete,publishIdempotent} from "../src/guide/transport";
+import {readGuideSupportPlan} from "../src/guide/support-access";
+import {acknowledgeGuideReply} from "../src/guide/support-limits";
+import {reviewedReplySchema} from "../src/guide/reviewed-reply";
 
 async function main(){
  const credentials=process.env.CREDENTIALS_DIRECTORY,state=process.env.STATE_DIRECTORY,configPath=process.env.GUIDE_CONFIG,expected=process.env.GUIDE_REVIEW_SHA256;
@@ -21,8 +24,10 @@ async function main(){
   db.exec("PRAGMA busy_timeout=5000; PRAGMA synchronous=FULL");
   const bot=assertBotKey(secret,config.recipients),identity=db.prepare("SELECT value FROM meta WHERE key='identity'").get() as {value:string}|undefined;
   if(identity?.value!==JSON.stringify([bot,config.sourceRelay]))throw new Error("Guide state identity does not match.");
-  const reply=prepareReviewedReply(db,JSON.parse(artifact.toString("utf8")),secret);
-  if(!reply.acknowledged){const lists=await readAnyComplete(pool,config.discoveryRelays,{kinds:[10050],authors:[reply.recipient],limit:10}),relays=selectInbox(lists,reply.recipient,config.allowedInboxRelays);await publishIdempotent(pool,relays,reply.wrapped,async template=>signTransportAuth(template,secret,relays));db.prepare("UPDATE support_reply SET state='acknowledged' WHERE case_id=?").run(reply.caseId);}
+  const review=reviewedReplySchema.parse(JSON.parse(artifact.toString("utf8"))),row=db.prepare("SELECT sender FROM support_case WHERE id=? AND state='open'").get(review.caseId) as {sender:string}|undefined;
+  if(!row)throw new Error("An open support case is required.");
+  const plan=await readGuideSupportPlan(secret,config.proSetupStatusURL,row.sender),reply=prepareReviewedReply(db,review,secret,plan);
+  if(!reply.acknowledged){const lists=await readAnyComplete(pool,config.discoveryRelays,{kinds:[10050],authors:[reply.recipient],limit:10}),relays=selectInbox(lists,reply.recipient,config.allowedInboxRelays);await publishIdempotent(pool,relays,reply.wrapped,async template=>signTransportAuth(template,secret,relays));acknowledgeGuideReply(db,reply.reviewKey);}
   console.log(JSON.stringify({caseId:reply.caseId,eventId:reply.wrapped.id,relayAcknowledged:true,alreadyAcknowledged:reply.acknowledged,readReceipt:false}));
  }finally{pool.destroy();db.close();secret.fill(0);}
 }

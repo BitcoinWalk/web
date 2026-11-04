@@ -28,6 +28,7 @@ export const mediaRequestSchema=z.discriminatedUnion("action",[
  z.object({action:z.literal("list-replication-status")}),
  z.object({action:z.literal("list-directory-notifications")}),
  z.object({action:z.literal("list-pro-setup-notifications")}),
+ z.object({action:z.literal("guide-support-access"),recipientPubkey:z.string().regex(/^[0-9a-f]{64}$/)}).strict(),
  z.object({action:z.literal("list-organizer-chat-invitations")}),
  z.object({action:z.literal("list-idle-reminders")}),
 ]);

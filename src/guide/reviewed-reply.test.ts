@@ -4,6 +4,7 @@ import {generateSecretKey,getPublicKey} from "nostr-tools";
 import {wrapEvent,unwrapEvent} from "nostr-tools/nip59";
 import {GuideSupportCases} from "./support";
 import {prepareReviewedReply} from "./reviewed-reply";
+import {acknowledgeGuideReply} from "./support-limits";
 
 describe("operator-reviewed Guide reply",()=>{
  it("binds reviewed text to an exact case and reuses the persisted event after a retry",()=>{
@@ -14,11 +15,11 @@ describe("operator-reviewed Guide reply",()=>{
    const first=prepareReviewedReply(db,review,guide),retry=prepareReviewedReply(db,review,guide);
    expect(retry.wrapped.id).toBe(first.wrapped.id);expect(first.recipient).toBe(getPublicKey(sender));expect(unwrapEvent(first.wrapped,sender).content).toBe(review.reply);
    expect(()=>prepareReviewedReply(db,{...review,reply:"Different text"},guide)).toThrow("different reviewed reply");
-   db.prepare("UPDATE support_reply SET state='acknowledged'").run();expect(prepareReviewedReply(db,review,guide).acknowledged).toBe(true);
+   acknowledgeGuideReply(db,first.reviewKey,now);expect(prepareReviewedReply(db,review,guide).acknowledged).toBe(true);
    store.ingest(wrapEvent({kind:14,created_at:now+1,tags:[["p",getPublicKey(guide)]],content:"Another question"},sender,getPublicKey(guide)),guide,now+1);
    expect(()=>prepareReviewedReply(db,review,guide)).toThrow("messages changed");
    store.close(caseId,now+2);expect(()=>prepareReviewedReply(db,review,guide)).toThrow("open recipient case");
-   store.prune(now+31*86400);expect(db.prepare("SELECT * FROM support_reply").all()).toEqual([]);
+   store.prune(now+31*86400);expect(db.prepare("SELECT * FROM support_reply_v2").all()).toEqual([]);
   }finally{db.close();}
  });
 });
