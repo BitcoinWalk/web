@@ -202,6 +202,19 @@ the access endpoint; no caller-supplied public URL or model input can choose it.
 Automatic answers remain disabled. Verified Pro access removes the cooldown,
 not the human-review requirement or protections on accounts and money.
 
+For staging acceptance, build `npm run guide:policy-staging:build` and install the
+tools with `install-guide-policy-staging.sh` into their separate `/opt` directory.
+Configure only the staging app's public Guide authorization key and deploy the web
+projection first. `check-guide-policy-staging.sh` uses the Guide credential only to
+authenticate plan lookups against port 3338; it operates on synthetic conversations
+in `bitcoinwalk-guide-policy-staging`, never the production Guide state. It verifies
+Basic/pro plans, three Basic replies, duplicate counting, fourth-reply rejection,
+the exact cooldown boundary with a simulated clock, and five Pro replies. It does
+not publish messages or call a model. `evaluate-guide-policy-staging.sh` then asks
+for a temporary API key for the seven synthetic topic/quality questions, removes
+the key on exit, and prints drafts for review. The production worker is not changed
+by this staging installation.
+
 On 4 November 2026, the operator-reviewed walk/delegation answer for case
 `99c87b766bfba8ea01d932754daf9dbf052b319e845acf2c48895c86fe9e6fd8` was
 confirmed visible in both Armada and Walkie Talkie. The recipient relay acknowledged
