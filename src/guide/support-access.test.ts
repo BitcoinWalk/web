@@ -1,0 +1,7 @@
+import {describe,expect,it} from "vitest";
+import {generateSecretKey,getPublicKey,verifyEvent} from "nostr-tools";
+import {readGuideSupportPlan} from "./support-access";
+describe("Guide plan lookup",()=>{
+ it("binds a signed request to the sender and uses only the configured loopback origin",async()=>{const secret=generateSecretKey(),recipient="a".repeat(64);const request=async(url:string|URL|Request,init?:RequestInit)=>{expect(url).toBe("http://127.0.0.1:3345/api/guide-support-access");const {event}=JSON.parse(String(init?.body));expect(verifyEvent(event)).toBe(true);expect(event.pubkey).toBe(getPublicKey(secret));expect(JSON.parse(event.content)).toEqual({action:"guide-support-access",recipientPubkey:recipient});return new Response(JSON.stringify({version:1,plan:"pro"}));};expect(await readGuideSupportPlan(secret,"http://127.0.0.1:3345/api/pro-setup-notifications",recipient,request as typeof fetch)).toBe("pro");await expect(readGuideSupportPlan(secret,"https://attacker.example/api/pro-setup-notifications",recipient,request as typeof fetch)).rejects.toThrow("endpoint");});
+ it("does not guess Pro or Basic if verification is unavailable or malformed",async()=>{const secret=generateSecretKey(),url="http://127.0.0.1:3345/api/pro-setup-notifications",recipient="a".repeat(64);await expect(readGuideSupportPlan(secret,url,recipient,async()=>new Response("",{status:503}))).rejects.toThrow("unavailable");await expect(readGuideSupportPlan(secret,url,recipient,async()=>new Response(JSON.stringify({version:1,plan:"paid-requested"})))).rejects.toThrow();});
+});

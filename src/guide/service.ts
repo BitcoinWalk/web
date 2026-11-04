@@ -16,6 +16,8 @@ import {readGuideDirectoryRequests} from "./directory";
 import {readGuideProSetupTasks} from "./pro-setup";
 import {readGuideOrganizerChatHosts} from "./organizer-chat";
 import {draftGuideReply,loadGuideKnowledge} from "./assistant";
+import {readGuideSupportPlan} from "./support-access";
+import {assertGuideAllowance} from "./support-limits";
 
 async function main() {
   process.umask(0o077);
@@ -74,6 +76,7 @@ async function main() {
       if(supportReport){console.log(JSON.stringify({cases:outbox.support.list()}));outbox.close();secret.fill(0);return;}
       if(supportCase){const row=outbox.support.list().find(item=>item.id===supportCase);if(!row)throw new Error("Support case was not found.");console.log(JSON.stringify({case:row,messages:outbox.support.messages(supportCase).map(message=>({...message,sender:nip19.npubEncode(message.sender)}))}));outbox.close();secret.fill(0);return;}
       if(closeSupportCase){if(!outbox.support.close(closeSupportCase))throw new Error("Open support case was not found.");console.log(JSON.stringify({caseId:closeSupportCase,state:"closed"}));outbox.close();secret.fill(0);return;}
+      if(draftSupportCase){const row=outbox.support.list().find(item=>item.id===draftSupportCase&&item.state==="open"),sender=outbox.support.messages(draftSupportCase)[0]?.sender;if(!row||!sender)throw new Error("An open support case is required.");const plan=await readGuideSupportPlan(secret,config.proSetupStatusURL,sender);assertGuideAllowance(outbox.db,sender,plan);}
       if(draftSupportCase){const row=outbox.support.list().find(item=>item.id===draftSupportCase);if(!row)throw new Error("Support case was not found.");const knowledgePath=process.env.GUIDE_KNOWLEDGE,model=process.env.GUIDE_AI_MODEL;if(!knowledgePath||!model)throw new Error("Guide drafting requires reviewed knowledge and model configuration.");const keyPath=join(credentials,"openai-key"),keyStat=lstatSync(keyPath);if(!keyStat.isFile()||(keyStat.mode&0o027)!==0||keyStat.size>512)throw new Error("Guide AI credential must be a private regular file.");const apiKey=readFileSync(keyPath,"utf8").trim();if(!apiKey)throw new Error("Guide AI credential is empty.");const knowledge=loadGuideKnowledge(knowledgePath),draft=await draftGuideReply(outbox.support.messages(draftSupportCase),knowledge,{apiKey,model});console.log(JSON.stringify({caseId:draftSupportCase,model,knowledgeSha256:knowledge.sha256,...draft,sent:false}));outbox.close();secret.fill(0);return;}
       console.log("BitcoinWalk Guide notification worker started; bot public key:", bot);
     }

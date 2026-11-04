@@ -168,6 +168,57 @@ an acknowledged reply is not sent again. Recipient inbox discovery and relay
 allowlisting use the existing Guide delivery checks. Relay acknowledgement is
 not a read receipt. Case closure remains a separate operator action.
 
+### Bitcoin-only scope and Basic response allowance
+
+Guide speaks as a Bitcoin maximalist and sound-money educator, grounded in the
+reviewed public snapshot. It handles Bitcoin, BitcoinWalk and the tools needed
+to use BitcoinWalk. It redirects other-cryptocurrency promotions and unrelated
+questions. It does not manufacture allegations, forecast prices or promise returns.
+
+The allowance is per Nostr recipient across cases: Basic receives three delivered
+support replies, then a 24-hour cooldown starting at the third acknowledgement.
+At expiry the account receives three more replies. Incoming messages, model drafts,
+notification messages and retries do not consume another response. Pending replies
+reserve slots so concurrent operators cannot exceed the allowance. Pro current
+owners and editors bypass this Basic limit only after the signed, no-store
+`/api/guide-support-access` projection verifies current permissions and entitlement.
+A requested Pro plan or the sender's own claim is not sufficient. Incomplete
+verification pauses drafting and sending rather than guessing the plan.
+
+Both drafting preflight and reviewed sending enforce the allowance. Sending binds
+each reviewed artifact to the complete current message snapshot, allowing later
+reviewed turns in the same case. Historical pilot replies retain their exact
+encrypted event IDs and do not count against the newly introduced policy.
+During migration, old replies that lack saved message IDs are conservatively
+bound to the current case snapshot; a changed reply for that same snapshot is
+refused. Reply records are removed with retained cases. Minimal recipient counters
+remain until the three-reply cycle and cooldown finish, so pruning message content
+cannot reset a partially used allowance. Completed counters with no retained case
+are removed during pruning.
+
+Deploy the web access projection before the updated Guide worker and reviewed
+sender. Existing configuration's reviewed Pro-setup loopback origin determines
+the access endpoint; no caller-supplied public URL or model input can choose it.
+Automatic answers remain disabled. Verified Pro access removes the cooldown,
+not the human-review requirement or protections on accounts and money.
+
+For staging acceptance, build `npm run guide:policy-staging:build` and install the
+tools with `install-guide-policy-staging.sh` into the application owner's separate
+`.local/lib` directory, without sudo. Generate a dedicated private staging test
+identity there; it must differ from the production Guide identity.
+Configure only the staging app's `BITCOINWALK_GUIDE_POLICY_TEST_PUBKEY` and deploy the web
+projection first. `check-guide-policy-staging.sh` uses the staging test credential only to
+authenticate plan lookups against port 3338; it operates on synthetic conversations
+in `bitcoinwalk-guide-policy-staging`, never the production Guide state. It verifies
+Basic/pro plans, three Basic replies, duplicate counting, fourth-reply rejection,
+the exact cooldown boundary with a simulated clock, and five Pro replies. It does
+not publish messages or call a model. `evaluate-guide-policy-staging.sh` then asks
+for a temporary API key for the seven synthetic topic/quality questions, removes
+the key on exit, and prints drafts for review. The production worker is not changed
+by this staging installation. The test identity is authorized only for the plan
+projection and only when the payment origin is the staging origin; it does not
+replace the existing chat identity or gain other Guide read capabilities.
+
 On 4 November 2026, the operator-reviewed walk/delegation answer for case
 `99c87b766bfba8ea01d932754daf9dbf052b319e845acf2c48895c86fe9e6fd8` was
 confirmed visible in both Armada and Walkie Talkie. The recipient relay acknowledged

@@ -19,7 +19,20 @@ Guide is a separate private conversation. Guide notifications use NIP-17 encrypt
 
 Guide currently helps with workflow notifications. For a paid Pro city, it privately names the current next action: confirm the payout destination, choose a recoverable city signer (including the verified existing-owner option), submit activation proofs, wait for BitcoinWalk review or publication, and finally publish the verified city profile. The message links to the exact city setup and the [complete city setup procedure](/hosts/complete-city-setup/).
 
-Guide is automated and does not read or answer replies. The dashboard remains the source of truth if its state has advanced since a message was created. A relay acknowledgement proves delivery to the configured inbox, not that a person has read the message.
+Guide accepts private support questions. AI answers are currently drafted for human review; automatic replies are not enabled. The dashboard remains the source of truth if its state has advanced since a message was created. A relay acknowledgement proves delivery to the configured inbox, not that a person has read the message.
+
+### Bitcoin-only education and support
+
+Guide speaks from a Bitcoin-maximalist perspective and focuses on Bitcoin, BitcoinWalk and the tools needed to use BitcoinWalk. It does not promote other cryptocurrencies, tokens, staking schemes or unrelated topics. Out-of-scope questions receive a brief redirect to Bitcoin or BitcoinWalk.
+
+Sound-money education considers qualities such as scarcity, durability, divisibility, portability and the ability to verify money independently. Bitcoin’s monetary rules are publicly verifiable: participants can run a full node to check transactions and enforce the rules they accept. BitcoinWalk’s perspective values predictable issuance, self-custody and minimizing reliance on trusted intermediaries. These principles are educational; they do not guarantee purchasing power, returns or safety from loss. Guide never asks for signing secrets or wallet backups, and does not make price predictions or personalized investment recommendations.
+
+### Basic and Pro response policy
+
+- Basic accounts receive three delivered Guide support responses, followed by a 24-hour break starting when the third response is acknowledged by the recipient’s inbox relay. Three responses become available again after the break. The allowance belongs to the Nostr account, so reopening a conversation does not reset it.
+- Verified current owners and editors of a Pro city are exempt from this Basic cooldown. Requested but unpaid Pro plans do not qualify.
+- Retries of the same reply count once. Drafts, incoming questions and automated walk/setup notifications do not count. Historical pilot replies sent before this policy starts do not consume the new allowance.
+- Pro availability does not bypass payment approvals, signer protections, the Bitcoin-only scope or the current requirement for human review.
 
 Guide messages never ask for or include private keys, seed phrases, bunker secrets, recovery files, payout destinations, wallet credentials or private activation proofs. There is no plaintext, public-note or legacy-DM fallback.
 

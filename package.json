@@ -60,6 +60,7 @@
     "guide:reviewed-reply:build": "esbuild scripts/send-guide-reviewed-reply.ts --bundle --platform=node --target=node24 --format=cjs --outfile=release-build/send-guide-reviewed-reply.cjs",
     "guide:ai-evaluation:build": "esbuild scripts/check-guide-ai-evaluation.ts --bundle --platform=node --target=node24 --format=cjs --outfile=release-build/check-guide-ai-evaluation.cjs",
     "guide:ai-evaluation:package": "npm run guide:build && npm run guide:ai-evaluation:build && node scripts/package-guide-ai-evaluation.mjs",
+    "guide:policy-staging:build": "npm run guide:build && npm run guide:ai-evaluation:build && esbuild scripts/check-guide-policy-staging.ts --bundle --platform=node --target=node24 --format=cjs --outfile=release-build/check-guide-policy-staging.cjs && esbuild deploy/configure-guide-policy-staging.mjs --bundle --platform=node --target=node24 --format=cjs --outfile=release-build/configure-guide-policy-staging.cjs",
     "guide:idle:build": "esbuild src/guide/idle-runner.ts --bundle --platform=node --target=node24 --format=cjs --outfile=guide-build/idle.cjs",
     "dev": "next dev",
     "build": "next typegen && tsc --noEmit && next build",
