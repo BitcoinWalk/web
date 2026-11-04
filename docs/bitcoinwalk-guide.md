@@ -206,7 +206,7 @@ For staging acceptance, build `npm run guide:policy-staging:build` and install t
 tools with `install-guide-policy-staging.sh` into the application owner's separate
 `.local/lib` directory, without sudo. Generate a dedicated private staging test
 identity there; it must differ from the production Guide identity.
-Configure only the staging app's public Guide authorization key and deploy the web
+Configure only the staging app's `BITCOINWALK_GUIDE_POLICY_TEST_PUBKEY` and deploy the web
 projection first. `check-guide-policy-staging.sh` uses the staging test credential only to
 authenticate plan lookups against port 3338; it operates on synthetic conversations
 in `bitcoinwalk-guide-policy-staging`, never the production Guide state. It verifies
@@ -215,7 +215,9 @@ the exact cooldown boundary with a simulated clock, and five Pro replies. It doe
 not publish messages or call a model. `evaluate-guide-policy-staging.sh` then asks
 for a temporary API key for the seven synthetic topic/quality questions, removes
 the key on exit, and prints drafts for review. The production worker is not changed
-by this staging installation.
+by this staging installation. The test identity is authorized only for the plan
+projection and only when the payment origin is the staging origin; it does not
+replace the existing chat identity or gain other Guide read capabilities.
 
 On 4 November 2026, the operator-reviewed walk/delegation answer for case
 `99c87b766bfba8ea01d932754daf9dbf052b319e845acf2c48895c86fe9e6fd8` was

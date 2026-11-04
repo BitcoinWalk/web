@@ -10,12 +10,12 @@ const raw=readFileSync(keyPath,"utf8").trim();assert(/^[0-9a-f]{64}$/.test(raw),
 const secret=Uint8Array.from(Buffer.from(raw,"hex")),expected=getPublicKey(secret);secret.fill(0);
 assert.notEqual(expected,"9bb58bb2727e98e2008e3385ebfaa512caac9b99daacfc3d0392523d75b34d3c","Use a separate staging test identity.");
 assert(stat.isFile()&&stat.uid===process.getuid()&&(stat.mode&0o077)===0,"Staging environment permissions are unsafe.");
-const source=readFileSync(path,"utf8"),rows=source.match(/^BITCOINWALK_GUIDE_PUBKEY=.*$/gm)??[];
+const source=readFileSync(path,"utf8"),rows=source.match(/^BITCOINWALK_GUIDE_POLICY_TEST_PUBKEY=.*$/gm)??[];
 assert(rows.length<=1,"Duplicate Guide configuration requires review.");
-if(rows.length){assert.equal(rows[0].split("=").slice(1).join("=").replace(/^["']|["']$/g,""),expected,"A different Guide identity is already configured.");console.log("Staging Guide public identity already configured.");}
+if(rows.length){assert.equal(rows[0].split("=").slice(1).join("=").replace(/^["']|["']$/g,""),expected,"A different staging test identity is already configured.");console.log("Staging Guide test identity already configured.");}
 else{
  const backup=mkdtempSync("/home/bitcoinwalk/backups/guide-staging-env."),temp=mkdtempSync("/home/bitcoinwalk/.config/bitcoinwalk/guide-env.");
  copyFileSync(path,`${backup}/app.env`);chmodSync(`${backup}/app.env`,0o600);
- try{writeFileSync(`${temp}/app.env`,`${source.trimEnd()}\nBITCOINWALK_GUIDE_PUBKEY=${expected}\n`,{mode:0o600});renameSync(`${temp}/app.env`,path);}finally{rmdirSync(temp);}
- console.log(`Staging Guide public identity configured. Environment backup: ${backup}`);
+ try{writeFileSync(`${temp}/app.env`,`${source.trimEnd()}\nBITCOINWALK_GUIDE_POLICY_TEST_PUBKEY=${expected}\n`,{mode:0o600});renameSync(`${temp}/app.env`,path);}finally{rmdirSync(temp);}
+ console.log(`Staging Guide test identity configured. Environment backup: ${backup}`);
 }
