@@ -11,12 +11,12 @@ async function main(){
  const apiKey=readFileSync(path,"utf8").trim();if(!apiKey)throw new Error("API credential is empty.");
  const knowledge=loadGuideKnowledge(knowledgePath);
  console.log(JSON.stringify({result:"BW152_EVALUATION_STARTED",model,suiteVersion:guideEvaluationVersion,suiteSha256:guideEvaluationSha256,knowledgeSha256:knowledge.sha256,total:cases.length,completeSuite,selectedCases:cases.map(test=>test.id),synthetic:true,sent:false}));
- const {passed,failed}=await runGuideEvaluation(
+ const {passed,failed,blocked}=await runGuideEvaluation(
   test=>draftGuideReply([{id:test.id,sender:"f".repeat(64),content:test.content,createdAt:1,receivedAt:1}],knowledge,{apiKey,model}),
-  (test,draft,error)=>console.log(JSON.stringify({test,model,synthetic:true,...draft,checkPassed:!error,...(error?{error}:{}),sent:false})),
+  (test,draft,error,outcome)=>console.log(JSON.stringify({test,model,synthetic:true,...draft,checkPassed:!error,...(error?{error}:{}),...(outcome?{outcome}:{}),sent:false})),
   cases,
  );
- console.log(JSON.stringify({result:failed.length?"BW152_EVALUATION_CHECKS_FAILED":"BW152_EVALUATION_CHECKS_OK",model,suiteVersion:guideEvaluationVersion,suiteSha256:guideEvaluationSha256,knowledgeSha256:knowledge.sha256,passed,failed,total:cases.length,completeSuite,humanReviewRequired:true,automaticSendingApproved:false,synthetic:true,sent:false}));
- if(failed.length)process.exitCode=1;
+ console.log(JSON.stringify({result:failed.length?"BW152_EVALUATION_CHECKS_FAILED":blocked.length?"BW152_EVALUATION_INCOMPLETE":"BW152_EVALUATION_CHECKS_OK",model,suiteVersion:guideEvaluationVersion,suiteSha256:guideEvaluationSha256,knowledgeSha256:knowledge.sha256,passed,failed,blocked,total:cases.length,completeSuite,humanReviewRequired:true,automaticSendingApproved:false,synthetic:true,sent:false}));
+ if(failed.length||blocked.length)process.exitCode=1;
 }
 main().catch(error=>{console.error(`Guide evaluation failed: ${error instanceof Error?error.message:"unknown error"}`);process.exitCode=1;});

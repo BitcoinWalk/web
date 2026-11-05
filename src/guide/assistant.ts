@@ -28,14 +28,18 @@ function responseText(value:unknown){const parsed=z.object({output:z.array(z.obj
 
 export function plainGuideText(value:string){return value.replace(/\*\*([^*]+)\*\*/g,"$1").replace(/`([^`]+)`/g,"$1").replace(/^#{1,6}\s+/gm,"").replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g,"$1 ($2)");}
 
+export class GuideProviderError extends Error{
+ constructor(message:string,readonly status:number,readonly code?:string){super(message);this.name="GuideProviderError";}
+}
 async function providerFailure(response:Response){
  const fields:string[]=[];
+ let code:string|undefined;
  try{
   const value=z.object({error:z.object({code:z.string().nullish(),type:z.string().nullish(),param:z.string().nullish()})}).safeParse(await response.json());
-  if(value.success)for(const name of ["code","type","param"] as const){const token=value.data.error[name];if(token&&/^[a-z][a-z0-9_.\[\]]{0,79}$/.test(token))fields.push(`${name}=${token}`);}
+  if(value.success)for(const name of ["code","type","param"] as const){const token=value.data.error[name];if(token&&/^[a-z][a-z0-9_.\[\]]{0,79}$/.test(token)){fields.push(`${name}=${token}`);if(name==="code")code=token;}}
  }catch{/* Do not log arbitrary error bodies, which may echo private input. */}
  const id=response.headers.get("x-request-id");if(id&&/^req_[a-f0-9]{16,64}$/.test(id))fields.push(`request_id=${id}`);
- return new Error(`Guide draft provider failed with HTTP ${response.status}${fields.length?` (${fields.join(", ")})`:""}.`);
+ return new GuideProviderError(`Guide draft provider failed with HTTP ${response.status}${fields.length?` (${fields.join(", ")})`:""}.`,response.status,code);
 }
 
 export async function draftGuideReply(messages:SupportMessage[],knowledge:GuideKnowledge,options:{apiKey:string;model:string;transport?:Transport}):Promise<GuideDraft>{

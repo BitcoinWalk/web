@@ -11,8 +11,10 @@ if test "$#" -eq 0; then
  echo 'This evaluates 21 synthetic questions using gpt-6.1-sol. No chat messages will be sent.'
 elif test "$#" -eq 2 && test "$1" = --case; then
  echo 'Single-case diagnostic: at most one model call; this is not full-suite acceptance.'
+elif test "$#" -eq 2 && test "$1" = --from; then
+ echo 'Partial suite from the selected question onward; this is not full-suite acceptance.'
 else
- echo 'Usage: bash evaluate-guide-private-pilot.sh [--case TEST_ID]' >&2; exit 1
+ echo 'Usage: bash evaluate-guide-private-pilot.sh [--case TEST_ID | --from TEST_ID]' >&2; exit 1
 fi
 read -rsp 'OpenAI API key: ' guide_api_key
 echo
