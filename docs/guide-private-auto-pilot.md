@@ -73,6 +73,68 @@ rewritten to evade it. Selected batches reject empty, unknown and duplicate IDs,
 retain the original suite hash and remain partial runs, not acceptance of all 21
 cases. No automatic runner or production activation is accepted by these results.
 
+The final six-question operator run passed all structural checks on that same
+prompt and knowledge pair. Its drafts were reviewed: walk/delegation and Bitcoin
+education remain supported and payment execution, lost-signer replacement,
+non-Bitcoin promotion and unrelated requests remain escalated. Together the
+matching partial runs cover 20 unblocked cases with passing answers. The provider-
+blocked case remains explicitly unverified, not a pass or authority for broad
+automatic access.
+
+## Disabled companion implementation
+
+`run-guide-private-pilot.ts` is a separate one-shot companion; it is not connected
+to the notification/intake worker. No service, timer or activation is installed.
+The shipped policy is disabled, has no recipient grant or time window and uses
+the staging environment. Disabled startup returns before credentials, state or
+model access. Policy files must be root-owned regular files, not group/world
+writable. They contain public identifiers only and must be readable by the unit.
+
+An explicitly enabled policy may admit exactly one recipient for at most 24 hours,
+with at most ten reserved provider attempts and five admitted deliveries. It pins
+Sol 6.1, the reviewed prompt, knowledge and suite hashes. Those are global pilot
+caps, not a promise that Pro production usage is limited to five. Changing any
+fixed field under an existing policy ID cannot reset its counters; only the off
+switch may change while preserving that grant. Any renewal or different ID is a
+new operating authorization, not an automatic recovery mechanism.
+
+Admission is limited to the nine exact evaluated informational FAQ questions
+(case/whitespace normalization only). Unknown phrasing, protected actions and
+requests needing review do not invoke the model or send a reply. No group input
+is accepted: this companion reads the existing verified private support store.
+Only the latest admitted FAQ, never preceding private context, reaches the model.
+It must have been authored and received after activation and within five minutes;
+closed, mismatched, out-of-order or changed case snapshots fail closed.
+
+The current signed server plan is checked before spending and again before
+publication. Existing Basic reservations/cooldowns and verified Pro bypass apply.
+Durable attempt rows reserve spending before a call. Failures, uncertainty and
+crashes during drafting remain held for human review, not automatic model retries.
+An admitted draft is persisted before preparing its encrypted wrapper. Delivery
+retries use that saved draft and exact wrapper, never another model call. New
+messages, expiry, disablement and unavailable plans block pending retries too.
+
+The off switch is reread after awaits and immediately before publication. A
+request already in flight cannot be recalled: if a relay acknowledges it while
+the switch changes, that delivery is still recorded truthfully and counted once.
+Emergency stop includes stopping the companion unit; never erase pending/accepted
+delivery state or restore a stale database after a send. A crashed drafting claim
+or ambiguous delivery requires operator reconciliation, not budget reset.
+
+The bounded audit ledger stores IDs, public FAQ drafts and delivery phases, not
+raw private conversation text. Preserve it through the grant and delivery
+reconciliation; apply the existing maximum-30-day private-state retention policy
+to the ledger and backups after the pilot closes. Do not delete counters during
+an active grant. Automated ledger cleanup is not implemented in this first slice.
+
+`check-guide-private-pilot.ts` exercises the companion with in-memory SQLite,
+ephemeral test keys, a fake provider and a fake publisher. Network fetch is denied.
+It never reads Guide credentials, real conversations or server configuration and
+publishes no message. The wider unit matrix also covers fresh-state changes,
+expiry, off-switch boundaries, concurrent model claims, failed-attempt caps,
+Basic cooldown expiry and entitlement downgrade. Real one-account delivery and
+controlled scheduling are still separate, unperformed acceptance steps.
+
 Structural checks (21/21) are necessary, not a factual-quality score. A human must
 review every answer against the pinned documents and record PASS/FAIL for:
 
