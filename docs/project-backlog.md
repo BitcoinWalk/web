@@ -270,6 +270,24 @@ Reconciliation: BW-128 owns standards-compatible DM transport in Walkie Talkie. 
 
 28 October BW-151 Bangkok chat evidence: the organizer opened `/admin/chat`, which initially selected Augsburg, then explicitly switched the City conversation to Bangkok and read a Bangkok welcome from the BitcoinWalk account. This proves the production city selector and Bangkok NIP-29 room are usable for that account; it does **not** prove delivery from the pinned BitcoinWalk Guide identity. The screenshot shows the City avatar selected, while the separate purple **Guide / Private DM** destination was not opened and receipt there remains unanswered. BW-151 therefore stays In progress for one human-confirmed Guide message, its exact Bangkok link, content-safety and restart/reconnect no-duplicate checks. The generic route's Augsburg default makes city preservation in the eventual Guide link part of that exact-link acceptance rather than a reason to infer delivery.
 
+## City-chat Guide assistance — 5 November 2026
+
+| ID | Stage | Item | Status | Dependencies / acceptance |
+|---|---:|---|---|---|
+| BW-164 | 4, 7, 10 | Mention-only city-chat Guide and once-only welcome | ○ Future | Depends on BW-152, BW-23, BW-128 and BW-156; reuse BW-144 for separately enabled Pro Armada groups where applicable. Parked separately from private Guide support. Organizer opt-in per verified city group; answer only explicit mentions of the real Guide identity, never ordinary conversation or bot loops. Scope stays Bitcoin, BitcoinWalk and sound-money education. Use necessary public group context only; never private DMs, support history or another city's private state. Decide and approve city-chat Basic/Pro allowance attribution before implementation; no city-plan or sender-plan choice is implied. Bound usage and throttling, preserve escalation and deny payment, account and moderation authority. Publish the approved city-specific welcome only after mention replies work, once per exact enabled relay/group with durable acknowledgement and exact-event retry. Acceptance: tagged question and reply visible in Walkie Talkie and supported external clients; untagged/spoofed/replayed messages, bot loops and disabled groups cause no answer; privacy, allowance boundaries and failure/restart retries pass with no duplicate welcome. No implementation, activation or group messages are authorized by this future item. |
+
+Approved welcome copy (replace `<city>` with the verified city name; confirm the working mention format and allowance wording before rollout):
+
+> Hi, welcome to the BitcoinWalk in <city> community chat 👋
+>
+> I’m your BitcoinWalk Guide!
+>
+> Mention me in this chat to ask about BitcoinWalk, Bitcoin, or why sound money matters. I answer when tagged and won’t interrupt the conversation.
+>
+> Never post signing secrets, recovery phrases, or private wallet information.
+>
+> Enjoy the chat—but don’t forget to put your phone down and go for a walk with other people who want to learn about Bitcoin.
+
 ## Multilingual product — 18 October 2026
 
 | ID | Stage | Item | Status | Scope / acceptance |
