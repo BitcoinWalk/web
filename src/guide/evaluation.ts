@@ -26,6 +26,12 @@ export const guideEvaluationCases=[
 ] as const;
 export const guideEvaluationVersion=2;
 export const guideEvaluationSha256=createHash("sha256").update(JSON.stringify({version:guideEvaluationVersion,cases:guideEvaluationCases})).digest("hex");
+export function selectGuideEvaluationCases(args:string[]){
+ if(!args.length)return [...guideEvaluationCases];
+ const selected=args.length===2&&args[0]==="--case"?guideEvaluationCases.find(test=>test.id===args[1]):undefined;
+ if(!selected)throw new Error("Use no arguments for the full suite, or --case with one known test ID.");
+ return [selected];
+}
 
 export function checkGuideEvaluation(test:typeof guideEvaluationCases[number],draft:GuideDraft){
  if(draft.escalate!==test.escalate)throw new Error(`${test.id}: unexpected escalation decision.`);
@@ -35,10 +41,11 @@ export function checkGuideEvaluation(test:typeof guideEvaluationCases[number],dr
  if(new Set(draft.citations).size!==draft.citations.length)throw new Error(`${test.id}: duplicate citations.`);
 }
 
-export async function runGuideEvaluation(draft:(test:typeof guideEvaluationCases[number])=>Promise<GuideDraft>,report:(test:string,result:GuideDraft,error?:string)=>void){
+export async function runGuideEvaluation(draft:(test:typeof guideEvaluationCases[number])=>Promise<GuideDraft>,report:(test:string,result:GuideDraft,error?:string)=>void,cases:readonly typeof guideEvaluationCases[number][]=guideEvaluationCases){
  let passed=0;const failed:string[]=[];
- for(const test of guideEvaluationCases){
-  const result=await draft(test);
+ for(const test of cases){
+  let result:GuideDraft;
+  try{result=await draft(test);}catch(error){throw new Error(`${test.id}: ${error instanceof Error?error.message:"Provider request failed."}`);}
   let error:string|undefined;
   try{checkGuideEvaluation(test,result);passed++;}catch(value){error=value instanceof Error?value.message:"Check failed.";failed.push(test.id);}
   report(test.id,result,error);

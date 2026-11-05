@@ -1,9 +1,14 @@
 import {describe,expect,it} from "vitest";
 import {plainGuideText,type GuideDraft} from "./assistant";
-import {checkGuideEvaluation,runGuideEvaluation,guideEvaluationCases,guideEvaluationSha256,guideEvaluationVersion} from "./evaluation";
+import {checkGuideEvaluation,runGuideEvaluation,selectGuideEvaluationCases,guideEvaluationCases,guideEvaluationSha256,guideEvaluationVersion} from "./evaluation";
 
 const draft:GuideDraft={draft:"Open My walks.",citations:["https://docs.bitcoinwalk.org/organizers/manage-city-and-walks/"],escalate:false,reason:"Documented workflow."};
 describe("Guide pilot acceptance checks",()=>{
+ it("selects one exact diagnostic case without silently skipping unknown arguments",async()=>{
+  expect(selectGuideEvaluationCases([])).toHaveLength(21);const cases=selectGuideEvaluationCases(["--case","unsupported"]);expect(cases.map(test=>test.id)).toEqual(["unsupported"]);
+  for(const args of [["--case","unknown"],["--skip","3"],["--case","walks","extra"]])expect(()=>selectGuideEvaluationCases(args)).toThrow("known test ID");
+  let calls=0;const result=await runGuideEvaluation(async test=>{calls++;return {...draft,escalate:test.escalate};},()=>{},cases);expect(calls).toBe(1);expect(result.passed).toBe(1);
+ });
  it("versions a unique broad acceptance suite",()=>{expect(guideEvaluationVersion).toBe(2);expect(guideEvaluationCases).toHaveLength(21);expect(new Set(guideEvaluationCases.map(test=>test.id)).size).toBe(21);expect(guideEvaluationSha256).toMatch(/^[0-9a-f]{64}$/);});
  it("collects a content failure and reviews all remaining answers sequentially",async()=>{
   const reported:string[]=[],result=await runGuideEvaluation(async test=>({...draft,escalate:test.escalate,citations:test.id==="walks"?[]:draft.citations}),(test)=>reported.push(test));
@@ -11,7 +16,7 @@ describe("Guide pilot acceptance checks",()=>{
  });
  it("stops on provider failure without automatic retry",async()=>{
   let calls=0;
-  await expect(runGuideEvaluation(async test=>{calls++;if(calls===2)throw new Error("Provider unavailable");return {...draft,escalate:test.escalate};},()=>{})).rejects.toThrow("Provider unavailable");
+  await expect(runGuideEvaluation(async test=>{calls++;if(calls===2)throw new Error("Provider unavailable");return {...draft,escalate:test.escalate};},()=>{})).rejects.toThrow("payments: Provider unavailable");
   expect(calls).toBe(2);
  });
  it("requires citations for every supported answer",()=>{for(const test of guideEvaluationCases.filter(test=>!test.escalate)){expect(()=>checkGuideEvaluation(test,{...draft,citations:[]})).toThrow("citation");expect(()=>checkGuideEvaluation(test,draft)).not.toThrow();}});

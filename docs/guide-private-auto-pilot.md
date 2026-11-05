@@ -16,7 +16,12 @@ The evaluator records the exact model, suite SHA-256 and public-knowledge SHA-25
 It makes at most one request per case, uses no real support case, carries no Guide
 credential and has no publication path. Content-check failures are collected so
 all drafts can be reviewed; a provider/transport failure stops further spending.
-Do not retry a partially completed run blindly. No answers are sent.
+Do not retry a partially completed run blindly. Use `--case TEST_ID` for a single
+known diagnostic question: this makes at most one call and records
+`completeSuite: false`, never full-suite acceptance. Provider failures identify
+the case and expose only bounded code/type/parameter tokens and a recognized
+request-ID format, not arbitrary error messages or raw bodies that may echo input.
+No answers are sent.
 
 Structural checks (21/21) are necessary, not a factual-quality score. A human must
 review every answer against the pinned documents and record PASS/FAIL for:
