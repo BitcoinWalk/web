@@ -34,7 +34,7 @@ The corrected submission keeps the existing City ID and signed history. If the r
 
 Use this when the city has already paid or received a gifted Pro upgrade but setup is incomplete.
 
-After login, **Overview** is the source of truth. Its highlighted **Next required action** card names the current step. BitcoinWalk Guide can send the same next step as a private NIP-17 direct message, with links to the exact city setup and this procedure. A Guide message is a notification, not a chat: replies are not monitored, and an older message may have been overtaken by work completed in the dashboard.
+After login, **Overview** is the source of truth. Its highlighted **Next required action** card names the current step. BitcoinWalk Guide can send the same next step as a private NIP-17 direct message, with links to the exact city setup and this procedure. An older notification may have been overtaken by work completed in the dashboard. Guide also accepts private support questions for human-reviewed answers; automatic replies are not enabled, and relay storage is not a promise of immediate response or human readership. Replying does not perform setup actions or replace the dashboard's signed steps.
 
 1. Connect the personal Nostr account that already hosts the city.
 2. On **Overview**, select **Continue Pro setup** under the correct city. If BitcoinWalk Guide supplied a setup link, use that exact link.

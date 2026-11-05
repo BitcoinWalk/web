@@ -1,12 +1,26 @@
 import {createHash} from "node:crypto";
 import {describe,expect,it,vi} from "vitest";
-import {draftGuideReply,redactSupportText,type GuideKnowledge} from "./assistant";
+import {draftGuideReply,redactSupportText,guidePromptSha256,type GuideKnowledge} from "./assistant";
 
 const documents=[{url:"https://docs.bitcoinwalk.org/start/find-or-start/",content:"Find a city or submit a new BitcoinWalk."}];
 const knowledge:GuideKnowledge={version:1,documents,sha256:createHash("sha256").update(JSON.stringify({version:1,documents})).digest("hex")};
 const message={id:"a",sender:"b",content:"My key is nsec1secret and email me@example.com",createdAt:1,receivedAt:2};
 
 describe("Guide AI reply drafting",()=>{
+ it("distinguishes documented explanations from protected execution without granting authority",async()=>{
+  const transport=async(_url:string,init:RequestInit)=>{
+   const body=JSON.parse(String(init.body));
+   expect(body.instructions).toContain("Classify the requested assistance, not merely the topic words");
+   expect(body.instructions).toContain("Set escalate=false for fully documented general explanations");
+   expect(body.instructions).toContain("Set escalate=true when asked to execute or bypass a payment");
+   expect(body.instructions).toContain("remains escalated even if it also asks for an explanation");
+   expect(body.instructions).toContain("Never infer current private status or authorization");
+   expect(body.instructions).toContain("do not invent a recovery procedure or prescribe a gifted upgrade");
+   expect(body.store).toBe(false);expect(body).not.toHaveProperty("tools");expect(guidePromptSha256).toMatch(/^[0-9a-f]{64}$/);
+   return new Response(JSON.stringify({output:[{content:[{type:"output_text",text:JSON.stringify({draft:"Documented explanation.",citations:[documents[0].url],escalate:false,reason:"Information only."})}]}]}));
+  };
+  await draftGuideReply([{...message,content:"Explain the documented Pro setup steps without changing anything."}],knowledge,{apiKey:"test",model:"test",transport});
+ });
  it("reports bounded provider codes and request IDs without error messages or private text",async()=>{
   const transport=vi.fn(async()=>new Response(JSON.stringify({error:{code:"invalid_prompt",type:"invalid_request_error",param:"input[0].content",message:"private echoed nsec1secret sk-secret me@example.com"}}),{status:400,headers:{"x-request-id":"req_0123456789abcdef0123456789abcdef"}}));
   const error=await draftGuideReply([message],knowledge,{apiKey:"sk-secret",model:"test",transport}).catch(value=>value as Error);
