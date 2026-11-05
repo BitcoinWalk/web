@@ -31,6 +31,19 @@ function hash(value:unknown){return createHash("sha256").update(JSON.stringify(v
 function policyDigest(policy:PrivatePilotPolicy){return hash({...policy,enabled:false});}
 function normalize(value:string){return value.trim().replace(/\s+/g," ").toLowerCase();}
 
+export async function watchPrivatePilot(db:DatabaseSync,secret:Uint8Array,deps:Dependencies,wait:()=>Promise<boolean>,report:(result:unknown)=>void){
+ const initial=privatePilotPolicySchema.parse(deps.readPolicy());
+ do{
+  const current=privatePilotPolicySchema.parse(deps.readPolicy());
+  if(!current.enabled||deps.now()>=current.expiresAt)return;
+  if(policyDigest(current)!==policyDigest(initial))throw new Error("Private pilot grant changed; restart requires review.");
+  if(deps.now()>=current.startsAt){
+   const row=db.prepare("SELECT c.id FROM support_case c WHERE c.sender=? AND c.state='open' AND c.updated_at>=? AND EXISTS (SELECT 1 FROM support_message m WHERE m.case_id=c.id AND m.created_at>=? AND m.received_at>=?) ORDER BY c.updated_at DESC,c.id LIMIT 1").get(current.recipient,current.startsAt,current.startsAt,current.startsAt) as {id:string}|undefined;
+   if(row)report(await runPrivatePilotCase(db,row.id,secret,deps));
+  }
+ }while(await wait());
+}
+
 // This companion is never called by the notification/intake worker.
 export async function runPrivatePilotCase(db:DatabaseSync,caseId:string,secret:Uint8Array,deps:Dependencies){
  const policy=privatePilotPolicySchema.parse(deps.readPolicy());

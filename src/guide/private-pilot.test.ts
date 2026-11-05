@@ -4,7 +4,7 @@ import {generateSecretKey,getPublicKey,type Event} from "nostr-tools";
 import {wrapEvent,unwrapEvent} from "nostr-tools/nip59";
 import {GuideSupportCases,type SupportMessage} from "./support";
 import {guideEvaluationCases} from "./evaluation";
-import {runPrivatePilotCase,type PrivatePilotPolicy} from "./private-pilot";
+import {runPrivatePilotCase,watchPrivatePilot,type PrivatePilotPolicy} from "./private-pilot";
 import type {GuideDraft} from "./assistant";
 import type {GuidePlan} from "./support-limits";
 
@@ -19,6 +19,23 @@ function setup(){
  return {db,store,guide,sender,policy,deps,add,id,advance:(seconds:number)=>{now+=seconds;},run:()=>runPrivatePilotCase(db,id,guide,deps)};
 }
 describe("bounded private Guide pilot",()=>{
+ it("watches only the admitted account's post-activation messages and stops when disabled",async()=>{
+  const s=setup();try{
+   s.policy.startsAt=s.deps.now()+2;const reports:unknown[]=[];
+   let ticks=0;await watchPrivatePilot(s.db,s.guide,s.deps,async()=>{
+    if(++ticks===1){s.advance(2);s.add();return true;}
+    s.policy.enabled=false;return true;
+   },result=>reports.push(result));
+   expect(s.deps.draft).toHaveBeenCalledTimes(1);expect(reports).toHaveLength(1);
+  }finally{s.db.close();}
+ });
+ it("does not watch old history or unlisted accounts and exits on expiry",async()=>{
+  const s=setup();try{
+   s.policy.recipient="b".repeat(64);let ticks=0;
+   await watchPrivatePilot(s.db,s.guide,s.deps,async()=>{ticks++;s.advance(3600);return true;},()=>{});
+   expect(ticks).toBe(1);expect(s.deps.draft).not.toHaveBeenCalled();
+  }finally{s.db.close();}
+ });
  it("does nothing while disabled, expired, premature, wrong-recipient or closed",async()=>{
   for(const mode of ["disabled","expired","premature","recipient","closed"]){const s=setup();try{
    if(mode==="disabled")s.policy.enabled=false;if(mode==="expired")s.advance(3600);if(mode==="premature")s.policy.startsAt+=20;if(mode==="recipient")s.policy.recipient="a".repeat(64);if(mode==="closed")s.store.close(s.id);

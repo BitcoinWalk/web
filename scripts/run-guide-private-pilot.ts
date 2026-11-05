@@ -1,11 +1,12 @@
 import {readFileSync,lstatSync} from "node:fs";
 import {join} from "node:path";
 import {DatabaseSync} from "node:sqlite";
+import {setTimeout as delay} from "node:timers/promises";
 import {SimplePool} from "nostr-tools";
 import {assertBotKey,configSchema,selectInbox,signTransportAuth} from "../src/guide/core";
 import {draftGuideReply,loadGuideKnowledge,guidePromptSha256} from "../src/guide/assistant";
 import {guideEvaluationSha256} from "../src/guide/evaluation";
-import {privatePilotPolicySchema,runPrivatePilotCase} from "../src/guide/private-pilot";
+import {privatePilotPolicySchema,runPrivatePilotCase,watchPrivatePilot} from "../src/guide/private-pilot";
 import {readGuideSupportPlan} from "../src/guide/support-access";
 import {readAnyComplete,publishIdempotent} from "../src/guide/transport";
 
@@ -18,8 +19,8 @@ async function main(){
  };
  const policy=readPolicy();
  if(!policy.enabled){console.log(JSON.stringify({result:"BW152_PRIVATE_PILOT_DISABLED",sent:false,modelCalls:0}));return;}
- const credentials=process.env.CREDENTIALS_DIRECTORY,state=process.env.STATE_DIRECTORY,configPath=process.env.GUIDE_CONFIG,knowledgePath=process.env.GUIDE_KNOWLEDGE,caseId=process.argv[2];
- if(!credentials||!state||!configPath||!knowledgePath||process.argv.length!==3||!/^[0-9a-f]{64}$/.test(caseId??""))throw new Error("Use the isolated one-shot unit with one exact case ID.");
+ const credentials=process.env.CREDENTIALS_DIRECTORY,state=process.env.STATE_DIRECTORY,configPath=process.env.GUIDE_CONFIG,knowledgePath=process.env.GUIDE_KNOWLEDGE,caseId=process.argv[2],watch=caseId==="--watch";
+ if(!credentials||!state||!configPath||!knowledgePath||process.argv.length!==3||(!watch&&!/^[0-9a-f]{64}$/.test(caseId??"")))throw new Error("Use one exact case ID or --watch in the isolated pilot unit.");
  const config=configSchema.parse(JSON.parse(readFileSync(configPath,"utf8")));
  const port=policy.environment==="production"?3345:3338;
  if(!config.support.enabled||config.proSetupStatusURL!==`http://127.0.0.1:${port}/api/pro-setup-notifications`)throw new Error("Private pilot environment does not match Guide configuration.");
@@ -38,14 +39,20 @@ async function main(){
   db.exec("PRAGMA busy_timeout=5000; PRAGMA synchronous=FULL");
   const bot=assertBotKey(secret,config.recipients),identity=db.prepare("SELECT value FROM meta WHERE key='identity'").get() as {value:string}|undefined;
   if(identity?.value!==JSON.stringify([bot,config.sourceRelay]))throw new Error("Guide state identity does not match.");
-  const result=await runPrivatePilotCase(db,caseId!,secret,{
-   readPolicy,now:()=>Math.floor(Date.now()/1000),
-   plan:recipient=>readGuideSupportPlan(secret,config.proSetupStatusURL,recipient),
-   draft:message=>draftGuideReply([message],knowledge,{apiKey:readCredential("openai-key",512),model:policy.model}),
-   discover:async recipient=>selectInbox(await readAnyComplete(pool,config.discoveryRelays,{kinds:[10050],authors:[recipient],limit:10}),recipient,config.allowedInboxRelays),
-   publish:async(event,relays)=>{await publishIdempotent(pool,relays,event,async template=>signTransportAuth(template,secret,relays));},
-  });
-  console.log(JSON.stringify({result:"BW152_PRIVATE_PILOT_RESULT",...result}));
+  const stop=new AbortController();
+  if(watch){process.once("SIGTERM",()=>stop.abort());process.once("SIGINT",()=>stop.abort());}
+  const dependencies={
+   readPolicy:()=>({...readPolicy(),...(stop.signal.aborted?{enabled:false}:{})}),now:()=>Math.floor(Date.now()/1000),
+   plan:(recipient:string)=>readGuideSupportPlan(secret,config.proSetupStatusURL,recipient),
+   draft:(message:import("../src/guide/support").SupportMessage)=>draftGuideReply([message],knowledge,{apiKey:readCredential("openai-key",512),model:policy.model}),
+   discover:async(recipient:string)=>selectInbox(await readAnyComplete(pool,config.discoveryRelays,{kinds:[10050],authors:[recipient],limit:10}),recipient,config.allowedInboxRelays),
+   publish:async(event:import("nostr-tools").Event,relays:string[])=>{await publishIdempotent(pool,relays,event,async template=>signTransportAuth(template,secret,relays));},
+  };
+  if(watch){
+   console.log(JSON.stringify({result:"BW152_PRIVATE_PILOT_WATCHING",recipient:policy.recipient,startsAt:policy.startsAt,expiresAt:policy.expiresAt,maxCalls:policy.maxCalls,maxDeliveries:policy.maxDeliveries}));
+   await watchPrivatePilot(db,secret,dependencies,async()=>{try{await delay(10000,undefined,{signal:stop.signal});return true;}catch{return false;}},result=>console.log(JSON.stringify({result:"BW152_PRIVATE_PILOT_TICK",outcome:result})));
+   console.log(JSON.stringify({result:"BW152_PRIVATE_PILOT_STOPPED"}));
+  }else console.log(JSON.stringify({result:"BW152_PRIVATE_PILOT_RESULT",...await runPrivatePilotCase(db,caseId!,secret,dependencies)}));
  }finally{pool.destroy();db.close();secret.fill(0);}
 }
 main().catch(()=>{console.error("Private pilot stopped; review admission, quota, exact-message state and service diagnostics. No automatic retry was attempted.");process.exitCode=1;});

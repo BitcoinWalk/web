@@ -135,6 +135,45 @@ expiry, off-switch boundaries, concurrent model claims, failed-attempt caps,
 Basic cooldown expiry and entitlement downgrade. Real one-account delivery and
 controlled scheduling are still separate, unperformed acceptance steps.
 
+## Authorized one-hour Test1 activation — 5 November 2026
+
+The user authorized proceeding with one hour for the reviewed Test1 identity,
+maximum ten provider attempts and five admitted replies; Basic's three-response
+allowance still applies. This is not authorization for other accounts or groups.
+Test1 is pinned to `npub15dnhl0mzg2yrdcr8gwzn5mruf5xlfj8p8fhsfrcu8yaxf2skjfns34wlmx`,
+hex `a3677fbf62428836e06743853a6c7c4d0df4c8e13a6f048f1c393a64aa169267`,
+verified against the previously reviewed support case. Do not substitute the
+different organizer account that was used for the staging Pro projection test.
+
+`activate-guide-test1-pilot.sh` is the explicit sudo activation step, not a
+disabled installation. It verifies checksums, the normal service's current user,
+synthetic checks, real Guide/state identity, production origin, evaluated hashes,
+the exact Test1 sender and signed current plan before prompting for a key. It
+backs up SQLite consistently from a read-only source connection, writes a new
+root-owned one-hour policy and launches a separate transient `--watch` unit.
+An existing policy is never renewed or reset by rerunning the launcher.
+
+The unit shares the normal worker's `bitcoinwalk-guide` dynamic user, so it does
+not switch ownership of the shared state directory. It polls only Test1's open
+case with post-activation authored/received messages. Pre-activation messages
+are ignored, even if the relay delivers them late. The existing intake worker
+still performs NIP-17 ingestion; the companion never reads group conversations.
+The unit has no automatic restart and a hard 3600-second maximum runtime.
+
+The root-only source API-key file is temporary under `/run`, removed after systemd
+has started the unit. Systemd retains the private credential only for the unit's
+lifetime. No OpenAI key is added to the regular Guide worker or configuration.
+`stop-guide-test1-pilot.sh` atomically disables the policy and stops only the
+companion. SIGTERM also marks the in-process gate disabled before any subsequent
+publication. An already-started network publication cannot be recalled.
+
+Do not send a test question until startup is confirmed. The first supported test
+is exactly: “What does sound money mean, and why does BitcoinWalk focus on Bitcoin?”
+Allow the normal intake interval plus companion polling/model latency; verify
+the new answer in both clients. Authentication, real model use, real automatic
+delivery, actual runtime expiry and emergency stop remain live acceptance steps
+until their outputs are recorded. No real activation is claimed by source tests.
+
 Structural checks (21/21) are necessary, not a factual-quality score. A human must
 review every answer against the pinned documents and record PASS/FAIL for:
 
