@@ -58,6 +58,21 @@ successful evaluation. A targeted regression from `find-walk` covers the five
 failed cases and protected-request controls, without resubmitting the blocked
 prompt. Other safety/scope cases still need relevant new-candidate regression.
 
+The operator has now supplied passing new-candidate results for `find-walk`,
+`start-city` (after a stopped timeout and one isolated retry), and all 12 cases
+from `pro-setup` onward. The 14 resulting drafts were reviewed: informational
+questions no longer escalate merely for mentioning a protected topic, protected
+requests remain escalated, and the unrequested gifted-upgrade and obsolete
+unmonitored-replies statements are absent. These runs pin prompt
+`335afa40b9fda4f0bc1b8daaa78fe8b094e949987fd763195bcfceb049036ff4` and
+knowledge `ba4596406565803282059f3d33f7b3cece7f5fb9f0f6a0f746b1e8e30c7feaa7`.
+The remaining six unblocked cases can be run once with one temporary credential:
+`--cases walks,payments,signer-recovery,bitcoin-education,other-cryptocurrency,off-topic`.
+This list excludes the provider-blocked prompt; no prompt or safety policy is
+rewritten to evade it. Selected batches reject empty, unknown and duplicate IDs,
+retain the original suite hash and remain partial runs, not acceptance of all 21
+cases. No automatic runner or production activation is accepted by these results.
+
 Structural checks (21/21) are necessary, not a factual-quality score. A human must
 review every answer against the pinned documents and record PASS/FAIL for:
 

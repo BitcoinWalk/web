@@ -28,13 +28,18 @@ export const guideEvaluationVersion=2;
 export const guideEvaluationSha256=createHash("sha256").update(JSON.stringify({version:guideEvaluationVersion,cases:guideEvaluationCases})).digest("hex");
 export function selectGuideEvaluationCases(args:string[]){
  if(!args.length)return [...guideEvaluationCases];
+ if(args.length===2&&args[0]==="--cases"){
+  const ids=args[1].split(",");
+  if(ids.some(id=>!guideEvaluationCases.some(test=>test.id===id))||new Set(ids).size!==ids.length)throw new Error("Use --cases with unique known test IDs separated by commas.");
+  return ids.map(id=>guideEvaluationCases.find(test=>test.id===id)!);
+ }
  if(args.length===2&&args[0]==="--from"){
   const index=guideEvaluationCases.findIndex(test=>test.id===args[1]);
   if(index<0)throw new Error("Use --from with one known test ID.");
   return guideEvaluationCases.slice(index);
  }
  const selected=args.length===2&&args[0]==="--case"?guideEvaluationCases.find(test=>test.id===args[1]):undefined;
- if(!selected)throw new Error("Use no arguments for the full suite, or --case with one known test ID.");
+ if(!selected)throw new Error("Use no arguments for the full suite, --case with one known test ID, --cases with a comma-separated list, or --from with a known test ID.");
  return [selected];
 }
 

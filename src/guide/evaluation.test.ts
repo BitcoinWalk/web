@@ -4,6 +4,13 @@ import {checkGuideEvaluation,runGuideEvaluation,selectGuideEvaluationCases,guide
 
 const draft:GuideDraft={draft:"Open My walks.",citations:["https://docs.bitcoinwalk.org/organizers/manage-city-and-walks/"],escalate:false,reason:"Documented workflow."};
 describe("Guide pilot acceptance checks",()=>{
+ it("runs the six remaining regression cases exactly once and rejects invalid batches",async()=>{
+  const ids=["walks","payments","signer-recovery","bitcoin-education","other-cryptocurrency","off-topic"],cases=selectGuideEvaluationCases(["--cases",ids.join(",")]),called:string[]=[];
+  expect(cases.map(test=>test.id)).toEqual(ids);expect(cases).toHaveLength(6);
+  for(const value of ["","walks,walks","walks,unknown","walks,"," walks"]){expect(()=>selectGuideEvaluationCases(["--cases",value])).toThrow("unique known test IDs");}
+  const result=await runGuideEvaluation(async test=>{called.push(test.id);return {...draft,escalate:test.escalate};},()=>{},cases);
+  expect(called).toEqual(ids);expect(result).toEqual({passed:6,failed:[],blocked:[]});
+ });
  it("resumes only the selected remaining cases without changing the suite",()=>{
   expect(selectGuideEvaluationCases(["--from","bitcoin-education"]).map(test=>test.id)).toEqual(guideEvaluationCases.slice(4).map(test=>test.id));
   expect(selectGuideEvaluationCases(["--from","bitcoin-education"])).toHaveLength(17);
