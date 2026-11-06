@@ -26,3 +26,8 @@
 @media(hover:hover) and (pointer:fine){.desktopAppPromotion>summary:hover,.desktopAppPromotionPanel button:hover,.desktopAppPromotionPanel a:hover,.promotionClose:hover,.promotionActions button:hover,.mobileAppPromotionQuiet a:hover,.mobileAppPromotionQuiet button:hover{background:#f5f6f7!important}}
 @media(prefers-reduced-motion:no-preference){.desktopAppPromotionPanel button:not(:disabled):active,.desktopAppPromotionPanel a:active,.promotionActions a:active,.promotionActions button:not(:disabled):active,.mobileAppPromotionQuiet a:active,.mobileAppPromotionQuiet button:not(:disabled):active{scale:.96;transition:scale 150ms ease-out}}
 @media(max-width:760px){.guideSupportComposer{padding:.6rem .7rem}.guideSupportComposer form{grid-template-columns:1fr}.guideSupportComposer form button{justify-self:end}.guideSupportComposer>div{align-items:flex-start}.guideSupportComposer>div span{max-width:65%}}
+.messages{overflow-anchor:none}
+.historyControl{list-style:none;text-align:center;padding:8px 0 16px;overflow-anchor:none}
+.historyControl button{min-height:44px;padding:8px 16px;border:1px solid #d6dce1;border-radius:8px;background:#fff;color:inherit;font:inherit;cursor:pointer}
+.historyControl button:focus-visible{outline:2px solid #f7931a;outline-offset:3px}
+.historyControl button:active{transform:scale(.98)}

@@ -34,12 +34,12 @@ export async function unwrapNip17Message(wrap:Event,recipientPubkey:string,decry
 
 /** Reads only completed relay responses. A failed relay cannot turn an inbox
  * into a false empty state. */
-export async function readNip17Wraps(pool:InboxPool,pubkey:string,relays:string[],onauth?:(event:EventTemplate)=>Promise<VerifiedEvent>):Promise<Event[]>{
+export async function readNip17Wraps(pool:InboxPool,pubkey:string,relays:string[],onauth?:(event:EventTemplate)=>Promise<VerifiedEvent>,onBatch?:(events:Event[])=>void):Promise<Event[]>{
  if(!HEX.test(pubkey)||!relays.length)throw new Error("No usable private-message inbox is available.");
  const results=await Promise.allSettled(relays.map(relay=>new Promise<Event[]>((resolve,reject)=>{
   const events:Event[]=[];let settled=false,subscription:{close:(reason?:string)=>void}|undefined;
   const timer=setTimeout(()=>{if(settled)return;settled=true;subscription?.close("private message read timeout");reject(new Error("Private message read timed out."));},9000);
-  const finish=(reasons:{reason:string}[])=>{if(settled)return;settled=true;clearTimeout(timer);if(reasons.length===1&&reasons[0].reason==="closed automatically on eose")resolve(events);else reject(new Error("A private-message relay did not complete its read."));};
+  const finish=(reasons:{reason:string}[])=>{if(settled)return;settled=true;clearTimeout(timer);if(reasons.length===1&&reasons[0].reason==="closed automatically on eose"){onBatch?.([...events].sort((a,b)=>b.created_at-a.created_at).slice(0,100));resolve(events);}else reject(new Error("A private-message relay did not complete its read."));};
   try{subscription=pool.subscribeEose([relay],{kinds:[1059],"#p":[pubkey],limit:100},{maxWait:10000,onauth,onevent:(event:Event)=>{if(!settled)events.push(event);},onclose:finish});}catch(error){settled=true;clearTimeout(timer);reject(error);}
  })));
  const complete=results.filter((row):row is PromiseFulfilledResult<Event[]>=>row.status==="fulfilled");

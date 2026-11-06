@@ -35,4 +35,11 @@ describe("NIP-17 inbox",()=>{
   const pool={subscribeEose:vi.fn((_relays,_filter,handlers)=>{queueMicrotask(()=>{handlers.onevent(event as Event);handlers.onclose([{reason:"closed automatically on eose"}]);});return{close:vi.fn()};})};
   await expect(readNip17Wraps(pool,pubkey,["wss://one.example","wss://two.example"])).resolves.toEqual([event]);
  });
+
+ it("streams only completed relay batches without waiting for another relay",async()=>{
+  const pubkey=getPublicKey(generateSecretKey()),batch=vi.fn();let completeSlow!:()=>void;
+  const pool={subscribeEose:vi.fn((relays:string[],_filter,handlers)=>{if(relays[0].includes("slow"))completeSlow=()=>handlers.onclose([{reason:"connection failed"}]);else queueMicrotask(()=>handlers.onclose([{reason:"closed automatically on eose"}]));return {close:vi.fn()};})};
+  const pending=readNip17Wraps(pool,pubkey,["wss://fast.example","wss://slow.example"],undefined,batch);
+  await vi.waitFor(()=>expect(batch).toHaveBeenCalledOnce());completeSlow();await expect(pending).resolves.toEqual([]);
+ });
 });
