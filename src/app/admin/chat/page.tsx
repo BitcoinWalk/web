@@ -3,6 +3,7 @@
 
 import {nip19,SimplePool,type Event} from "nostr-tools";
 import {useCallback,useEffect,useMemo,useRef,useState,type ChangeEvent,type KeyboardEvent} from "react";
+import {startGuideAutoRefresh} from "./guide-auto-refresh";
 import {useDashboard} from "../../../components/dashboard-context";
 import {useDefaultCity} from "../../../components/use-default-city";
 import {signForOrganizer} from "../../../nostr/organizer-identity";
@@ -70,26 +71,31 @@ export default function ChatPage(){
  const mentionSuggestions=[...new Set(messages.map(row=>row.pubkey))].map(pubkey=>({pubkey,name:profiles[pubkey]?.name??shortNpub(pubkey),npub:nip19.npubEncode(pubkey)})).filter(row=>!mention?.query||row.name.toLowerCase().includes(mention.query)||row.npub.toLowerCase().includes(mention.query)).slice(0,5),matchingCityRooms=cityRooms.filter(row=>!cityQuery.trim()||row.label.toLocaleLowerCase().includes(cityQuery.trim().toLocaleLowerCase()));
  const updateComposer=useCallback((key:string,change:Partial<Nip29Composer>)=>setComposers(current=>updateNip29Composer(current,key,change)),[]);
  const close=useCallback(()=>{generation.current++;live.current?.close("room changed");live.current=null;if(pool.current){pool.current.destroy();pool.current=null;}},[]);
- const cancelGuide=useCallback(()=>{guideGeneration.current++;},[]);
- const loadGuide=useCallback(async()=>{
+ const guideRead=useRef<number|null>(null),guidePollingReady=useRef(false);
+ const cancelGuide=useCallback(()=>{guideGeneration.current++;guideRead.current=null;guidePollingReady.current=false;},[]);
+ const loadGuide=useCallback(async(background=false)=>{
+  if(guideRead.current!==null||(background&&!guidePollingReady.current))return;
   const request=++guideGeneration.current,key=dashboard.pubkey+":"+guidePubkey;
   setGuideOwner(key);
   if(guideCache.current.key!==key){guideCache.current={key,messages:new Map()};setGuideMessages([]);}
   if(!guidePubkey){setGuideMessages([]);setGuideLoading(false);setGuideNeedsInbox(false);setStatus("BitcoinWalk Guide identity is not configured for this environment.");return;}
-  setGuideLoading(true);setStatus("Checking your encrypted Guide inbox…");
+  guideRead.current=request;
+  if(!background){setGuideLoading(true);setStatus("Checking your encrypted Guide inbox…");}
   const connection=new SimplePool(),active=()=>request===guideGeneration.current;
   try{
    const relays=await discoverInbox(dashboard.pubkey);if(!active())return;setGuideNeedsInbox(false);
    const result=await openGuideHistory({actor:dashboard.pubkey,guide:guidePubkey,cache:guideCache.current.messages,active,
     read:onBatch=>readNip17Wraps(connection,dashboard.pubkey,relays,authenticateWithBrowserExtension,onBatch),
     open:wrap=>unwrapNip17Message(wrap,dashboard.pubkey,decryptWithBrowserExtension),
-    onMessages:opened=>{if(active()){setGuideMessages(current=>[...new Map([...current,...opened].map(row=>[row.id,row])).values()].sort((a,b)=>a.createdAt-b.createdAt||a.id.localeCompare(b.id)).slice(-300));setStatus("Opening recent Guide messages…");}},
+    onMessages:opened=>{if(active()){setGuideMessages(current=>[...new Map([...current,...opened].map(row=>[row.id,row])).values()].sort((a,b)=>a.createdAt-b.createdAt||a.id.localeCompare(b.id)).slice(-300));if(!background)setStatus("Opening recent Guide messages…");}},
    });
    if(!active())return;
+   guidePollingReady.current=true;
    setStatus(result.unreadable?`Guide messages loaded. ${result.unreadable} unreadable private ${result.unreadable===1?"message was":"messages were"} skipped.`:result.count?"Guide messages up to date.":"No new Guide messages found.");
-  }catch(error){if(active()){const detail=error instanceof Error?error.message:"Guide messages could not be opened.",missing=detail.startsWith("No signed DM inbox announcement");setGuideNeedsInbox(missing);setStatus(missing?"Guide messages are not enabled for this account yet.":detail);}}
-  finally{connection.close([]);connection.destroy();if(active())setGuideLoading(false);}
+  }catch(error){if(active()){guidePollingReady.current=false;const detail=error instanceof Error?error.message:"Guide messages could not be opened.",missing=detail.startsWith("No signed DM inbox announcement");setGuideNeedsInbox(missing);setStatus(missing?"Guide messages are not enabled for this account yet.":detail);}}
+  finally{connection.close([]);connection.destroy();if(guideRead.current===request)guideRead.current=null;if(active())setGuideLoading(false);}
  },[dashboard.pubkey,guidePubkey]);
+ useEffect(()=>{if(!guideSelected||!dashboard.pubkey||!guidePubkey)return;return startGuideAutoRefresh(()=>{void loadGuide(true);});},[guideSelected,dashboard.pubkey,guidePubkey,loadGuide]);
  const openRoom=useCallback(async(selected:Nip29Room,retainMessages=false,confirmJoin=false)=>{const target=validNip29Destination(selected.destination);if(!target){setMembership("unavailable");setStatus("Walkie Talkie is not available for this chat yet.");setCanReconnect(false);return;}close();const request=generation.current,connection=new SimplePool();pool.current=connection;if(!retainMessages)setMessages([]);setCanReconnect(false);setMembership("checking");setStatus(`Opening ${selected.label}…`);try{const metadata=await read(connection,target,{kinds:[39000],"#d":[target.groupId],limit:10});if(request!==generation.current)return;setRoomName(nip29RoomName(metadata.events,target.groupId,"chat"));await authenticateRelay(connection,target);if(request!==generation.current)return;const roster=await read(connection,target,{kinds:[39002],"#d":[target.groupId],limit:5});if(request!==generation.current)return;const participantCount=nip29ParticipantCount(roster.events,target.groupId),member=nip29HasParticipant(roster.events,target.groupId,dashboard.pubkey);if(participantCount!==null)setParticipantCounts(current=>({...current,[selected.key]:participantCount}));const history=await read(connection,target,{kinds:[9],"#h":[target.groupId],limit:200});if(request!==generation.current)return;const denied=history.reasons.some(reason=>/membership required|not a member|restricted/i.test(reason));if(denied||member!==true){setMembership("not-joined");setStatus(confirmJoin?"Your join request was sent. Waiting for the relay to confirm membership.":member===null?"Membership could not be confirmed. Reconnect to check again.":`Join ${selected.label} to read and take part in #chat.`);setCanReconnect(member===null||confirmJoin);return;}if(history.reasons.some(reason=>reason!=="closed automatically on eose")){setMembership("unavailable");setStatus("The chat could not be read. Try reconnecting.");setCanReconnect(true);return;}setMessages(rows=>mergeNip29Messages(retainMessages?rows:[],history.events,target.groupId));setMembership("joined");setStatus(confirmJoin?`Joined ${selected.label}.`:"");live.current=connection.subscribeMany([target.relay],{kinds:[9],"#h":[target.groupId]},{onauth:authenticateWithBrowserExtension,onevent:event=>{if(request!==generation.current)return;setMessages(rows=>mergeNip29Messages(rows,[event],target.groupId));},onclose:()=>{if(request===generation.current){setStatus("Live updates paused.");setCanReconnect(true);}}});}catch(error){if(request!==generation.current)return;setMembership("unavailable");setStatus(error instanceof Error?error.message:"The chat could not be opened.");setCanReconnect(true);}},[close,dashboard.pubkey]);
  useEffect(()=>{
   let active=true;
