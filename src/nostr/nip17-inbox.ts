@@ -1,6 +1,6 @@
 import {getEventHash,verifyEvent,type Event,type EventTemplate,type SimplePool,type VerifiedEvent} from "nostr-tools";
 
-export type Nip17Message={id:string;wrapId:string;pubkey:string;recipient:string;content:string;createdAt:number};
+export type Nip17Message={id:string;wrapId:string;pubkey:string;recipient:string;content:string;createdAt:number;kind?:14|7|5;target?:string;expiresAt?:number};
 type Decrypt=(pubkey:string,ciphertext:string)=>Promise<string>;
 type InboxPool=Pick<SimplePool,"subscribeEose">;
 
@@ -26,10 +26,14 @@ export async function unwrapNip17Message(wrap:Event,recipientPubkey:string,decry
  const seal=signedEvent(object(await decrypt(wrap.pubkey,wrap.content),"Decrypted seal"),13,"Decrypted seal");
  const rumor=object(await decrypt(seal.pubkey,seal.content),"Decrypted message");
  const targets=Array.isArray(rumor.tags)?rumor.tags.filter(tag=>Array.isArray(tag)&&tag[0]==="p"&&HEX.test(String(tag[1]))).map(tag=>String(tag[1])):[];
- if(rumor.kind!==14||rumor.pubkey!==seal.pubkey||typeof rumor.id!=="string"||typeof rumor.content!=="string"||rumor.content.length>MAX_CONTENT||typeof rumor.created_at!=="number"||!Number.isSafeInteger(rumor.created_at)||targets.length!==1||(targets[0]!==recipientPubkey&&rumor.pubkey!==recipientPubkey))throw new Error("Decrypted message is invalid.");
+ if(![14,7,5].includes(rumor.kind as number)||rumor.pubkey!==seal.pubkey||typeof rumor.id!=="string"||typeof rumor.content!=="string"||rumor.content.length>MAX_CONTENT||typeof rumor.created_at!=="number"||!Number.isSafeInteger(rumor.created_at)||targets.length!==1||(targets[0]!==recipientPubkey&&rumor.pubkey!==recipientPubkey))throw new Error("Decrypted message is invalid.");
  const unsigned={pubkey:rumor.pubkey,kind:rumor.kind,created_at:rumor.created_at,tags:rumor.tags,content:rumor.content};
  if(!HEX.test(rumor.pubkey as string)||rumor.id!==getEventHash(unsigned as Parameters<typeof getEventHash>[0]))throw new Error("Decrypted message identity is invalid.");
- return {id:rumor.id,wrapId:wrap.id,pubkey:rumor.pubkey as string,recipient:targets[0],content:rumor.content,createdAt:rumor.created_at};
+ const tags=rumor.tags as string[][],references=tags.filter(tag=>tag[0]==="e"),expirations=tags.filter(tag=>tag[0]==="expiration"),target=references.length===1&&HEX.test(references[0][1])?references[0][1]:undefined;
+ if(rumor.kind!==14&&(!target||!tags.some(tag=>tag[0]==="k"&&tag[1]===(rumor.kind===7?"14":"7"))))throw new Error("Invalid private reaction target.");
+ const expiresAt=expirations.length===1?Number(expirations[0][1]):undefined;
+ if(rumor.kind===7&&(rumor.content!=="👀"||typeof expiresAt!=="number"||!Number.isSafeInteger(expiresAt)||expiresAt<=rumor.created_at||expiresAt>rumor.created_at+300))throw new Error("Invalid processing reaction.");
+ return {id:rumor.id,wrapId:wrap.id,pubkey:rumor.pubkey as string,recipient:targets[0],content:rumor.content,createdAt:rumor.created_at,...(rumor.kind!==14?{kind:rumor.kind as 7|5,target,expiresAt}:target?{target}:{})};
 }
 
 /** Reads only completed relay responses. A failed relay cannot turn an inbox

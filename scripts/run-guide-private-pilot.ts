@@ -9,6 +9,7 @@ import {guideEvaluationSha256} from "../src/guide/evaluation";
 import {privatePilotPolicySchema,runPrivatePilotCase,watchPrivatePilot} from "../src/guide/private-pilot";
 import {readGuideSupportPlan} from "../src/guide/support-access";
 import {readAnyComplete,publishIdempotent} from "../src/guide/transport";
+import {GuideProcessingReactions} from "../src/guide/processing-reaction";
 
 async function main(){
  const path=process.env.GUIDE_PRIVATE_PILOT_POLICY;
@@ -42,12 +43,15 @@ async function main(){
   const stop=new AbortController();
   if(watch){process.once("SIGTERM",()=>stop.abort());process.once("SIGINT",()=>stop.abort());}
   const dependencies={
+   processingReactions:true,
    readPolicy:()=>({...readPolicy(),...(stop.signal.aborted?{enabled:false}:{})}),now:()=>Math.floor(Date.now()/1000),
    plan:(recipient:string)=>readGuideSupportPlan(secret,config.proSetupStatusURL,recipient),
    draft:(message:import("../src/guide/support").SupportMessage)=>draftGuideReply([message],knowledge,{apiKey:readCredential("openai-key",512),model:policy.model}),
    discover:async(recipient:string)=>selectInbox(await readAnyComplete(pool,config.discoveryRelays,{kinds:[10050],authors:[recipient],limit:10}),recipient,config.allowedInboxRelays),
    publish:async(event:import("nostr-tools").Event,relays:string[])=>{await publishIdempotent(pool,relays,event,async template=>signTransportAuth(template,secret,relays));},
   };
+  // Retry removals from a previous interrupted run without creating new reactions.
+  try{await new GuideProcessingReactions(db,secret,dependencies).retryCleanup(policy.recipient);}catch{console.warn("Guide processing cleanup remains pending.");}
   if(watch){
    console.log(JSON.stringify({result:"BW152_PRIVATE_PILOT_WATCHING",recipient:policy.recipient,startsAt:policy.startsAt,expiresAt:policy.expiresAt,maxCalls:policy.maxCalls,maxDeliveries:policy.maxDeliveries}));
    await watchPrivatePilot(db,secret,dependencies,async()=>{try{await delay(10000,undefined,{signal:stop.signal});return true;}catch{return false;}},result=>console.log(JSON.stringify({result:"BW152_PRIVATE_PILOT_TICK",outcome:result})));

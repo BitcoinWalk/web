@@ -27,7 +27,7 @@ async function main(){
    assert.equal(drafts,1);assert.equal(events[0],events[1]);
    const replies=plan==="basic"?3:5;
    for(let i=1;i<replies;i++){add();await run();}
-   add();await assert.rejects(run);assert.equal(drafts,replies);
+   add();if(plan==="basic")assert.equal((await run()).state,"cooldown-blocked");else await assert.rejects(run);assert.equal(drafts,replies);
   }finally{db.close();guide.fill(0);sender.fill(0);}
  }
  console.log(JSON.stringify({result:"BW152_PRIVATE_PILOT_SYNTHETIC_OK",basicReplies:3,proReplies:5,exactRetry:true,disabledVerified:true,providerCalls:0,messagesPublished:0,productionChanged:false}));

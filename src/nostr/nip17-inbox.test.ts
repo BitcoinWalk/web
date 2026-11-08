@@ -6,6 +6,17 @@ import {readNip17Wraps,unwrapNip17Message} from "./nip17-inbox";
 function decryptWith(secret:Uint8Array){return async(peer:string,ciphertext:string)=>nip44.v2.decrypt(ciphertext,nip44.v2.utils.getConversationKey(secret,peer));}
 
 describe("NIP-17 inbox",()=>{
+ it("opens private processing reactions and deletion controls without weakening sender validation",async()=>{
+  const sender=generateSecretKey(),receiver=generateSecretKey(),recipient=getPublicKey(receiver),target="a".repeat(64),created_at=Math.floor(Date.now()/1000);
+  for(const kind of [7,5]){
+   const wrap=wrapEvent({kind,created_at,tags:[["p",recipient],["e",target],["k",kind===7?"14":"7"],["expiration",String(created_at+300)]],content:kind===7?"👀":""},sender,recipient);
+   await expect(unwrapNip17Message(wrap,recipient,decryptWith(receiver))).resolves.toMatchObject({kind,target,pubkey:getPublicKey(sender)});
+  }
+  for(const tags of [[],[["e",target],["k","14"]],[["e",target],["k","14"],["expiration",String(created_at+301)]]]){
+   const wrap=wrapEvent({kind:7,created_at,tags:[["p",recipient],...tags],content:"👀"},sender,recipient);
+   await expect(unwrapNip17Message(wrap,recipient,decryptWith(receiver))).rejects.toThrow();
+  }
+ });
  it("opens a valid NIP-59 wrapped kind-14 message",async()=>{
   const sender=generateSecretKey(),receiver=generateSecretKey(),recipient=getPublicKey(receiver),created_at=1_700_000_000;
   const wrap=wrapEvent({kind:14,created_at,tags:[["p",recipient]],content:"Guide update"},sender,recipient);

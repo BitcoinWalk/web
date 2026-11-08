@@ -6,7 +6,8 @@ import {GuideSupportCases,type SupportMessage} from "./support";
 import type {GuideDraft} from "./assistant";
 import {guideEvaluationCases,checkGuideEvaluation} from "./evaluation";
 import {prepareReviewedReply,reviewedReplySchema} from "./reviewed-reply";
-import {initializeGuideLimits,assertGuideAllowance,acknowledgeGuideReply,type GuidePlan} from "./support-limits";
+import {initializeGuideLimits,assertGuideAllowance,acknowledgeGuideReply,GuideCooldownError,type GuidePlan} from "./support-limits";
+import {GuideProcessingReactions} from "./processing-reaction";
 
 export const privatePilotPolicySchema=z.object({
  version:z.literal(1),id:z.string().regex(/^[a-z0-9-]{1,64}$/),enabled:z.boolean().default(false),
@@ -21,6 +22,7 @@ export const privatePilotPolicySchema=z.object({
 export type PrivatePilotPolicy=z.infer<typeof privatePilotPolicySchema>;
 type Attempt={phase:string;review:string|null};
 type Dependencies={
+ processingReactions?:boolean;
  readPolicy:()=>unknown;now:()=>number;
  plan:(recipient:string)=>Promise<GuidePlan>;
  draft:(message:SupportMessage)=>Promise<GuideDraft>;
@@ -38,7 +40,8 @@ export async function watchPrivatePilot(db:DatabaseSync,secret:Uint8Array,deps:D
   if(!current.enabled||deps.now()>=current.expiresAt)return;
   if(policyDigest(current)!==policyDigest(initial))throw new Error("Private pilot grant changed; restart requires review.");
   if(deps.now()>=current.startsAt){
-   const row=db.prepare("SELECT c.id FROM support_case c WHERE c.sender=? AND c.state='open' AND c.updated_at>=? AND EXISTS (SELECT 1 FROM support_message m WHERE m.case_id=c.id AND m.created_at>=? AND m.received_at>=?) ORDER BY c.updated_at DESC,c.id LIMIT 1").get(current.recipient,current.startsAt,current.startsAt,current.startsAt) as {id:string}|undefined;
+   const threshold=Math.max(current.startsAt,deps.now()-300);
+   const row=db.prepare("SELECT c.id FROM support_case c WHERE c.sender=? AND c.state='open' AND c.updated_at>=? AND EXISTS (SELECT 1 FROM support_message m WHERE m.case_id=c.id AND m.created_at>=? AND m.received_at>=?) ORDER BY c.updated_at DESC,c.id LIMIT 1").get(current.recipient,threshold,threshold,threshold) as {id:string}|undefined;
    if(row)report(await runPrivatePilotCase(db,row.id,secret,deps));
   }
  }while(await wait());
@@ -46,6 +49,42 @@ export async function watchPrivatePilot(db:DatabaseSync,secret:Uint8Array,deps:D
 
 // This companion is never called by the notification/intake worker.
 export async function runPrivatePilotCase(db:DatabaseSync,caseId:string,secret:Uint8Array,deps:Dependencies){
+ try{return await runPrivatePilotCaseWithReactions(db,caseId,secret,deps);}
+ catch(error){if(error instanceof GuideCooldownError)return {state:"cooldown-blocked" as const,resumeAt:error.resumeAt,sent:false};throw error;}
+}
+
+async function runPrivatePilotCaseWithReactions(db:DatabaseSync,caseId:string,secret:Uint8Array,deps:Dependencies){
+ if(!deps.processingReactions)return runPrivatePilotCaseWithoutReactions(db,caseId,secret,deps);
+ const initial=privatePilotPolicySchema.parse(deps.readPolicy());
+ if(!initial.enabled||deps.now()<initial.startsAt||deps.now()>=initial.expiresAt)return runPrivatePilotCaseWithoutReactions(db,caseId,secret,deps);
+ const reactions=new GuideProcessingReactions(db,secret,deps);
+ let started:string|undefined,completed=false;
+ try{
+  const result=await runPrivatePilotCaseWithoutReactions(db,caseId,secret,{...deps,draft:async message=>{
+   const check=()=>{
+    const current=privatePilotPolicySchema.parse(deps.readPolicy());
+    if(!current.enabled||deps.now()>=current.expiresAt||policyDigest(current)!==policyDigest(initial))throw new Error("Private pilot disabled, expired or changed.");
+    const latest=new GuideSupportCases(db).messages(caseId).at(-1);
+    if(latest?.id!==message.id||message.receivedAt<deps.now()-300||message.createdAt<deps.now()-300)throw new Error("Private pilot case changed or became stale.");
+   };
+   check();
+   started=message.id;
+   // A reaction transport failure must never suppress the actual answer.
+   try{await reactions.start(message.id,message.sender,check);}catch{console.warn("Guide processing reaction could not be acknowledged.");}
+   check();
+   const plan=await deps.plan(initial.recipient);check();
+   if(plan!=="basic"&&plan!=="pro")throw new Error("Private pilot plan is unavailable.");
+   assertGuideAllowance(db,initial.recipient,plan,deps.now());
+   return deps.draft(message);
+  }});
+  completed=result.state==="sent"||result.state==="already-sent";
+  return result;
+ }finally{
+  if(started)try{await reactions.clear(started,!completed);}catch{console.warn("Guide processing cleanup retained for exact retry.");}
+ }
+}
+
+async function runPrivatePilotCaseWithoutReactions(db:DatabaseSync,caseId:string,secret:Uint8Array,deps:Dependencies){
  const policy=privatePilotPolicySchema.parse(deps.readPolicy());
  const gate=()=>{
   const current=privatePilotPolicySchema.parse(deps.readPolicy()),now=deps.now();

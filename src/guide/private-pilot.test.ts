@@ -19,6 +19,60 @@ function setup(){
  return {db,store,guide,sender,policy,deps,add,id,advance:(seconds:number)=>{now+=seconds;},run:()=>runPrivatePilotCase(db,id,guide,deps)};
 }
 describe("bounded private Guide pilot",()=>{
+ it("reacts only after admission, removes eyes after acknowledged reply and does not charge reactions",async()=>{
+  const s=setup();try{
+   const deps={...s.deps,processingReactions:true};
+   s.deps.draft.mockImplementation(async()=>{
+    expect(unwrapEvent(s.deps.publish.mock.calls[0][0],s.sender)).toMatchObject({kind:7,content:"👀"});return good;
+   });
+   await runPrivatePilotCase(s.db,s.id,s.guide,deps);
+   expect(s.deps.publish.mock.calls.map(([event])=>unwrapEvent(event,s.sender).kind)).toEqual([7,14,5]);
+   const reaction=unwrapEvent(s.deps.publish.mock.calls[0][0],s.sender),reply=unwrapEvent(s.deps.publish.mock.calls[1][0],s.sender);
+   expect(reply.tags).toContainEqual(["e",s.store.messages(s.id).at(-1)!.id]);
+   expect(unwrapEvent(s.deps.publish.mock.calls[2][0],s.sender).tags).toContainEqual(["e",reaction.id]);
+   expect(s.db.prepare("SELECT used FROM support_usage").get()).toMatchObject({used:1});
+   await runPrivatePilotCase(s.db,s.id,s.guide,deps);expect(s.deps.publish).toHaveBeenCalledTimes(3);
+  }finally{s.db.close();}
+ });
+ it("does not react to unsupported questions or Basic cooldowns",async()=>{
+  const s=setup();try{
+   const deps={...s.deps,processingReactions:true};
+   s.add("Change my wallet");expect((await runPrivatePilotCase(s.db,s.id,s.guide,deps)).state).toBe("needs-review");
+   s.add();s.db.exec("CREATE TABLE support_usage(recipient TEXT PRIMARY KEY,used INTEGER,cooldown_until INTEGER)");
+   s.db.prepare("INSERT INTO support_usage VALUES (?,3,?)").run(s.policy.recipient,s.deps.now()+100);
+   expect((await runPrivatePilotCase(s.db,s.id,s.guide,deps)).state).toBe("cooldown-blocked");
+   expect(s.deps.publish).not.toHaveBeenCalled();expect(s.deps.draft).not.toHaveBeenCalled();
+  }finally{s.db.close();}
+ });
+ it("clears the reaction on model failure and never lets a reaction transport failure block the reply",async()=>{
+  for(const failed of ["model","reaction"]){const s=setup();try{
+   const deps={...s.deps,processingReactions:true};
+   if(failed==="model")s.deps.draft.mockRejectedValue(new Error("provider failed"));
+   else s.deps.publish.mockRejectedValueOnce(new Error("relay timeout"));
+   if(failed==="model"){
+    await expect(runPrivatePilotCase(s.db,s.id,s.guide,deps)).rejects.toThrow("provider failed");
+    expect(s.deps.publish.mock.calls.map(([event])=>unwrapEvent(event,s.sender).kind)).toEqual([7,5]);
+    expect(unwrapEvent(s.deps.publish.mock.calls[1][0],s.sender).content).toContain("could not complete");
+   }else expect((await runPrivatePilotCase(s.db,s.id,s.guide,deps)).state).toBe("sent");
+  }finally{s.db.close();}}
+ });
+ it("does not publish eyes if admission is revoked during reaction inbox discovery",async()=>{
+  const s=setup();try{
+   s.deps.discover.mockImplementation(async()=>{s.policy.enabled=false;return ["wss://inbox.example/"];});
+   await expect(runPrivatePilotCase(s.db,s.id,s.guide,{...s.deps,processingReactions:true})).rejects.toThrow("disabled");
+   expect(s.deps.publish).not.toHaveBeenCalled();expect(s.deps.draft).not.toHaveBeenCalled();
+  }finally{s.db.close();}
+ });
+ it("keeps watching through cooldown without reacting or spending model calls",async()=>{
+  const s=setup();try{
+   s.db.exec("CREATE TABLE support_usage(recipient TEXT PRIMARY KEY,used INTEGER,cooldown_until INTEGER)");
+   s.db.prepare("INSERT INTO support_usage VALUES (?,3,?)").run(s.policy.recipient,s.deps.now()+100);
+   const reports:unknown[]=[];let ticks=0;
+   await watchPrivatePilot(s.db,s.guide,{...s.deps,processingReactions:true},async()=>++ticks<2,result=>reports.push(result));
+   expect(reports).toHaveLength(2);expect(reports[0]).toMatchObject({state:"cooldown-blocked",sent:false});
+   expect(s.deps.publish).not.toHaveBeenCalled();expect(s.deps.draft).not.toHaveBeenCalled();
+  }finally{s.db.close();}
+ });
  it("watches only the admitted account's post-activation messages and stops when disabled",async()=>{
   const s=setup();try{
    s.policy.startsAt=s.deps.now()+2;const reports:unknown[]=[];
@@ -95,7 +149,7 @@ describe("bounded private Guide pilot",()=>{
   for(const plan of ["basic","pro"] as const){const s=setup();try{
    s.deps.plan.mockResolvedValue(plan);const allowed=plan==="basic"?3:5;
    for(let i=0;i<allowed;i++){if(i)s.add();await s.run();}
-   s.add();await expect(s.run()).rejects.toThrow();expect(s.deps.draft).toHaveBeenCalledTimes(allowed);expect(s.deps.publish).toHaveBeenCalledTimes(allowed);
+   s.add();if(plan==="basic")expect((await s.run()).state).toBe("cooldown-blocked");else await expect(s.run()).rejects.toThrow();expect(s.deps.draft).toHaveBeenCalledTimes(allowed);expect(s.deps.publish).toHaveBeenCalledTimes(allowed);
   }finally{s.db.close();}}
  });
  it("counts failed model calls against the pilot budget and refuses policy-ID budget resets",async()=>{
@@ -108,7 +162,7 @@ describe("bounded private Guide pilot",()=>{
   const s=setup();try{
    s.deps.plan.mockResolvedValueOnce("pro").mockResolvedValueOnce("pro").mockResolvedValue("basic");
    s.deps.discover.mockImplementation(async()=>{s.db.prepare("INSERT INTO support_usage VALUES (?,3,?)").run(s.policy.recipient,s.deps.now()+86400);return ["wss://inbox.example/"];});
-   await expect(s.run()).rejects.toThrow("resume at");expect(s.deps.publish).not.toHaveBeenCalled();
+   expect((await s.run()).state).toBe("cooldown-blocked");expect(s.deps.publish).not.toHaveBeenCalled();
   }finally{s.db.close();}
  });
  it("honours the exact cooldown boundary before spending",async()=>{
@@ -116,7 +170,7 @@ describe("bounded private Guide pilot",()=>{
    // Prime a previous three-reply cycle; the pilot window still covers its expiry.
    s.db.exec("CREATE TABLE support_usage(recipient TEXT PRIMARY KEY,used INTEGER,cooldown_until INTEGER)");
    s.db.prepare("INSERT INTO support_usage VALUES (?,3,?)").run(s.policy.recipient,s.deps.now()+2);
-   await expect(s.run()).rejects.toThrow("resume at");expect(s.deps.draft).not.toHaveBeenCalled();
+   expect((await s.run()).state).toBe("cooldown-blocked");expect(s.deps.draft).not.toHaveBeenCalled();
    s.advance(2);await s.run();expect(s.deps.draft).toHaveBeenCalledTimes(1);
    expect((s.db.prepare("SELECT used FROM support_usage").get() as {used:number}).used).toBe(1);
   }finally{s.db.close();}
