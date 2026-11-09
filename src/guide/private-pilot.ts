@@ -4,7 +4,7 @@ import {z} from "zod";
 import type {Event} from "nostr-tools";
 import {GuideSupportCases,type SupportMessage} from "./support";
 import type {GuideDraft} from "./assistant";
-import {guideEvaluationCases,checkGuideEvaluation} from "./evaluation";
+import {guideEvaluationCases,checkGuideEvaluation,type GuideEvaluationCheck} from "./evaluation";
 import {prepareReviewedReply,reviewedReplySchema} from "./reviewed-reply";
 import {initializeGuideLimits,assertGuideAllowance,acknowledgeGuideReply,GuideCooldownError,type GuidePlan} from "./support-limits";
 import {GuideProcessingReactions} from "./processing-reaction";
@@ -22,6 +22,7 @@ export const privatePilotPolicySchema=z.object({
 export type PrivatePilotPolicy=z.infer<typeof privatePilotPolicySchema>;
 type Attempt={phase:string;review:string|null};
 export type PrivatePilotDependencies={
+ admitQuestion?:(content:string)=>GuideEvaluationCheck;
  processingReactions?:boolean;
  readPolicy:()=>unknown;now:()=>number;
  plan:(recipient:string)=>Promise<GuidePlan>;
@@ -108,7 +109,7 @@ async function runPrivatePilotCaseWithoutReactions(db:DatabaseSync,caseId:string
   if(current?.sender!==policy.recipient||current.state!=="open"||hash(store.messages(caseId).map(message=>message.id))!==messageKey)throw new Error("Private pilot case changed.");
  };
  if(!latest||latest.createdAt<policy.startsAt||latest.receivedAt<policy.startsAt||latest.receivedAt<deps.now()-300||latest.createdAt<deps.now()-300||latest.receivedAt>deps.now()||latest.createdAt>deps.now()+60||messages.some(message=>message.receivedAt>latest.receivedAt))throw new Error("Private pilot requires a fresh latest message.");
- const test=guideEvaluationCases.find(test=>!test.escalate&&normalize(test.content)===normalize(latest.content));
+ const test=deps.admitQuestion?deps.admitQuestion(latest.content):guideEvaluationCases.find(test=>!test.escalate&&normalize(test.content)===normalize(latest.content));
  if(!test)return {state:"needs-review" as const,sent:false};
  initializePrivatePilotState(db);
  const attempt=()=>db.prepare("SELECT phase,review FROM guide_private_pilot_attempt WHERE policy_id=? AND case_id=? AND message_key=?").get(policy.id,caseId,messageKey) as Attempt|undefined;

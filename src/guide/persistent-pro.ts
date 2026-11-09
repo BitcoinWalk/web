@@ -3,10 +3,11 @@ import type {DatabaseSync} from "node:sqlite";
 import {z} from "zod";
 import {privatePilotPolicySchema,initializePrivatePilotState,runPrivatePilotCase,type PrivatePilotDependencies} from "./private-pilot";
 import {GuideSupportCases} from "./support";
+import {reviewedGuideQuestion,reviewedGuideStaticAnswer} from "./reviewed-questions";
 
 export const GUIDE_PERSISTENT_PRO_RECIPIENT="74d0c61ca913765c188dfc2265d27bcb401a1906ebd79c901dc977a69a2189f0";
 export const persistentProPolicySchema=privatePilotPolicySchema.omit({id:true,version:true,expiresAt:true}).extend({
- version:z.literal(2),recipient:z.literal(GUIDE_PERSISTENT_PRO_RECIPIENT),environment:z.literal("production"),requirePro:z.literal(true),maxCalls:z.literal(10),maxDeliveries:z.literal(5),
+ version:z.literal(2),recipient:z.literal(GUIDE_PERSISTENT_PRO_RECIPIENT),environment:z.literal("production"),requirePro:z.literal(true),maxCalls:z.literal(10),maxDeliveries:z.literal(5),questionMatching:z.enum(["exact","reviewed-intents"]).default("exact"),
 }).strict();
 export type PersistentProPolicy=z.infer<typeof persistentProPolicySchema>;
 type Dependencies=Omit<PrivatePilotDependencies,"readPolicy">&{readPolicy:()=>unknown};
@@ -15,7 +16,7 @@ function digest(policy:PersistentProPolicy){return createHash("sha256").update(J
 /** A stable UTC-day grant reuses the tested durable caps; a restart cannot refill it. */
 export function persistentProDayPolicy(value:unknown,now:number){
  const policy=persistentProPolicySchema.parse(value),day=Math.floor(now/86400)*86400;
- const fields=persistentProPolicySchema.omit({requirePro:true}).strip().parse(policy);
+ const fields=persistentProPolicySchema.omit({requirePro:true,questionMatching:true}).strip().parse(policy);
  return privatePilotPolicySchema.parse({...fields,version:1,id:`bw152-live-pro-${new Date(day*1000).toISOString().slice(0,10).replaceAll("-","")}`,startsAt:Math.max(day,policy.startsAt),expiresAt:day+86400});
 }
 
@@ -41,6 +42,7 @@ export async function persistentProTick(db:DatabaseSync,secret:Uint8Array,deps:D
  }
  return runPrivatePilotCase(db,row.id,secret,{
   ...deps,processingReactions:true,
+  ...(initial.questionMatching==="reviewed-intents"?{admitQuestion:reviewedGuideQuestion,draft:async(message:Parameters<PrivatePilotDependencies["draft"]>[0])=>reviewedGuideStaticAnswer(message.content)??deps.draft(message)}:{}),
   readPolicy:()=>{
    const current=persistentProPolicySchema.parse(deps.readPolicy());
    if(digest(current)!==digest(initial))throw new Error("Persistent Guide policy changed; restart for review.");

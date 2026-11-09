@@ -1,5 +1,6 @@
 import {createHash} from "node:crypto";
 import {GuideProviderError,type GuideDraft} from "./assistant";
+export type GuideEvaluationCheck={id:string;content:string;escalate:boolean;needsCitation:boolean};
 
 export const guideEvaluationCases=[
  {id:"walks",content:"How do I add next week’s walk? If I can’t host it, can another organizer help?",escalate:false,needsCitation:true},
@@ -43,7 +44,7 @@ export function selectGuideEvaluationCases(args:string[]){
  return [selected];
 }
 
-export function checkGuideEvaluation(test:typeof guideEvaluationCases[number],draft:GuideDraft){
+export function checkGuideEvaluation(test:GuideEvaluationCheck,draft:GuideDraft){
  if(draft.escalate!==test.escalate)throw new Error(`${test.id}: unexpected escalation decision.`);
  if(test.needsCitation&&!draft.citations.length)throw new Error(`${test.id}: documented guidance needs a citation.`);
  if(/\*\*|```|^#{1,6}\s/m.test(draft.draft))throw new Error(`${test.id}: draft is not plain text.`);

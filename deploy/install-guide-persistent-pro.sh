@@ -22,7 +22,7 @@ done
 "$node" "$release/check-guide-persistent-pro.cjs" "$release/knowledge.json"
 "$node" "$release/prepare-guide-persistent-pro.cjs" --preflight
 install -d -o root -g root -m 0755 "$base" "$base/release"
-for file in run-guide-persistent-pro.cjs prepare-guide-persistent-pro.cjs check-pro-entitlement.cjs stop-guide-persistent-pro.sh; do install -o root -g root -m 0755 "$release/$file" "$base/release/$file"; done
+for file in run-guide-persistent-pro.cjs prepare-guide-persistent-pro.cjs check-pro-entitlement.cjs report-guide-conversations.cjs stop-guide-persistent-pro.sh; do install -o root -g root -m 0755 "$release/$file" "$base/release/$file"; done
 for file in knowledge.json persistent-pro-disabled.json SOURCE_COMMIT; do install -o root -g root -m 0644 "$release/$file" "$base/release/$file"; done
 ln -s "$base/release" "$base/current"
 install -o root -g root -m 0644 "$release/$unit" "/etc/systemd/system/$unit"

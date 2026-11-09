@@ -10,6 +10,7 @@ import {persistentProPolicySchema,persistentProTick,recoverPersistentPro} from "
 import {readGuideSupportPlan} from "../src/guide/support-access";
 import {readAnyComplete,publishIdempotent} from "../src/guide/transport";
 import {GuideProcessingReactions} from "../src/guide/processing-reaction";
+import {syncGuideConversations} from "../src/guide/conversation-leaderboard";
 
 async function main(){
  const path=process.env.GUIDE_PERSISTENT_PRO_POLICY;
@@ -57,6 +58,7 @@ async function main(){
   while(!stop.signal.aborted){
    const current=readPolicy();if(!current.enabled)break;
    if(JSON.stringify({...current,enabled:false})!==identityPolicy)throw new Error("Persistent policy changed; review before restart.");
+   try{syncGuideConversations(db);}catch{console.warn("Guide conversation statistics could not be updated; reply handling continues.");}
    let outcome:unknown;
    try{outcome=await persistentProTick(db,secret,dependencies);}catch{outcome={state:"held-or-unavailable",sent:false};}
    const line=JSON.stringify(outcome);
