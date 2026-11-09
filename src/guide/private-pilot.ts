@@ -21,7 +21,7 @@ export const privatePilotPolicySchema=z.object({
 }).strict();
 export type PrivatePilotPolicy=z.infer<typeof privatePilotPolicySchema>;
 type Attempt={phase:string;review:string|null};
-type Dependencies={
+export type PrivatePilotDependencies={
  processingReactions?:boolean;
  readPolicy:()=>unknown;now:()=>number;
  plan:(recipient:string)=>Promise<GuidePlan>;
@@ -29,6 +29,11 @@ type Dependencies={
  discover:(recipient:string)=>Promise<string[]>;
  publish:(event:Event,relays:string[])=>Promise<void>;
 };
+type Dependencies=PrivatePilotDependencies;
+export function initializePrivatePilotState(db:DatabaseSync){
+ initializeGuideLimits(db);
+ db.exec("CREATE TABLE IF NOT EXISTS guide_private_pilot_policy(id TEXT PRIMARY KEY,digest TEXT NOT NULL); CREATE TABLE IF NOT EXISTS guide_private_pilot_attempt(policy_id TEXT NOT NULL,case_id TEXT NOT NULL,message_key TEXT NOT NULL,phase TEXT NOT NULL,review TEXT,PRIMARY KEY(policy_id,case_id,message_key))");
+}
 function hash(value:unknown){return createHash("sha256").update(JSON.stringify(value)).digest("hex");}
 function policyDigest(policy:PrivatePilotPolicy){return hash({...policy,enabled:false});}
 function normalize(value:string){return value.trim().replace(/\s+/g," ").toLowerCase();}
@@ -105,8 +110,7 @@ async function runPrivatePilotCaseWithoutReactions(db:DatabaseSync,caseId:string
  if(!latest||latest.createdAt<policy.startsAt||latest.receivedAt<policy.startsAt||latest.receivedAt<deps.now()-300||latest.createdAt<deps.now()-300||latest.receivedAt>deps.now()||latest.createdAt>deps.now()+60||messages.some(message=>message.receivedAt>latest.receivedAt))throw new Error("Private pilot requires a fresh latest message.");
  const test=guideEvaluationCases.find(test=>!test.escalate&&normalize(test.content)===normalize(latest.content));
  if(!test)return {state:"needs-review" as const,sent:false};
- initializeGuideLimits(db);
- db.exec("CREATE TABLE IF NOT EXISTS guide_private_pilot_policy(id TEXT PRIMARY KEY,digest TEXT NOT NULL); CREATE TABLE IF NOT EXISTS guide_private_pilot_attempt(policy_id TEXT NOT NULL,case_id TEXT NOT NULL,message_key TEXT NOT NULL,phase TEXT NOT NULL,review TEXT,PRIMARY KEY(policy_id,case_id,message_key))");
+ initializePrivatePilotState(db);
  const attempt=()=>db.prepare("SELECT phase,review FROM guide_private_pilot_attempt WHERE policy_id=? AND case_id=? AND message_key=?").get(policy.id,caseId,messageKey) as Attempt|undefined;
  const mark=(phase:string,review:string|null)=>db.prepare("UPDATE guide_private_pilot_attempt SET phase=?,review=? WHERE policy_id=? AND case_id=? AND message_key=?").run(phase,review,policy.id,caseId,messageKey);
  const verifiedPlan=async()=>{

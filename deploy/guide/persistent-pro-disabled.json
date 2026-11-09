@@ -1,0 +1,14 @@
+{
+ "version":2,
+ "enabled":false,
+ "requirePro":true,
+ "recipient":"74d0c61ca913765c188dfc2265d27bcb401a1906ebd79c901dc977a69a2189f0",
+ "environment":"production",
+ "startsAt":0,
+ "maxCalls":10,
+ "maxDeliveries":5,
+ "model":"gpt-6.1-sol",
+ "promptSha256":"335afa40b9fda4f0bc1b8daaa78fe8b094e949987fd763195bcfceb049036ff4",
+ "knowledgeSha256":"ba4596406565803282059f3d33f7b3cece7f5fb9f0f6a0f746b1e8e30c7feaa7",
+ "suiteSha256":"6f4c3c126f233e0ffe59ed5b5c7836aaa083e67c4681882f78ac11b098ce5b76"
+}
