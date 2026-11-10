@@ -5,6 +5,24 @@ import {wrapEvent} from "nostr-tools/nip59";
 import {it,expect} from "vitest";
 import {readNip17Wraps} from "./nip17-inbox";
 
+it("recovers a private inbox on a fresh connection after a relay refusal",async()=>{
+ const pubkey=getPublicKey(generateSecretKey()),event=wrapEvent({kind:14,tags:[["p",pubkey]],content:"Synthetic recovered reply"},generateSecretKey(),pubkey);
+ const server=new WebSocketServer({host:"127.0.0.1",port:0});await once(server,"listening");
+ const address=server.address();if(typeof address==="string"||!address)throw new Error("No test listener.");
+ const relay=`ws://127.0.0.1:${address.port}`,pools:SimplePool[]=[];let available=false;
+ server.on("connection",socket=>socket.on("message",bytes=>{
+  const message=JSON.parse(bytes.toString());if(message[0]!=="REQ")return;
+  if(!available)socket.send(JSON.stringify(["CLOSED",message[1],"error: temporarily unavailable"]));
+  else{socket.send(JSON.stringify(["EVENT",message[1],event]));socket.send(JSON.stringify(["EOSE",message[1]]));}
+ }));
+ try{
+  const first=new SimplePool();pools.push(first);
+  await expect(readNip17Wraps(first,pubkey,[relay])).rejects.toThrow("no inbox relay completed");first.destroy();
+  available=true;const second=new SimplePool();pools.push(second);
+  expect((await readNip17Wraps(second,pubkey,[relay])).map(row=>row.id)).toEqual([event.id]);
+ }finally{for(const pool of pools)pool.destroy();for(const client of server.clients)client.terminate();await new Promise<void>((resolve,reject)=>server.close(error=>error?reject(error):resolve()));}
+});
+
 it("retrieves a private reply through the real relay library after a twelve-second signer approval",async()=>{
  const key=generateSecretKey(),pubkey=getPublicKey(key),event=wrapEvent({kind:14,tags:[["p",pubkey]],content:"Synthetic delayed signer test"},generateSecretKey(),pubkey);
  const server=new WebSocketServer({host:"127.0.0.1",port:0});await once(server,"listening");

@@ -7,6 +7,16 @@ import {Nip17OpenError} from "./nip17-inbox";
 const wrap=(id:string)=>({id} as Event);
 const message=(id:string,createdAt=1):Nip17Message=>({id,wrapId:id,pubkey:"guide",recipient:"actor",content:"private",createdAt});
 describe("progressive Guide history",()=>{
+ it("preserves verified history through a failed read and opens a new reply on recovery",async()=>{
+  const cache=new Map<string,Nip17Message>(),onMessages=vi.fn(),open=vi.fn(async(event:Event)=>message(event.id));
+  const options={actor:"actor",guide:"guide",cache,active:()=>true,open,onMessages};
+  await openGuideHistory({...options,read:async()=>[wrap("old")]});
+  await expect(openGuideHistory({...options,read:async()=>{throw new Error("relay disconnected");}})).rejects.toThrow("relay disconnected");
+  expect(cache.get("old")).toEqual(message("old"));
+  expect(await openGuideHistory({...options,read:async()=>[wrap("old"),wrap("new")]})).toEqual({count:2,unreadable:0,failures:[]});
+  expect(open).toHaveBeenCalledTimes(2);
+  expect(onMessages.mock.lastCall?.[0].map((row:Nip17Message)=>row.id).sort()).toEqual(["new","old"]);
+ });
  it("shows opened messages before the slow relay completes, and deduplicates",async()=>{
   let finish!:(events:Event[])=>void;
   const onMessages=vi.fn(),open=vi.fn(async(event:Event)=>message(event.id));

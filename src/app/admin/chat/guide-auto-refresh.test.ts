@@ -20,6 +20,8 @@ it("only polls the signed-in Guide conversation after a successful read and neve
  expect(source).toContain('if(guideRead.current!==null||(background&&!guidePollingReady.current))return');
  expect(source.indexOf('guideRead.current=request')).toBeLessThan(source.indexOf('await discoverInbox(dashboard.pubkey)'));
  expect(source).toContain('if(guideRead.current===request)guideRead.current=null');
- expect(source).toContain('guidePollingReady.current=false;const detail=');
+ const loadGuide=source.slice(source.indexOf('const loadGuide=useCallback'),source.indexOf('const openRoom=useCallback'));
+ expect(loadGuide).not.toContain('guidePollingReady.current=false');
+ expect(source).toContain('(guideSelected||membership!=="not-joined")');
  expect(source).toContain('return startGuideAutoRefresh(()=>{void loadGuide(true);})');
 });
