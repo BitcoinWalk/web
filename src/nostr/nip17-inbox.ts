@@ -58,25 +58,36 @@ export async function unwrapNip17Message(wrap:Event,recipientPubkey:string,decry
 
 /** Reads only completed relay responses. A failed relay cannot turn an inbox
  * into a false empty state. */
-export async function readNip17Wraps(pool:InboxPool,pubkey:string,relays:string[],onauth?:(event:EventTemplate)=>Promise<VerifiedEvent>,onBatch?:(events:Event[])=>void):Promise<Event[]>{
+export async function readNip17Wraps(pool:InboxPool,pubkey:string,relays:string[],onauth?:(event:EventTemplate)=>Promise<VerifiedEvent>,onBatch?:(events:Event[])=>void,onIncomplete?:(relays:string[])=>void):Promise<Event[]>{
  if(!HEX.test(pubkey)||!relays.length)throw new Error("No usable private-message inbox is available.");
  const results=await Promise.allSettled(relays.map(relay=>new Promise<Event[]>((resolve,reject)=>{
   const events:Event[]=[];let settled=false,authRetried=false,subscription:{close:(reason?:string)=>void}|undefined;
-  const timer=setTimeout(()=>{if(settled)return;settled=true;subscription?.close("private message read timeout");reject(new Error("Private message read timed out."));},9000);
+  let timer:ReturnType<typeof setTimeout>;
+  const armTimeout=(milliseconds:number)=>{clearTimeout(timer);timer=setTimeout(()=>{if(settled)return;settled=true;subscription?.close("private message read timeout");reject(new Error("Private message read timed out."));},milliseconds);};
+  armTimeout(9000);
+  const authenticate=onauth?async(template:EventTemplate)=>{
+   if(settled)throw new Error("Inbox read expired before authentication.");
+   // Mobile signer approval has a separate bound from relay network reads.
+   armTimeout(60000);
+   try{const signed=await onauth(template);if(settled)throw new Error("Inbox read expired during authentication.");armTimeout(9000);return signed;}
+   catch{finish([{reason:"Relay authentication failed."}]);throw new Error("Private inbox authentication was not completed.");}
+  }:undefined;
   const finish=(reasons:{reason:string}[])=>{
    if(settled)return;
    // Damus prefixes its authentication refusal; nostr-tools only retries the unprefixed form.
-   if(!authRetried&&onauth&&pool.ensureRelay&&reasons.length===1&&reasons[0].reason.startsWith("ERROR: auth-required:")){
+   if(!authRetried&&authenticate&&pool.ensureRelay&&reasons.length===1&&reasons[0].reason.startsWith("ERROR: auth-required:")){
     authRetried=true;
-    void pool.ensureRelay(relay).then(connection=>{if(settled)throw new Error("Inbox read expired.");return connection.auth(onauth);}).then(()=>{if(!settled){events.length=0;subscribe();}}).catch(()=>finish([{reason:"Relay authentication failed."}]));
+    void pool.ensureRelay(relay).then(connection=>{if(settled)throw new Error("Inbox read expired.");return connection.auth(authenticate);}).then(()=>{if(!settled){events.length=0;subscribe();}}).catch(()=>finish([{reason:"Relay authentication failed."}]));
     return;
    }
    settled=true;clearTimeout(timer);if(reasons.length===1&&reasons[0].reason==="closed automatically on eose"){onBatch?.([...events].sort((a,b)=>b.created_at-a.created_at).slice(0,100));resolve(events);}else reject(new Error("A private-message relay did not complete its read."));
   };
-  const subscribe=()=>{try{subscription=pool.subscribeEose([relay],{kinds:[1059],"#p":[pubkey],limit:100},{maxWait:10000,onauth,onevent:(event:Event)=>{if(!settled)events.push(event);},onclose:finish});}catch(error){settled=true;clearTimeout(timer);reject(error);}};
+  // Keep the library's synthetic EOSE later than our auth + network deadlines.
+  const subscribe=()=>{try{subscription=pool.subscribeEose([relay],{kinds:[1059],"#p":[pubkey],limit:100},{maxWait:75000,onauth:authenticate,onevent:(event:Event)=>{if(!settled)events.push(event);},onclose:finish});}catch(error){settled=true;clearTimeout(timer);reject(error);}};
   subscribe();
  })));
  const complete=results.filter((row):row is PromiseFulfilledResult<Event[]>=>row.status==="fulfilled");
+ onIncomplete?.(relays.filter((_,index)=>results[index].status==="rejected"));
  if(!complete.length)throw new Error("Private messages are temporarily unavailable: no inbox relay completed its read.");
  return [...new Map(complete.flatMap(row=>row.value).map(event=>[event.id,event])).values()].sort((a,b)=>b.created_at-a.created_at).slice(0,100);
 }

@@ -88,15 +88,17 @@ export default function ChatPage(){
   const connection=new SimplePool(),active=()=>request===guideGeneration.current;
   try{
    const relays=await discoverInbox(dashboard.pubkey);if(!active())return;setGuideNeedsInbox(false);
+   let incompleteRelays:string[]=[];
    const result=await openGuideHistory({actor:dashboard.pubkey,guide:guidePubkey,cache:guideCache.current.messages,active,
-    read:onBatch=>readNip17Wraps(connection,dashboard.pubkey,relays,authenticateWithBrowserExtension,onBatch),
+    read:onBatch=>readNip17Wraps(connection,dashboard.pubkey,relays,authenticateWithBrowserExtension,onBatch,failed=>{incompleteRelays=failed;}),
     open:wrap=>unwrapNip17Message(wrap,dashboard.pubkey,decryptWithBrowserExtension),
     onMessages:opened=>{if(active()){setGuideMessages(current=>[...new Map([...current,...opened].map(row=>[row.id,row])).values()].sort((a,b)=>a.createdAt-b.createdAt||a.id.localeCompare(b.id)).slice(-300));if(!background)setStatus("Opening recent Guide messages…");}},
    });
    if(!active())return;
    guidePollingReady.current=true;
    setGuideFailures({key,failures:result.failures});
-   setStatus(result.unreadable?`Guide messages loaded. ${result.unreadable} unreadable private ${result.unreadable===1?"message was":"messages were"} skipped.`:result.count?"Guide messages up to date.":"No new Guide messages found.");
+   const messageStatus=result.unreadable?`Guide messages loaded. ${result.unreadable} unreadable private ${result.unreadable===1?"message was":"messages were"} skipped.`:result.count?"Guide messages up to date.":"No new Guide messages found.";
+   setStatus(incompleteRelays.length?`Some private-message inboxes could not be checked (${incompleteRelays.map(relay=>new URL(relay).hostname).join(", ")}). Messages may be missing. Approve any signer request, then refresh messages.${result.unreadable?` ${messageStatus}`:""}`:messageStatus);
   }catch(error){if(active()){guidePollingReady.current=false;const detail=error instanceof Error?error.message:"Guide messages could not be opened.",missing=detail.startsWith("No signed DM inbox announcement");setGuideNeedsInbox(missing);setStatus(missing?"Guide messages are not enabled for this account yet.":detail);}}
   finally{connection.close([]);connection.destroy();if(guideRead.current===request)guideRead.current=null;if(active())setGuideLoading(false);}
  },[dashboard.pubkey,guidePubkey]);
