@@ -6,7 +6,7 @@ import {SimplePool} from "nostr-tools";
 import {assertBotKey,configSchema,selectInbox,signTransportAuth} from "../src/guide/core";
 import {draftGuideReply,loadGuideKnowledge,guidePromptSha256} from "../src/guide/assistant";
 import {guideEvaluationSha256} from "../src/guide/evaluation";
-import {persistentProPolicySchema,persistentProTick,recoverPersistentPro} from "../src/guide/persistent-pro";
+import {persistentProGroupPolicySchema,persistentProAccounts,persistentProTick,recoverPersistentPro} from "../src/guide/persistent-pro";
 import {readGuideSupportPlan} from "../src/guide/support-access";
 import {readAnyComplete,publishIdempotent} from "../src/guide/transport";
 import {GuideProcessingReactions} from "../src/guide/processing-reaction";
@@ -17,7 +17,7 @@ async function main(){
  if(!path)throw new Error("Persistent Pro Guide policy is required.");
  const readPolicy=()=>{
   const stat=lstatSync(path);if(!stat.isFile()||stat.uid!==0||(stat.mode&0o022)!==0||stat.size>8192)throw new Error("Persistent Pro Guide policy must be a root-owned, non-writable regular file.");
-  return persistentProPolicySchema.parse(JSON.parse(readFileSync(path,"utf8")));
+  return persistentProGroupPolicySchema.parse(JSON.parse(readFileSync(path,"utf8")));
  };
  const policy=readPolicy();
  if(!policy.enabled){console.log(JSON.stringify({result:"GUIDE_PERSISTENT_PRO_DISABLED",sent:false,modelCalls:0}));return;}
@@ -53,17 +53,26 @@ async function main(){
   };
   recoverPersistentPro(db);
   const reactions=new GuideProcessingReactions(db,secret,dependencies),identityPolicy=JSON.stringify({...policy,enabled:false});
-  let previous="";
-  console.log(JSON.stringify({result:"GUIDE_PERSISTENT_PRO_WATCHING",recipient:policy.recipient,maxCallsPerUtcDay:10,maxRepliesPerUtcDay:5}));
+  const previous=new Map<string,string>();
+  console.log(JSON.stringify({result:"GUIDE_PERSISTENT_PRO_WATCHING",recipients:persistentProAccounts(policy).map(account=>account.recipient),maxCallsPerAccountPerUtcDay:10,maxRepliesPerAccountPerUtcDay:5}));
   while(!stop.signal.aborted){
    const current=readPolicy();if(!current.enabled)break;
    if(JSON.stringify({...current,enabled:false})!==identityPolicy)throw new Error("Persistent policy changed; review before restart.");
    try{syncGuideConversations(db);}catch{console.warn("Guide conversation statistics could not be updated; reply handling continues.");}
-   let outcome:unknown;
-   try{outcome=await persistentProTick(db,secret,dependencies);}catch{outcome={state:"held-or-unavailable",sent:false};}
-   const line=JSON.stringify(outcome);
-   if(line!==previous){console.log(JSON.stringify({result:"GUIDE_PERSISTENT_PRO_TICK",outcome}));previous=line;}
-   try{await reactions.retryCleanup(policy.recipient);}catch{console.warn("Guide processing cleanup remains pending.");}
+   for(const account of persistentProAccounts(policy)){
+    if(stop.signal.aborted)break;
+    let outcome:unknown;
+    try{outcome=await persistentProTick(db,secret,{...dependencies,readPolicy:()=>{
+     const root=readPolicy();
+     if(JSON.stringify({...root,enabled:false})!==identityPolicy)throw new Error("Persistent policy changed; review before restart.");
+     const selected=persistentProAccounts(root).find(row=>row.recipient===account.recipient);
+     if(!selected)throw new Error("Account no longer admitted.");
+     return {...selected,enabled:root.enabled&&!stop.signal.aborted};
+    }});}catch{outcome={state:"held-or-unavailable",sent:false};}
+    const line=JSON.stringify(outcome);
+    if(line!==previous.get(account.recipient)){console.log(JSON.stringify({result:"GUIDE_PERSISTENT_PRO_TICK",recipient:account.recipient,outcome}));previous.set(account.recipient,line);}
+    try{await reactions.retryCleanup(account.recipient);}catch{console.warn("Guide processing cleanup remains pending.");}
+   }
    try{await delay(10000,undefined,{signal:stop.signal});}catch{break;}
   }
   console.log(JSON.stringify({result:"GUIDE_PERSISTENT_PRO_STOPPED"}));

@@ -4,7 +4,7 @@ import {createHash} from "node:crypto";
 import {dirname,join} from "node:path";
 import {execFileSync} from "node:child_process";
 import {DatabaseSync} from "node:sqlite";
-import {persistentProPolicySchema,GUIDE_PERSISTENT_PRO_RECIPIENT} from "../src/guide/persistent-pro";
+import {persistentProPolicySchema,persistentProGroupPolicySchema,GUIDE_PERSISTENT_PRO_RECIPIENT} from "../src/guide/persistent-pro";
 import {loadGuideKnowledge} from "../src/guide/assistant";
 import {privatePilotPolicySchema} from "../src/guide/private-pilot";
 
@@ -15,7 +15,7 @@ async function main(){
  assert.equal(process.getuid?.(),0);
  const mode=process.argv[2];assert(["--preflight","--activate","--disable"].includes(mode));assert.equal(process.argv.length,3);
  if(mode==="--disable"){
-  safeRootFile(path);const policy=persistentProPolicySchema.parse(JSON.parse(readFileSync(path,"utf8"))),next=path+".disabled-"+process.pid;
+  safeRootFile(path);const policy=persistentProGroupPolicySchema.parse(JSON.parse(readFileSync(path,"utf8"))),next=path+".disabled-"+process.pid;
   writeFileSync(next,JSON.stringify({...policy,enabled:false})+"\n",{flag:"wx",mode:0o644});chmodSync(next,0o644);renameSync(next,path);return;
  }
  assert(!existsSync(path));

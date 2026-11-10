@@ -4,7 +4,7 @@ import {expect,it,vi} from "vitest";
 import {GuideSupportCases,type SupportMessage} from "./support";
 import type {GuideDraft} from "./assistant";
 import {guideEvaluationCases} from "./evaluation";
-import {persistentProPolicySchema,persistentProDayPolicy,persistentProTick,recoverPersistentPro,GUIDE_PERSISTENT_PRO_RECIPIENT,type PersistentProPolicy} from "./persistent-pro";
+import {persistentProPolicySchema,persistentProGroupPolicySchema,persistentProAccounts,persistentProDayPolicy,persistentProTick,recoverPersistentPro,GUIDE_PERSISTENT_PRO_RECIPIENT,GUIDE_SECOND_PRO_RECIPIENT,type PersistentProPolicy} from "./persistent-pro";
 
 function setup(){
  const db=new DatabaseSync(":memory:"),secret=generateSecretKey(),store=new GuideSupportCases(db),caseId="a".repeat(64);let now=Date.UTC(2026,10,9,12)/1000,sequence=0;
@@ -31,6 +31,50 @@ it("keeps natural matching off by default and preserves the daily grant when it 
   s.policy.questionMatching="reviewed-intents";
   expect(persistentProDayPolicy(s.policy,s.deps.now())).toEqual(original);
   expect(persistentProPolicySchema.parse({...s.policy,questionMatching:undefined}).questionMatching).toBe("exact");
+ }finally{s.db.close();}
+});
+it("enforces independent second-account daily caps without touching the first account",async()=>{
+ const s=setup();try{
+  s.add();expect((await s.tick()).state).toBe("sent");
+  const firstGrant=persistentProDayPolicy(s.policy,s.deps.now()),baseline=s.db.prepare("SELECT * FROM guide_private_pilot_attempt WHERE policy_id=?").all(firstGrant.id);
+  const second=persistentProAccounts({...s.policy,additionalProStartsAt:s.deps.now()+2})[1],id="c".repeat(64);
+  const tick=()=>persistentProTick(s.db,s.secret,{...s.deps,readPolicy:()=>second});
+  const add=()=>{
+   s.advance(1);const now=s.deps.now(),message=now.toString(16).padStart(64,"0");
+   s.db.prepare("INSERT OR IGNORE INTO support_case(id,sender,state,opened_at,updated_at) VALUES (?,?,'open',?,?)").run(id,second.recipient,now,now);
+   s.db.prepare("INSERT INTO support_message VALUES (?,?,?,?,?,?,?)").run(message,id,message,second.recipient,guideEvaluationCases.find(row=>row.id==="walks")!.content,now,now);
+   s.db.prepare("UPDATE support_case SET updated_at=? WHERE id=?").run(now,id);
+  };
+  add();expect((await tick()).state).toBe("not-started");s.advance(2);
+  for(let i=0;i<5;i++){add();expect((await tick()).state).toBe("sent");recoverPersistentPro(s.db);}
+  add();expect((await tick()).state).toBe("daily-limit");
+  expect(s.db.prepare("SELECT * FROM guide_private_pilot_attempt WHERE policy_id=?").all(firstGrant.id)).toEqual(baseline);
+  expect(s.deps.draft.mock.calls.slice(1).every(([message])=>message.sender===second.recipient&&message.content===guideEvaluationCases.find(row=>row.id==="walks")!.content)).toBe(true);
+  s.add();expect((await s.tick()).state).toBe("sent");
+  s.advance(86400);add();expect((await tick()).state).toBe("sent");
+  expect(s.db.prepare("SELECT * FROM guide_private_pilot_attempt WHERE policy_id=?").all(firstGrant.id)).toHaveLength(2);
+  second.enabled=false;expect((await tick()).state).toBe("disabled");
+ }finally{s.db.close();}
+});
+it("holds interrupted second-account attempts and a group off switch disables both accounts",async()=>{
+ const s=setup();try{
+  const group={...s.policy,additionalProStartsAt:s.policy.startsAt},second=persistentProAccounts(group)[1];
+  s.add(undefined,second.recipient);s.deps.draft.mockRejectedValueOnce(new Error("interrupted"));
+  await expect(persistentProTick(s.db,s.secret,{...s.deps,readPolicy:()=>second})).rejects.toThrow("interrupted");
+  s.db.prepare("UPDATE guide_private_pilot_attempt SET phase='drafting'").run();recoverPersistentPro(s.db);
+  expect((await persistentProTick(s.db,s.secret,{...s.deps,readPolicy:()=>second})).state).toBe("needs-review");
+  expect(s.deps.draft).toHaveBeenCalledTimes(1);
+  group.enabled=false;
+  for(const policy of persistentProAccounts(group))expect((await persistentProTick(s.db,s.secret,{...s.deps,readPolicy:()=>policy})).state).toBe("disabled");
+ }finally{s.db.close();}
+});
+it("refuses an arbitrary group recipient and requires fresh Pro entitlement for the second account",async()=>{
+ const s=setup();try{
+  expect(()=>persistentProGroupPolicySchema.parse({...s.policy,recipient:GUIDE_SECOND_PRO_RECIPIENT})).toThrow();
+  const second={...s.policy,recipient:GUIDE_SECOND_PRO_RECIPIENT};
+  s.add(undefined,second.recipient);s.deps.plan.mockResolvedValue("basic");
+  await expect(persistentProTick(s.db,s.secret,{...s.deps,readPolicy:()=>second})).rejects.toThrow("verified Pro");
+  expect(s.deps.draft).not.toHaveBeenCalled();expect(s.deps.publish).not.toHaveBeenCalled();
  }finally{s.db.close();}
 });
 it("answers difficulty and unsupported questions without a model call, and maps natural walk questions to the reviewed FAQ",async()=>{

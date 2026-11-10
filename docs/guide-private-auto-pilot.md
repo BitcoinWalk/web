@@ -218,3 +218,26 @@ do not prove this future automatic runner works. No service, timer, persistent
 OpenAI key or production automatic-send flag is installed by this preparation.
 
 Official evaluation guidance: https://developers.openai.com/api/docs/guides/evaluation-best-practices
+
+## Controlled production expansion: second verified Pro account
+
+The persistent worker remains an explicit allowlist, not general Pro access.
+`add-guide-second-pro.sh` admits only the operator-selected second account after
+rechecking both accounts against the signed production entitlement endpoint.
+It requires the known reviewed-question release and policy fingerprint, backs up
+the policy and state, and changes only the persistent assistant. The stored API
+key, normal intake worker, Basic quotas and original account activation remain
+unchanged. Rollback restores the old code/policy, never rewinds delivery state.
+
+Each account has a separate durable UTC-day grant: at most 10 processing/model
+attempts and 5 replies per account (20 attempts / 10 replies across both). Static
+reviewed answers conservatively consume the same attempt allowance. The original
+grant ID remains unchanged; the second uses `bw152-live-pro-second-YYYYMMDD`.
+Only new questions after that account's activation are eligible. Every reply
+still requires fresh Pro entitlement; an account failure does not block the other.
+The existing stop script disables the shared worker for both accounts.
+
+The private leaderboard remains metadata-only and covers retained history plus
+new intake. No web deployment, model/prompt change, public leaderboard or city-chat
+posting is included. After activation, the second account must confirm receipt in
+Walkie Talkie (and Armada if configured); source tests do not prove live delivery.

@@ -19,6 +19,7 @@ const files=[
  ["release-build/persistent-pro/report-guide-conversations.cjs","report-guide-conversations.cjs"],
  ["release-build/persistent-pro/upgrade-guide-reviewed-questions.cjs","upgrade-guide-reviewed-questions.cjs"],
  ["deploy/upgrade-guide-reviewed-questions.sh","upgrade-guide-reviewed-questions.sh"],
+ ["deploy/add-guide-second-pro.sh","add-guide-second-pro.sh"],
  ["deploy/install-guide-persistent-pro.sh","install-guide-persistent-pro.sh"],
  ["deploy/stop-guide-persistent-pro.sh","stop-guide-persistent-pro.sh"],
  ["deploy/guide/bitcoinwalk-guide-auto-pro.service","bitcoinwalk-guide-auto-pro.service"],
