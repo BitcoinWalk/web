@@ -63,6 +63,21 @@ describe("NIP-17 inbox",()=>{
   await expect(readNip17Wraps(pool,pubkey,["wss://one.example","wss://two.example"])).resolves.toEqual([event]);
  });
 
+ it("authenticates and retries the Damus-prefixed refusal once",async()=>{
+  const pubkey=getPublicKey(generateSecretKey()),onauth=vi.fn(),auth=vi.fn(async()=>{});
+  let reads=0;
+  const pool={ensureRelay:vi.fn(async()=>({auth}) as unknown as Awaited<ReturnType<import("nostr-tools").SimplePool["ensureRelay"]>>),subscribeEose:vi.fn((_relays,_filter,handlers)=>{queueMicrotask(()=>handlers.onclose([{reason:++reads===1?"ERROR: auth-required: requested filter requires authentication":"closed automatically on eose"}]));return {close:vi.fn()};})};
+  await expect(readNip17Wraps(pool,pubkey,["wss://relay.damus.io/"],onauth)).resolves.toEqual([]);
+  expect(auth).toHaveBeenCalledExactlyOnceWith(onauth);expect(reads).toBe(2);
+ });
+
+ it("does not repeatedly prompt when the authenticated retry is refused",async()=>{
+  const pubkey=getPublicKey(generateSecretKey()),auth=vi.fn(async()=>{});
+  const pool={ensureRelay:vi.fn(async()=>({auth}) as unknown as Awaited<ReturnType<import("nostr-tools").SimplePool["ensureRelay"]>>),subscribeEose:vi.fn((_relays,_filter,handlers)=>{queueMicrotask(()=>handlers.onclose([{reason:"ERROR: auth-required: requested filter requires authentication"}]));return {close:vi.fn()};})};
+  await expect(readNip17Wraps(pool,pubkey,["wss://relay.damus.io/"],vi.fn())).rejects.toThrow(/no inbox relay completed/);
+  expect(auth).toHaveBeenCalledOnce();expect(pool.subscribeEose).toHaveBeenCalledTimes(2);
+ });
+
  it("streams only completed relay batches without waiting for another relay",async()=>{
   const pubkey=getPublicKey(generateSecretKey()),batch=vi.fn();let completeSlow!:()=>void;
   const pool={subscribeEose:vi.fn((relays:string[],_filter,handlers)=>{if(relays[0].includes("slow"))completeSlow=()=>handlers.onclose([{reason:"connection failed"}]);else queueMicrotask(()=>handlers.onclose([{reason:"closed automatically on eose"}]));return {close:vi.fn()};})};
