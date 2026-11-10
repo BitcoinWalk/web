@@ -54,8 +54,10 @@ export async function signWithBrowserExtension(template: EventTemplate,{allowSta
 
 /** Signs a NIP-42 relay authentication challenge inside the user's extension. */
 export async function authenticateWithBrowserExtension(template: EventTemplate): Promise<VerifiedEvent> {
-  const event = await signWithBrowserExtension(template);
-  if (!verifyEvent(event)) throw new Error("The browser extension returned an invalid relay authentication event.");
+  if(template.kind!==22242||template.content!==""||template.tags.filter(tag=>tag[0]==="relay"&&!!tag[1]).length!==1||template.tags.filter(tag=>tag[0]==="challenge"&&!!tag[1]).length!==1)throw new Error("Invalid relay authentication challenge.");
+  // Inbox authentication is not a city edit and must work while dashboard permissions refresh.
+  const event = await signWithBrowserExtension(template,{allowStaleAuthorization:true});
+  if (!verifyEvent(event)||event.kind!==template.kind||event.created_at!==template.created_at||event.content!==template.content||JSON.stringify(event.tags)!==JSON.stringify(template.tags)) throw new Error("The browser extension returned an invalid relay authentication event.");
   return event;
 }
 
