@@ -15,6 +15,7 @@ describe("quiet chat chrome",()=>{
   expect(hosts).toContain("1 participant");expect(hosts).toContain("Members only");expect(hosts).toContain("not end-to-end encrypted");
   const guide=renderToStaticMarkup(createElement(ChatRoomInfo,{label:"BitcoinWalk Guide",guide:true}));
   expect(guide).toContain("Encrypted messages");expect(guide).toContain("End-to-end encrypted NIP-17");expect(guide).not.toContain("not end-to-end encrypted");
+  expect(guide).toContain("Automatic replies are available only to enabled pilot accounts");expect(guide).not.toContain("Replies are not monitored yet");
  });
  it("keeps keyboard and draft help behind a native keyboard-accessible disclosure",()=>{
   const html=renderToStaticMarkup(createElement(ChatComposerTips));

@@ -31,6 +31,16 @@ describe("organizer invitations",()=>{
   expect(guideInboxRelays).toEqual(["wss://relay.ditto.pub/","wss://nos.lol/"]);
   expect(guideInboxTemplate(123)).toEqual({kind:10050,created_at:123,content:"",tags:[["relay","wss://relay.ditto.pub/"],["relay","wss://nos.lol/"]]});
  });
+ it("retains all six verified inbox relays instead of rejecting or truncating the list",()=>{
+  const relays=Array.from({length:6},(_,i)=>`wss://inbox-${i}.example.com/`);
+  const event=finalizeEvent({kind:10050,created_at:10,tags:[...relays.map(relay=>["relay",relay]),["relay",relays[0]],["relay","http://localhost/"]],content:""},key);
+  expect(inboxRelays([event],pubkey)).toEqual(relays);
+ });
+ it("bounds browser connections without silently discarding signed destinations",()=>{
+  const tags=Array.from({length:21},(_,i)=>["relay",`wss://inbox-${i}.example.com/`]);
+  expect(inboxRelays([finalizeEvent({kind:10050,created_at:10,tags:tags.slice(0,20),content:""},key)],pubkey)).toHaveLength(20);
+  expect(()=>inboxRelays([finalizeEvent({kind:10050,created_at:10,tags,content:""},key)],pubkey)).toThrow("supports up to 20");
+ });
  it("finds signed settings on another discovery relay when the profile relays are unavailable",async()=>{
   const inbox=finalizeEvent({kind:10050,created_at:10,tags:[["relay","wss://recipient.example.com"]],content:""},key);
   vi.spyOn(SimplePool.prototype,"subscribeEose").mockImplementation((relays,_filter,handlers)=>{

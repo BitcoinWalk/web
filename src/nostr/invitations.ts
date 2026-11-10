@@ -27,7 +27,8 @@ export function inboxRelays(events:Event[],key:string):string[]{
  if(!newest)throw new Error("No signed DM inbox announcement was found on the reachable discovery relays. Publish NIP-17 inbox settings in a compatible client.");
  const relays=[...new Set(newest.tags.filter(t=>t[0]==="relay"&&validInboxURL(t[1]??"")).map(t=>new URL(t[1]).href))];
  if(!relays.length)throw new Error("The latest signed DM inbox list contains no usable public WSS relays. Update the account's NIP-17 inbox settings.");
- if(relays.length>3)throw new Error(`The signed inbox list contains ${relays.length} relays; invitations currently support up to 3.`);
+ // Bound browser fan-out without rejecting normal multi-relay NIP-17 inboxes.
+ if(relays.length>20)throw new Error(`The signed inbox list contains ${relays.length} relays; this client supports up to 20.`);
  return relays;
 }
 export async function readInboxAnnouncements(pool:Pick<SimplePool,"subscribeEose">,key:string,relays=inboxDiscoveryRelays):Promise<Event[]>{

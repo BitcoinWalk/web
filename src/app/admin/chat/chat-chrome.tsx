@@ -7,7 +7,7 @@ export function ChatRoomInfo({label,name,participants,relay,privateGroup=false,g
    <summary>Chat info</summary>
    <div className={styles.infoPanel}>
     <strong>{label}</strong>
-    {guide?<p>End-to-end encrypted NIP-17 messages. Only this account can open its inbox. Replies are not monitored yet.</p>:<><p>{privateGroup?"A members-only group, not end-to-end encrypted.":"A public community, not end-to-end encrypted."} Messages are readable by the relay. Never share private keys or payout credentials.</p>{name&&<p>Channel <span>#{name}</span></p>}{relay&&<p>Relay <span>{relay}</span></p>}</>}
+    {guide?<p>End-to-end encrypted NIP-17 messages. Only this account can open its inbox. Automatic replies are available only to enabled pilot accounts. Relay storage is not a read receipt.</p>:<><p>{privateGroup?"A members-only group, not end-to-end encrypted.":"A public community, not end-to-end encrypted."} Messages are readable by the relay. Never share private keys or payout credentials.</p>{name&&<p>Channel <span>#{name}</span></p>}{relay&&<p>Relay <span>{relay}</span></p>}</>}
    </div>
   </details>
  </div>;
