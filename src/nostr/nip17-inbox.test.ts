@@ -6,6 +6,22 @@ import {readNip17Wraps,unwrapNip17Message} from "./nip17-inbox";
 function decryptWith(secret:Uint8Array){return async(peer:string,ciphertext:string)=>nip44.v2.decrypt(ciphertext,nip44.v2.utils.getConversationKey(secret,peer));}
 
 describe("NIP-17 inbox",()=>{
+ it("distinguishes envelope validation, both decryptions, and decrypted data validation without exposing signer errors",async()=>{
+  const sender=generateSecretKey(),receiver=generateSecretKey(),recipient=getPublicKey(receiver);
+  const wrap=wrapEvent({kind:14,tags:[["p",recipient]],content:"Private Guide reply"},sender,recipient);
+  await expect(unwrapNip17Message({...wrap,kind:1},recipient,vi.fn())).rejects.toMatchObject({stage:"gift-wrap-validation"});
+  for(const stage of ["gift-wrap-decryption","seal-validation","message-decryption","message-validation"]){
+   let calls=0;
+   const decrypt=async(peer:string,ciphertext:string)=>{
+    calls++;
+    if(stage==="gift-wrap-decryption"||stage==="message-decryption"&&calls===2)throw new Error("SECRET signer response");
+    if(stage==="seal-validation"||stage==="message-validation"&&calls===2)return "SECRET invalid decrypted content";
+    return decryptWith(receiver)(peer,ciphertext);
+   };
+   const error=await unwrapNip17Message(wrap,recipient,decrypt).catch(error=>error);
+   expect(error.stage).toBe(stage);expect(error.message).not.toContain("SECRET");
+  }
+ });
  it("opens private processing reactions and deletion controls without weakening sender validation",async()=>{
   const sender=generateSecretKey(),receiver=generateSecretKey(),recipient=getPublicKey(receiver),target="a".repeat(64),created_at=Math.floor(Date.now()/1000);
   for(const kind of [7,5]){

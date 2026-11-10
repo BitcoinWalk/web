@@ -1,5 +1,7 @@
 import type {Event} from "nostr-tools";
-import type {Nip17Message} from "./nip17-inbox";
+import {Nip17OpenError,type Nip17Message,type nip17OpenStages} from "./nip17-inbox";
+
+export type GuideOpenFailure={wrapId:string;stage:keyof typeof nip17OpenStages|"unknown"};
 
 /** Cache belongs to one mounted account/Guide pair, never persistent storage. */
 export async function openGuideHistory(options:{
@@ -10,6 +12,7 @@ export async function openGuideHistory(options:{
 }){
  const {actor,guide,cache,read,open,active,onMessages}=options;
  const opened=new Map<string,Nip17Message>(),seen=new Set<string>();
+ const failures:GuideOpenFailure[]=[];
  let unreadable=0,work=Promise.resolve();
  const enqueue=(events:Event[])=>{work=work.then(async()=>{
   for(const event of events){
@@ -25,10 +28,10 @@ export async function openGuideHistory(options:{
     if(opened.has(message.id))continue;
     opened.set(message.id,message);
     onMessages([...opened.values()].sort((a,b)=>a.createdAt-b.createdAt||a.id.localeCompare(b.id)));
-   }catch{unreadable++;}
+   }catch(error){if(!active())return;unreadable++;failures.push({wrapId:event.id,stage:error instanceof Nip17OpenError?error.stage:"unknown"});}
   }
  });};
  // Also enqueue the final union, so callers without streaming still work.
  try{enqueue(await read(enqueue));}finally{await work;}
- return {unreadable,count:opened.size};
+ return {unreadable,count:opened.size,failures};
 }
