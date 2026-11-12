@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
 import "./styles.css";
+import {JourneyHistory} from "../components/journey-transition";
 import ThemeProvider from "../design-system/theme-provider";
 import {themeInitScript} from "../design-system/theme-preference";
 import PwaLifecycle from "../components/pwa-lifecycle";
@@ -21,9 +22,9 @@ export const viewport:Viewport={themeColor:"#f7931a",colorScheme:"light dark",wi
 
 export default function RootLayout({ children }: Readonly<{ children: ReactNode }>) {
   return (
-    <html lang="en" data-bw-theme="system" suppressHydrationWarning>
+    <html lang="en" data-scroll-behavior="smooth" data-bw-theme="system" suppressHydrationWarning>
       <head><script dangerouslySetInnerHTML={{__html:themeInitScript}}/></head>
-      <body><ThemeProvider><PwaLifecycle/>{children}</ThemeProvider></body>
+      <body><ThemeProvider><PwaLifecycle/><JourneyHistory>{children}</JourneyHistory></ThemeProvider></body>
     </html>
   );
 }

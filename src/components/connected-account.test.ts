@@ -12,7 +12,7 @@ describe("connected account",()=>{
   expect(html).toContain('data-variant="compact"');
   expect(html).toContain('data-lightning="false"');
   expect(html).toContain("Account connected");
-  expect(html).toContain("Use another account");
+  expect(html).toContain("Use a different account for bitcoin walk");
  });
  it("prevents account switching while an operation is busy",()=>{
   const html=renderToStaticMarkup(createElement(ConnectedAccount,{pubkey:"b".repeat(64),disabled:true,onDisconnect:vi.fn()}));

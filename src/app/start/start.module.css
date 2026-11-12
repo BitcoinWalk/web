@@ -1,4 +1,4 @@
-.page {max-width:calc(var(--bw-form-width) + 2 * var(--bw-page-gutter));margin-inline:auto;margin-top:calc(var(--bw-progress-height) + var(--bw-space-8));color:var(--bw-color-text);font-family:var(--bw-font-body);}
+.page {position:relative;isolation:isolate;max-width:calc(var(--bw-form-width) + 2 * var(--bw-page-gutter));margin-inline:auto;margin-top:calc(var(--bw-progress-height) + var(--bw-space-8));color:var(--bw-color-text);font-family:var(--bw-font-body);}
 .progressBar {position:fixed;inset:0 0 auto;z-index:var(--bw-layer-progress);box-sizing:border-box;min-height:var(--bw-progress-height);padding:var(--bw-space-3) var(--bw-page-gutter);background:var(--bw-color-background);border:0;display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:var(--bw-space-4);}
 .progressBar>div {width:100%;max-width:var(--bw-form-width);margin:auto;}
 @media(min-width:40.001rem){
@@ -30,8 +30,8 @@
  .page[data-stepped=true] .frame {min-height:24rem;}
  .page[data-stepped=true] .frame>h2 {display:none;}
 }
-.page .frame {max-width:var(--bw-form-width);padding:var(--bw-panel-padding);border:var(--bw-border-width) solid var(--bw-color-border);border-radius:var(--bw-radius-panel);background:var(--bw-color-background);box-shadow:none;}
-.page .planStep{box-sizing:border-box;width:100%;max-width:var(--bw-form-width);padding:var(--bw-panel-padding);border:var(--bw-border-width) solid var(--bw-color-border);border-radius:var(--bw-radius-panel);margin-inline:auto;}
+.page .frame {max-width:var(--bw-form-width);padding:var(--bw-panel-padding);border:0;border-radius:var(--bw-radius-panel);background:var(--bw-color-background);box-shadow:none;}
+.page .planStep{box-sizing:border-box;width:100%;max-width:var(--bw-form-width);padding:var(--bw-panel-padding);border:0;border-radius:var(--bw-radius-panel);margin-inline:auto;}
 .page .planStep>h2{margin:0 0 var(--bw-space-4);text-align:left;font-family:var(--bw-font-heading);font-size:1.125rem;font-weight:700;line-height:1.4;}
 .page .planStep form{margin:0;gap:var(--bw-space-4);}
 .page .planStep fieldset{margin:0;padding:0;border:0;}
@@ -40,7 +40,7 @@
 .page .planStep input[type=radio]{flex:none;width:1.125rem;height:1.125rem;margin:0;}
 @media(min-width:40.001rem){.page[data-stepped=true] .planStep{min-height:24rem;}}
 @media(max-width:40rem){.page .planStep:not([hidden]){margin-block:auto;}}
-.page :is(.accountStep,.planStep),.page :global(.nostr-onboarding),.page :global(.city-plan-payment){background:var(--bw-color-background);background-image:none;box-shadow:none;}
+.page :is(.accountStep,.planStep),.page :global(.nostr-onboarding),.page :global(.city-plan-payment){border:0;background:var(--bw-color-background);background-image:none;box-shadow:none;}
 .page .frame>h2 {font-size:var(--bw-font-size-title);scroll-margin-top:calc(var(--bw-progress-height) + var(--bw-space-6));}
 .page .frame:not([hidden]) {display:flex;flex-direction:column;}
 .page .frame [data-geocoder-credit] {display:none;}
@@ -129,3 +129,42 @@
   .desktopNext {display:none;}
   .page :global(.map) {height:clamp(16rem,45svh,25rem);}
 }
+
+@media(min-width:40.001rem){
+ .page[data-stepped=true][data-registration-step="1"][data-detail-step="1"] {padding-bottom:var(--bw-actions-height);}
+ .page[data-stepped=true][data-detail-step="1"] .frame {position:relative;justify-content:center;}
+ .page[data-stepped=true][data-detail-step="1"] .mobileTitle {margin:0 0 var(--bw-space-4);}
+ .page[data-stepped=true][data-detail-step="1"] .geocoderFooter {position:absolute;inset:auto var(--bw-panel-padding) var(--bw-panel-padding);margin:0;padding:0;}
+}
+
+.page .planStep label:has(>input[name="requestedTier"]) {box-sizing:border-box;width:100%;min-height:5rem;padding:1rem 1.25rem;border:var(--bw-border-width) solid var(--bw-color-border);border-radius:var(--bw-radius-panel);background:var(--bw-color-surface);cursor:pointer;transition:border-color 150ms ease,background-color 150ms ease;}
+.page .planStep label:has(>input[name="requestedTier"]:checked) {border-color:var(--bw-color-brand);background:color-mix(in srgb,var(--bw-color-brand) 7%,var(--bw-color-surface));}
+.page .planStep label:has(>input[name="requestedTier"]:focus-visible) {outline:2px solid var(--bw-color-focus);outline-offset:3px;}
+.page .planStep label:has(>input[name="requestedTier"]:disabled) {color:var(--bw-color-muted);cursor:not-allowed;}
+@media(hover:hover){.page .planStep label:has(>input[name="requestedTier"]:enabled):hover {border-color:var(--bw-color-brand);}}
+@media(prefers-reduced-motion:reduce){.page .planStep label:has(>input[name="requestedTier"]) {transition:none;}}
+
+.page .mobileControls>.footerBack {display:flex;align-items:center;justify-content:center;flex:1;min-width:0;text-align:center;}
+
+/* Let the softly masked nature photo sit behind the form, with solid input surfaces. */
+.page .frame,.page :is(.accountStep,.planStep),.page :global(.nostr-onboarding),.page :global(.city-plan-payment){background:transparent;}
+
+/* The full-height photograph continues softly through the fixed chrome. */
+.page .progressBar,.page .mobileControls,.page[data-stepped=true] .mobileControls{background:transparent;}
+.page .mobileControls,.page[data-stepped=true] .mobileControls{border-top:0;box-shadow:none;}
+
+/* Give the meeting-place map the space between the progress and fixed actions. */
+@media(max-width:40rem){
+ .page[data-registration-step="1"][data-detail-step="2"]{padding-top:0;padding-bottom:calc(var(--bw-actions-height) + env(safe-area-inset-bottom));}
+}
+.page[data-stepped=true][data-registration-step="1"][data-detail-step="2"]{padding-top:0;padding-bottom:calc(var(--bw-actions-height) + env(safe-area-inset-bottom));}
+@media(max-width:40rem){
+ .page[data-registration-step="1"][data-detail-step="2"] .frame{height:calc(100dvh - var(--bw-progress-height) - var(--bw-actions-height) - env(safe-area-inset-bottom));min-height:28rem;margin-block:0;padding-block:0 1rem;}
+}
+.page[data-stepped=true][data-registration-step="1"][data-detail-step="2"] .frame{height:calc(100dvh - var(--bw-progress-height) - var(--bw-actions-height) - env(safe-area-inset-bottom));min-height:28rem;margin-block:0;padding-block:0 1rem;}
+.page[data-registration-step="1"][data-detail-step="2"] .frame:has([role=tablist]) form{flex:1;min-height:0;display:flex;flex-direction:column;}
+.page[data-registration-step="1"][data-detail-step="2"] .frame:has([role=tablist]) form>fieldset{flex:1;min-height:0;grid-template-rows:minmax(0,1fr);}
+.page[data-registration-step="1"][data-detail-step="2"] .frame:has([role=tablist]) :is(.location,.location>section,[data-location-map],[role=tabpanel]:not([hidden])){display:flex;flex-direction:column;flex:1;min-height:0;}
+.page[data-registration-step="1"][data-detail-step="2"] .frame:has([role=tablist]) :global(.map){flex:1;min-height:10rem;height:100%;}
+.page[data-registration-step="1"][data-detail-step="2"] .frame:has([role=tablist]) .geocoderFooter{flex:none;margin-top:0;padding-top:.5rem;}
+.page[data-registration-step="1"][data-detail-step="2"] .mobileTitle{margin-top:0;}

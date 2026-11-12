@@ -133,3 +133,72 @@ textarea { min-height: 8rem; }
 .request-status--rejected { color: var(--bw-color-error); background: color-mix(in srgb,var(--bw-color-error) 12%,var(--bw-color-surface)); }
 .request-status--archived, .request-review-archive>summary span { color: var(--bw-color-muted); background: var(--bw-color-surface); }
 @media(hover:hover) { .request-review-row:hover { background: var(--bw-color-surface-warm); border-color: var(--bw-color-focus); } }
+
+
+
+
+/* A continuous horizon glide with a route into registration and onward to the walkers. */
+.walk-scene {display:flow-root;width:100%;min-height:100svh;}
+::view-transition {pointer-events:none;}
+::view-transition-group(*) {animation:none;}
+/* Keep each page snapshot at its own aspect ratio; differing page heights must not stretch it. */
+::view-transition-old(walk-scene),::view-transition-new(walk-scene),
+::view-transition-old(walk-navigation),::view-transition-new(walk-navigation) {width:100%;height:auto;object-fit:contain;object-position:top left;}
+::view-transition-group(walk-navigation) {z-index:2;}
+::view-transition-image-pair(walk-scene),::view-transition-image-pair(walk-navigation) {isolation:isolate;}
+::view-transition-old(.walk-slide),::view-transition-new(.walk-slide),
+::view-transition-old(.walk-slide-back),::view-transition-new(.walk-slide-back) {mix-blend-mode:normal;}
+::view-transition-old(.walk-slide) {animation:walk-slide-left 900ms cubic-bezier(.32,0,.18,1) 360ms both;}
+::view-transition-new(.walk-slide) {animation:walk-slide-from-right 900ms cubic-bezier(.32,0,.18,1) 360ms both;}
+::view-transition-old(.walk-slide-back) {animation:walk-slide-right 850ms cubic-bezier(.32,0,.18,1) both;}
+::view-transition-new(.walk-slide-back) {animation:walk-slide-from-left 850ms cubic-bezier(.32,0,.18,1) both;}
+@keyframes walk-slide-left {from{transform:translateX(0);opacity:1;}45%{opacity:0;}to{transform:translateX(clamp(-80px,-6vw,-24px));opacity:0;}}
+@keyframes walk-slide-from-right {from{transform:translateX(clamp(32px,9vw,120px));opacity:0;}55%{opacity:1;}to{transform:translateX(0);opacity:1;}}
+@keyframes walk-slide-right {from{transform:translateX(0);opacity:1;}45%{opacity:0;}to{transform:translateX(clamp(24px,6vw,80px));opacity:0;}}
+@keyframes walk-slide-from-left {from{transform:translateX(clamp(-120px,-9vw,-32px));opacity:0;}55%{opacity:1;}to{transform:translateX(0);opacity:1;}}
+html:active-view-transition-type(walk-history-back)::view-transition-old(root) {animation:walk-slide-right 850ms cubic-bezier(.32,0,.18,1) both;}
+html:active-view-transition-type(walk-history-back)::view-transition-new(root) {animation:walk-slide-from-left 850ms cubic-bezier(.32,0,.18,1) both;}
+html:active-view-transition-type(walk-history-forward)::view-transition-old(root) {animation:walk-slide-left 900ms cubic-bezier(.32,0,.18,1) both;}
+html:active-view-transition-type(walk-history-forward)::view-transition-new(root) {animation:walk-slide-from-right 900ms cubic-bezier(.32,0,.18,1) both;}
+.walk-route-overlay{position:fixed;inset:0;pointer-events:none;}
+.walk-route-point{position:fixed;left:0;top:0;display:block;width:14px;height:2.4px;pointer-events:none;}
+.walk-route-point--tip{width:4px;height:4px;}
+html:active-view-transition-type(walk-forward)::view-transition-group(.walk-route-tip),
+html:active-view-transition-type(walk-forward)::view-transition-group(.walk-route-tail){z-index:5;background:#f7931a;border-radius:999px;offset-path:var(--walk-route-path);offset-rotate:auto;offset-anchor:center;animation:walk-route-travel 3600ms linear both;--route-alpha:1;}
+html:active-view-transition-type(walk-forward)::view-transition-group(walk-route-point-1){animation-delay:18ms;--route-alpha:0.850;}
+html:active-view-transition-type(walk-forward)::view-transition-group(walk-route-point-2){animation-delay:36ms;--route-alpha:0.815;}
+html:active-view-transition-type(walk-forward)::view-transition-group(walk-route-point-3){animation-delay:54ms;--route-alpha:0.779;}
+html:active-view-transition-type(walk-forward)::view-transition-group(walk-route-point-4){animation-delay:72ms;--route-alpha:0.744;}
+html:active-view-transition-type(walk-forward)::view-transition-group(walk-route-point-5){animation-delay:90ms;--route-alpha:0.708;}
+html:active-view-transition-type(walk-forward)::view-transition-group(walk-route-point-6){animation-delay:108ms;--route-alpha:0.673;}
+html:active-view-transition-type(walk-forward)::view-transition-group(walk-route-point-7){animation-delay:126ms;--route-alpha:0.637;}
+html:active-view-transition-type(walk-forward)::view-transition-group(walk-route-point-8){animation-delay:144ms;--route-alpha:0.602;}
+html:active-view-transition-type(walk-forward)::view-transition-group(walk-route-point-9){animation-delay:162ms;--route-alpha:0.567;}
+html:active-view-transition-type(walk-forward)::view-transition-group(walk-route-point-10){animation-delay:180ms;--route-alpha:0.531;}
+html:active-view-transition-type(walk-forward)::view-transition-group(walk-route-point-11){animation-delay:198ms;--route-alpha:0.496;}
+html:active-view-transition-type(walk-forward)::view-transition-group(walk-route-point-12){animation-delay:216ms;--route-alpha:0.460;}
+html:active-view-transition-type(walk-forward)::view-transition-group(walk-route-point-13){animation-delay:234ms;--route-alpha:0.425;}
+html:active-view-transition-type(walk-forward)::view-transition-group(walk-route-point-14){animation-delay:252ms;--route-alpha:0.390;}
+html:active-view-transition-type(walk-forward)::view-transition-group(walk-route-point-15){animation-delay:270ms;--route-alpha:0.354;}
+html:active-view-transition-type(walk-forward)::view-transition-group(walk-route-point-16){animation-delay:288ms;--route-alpha:0.319;}
+html:active-view-transition-type(walk-forward)::view-transition-group(walk-route-point-17){animation-delay:306ms;--route-alpha:0.283;}
+html:active-view-transition-type(walk-forward)::view-transition-group(walk-route-point-18){animation-delay:324ms;--route-alpha:0.248;}
+html:active-view-transition-type(walk-forward)::view-transition-group(walk-route-point-19){animation-delay:342ms;--route-alpha:0.212;}
+html:active-view-transition-type(walk-forward)::view-transition-group(walk-route-point-20){animation-delay:360ms;--route-alpha:0.177;}
+html:active-view-transition-type(walk-forward)::view-transition-group(walk-route-point-21){animation-delay:378ms;--route-alpha:0.142;}
+html:active-view-transition-type(walk-forward)::view-transition-group(walk-route-point-22){animation-delay:396ms;--route-alpha:0.106;}
+html:active-view-transition-type(walk-forward)::view-transition-group(walk-route-point-23){animation-delay:414ms;--route-alpha:0.071;}
+html:active-view-transition-type(walk-forward)::view-transition-group(walk-route-point-24){animation-delay:432ms;--route-alpha:0.035;}
+@keyframes walk-route-travel{
+  0%{offset-distance:0%;opacity:0;}
+  6%,25%,43%,56%,74%,87%{opacity:var(--route-alpha);}
+  34%,65%{opacity:0;}
+  100%{offset-distance:100%;opacity:0;}
+}
+@media(prefers-reduced-motion:reduce){
+  ::view-transition-old(.walk-slide),::view-transition-new(.walk-slide),
+  ::view-transition-old(.walk-slide-back),::view-transition-new(.walk-slide-back),
+  html[data-journey-history]::view-transition-old(root),html[data-journey-history]::view-transition-new(root){animation:none;transform:none;}
+  html:active-view-transition-type(walk-forward)::view-transition-group(.walk-route-tip),
+  html:active-view-transition-type(walk-forward)::view-transition-group(.walk-route-tail){animation:none;background:none;}
+}

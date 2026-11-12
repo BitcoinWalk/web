@@ -19,3 +19,12 @@
 .placeholder {color:var(--bw-color-muted);}
 .editor button:focus-visible {outline:none;border-color:var(--bw-color-focus);}
 .editor button:disabled {opacity:.5;cursor:not-allowed;}
+
+@media(min-width:40.001rem){
+ .editor {grid-template-columns:minmax(0,1fr) auto;}
+ .editor>* {grid-column:1 / -1;}
+ .header {display:contents;}
+ .header>span {grid-column:1 / -1;grid-row:1;}
+ .modeToggle {grid-column:2;grid-row:2;align-self:start;}
+ .toolbar {grid-column:1;grid-row:2;margin-bottom:0;}
+}

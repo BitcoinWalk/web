@@ -2,11 +2,12 @@
 
 import dynamic from "next/dynamic";
 import {useRouter} from "next/navigation";
-import Link from "next/link";
+import Link,{JourneyScene,JourneyNavigation} from "../../components/journey-transition";
 import Image from "next/image";
 import {useTheme, ThemeToggle} from "../../design-system/theme-provider";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import OrganizerIdentity from "../../components/organizer-identity";
+import StartNatureBackground from "../../components/start-nature-background";
 import RegistrationPlans,{registrationActionLabel} from "../../components/registration-plans";
 import CityPayment from "../../components/city-payment";
 import type { LocationValue } from "../../components/location-picker";
@@ -196,14 +197,15 @@ export default function StartWalkPage() {
     finally { submitting.current = false; }
   }
 
-  return <main ref={pageRef} data-hide-site-footer className={styles.page} data-detail-step={detailStep} data-registration-step={step} data-stepped={desktopStepped||undefined}>
+  return <JourneyScene><main data-journey-scene ref={pageRef} data-hide-site-footer className={styles.page} data-detail-step={detailStep} data-registration-step={step} data-stepped={desktopStepped||undefined}>
+    <StartNatureBackground screen={step===1?detailStep-1:DETAIL_STEPS.length+step-2}/>
     <h1 className="sr-only">Start a walk</h1>
-    <header className={styles.progressBar}><Link className={styles.homeLink} href="/" aria-label="BitcoinWalk homepage"><Image src={theme==="dark"?"/brand/bitcoinwalk-horizontal-white.png":"/brand/bitcoinwalk-horizontal.png"} width={156} height={48} alt="BitcoinWalk"/></Link><div>
+    <JourneyNavigation><header data-journey-navigation className={styles.progressBar}><Link className={styles.homeLink} href="/" aria-label="BitcoinWalk homepage"><Image src={theme==="dark"?"/brand/bitcoinwalk-horizontal-white.png":"/brand/bitcoinwalk-horizontal.png"} width={156} height={48} alt="BitcoinWalk"/></Link><div>
       <WalkProgress step={step} hideSummary/>
       <div className={styles.mobileProgress}>
         <progress value={step===1?detailStep:DETAIL_STEPS.length+step-1} max={DETAIL_STEPS.length+2} aria-label="Registration progress"/>
       </div>
-    </div><div className={styles.themeAction}><ThemeToggle/></div></header>
+    </div><div className={styles.themeAction}><ThemeToggle/></div></header></JourneyNavigation>
     {/* Keep all steps mounted so map, form inputs and signer state survive Back. */}
     <div hidden={step !== 1} className={`walk-details-frame ${styles.frame}`}>
       <h2 className="sr-only" tabIndex={-1} ref={detailsHeading}>Your Walk Details</h2>
@@ -240,7 +242,7 @@ export default function StartWalkPage() {
       <small className={styles.geocoderFooter}>Search by <a href="https://locationiq.com/" target="_blank" rel="noreferrer">LocationIQ</a> · Fallback by <a href="https://photon.komoot.io/" target="_blank" rel="noreferrer">Photon</a> · <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">© OpenStreetMap contributors</a></small>
     </div>
     {!checkout&&<div className={styles.mobileControls} aria-label={step===1?"Walk details navigation":"Registration navigation"}>
-      <Link href="/" className={styles.mobileHome} aria-label="BitcoinWalk homepage"><Image src="/brand/bitcoinwalk-icon.png" width={28} height={28} alt=""/></Link>
+      {step===1&&detailStep===1?<Link href="/" className={`${ui.button} ${styles.footerBack}`} aria-label="Back to homepage">Back</Link>:<Link href="/" className={styles.mobileHome} aria-label="BitcoinWalk homepage"><Image src="/brand/bitcoinwalk-icon.png" width={28} height={28} alt=""/></Link>}
       {(step>1||detailStep>1)&&<button type="button" className={ui.button} data-details-back={step===1||undefined} disabled={locked} onClick={()=>{if(step===1)showDetailStep(detailStep-1);else{setState({kind:"idle"});setStep(step===3?2:1);}}}>Back</button>}
       <button type="submit" form={step===1?"walk-details-form":step===2?"walk-account-form":"walk-plan-form"} className={ui.button} disabled={locked||(step>1&&!organizerKey)||(step===3&&requestedTier==="paid"&&!payoutDestination.trim())}>{step===3?registrationActionLabel(requestedTier,state.kind==="working"):"Continue"}</button>
     </div>}
@@ -274,5 +276,5 @@ export default function StartWalkPage() {
       />:null}
     </div>
     {state.message && state.kind!=="error" && <p role="status">{state.message}</p>}
-  </main>;
+  </main></JourneyScene>;
 }
