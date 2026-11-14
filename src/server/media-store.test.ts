@@ -1,10 +1,11 @@
 import {afterEach,describe,expect,it,vi} from "vitest";
-import {mkdtemp,readFile,rm} from "node:fs/promises";
+import {mkdir,mkdtemp,open,readFile,rm,rmdir,writeFile} from "node:fs/promises";
 import {join} from "node:path";
 import {tmpdir} from "node:os";
 import sharp from "sharp";
 vi.mock("server-only",()=>({}));
 import {readMedia,storeChatImage,storeWalkImage} from "./media-store";
+import {CHAT_STORAGE_BYTES} from "./chat-media-retention";
 
 let root:string|undefined;
 afterEach(async()=>{vi.unstubAllEnvs();if(root)await rm(root,{recursive:true,force:true});root=undefined;});
@@ -16,4 +17,20 @@ describe("walk image storage",()=>{
  it("keeps an uploaded walk image's aspect ratio and binds it to its city",async()=>{root=await mkdtemp(join(tmpdir(),"bw-walk-media-"));vi.stubEnv("BITCOINWALK_MEDIA_ROOT",root);const bytes=await sharp({create:{width:2400,height:1200,channels:3,background:"white"}}).jpeg().toBuffer(),record=await storeWalkImage({cityId:"66f137cb-2ac1-4eef-8358-7dd66b45922f",actor:"a".repeat(64),bytes,mime:"image/jpeg",origin:"https://app-staging.bitcoinwalk.org"});expect(record.internalUrl).toMatch(/^https:\/\/app-staging\.bitcoinwalk\.org\/api\/media\/files\/[a-f0-9]{64}\.webp$/);const output=await readMedia(record.contentHash!);expect(await sharp(output!).metadata()).toMatchObject({format:"webp",width:1600,height:800});expect(JSON.parse(await readFile(join(root,"manifest.json"),"utf8"))).toMatchObject({records:[{cityId:"66f137cb-2ac1-4eef-8358-7dd66b45922f",sourceUrl:"walk-upload:66f137cb-2ac1-4eef-8358-7dd66b45922f"}]});});
  it.each(["png","webp"] as const)("decodes and normalizes accepted %s uploads",async format=>{root=await mkdtemp(join(tmpdir(),`bw-walk-media-${format}-`));vi.stubEnv("BITCOINWALK_MEDIA_ROOT",root);const source=sharp({create:{width:800,height:500,channels:4,background:"white"}}),bytes=await source[format]().toBuffer(),record=await storeWalkImage({cityId:"66f137cb-2ac1-4eef-8358-7dd66b45922f",actor:"a".repeat(64),bytes,mime:`image/${format}`,origin:"https://app-staging.bitcoinwalk.org"});const output=await readMedia(record.contentHash!);expect(await sharp(output!).metadata()).toMatchObject({format:"webp",width:800,height:500});});
  it("rejects corrupt and MIME-spoofed uploads after client checks",async()=>{root=await mkdtemp(join(tmpdir(),"bw-walk-media-invalid-"));vi.stubEnv("BITCOINWALK_MEDIA_ROOT",root);await expect(storeWalkImage({cityId:"66f137cb-2ac1-4eef-8358-7dd66b45922f",actor:"a".repeat(64),bytes:Buffer.from("not an image"),mime:"image/jpeg",origin:"https://app-staging.bitcoinwalk.org"})).rejects.toThrow();const png=await sharp({create:{width:10,height:10,channels:3,background:"white"}}).png().toBuffer();await expect(storeWalkImage({cityId:"66f137cb-2ac1-4eef-8358-7dd66b45922f",actor:"a".repeat(64),bytes:png,mime:"image/jpeg",origin:"https://app-staging.bitcoinwalk.org"})).rejects.toThrow("valid JPEG");});
+});
+
+describe("chat retention integration",()=>{
+ const upload=async()=>storeChatImage({groupId:"chat",actor:"a".repeat(64),bytes:await sharp({create:{width:10,height:10,channels:3,background:"white"}}).png().toBuffer(),mime:"image/png",origin:"https://app-staging.bitcoinwalk.org"});
+ const setup=async()=>{root=await mkdtemp(join(process.env.TEST_ARTIFACT_DIR||tmpdir(),"bw-retention-integration-"));vi.stubEnv("BITCOINWALK_MEDIA_ROOT",root);await mkdir(join(root,"files"));};
+ const seed=async(ageDays:number)=>{
+  const hash="b".repeat(64),storedAt=new Date(Date.now()-ageDays*86400_000).toISOString();
+  const handle=await open(join(root!,"files",hash+".webp"),"wx");try{await handle.truncate(CHAT_STORAGE_BYTES);}finally{await handle.close();}
+  await writeFile(join(root!,"manifest.json"),JSON.stringify({version:1,records:[{id:"old",cityId:"chat:chat",sourceUrl:"chat-upload:chat",actor:"other",storedAt,checkedAt:storedAt,status:"healthy",contentHash:hash,bytes:1}]}));
+ };
+ it("evicts an eligible image at the real 2 GB limit before storing a new upload",async()=>{await setup();await seed(91);const result=await upload();expect(await readMedia(result.contentHash!)).not.toBeNull();expect(await readMedia("b".repeat(64))).toBeNull();const manifest=JSON.parse(await readFile(join(root!,"manifest.json"),"utf8"));expect(manifest.records).toHaveLength(1);expect(manifest.records[0].contentHash).toBe(result.contentHash);});
+ it("refuses a new upload at capacity while preserving protected files",async()=>{await setup();await seed(89);await expect(upload()).rejects.toThrow("protected for 90 days");const handle=await open(join(root!,"files","b".repeat(64)+".webp"),"r");try{expect((await handle.stat()).size).toBe(CHAT_STORAGE_BYTES);}finally{await handle.close();}const manifest=JSON.parse(await readFile(join(root!,"manifest.json"),"utf8"));expect(manifest.records).toHaveLength(2);expect(manifest.records[1].status).toBe("failed");});
+ it("does not reset a corrupt manifest and can recover after it is repaired",async()=>{await setup();await writeFile(join(root!,"manifest.json"),"broken");await expect(upload()).rejects.toThrow();expect(await readFile(join(root!,"manifest.json"),"utf8")).toBe("broken");await writeFile(join(root!,"manifest.json"),JSON.stringify({version:1,records:[]}));expect((await upload()).status).toBe("healthy");});
+ it("rejects unsafe hash metadata without deleting files",async()=>{await setup();await writeFile(join(root!,"manifest.json"),JSON.stringify({version:1,records:[{sourceUrl:"chat-upload:chat",actor:"a",storedAt:new Date().toISOString(),contentHash:"../../outside"}]}));await expect(upload()).rejects.toThrow("records are invalid");});
+ it("honors another process's lock and recovers without breaking it",async()=>{await setup();await mkdir(join(root!,"manifest.lock"));await expect(upload()).rejects.toThrow("storage is busy");await rmdir(join(root!,"manifest.lock"));expect((await upload()).status).toBe("healthy");});
+ it("serializes concurrent uploads without losing manifest records",async()=>{await setup();await Promise.all([upload(),upload()]);const manifest=JSON.parse(await readFile(join(root!,"manifest.json"),"utf8"));expect(manifest.records).toHaveLength(2);});
 });
