@@ -129,7 +129,7 @@ export function selectInbox(events: Event[], recipient: string, allowed: string[
   return approved.slice(0, 3);
 }
 
-export function wrapAlert(content: string, recipient: string, secret: Uint8Array): { recipient: Event; sender: Event } {
-  const rumor = { kind: 14, created_at: Math.floor(Date.now()/1000), tags: [["p", recipient]], content };
+export function wrapAlert(content: string, recipient: string, secret: Uint8Array,replyTo?:string): { recipient: Event; sender: Event } {
+  const rumor = { kind: 14, created_at: Math.floor(Date.now()/1000), tags: [["p", recipient],...(replyTo?[["e",replyTo]]:[])], content };
   return { recipient: wrapEvent(rumor, secret, recipient), sender: wrapEvent(rumor, secret, getPublicKey(secret)) };
 }

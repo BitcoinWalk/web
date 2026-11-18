@@ -1,7 +1,7 @@
 import {describe,it,expect,vi} from "vitest";
 import {finalizeEvent,getPublicKey,nip19,type Event} from "nostr-tools";
 vi.mock("./authority",()=>({isSuperAdmin:(key:string)=>key===getPublicKey(new Uint8Array(32).fill(1)),SUPER_ADMIN_PUBKEY:getPublicKey(new Uint8Array(32).fill(1))}));
-import {approvedCalendarWalks,calendarContentImage,calendarEventSource,matchesCalendar,matchesInitialCalendar,matchesOrganizerCalendar,decodeCalendarLink,calendarNevent,initialCalendarHero,retainedCalendarHero,type CalendarWalk} from "./calendar-records";
+import {approvedCalendarWalks,calendarRoute,calendarContentImage,calendarEventSource,matchesCalendar,matchesInitialCalendar,matchesOrganizerCalendar,decodeCalendarLink,calendarNevent,initialCalendarHero,retainedCalendarHero,type CalendarWalk} from "./calendar-records";
 import {createApprovedCalendarEvent,createInitialCalendarProposal,createOrganizerCalendarEvent} from "./calendar-event";
 import type {ApprovalRecord} from "./city-records";
 const city={cityId:"66f137cb-2ac1-4eef-8358-7dd66b45922f",slug:"radom",cityName:"Radom",description:"Friday walk",startAt:"2026-10-02T15:00:00Z",meetingPoint:{description:"Square",latitude:51.4,longitude:21.1},heroImageUrl:"https://example.com/hero.jpg"};
@@ -77,6 +77,14 @@ describe("calendar approval selection",()=>{
  });
 });
 describe("calendar event verification and links",()=>{
+ it("retains a custom-route link through a signed walk edit and read-back",()=>{
+  const routeUrl="https://www.alltrails.com/explore/custom-routes/custom-route-camacha-levada-dos-tornos-48092f7?u=m&sh=vmjvek";
+  const occurrence={id:`${city.cityId}:2026-10-02`,seriesId:city.cityId,localDate:"2026-10-02",localTime:"14:00",timeZone:"Europe/Warsaw",start:1790949600,end:1790953200,meetingPoint:city.meetingPoint,description:city.description,routeUrl};
+  const replacement=finalizeEvent(createOrganizerCalendarEvent(walk,occurrence),new Uint8Array(32).fill(1));
+  expect(replacement.tags).toContainEqual(["r",routeUrl]);
+  expect(matchesOrganizerCalendar(replacement,walk)).toBe(true);
+  expect(calendarRoute(replacement)).toBe(routeUrl);
+ });
  const signed=()=>finalizeEvent(createApprovedCalendarEvent(city,revision.event.id,approval.event.id),new Uint8Array(32).fill(1));
  it("keeps a super-admin-signed occurrence visible after dashboard edits",()=>{
   const occurrence={id:`${city.cityId}:2026-10-02`,seriesId:city.cityId,localDate:"2026-10-02",localTime:"14:00",timeZone:"Europe/Warsaw",start:1790949600,end:1790953200,meetingPoint:city.meetingPoint,description:city.description};

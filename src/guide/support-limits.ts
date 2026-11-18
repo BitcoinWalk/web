@@ -2,6 +2,9 @@ import type {DatabaseSync} from "node:sqlite";
 
 export type GuidePlan="basic"|"pro";
 export const GUIDE_BASIC_REPLIES=3,GUIDE_BREAK_SECONDS=24*60*60;
+export class GuideCooldownError extends Error{
+ constructor(readonly resumeAt:number){super(`Basic Guide replies resume at ${new Date(resumeAt*1000).toISOString()}.`);this.name="GuideCooldownError";}
+}
 export function initializeGuideLimits(db:DatabaseSync){
  db.exec("CREATE TABLE IF NOT EXISTS support_usage (recipient TEXT PRIMARY KEY,used INTEGER NOT NULL DEFAULT 0,cooldown_until INTEGER NOT NULL DEFAULT 0)");
  db.exec("CREATE TABLE IF NOT EXISTS support_reply_v2 (review_key TEXT PRIMARY KEY,case_id TEXT NOT NULL,message_key TEXT NOT NULL,digest TEXT NOT NULL,recipient TEXT NOT NULL,wrapped TEXT NOT NULL,plan TEXT NOT NULL,state TEXT NOT NULL,UNIQUE(case_id,message_key))");
@@ -10,7 +13,7 @@ export function assertGuideAllowance(db:DatabaseSync,recipient:string,plan:Guide
  initializeGuideLimits(db);if(plan==="pro")return;
  const row=db.prepare("SELECT used,cooldown_until FROM support_usage WHERE recipient=?").get(recipient) as {used:number;cooldown_until:number}|undefined;
  if(row?.cooldown_until&&now>=row.cooldown_until)db.prepare("UPDATE support_usage SET used=0,cooldown_until=0 WHERE recipient=?").run(recipient);
- else if(row?.cooldown_until)throw new Error(`Basic Guide replies resume at ${new Date(row.cooldown_until*1000).toISOString()}.`);
+ else if(row?.cooldown_until)throw new GuideCooldownError(row.cooldown_until);
  const used=row?.cooldown_until?0:row?.used??0;
  const pending=db.prepare("SELECT COUNT(*) count FROM support_reply_v2 WHERE recipient=? AND plan='basic' AND state='pending'").get(recipient) as {count:number};
  if(used+pending.count>=GUIDE_BASIC_REPLIES)throw new Error("Three Basic replies are already delivered or reserved. Retry the existing delivery before preparing another reply.");

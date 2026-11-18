@@ -3,6 +3,7 @@ import type {Event} from "nostr-tools";
 import {parseMediaRequest} from "../../../../domain/media-request";
 import {validNip29Destination} from "../../../../nostr/nip29-chat";
 import {storeChatImage} from "../../../../server/media-store";
+import {ChatUploadMembershipError,requireChatUploadMembership} from "../../../../server/chat-upload-membership";
 
 export const dynamic="force-dynamic",runtime="nodejs";
 
@@ -15,6 +16,7 @@ export async function POST(request:Request){
   if(file.size!==command.bytes||file.type!==command.mime||file.size>5*1024*1024)return Response.json({error:"The selected file does not match the signed upload."},{status:400});
   const bytes=Buffer.from(await file.arrayBuffer()),hash=createHash("sha256").update(bytes).digest("hex");if(hash!==command.sha256)return Response.json({error:"The selected file changed before upload."},{status:400});
   const origin=(process.env.BITCOINWALK_MEDIA_PUBLIC_ORIGIN||new URL(request.url).origin).replace(/\/$/,"");if(!origin.startsWith("https://"))throw new Error("Media public origin must use HTTPS.");
+  await requireChatUploadMembership(event);
   const record=await storeChatImage({groupId:command.groupId,actor:event.pubkey,bytes,mime:command.mime,origin});return Response.json({url:record.internalUrl,hash:record.contentHash},{headers:{"Cache-Control":"no-store"}});
- }catch(error){return Response.json({error:error instanceof Error?error.message:"Image upload failed."},{status:400,headers:{"Cache-Control":"no-store"}});}
+ }catch(error){return Response.json({error:error instanceof Error?error.message:"Image upload failed."},{status:error instanceof ChatUploadMembershipError?error.status:400,headers:{"Cache-Control":"no-store"}});}
 }

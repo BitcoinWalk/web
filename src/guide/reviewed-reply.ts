@@ -24,7 +24,7 @@ export function prepareReviewedReply(db:DatabaseSync,input:unknown,secret:Uint8A
   let saved=db.prepare("SELECT review_key,digest,recipient,wrapped,state,plan FROM support_reply_v2 WHERE case_id=? AND message_key=?").get(review.caseId,messageKey) as {review_key:string;digest:string;recipient:string;wrapped:string;state:string;plan:string}|undefined;
   if(saved&&(saved.digest!==digest||saved.recipient!==row.sender))throw new Error("This turn already has a different reviewed reply.");
   if(saved&&saved.state==="pending"&&saved.plan!==plan&&saved.plan!=="legacy"){if(plan==="basic")assertGuideAllowance(db,row.sender,plan,now);db.prepare("UPDATE support_reply_v2 SET plan=? WHERE review_key=?").run(plan,saved.review_key);}
-  if(!saved){assertGuideAllowance(db,row.sender,plan,now);const wrapped=JSON.stringify(wrapAlert(review.reply,row.sender,secret).recipient);db.prepare("INSERT INTO support_reply_v2 VALUES (?,?,?,?,?,?,?,'pending')").run(reviewKey,review.caseId,messageKey,digest,row.sender,wrapped,plan);saved={review_key:reviewKey,digest,recipient:row.sender,wrapped,state:"pending",plan};}
+  if(!saved){assertGuideAllowance(db,row.sender,plan,now);const wrapped=JSON.stringify(wrapAlert(review.reply,row.sender,secret,review.messageIds.at(-1)).recipient);db.prepare("INSERT INTO support_reply_v2 VALUES (?,?,?,?,?,?,?,'pending')").run(reviewKey,review.caseId,messageKey,digest,row.sender,wrapped,plan);saved={review_key:reviewKey,digest,recipient:row.sender,wrapped,state:"pending",plan};}
   db.exec("COMMIT");return {caseId:review.caseId,reviewKey:saved.review_key,recipient:saved.recipient,wrapped:JSON.parse(saved.wrapped) as Event,acknowledged:saved.state==="acknowledged"};
  }catch(error){db.exec("ROLLBACK");throw error;}
 }

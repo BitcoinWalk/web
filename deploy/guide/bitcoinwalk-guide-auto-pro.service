@@ -1,0 +1,41 @@
+[Unit]
+Description=BitcoinWalk Guide persistent single-Pro-account assistant
+After=network-online.target bitcoinwalk-guide.service
+Wants=network-online.target
+StartLimitIntervalSec=300
+StartLimitBurst=3
+
+[Service]
+Type=simple
+User=bitcoinwalk-guide
+DynamicUser=yes
+StateDirectory=bitcoinwalk-guide
+StateDirectoryMode=0700
+LoadCredential=guide-key:/etc/bitcoinwalk-guide/guide-key
+LoadCredential=openai-key:/etc/bitcoinwalk-guide/persistent-pro-openai-key
+Environment=GUIDE_CONFIG=/etc/bitcoinwalk-guide/config.json
+Environment=GUIDE_KNOWLEDGE=/opt/bitcoinwalk-guide-auto-pro/current/knowledge.json
+Environment=GUIDE_PERSISTENT_PRO_POLICY=/etc/bitcoinwalk-guide/persistent-pro-policy.json
+ExecStart=/usr/bin/flock --exclusive --nonblock /var/lib/bitcoinwalk-guide/auto-pro.lock /opt/bitcoinwalk-app-staging/runtime/bin/node /opt/bitcoinwalk-guide-auto-pro/current/run-guide-persistent-pro.cjs --watch
+Restart=on-failure
+RestartSec=30
+TimeoutStopSec=90
+MemoryMax=256M
+TasksMax=64
+UMask=0077
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+CapabilityBoundingSet=
+LockPersonality=yes
+LimitCORE=0
+
+[Install]
+WantedBy=multi-user.target
