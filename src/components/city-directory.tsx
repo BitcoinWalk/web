@@ -1,7 +1,7 @@
 "use client";
 import dynamic from "next/dynamic";
 import Image from "next/image";
-import Link from "next/link";
+import Link,{JourneyScene} from "./journey-transition";
 import {useEffect,useState} from "react";
 import {queryCalendarEvents,queryDirectoryRecords} from "../nostr/city-records";
 import {relayConfig} from "../lib/relay-config";
@@ -61,7 +61,7 @@ export default function CityDirectory({sponsoredWalks=[]}:{sponsoredWalks?:HomeS
     return ()=>{active=false;};
   },[attempt]);
   const filtered=filterDirectory(rows,query),filteredSponsored=filterHomeSponsoredWalks(sponsoredWalks,query);
-  return <main className={styles.home}>
+  return <JourneyScene><main data-journey-scene className={styles.home}>
     <SiteNavigation/>
     <header className={styles.hero}><div className={styles.heroCopy}><h1>{content.title==="Good company. One walk at a time."?<>Good company.<br/>One walk at a time.</>:content.title}</h1>{content.intro&&<p>{content.intro}</p>}<div className={ui.actionPair}>{content.ctaLabel&&content.ctaHref&&<a className={ui.button} href={content.ctaHref}>{homepageCtaLabel(content.ctaLabel)}</a>}<Link className={`${ui.button} ${ui.secondary}`} href="/start">Start a walk</Link></div></div><HeroPhotos/></header>
     <section className={styles.companion} aria-labelledby="companion-title"><div><p className={styles.eyebrow}>Bitcoin Walk companion app</p><h2 id="companion-title">Take the walk with you</h2><p>Keep the next BitcoinWalk close at hand with Walkie Talkie, the companion app for walkers.</p></div><AppDownloadCard/></section>
@@ -75,5 +75,5 @@ export default function CityDirectory({sponsoredWalks=[]}:{sponsoredWalks?:HomeS
         <p className={styles.muted}>Times are shown in each walk’s local timezone. Map pins mark approved meeting points.</p></>}
     </section>
     <footer className={styles.footer}>{content.footerTitle&&<h2>{content.footerTitle}</h2>}{content.footerText&&<p>{content.footerText}</p>}{content.footerCtaLabel&&<Link className={styles.link} href="/start">{content.footerCtaLabel}</Link>}</footer>
-  </main>;
+  </main></JourneyScene>;
 }

@@ -12,7 +12,7 @@ export default function RegistrationPlans({ value, onChange, disabled, paidEnabl
   return <section {...(showHeading?{"aria-labelledby":"plan-heading"}:{"aria-label":"Registration plan"})}>
     {showHeading&&<h2 id="plan-heading">Choose your plan</h2>}
     <fieldset disabled={disabled} style={{ display: "grid", gap: "1rem" }}>
-      <legend>Requested tier</legend>
+      <legend className="sr-only">Registration plan</legend>
       <label style={{ display: "flex", alignItems: "center" }}><input type="radio" name="requestedTier" value="free" checked={value === "free"} onChange={() => onChange("free")} /> Basic — 0 sats</label>
       <label style={{ display: "flex", alignItems: "center" }}><input type="radio" name="requestedTier" value="paid" disabled={!paidEnabled} checked={value === "paid"} onChange={() => onChange("paid")} /> Pro — {PAID_PRICE_SATS.toLocaleString("en-US")} sats once · lifetime access</label>
     </fieldset>
