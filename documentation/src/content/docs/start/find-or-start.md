@@ -12,6 +12,8 @@ description: Join an upcoming walk or submit a city of your own.
 
 Only upcoming walks appear in the main discovery grid. A city can still have a public page when its next date has not yet been scheduled.
 
+You do not need to create an account or connect a Nostr signer to browse public city and published-walk details. Connecting an account is required for signed organizer actions, not reading those public pages.
+
 ## Start one in your city
 
 Choose **Start a BitcoinWalk** and complete the guided form. You will:

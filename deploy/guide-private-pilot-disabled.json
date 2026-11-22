@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "id": "bw152-private-pilot-not-activated",
+  "enabled": false,
+  "recipient": "0000000000000000000000000000000000000000000000000000000000000000",
+  "environment": "staging",
+  "startsAt": 0,
+  "expiresAt": 0,
+  "maxCalls": 10,
+  "maxDeliveries": 5,
+  "model": "gpt-6.1-sol",
+  "promptSha256": "335afa40b9fda4f0bc1b8daaa78fe8b094e949987fd763195bcfceb049036ff4",
+  "knowledgeSha256": "ba4596406565803282059f3d33f7b3cece7f5fb9f0f6a0f746b1e8e30c7feaa7",
+  "suiteSha256": "6f4c3c126f233e0ffe59ed5b5c7836aaa083e67c4681882f78ac11b098ce5b76"
+}
